@@ -413,11 +413,12 @@ void SkyScene::buildRenderGraph() {
                     ImGui::ColorEdit3("Light color", &uniformBufferData.sun.color.Elements[0]);
 
                     ImGui::SeparatorText("Clouds");
-                    ImGui::SliderFloat("Absorption", &uniformBufferData.clouds.absorptionCoef, 0.0f, 1.0f);
-                    ImGui::SliderFloat("Scattering", &uniformBufferData.clouds.scatteringCoef, 0.0f, 1.0f);
+                    ImGui::DragFloat3("Sigma A (absorption)", &uniformBufferData.clouds.sigmaA.Elements[0], 0.0001f, 0.0f, 5.0f, "%.4f");
+                    ImGui::DragFloat3("Sigma S (scattering)", &uniformBufferData.clouds.sigmaS.Elements[0],0.0001f, 0.0f, 5.0f, "%.4f");
                     ImGui::SliderFloat("Henye Greenstein g", &uniformBufferData.clouds.phase, -.955f, .955f);
                     ImGui::SliderFloat("Density", &uniformBufferData.clouds.density, 0.0f, 1.0f);
                     ImGui::SliderFloat("Density offset", &uniformBufferData.clouds.densityOffset, -1.0f, 1.0f);
+                    ImGui::SliderFloat("Light steps size", &uniformBufferData.clouds.lightStepSize, 0.0f, 100.0f, "%.4f");
 
                     ImGui::PopStyleVar();
                     ImGui::End();
