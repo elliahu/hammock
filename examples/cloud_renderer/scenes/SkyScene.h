@@ -9,54 +9,31 @@ class SkyScene final : public IScene {
 
     // Uniform data updated every frame
     // Lives in a GPU memory that is visible to CPU
-    struct UniformBufferData {
-        // Camera related data are stored here
-        struct Camera {
-            HmckMat4 inverseView; // 64 bytes
-            HmckVec4 position; // 16 bytes
-        } camera{};
 
-        // Data related to scene lighting
-        struct Sun {
-            HmckVec4 position{10.0f,15.0f, 10.0f, 0.0f}; // 16 bytes
-            HmckVec4 color{1.0f, 1.0f, 1.0f, 1.0f}; // 16 bytes
-        } sun{};
+    struct CameraUbo {
+        HmckMat4 view;
+        HmckMat4 proj;
+        HmckVec4 eye;
+        HmckVec2 tanFovBy2;
+    } cameraUbo;
 
-        // Cloud properties
-        struct Clouds {
-            HmckVec4 sigmaS{.08, .08, .095};
-            HmckVec4 sigmaA{0.00, 0.00, 0.00};
-            float phase{0.85f};
-            float density{0.100f};
-            float densityOffset{0.0f};
-            float lightStepSize{0.5f};
-        } clouds;
-    } uniformBufferData;
+    struct TimeUbo {
+        HmckVec4 haltonSeq1;
+        HmckVec4 haltonSeq2;
+        HmckVec4 haltonSeq3;
+        HmckVec4 haltonSeq4;
+        HmckVec2 time;
+        uint32_t frameCountMod16;
+    } timeUbo;
 
-    // Storage buffer data that remains static during execution
-    // Lives in a dedicated GPU memory that is NOT accessible by CPU
-    struct StorageBufferData {
-        HmckVec4 bbMin{0.f, 0.f, 0.f};
-        HmckVec4 bbMax{50.f, 10.f, 50.f};
-    } storageBufferData;
+    // TODO SunAndSkyUbo
 
-    struct CompositionPushConstants {
-        HmckVec4 lightPos;
-        HmckVec4 lightColor;
-        HmckVec4 bbMin;
-        HmckVec4 bbMax;
-        HmckVec4 cameraPos;
-        HmckMat4 viewProj;
-    } compositionPushConstants;
 
 
     // Compute pass resources
     struct {
         // Compute pipeline to draw the clouds in parallel patches
         std::unique_ptr<ComputePipeline> pipeline;
-
-        // Storage buffer resource handle
-        ResourceHandle storageBuffer;
 
         // Base cloud noise
         ResourceHandle baseNoise;
@@ -81,9 +58,14 @@ class SkyScene final : public IScene {
     } composition;
 
     // This is used to measure frame time
-    float frameTime = 0.0f;
-    float yaw{0.801f}, pitch{-.404f}; // This describes camera look direction relative to the planet surface normal vector (standing on surface and looking)
-    HmckVec3 cameraPosition{-9.0f, 15.0f, -7.0f};
+    float32_t deltaTime = 0.0f;
+    float32_t totalElapsedTime = 0.0f;
+    uint32_t frameCount = 0;
+
+    // camera movement
+    float32_t yaw{0.f}, pitch{0.f};
+    HmckVec3 cameraPosition{0.f, 0.f, 0.f};
+
 
     // Benchmarking
     // Constants

@@ -1,4 +1,4 @@
-#ifndef COMPOSITION_BINDING_GLSL
+#ifndef COMPOSITION_BINDING_GLSLifndef
 #define COMPOSITION_BINDING_GLSL
 
 layout (set = 2, binding = 0) uniform sampler2D positionSampler;

@@ -431,4 +431,20 @@ namespace hammock {
         return f16;
     }
 
+    //Reference: https://en.wikipedia.org/wiki/Halton_sequence
+    inline float haltonSequenceAt(int index, int base)
+    {
+        float f = 1.0f;
+        float r = 0.0f;
+
+        while (index > 0)
+        {
+            f = f / float(base);
+            r += f*(index%base);
+            index = int(std::floor(index / base));
+        }
+
+        return r;
+    }
+
 }

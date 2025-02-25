@@ -1,249 +1,515 @@
 #version 450
 
-#include "common/intersections.glsl"
+#include "common/cloudsCommon.glsl"
 
 layout (local_size_x = 32, local_size_y = 32) in;
 layout (binding = 0, rgba8) uniform writeonly image2D storageImage;
-
-// Camera type
-struct Camera {
-    mat4 invView; // Inverse view matrix
-    vec4 position; // Camera position in world space
-};
-
-struct Sun {
-    vec4 position;
-    vec4 color;
-};
-
-struct Clouds {
-    vec4 sigmaS;
-    vec4 sigmaA;
-    float phase;
-    float density;
-    float densityOffset;
-    float lightStepSize;
-};
-
-layout (binding = 1) uniform UBO
-{
-    Camera camera;
-    Sun sun;
-    Clouds clouds;
-} ubo;
-
-layout (std140, binding = 2) buffer Scene
-{
-    vec4 bbMin;
-    vec4 bbMax;
-} storageBuffer;
 
 layout (binding = 3) uniform sampler3D baseNoiseSampler;
 layout (binding = 4) uniform sampler3D detailNoiseSampler;
 layout (binding = 5) uniform sampler2D curlNoiseSampler;
 layout (binding = 6) uniform sampler2D cloudMap;
 
+layout (set = 1, binding = 0) uniform CameraUBO
+{
+    mat4 view;
+    mat4 proj;
+    vec4 eye;
+    vec2 tanFovBy2;
+} camera;
 
-#define PI 3.14159265359
+layout (set = 2, binding = 0) uniform TimeUBO
+{
+    vec4 haltonSeq1;
+    vec4 haltonSeq2;
+    vec4 haltonSeq3;
+    vec4 haltonSeq4;
+    vec2 time; //stores delat time and total time
+    int frameCountMod16; // unused
+};
 
-const int MIN_STEPS = 64;
-const int MAX_STEPS = 128;
-const int LIGHT_STEPS = 6;
 
-// Helper function to get ray origin (camera position in this case)
-vec3 getRayOrigin() {
-    return ubo.camera.position.xyz;
+// DEBUG VIEWS
+#define BACKGROUND_SKY 0
+#define CLOUD_DENSITY 0
+#define TEXTURE_CURL_NOISE 0
+#define TEXTURE_HIGH_FREQ 0
+#define TEXTURE_LOW_FREQ 0
+#define HEIGHT_GRADIENT 0
+#define T_TESTS 0
+#define HG_TEST 0
+#define BEERS_TEST 0
+
+// RAYCASTING
+
+vec2 getJitterOffset (in int index, ivec2 dim)
+{
+    //index is a value from 0-15
+    //Use pre generated halton sequence to jitter point --> halton sequence is a low discrepancy sampling pattern
+    vec2 jitter = vec2(0.0);
+    index = index/2;
+    if(index < 4)
+    {
+        jitter.x = haltonSeq1[index];
+        jitter.y = haltonSeq2[index];
+    }
+    else
+    {
+        index -= 4;
+        jitter.x = haltonSeq3[index];
+        jitter.y = haltonSeq4[index];
+    }
+    return jitter/dim;
 }
 
-// Helper function to compute ray direction
-vec3 getRayDirection() {
-    // Compute the UV coordinates
-    ivec2 dim = imageSize(storageImage);
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-
-    // Convert uv to normalized device coordinates (range -1 to 1)
-    vec2 ndc = uv * 2.0 - 1.0;
-
-    // Assume a field-of-view (FOV) of 45 degrees
-    float fov = radians(45.0);
-    float aspect = float(dim.x) / float(dim.y);
-    float scale = tan(fov * 0.5);
-
-    // Compute the ray direction in camera (view) space.
-    // Here we assume the camera looks down the -Z axis.
-    vec3 rayDirView = normalize(vec3(ndc.x * aspect * scale, ndc.y * scale, -1.0));
-
-    // Transform the view-space ray direction into world space using the camera's inverse view matrix.
-    // We use a 0.0 for the w component so that only rotation (and possibly scaling) is applied.
-    vec3 rayDirection = normalize((ubo.camera.invView * vec4(rayDirView, 0.0)).xyz);
-
-    return rayDirection;
+float getJitterOffset (in int index, float maxOffset)
+{
+    //index is a value from 0-15
+    //Use pre generated halton sequence to jitter point --> halton sequence is a low discrepancy sampling pattern
+    float jitter = 0.0;
+    index = index/2;
+    if(index < 4)
+    {
+        jitter = haltonSeq1[index];
+    }
+    else
+    {
+        index -= 4;
+        jitter = haltonSeq2[index];
+    }
+    return jitter*maxOffset;
 }
 
-vec3 mapWorldToSample(vec3 worldPos, vec3 bbmin, vec3 bbmax) {
-    vec3 normalized = (worldPos - bbmin) / (bbmax - bbmin);
-    // Debug visualization - output raw normalized coordinates
-    return normalized; // This should show smooth gradients if inputs are continuous
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+struct Intersection {
+    vec3 normal;
+    vec3 point;
+    bool valid;
+    float t;
+};
+
+Ray castRay( vec2 screenPoint, vec3 eye, int pixelID, ivec2 dim )
+{
+    Ray r;
+
+    // Extract camera information from uniform
+    vec3 camRight = normalize(vec3( camera.view[0][0],
+                              camera.view[1][0],
+                              camera.view[2][0] ));
+    vec3 camUp =    normalize(vec3( camera.view[0][1],
+                              camera.view[1][1],
+                              camera.view[2][1] ));
+    vec3 camLook =  -normalize(vec3(camera.view[0][2],
+                               camera.view[1][2],
+                               camera.view[2][2] ));
+
+    // Compute ndc space point from screenspace point //[-1,1] to [0,1] range
+    vec2 NDC_Space_Point = screenPoint * 2.0 - 1.0;
+
+    //Jitter point with halton sequence
+    NDC_Space_Point += getJitterOffset(pixelID, dim);
+
+    //convert to camera space
+    vec3 cam_x = NDC_Space_Point.x * camera.tanFovBy2.x * camRight;
+    vec3 cam_y = NDC_Space_Point.y * camera.tanFovBy2.y * camUp;
+    //convert to world space
+    vec3 ref = eye+camLook;
+    vec3 p = ref + cam_x + cam_y; //facing the screen
+
+    r.origin = eye;
+    r.direction = normalize(p - eye);
+
+    return r;
 }
 
-// Remaps value from one range to another
-float remap(float value, float inMin, float inMax, float outMin, float outMax) {
-    return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
+//Sphere Intersection Testing
+Intersection raySphereIntersection(in vec3 rO, in vec3 rD, in vec3 sphereCenter, in float sphereRadius)
+{
+    Intersection isect;
+    isect.valid = false;
+    isect.point = vec3(0.0);
+    isect.normal = vec3(0.0, 1.0, 0.0);
+
+    // Transform Ray such that the spheres move down, such that the camera is close to the sky dome
+    // Only change sphere origin because you can't translate a direction
+    rO -= sphereCenter;
+    rO /= sphereRadius;
+
+    float A = dot(rD, rD);
+    float B = 2.0*dot(rD, rO);
+    float C = dot(rO, rO) - 1.0; //uniform sphere
+    float discriminant = B*B - 4.0*A*C;
+
+    //If the discriminant is negative, then there is no real root
+    if(discriminant < 0.0)
+    {
+        return isect;
+    }
+
+    float t = (-B - sqrt(discriminant))/(2.0*A);
+
+    if(t < 0.0)
+    {
+        t = (-B + sqrt(discriminant))/(2.0*A);
+    }
+
+    if(t >= 0.0)
+    {
+        vec3 p = vec3(rO + t*rD);
+        isect.valid = true;
+        isect.normal = normalize(p);
+
+        p *= sphereRadius;
+        p += sphereCenter;
+
+        isect.point = p;
+        isect.t = length(p-rO);
+    }
+
+    return isect;
 }
 
 
+// SAMPLING FUNCTIONS
 
-// Samples base noise at given position
-vec4 sampleBaseNoise(vec3 pos) {
-    return texture(baseNoiseSampler, pos);
+float getDensityHeightGradientForPoint(in float relativeHeight, in float cloudType)
+{
+    relativeHeight = clamp(relativeHeight, 0.0, 1.0);
+
+    float cumulus = max(0.0, remap(relativeHeight, 0.01, 0.3, 0.0, 1.0) * remap(relativeHeight, 0.6, 0.95, 1.0, 0.0));
+    float stratocumulus = max(0.0, remap(relativeHeight, 0.0, 0.25, 0.0, 1.0) * remap(relativeHeight,  0.3, 0.65, 1.0, 0.0));
+    float stratus = max(0.0, remap(relativeHeight, 0, 0.1, 0.0, 1.0) * remap(relativeHeight, 0.2, 0.3, 1.0, 0.0));
+
+    float a = mix(stratus, stratocumulus, clamp(cloudType * 2.0, 0.0, 1.0));
+
+    float b = mix(stratocumulus, stratus, clamp((cloudType - 0.5) * 2.0, 0.0, 1.0));
+    return mix(a, b, cloudType);
 }
 
+vec3 skewSamplePointWithWind(in vec3 point, inout float height_fraction)
+{
+    //skew in wind direction
+    point += height_fraction * WIND_DIRECTION * CLOUD_TOP_OFFSET * 0.009;
 
-float baseDensity(vec3 pos) {
-    // Remap the sampling position
-    vec3 uvw = mapWorldToSample(pos, storageBuffer.bbMin.xyz, storageBuffer.bbMax.xyz);
+    //Animate clouds in wind direction and add a small upward bias to the wind direction
+    point += (WIND_DIRECTION + vec3(0.0, 0.1, 0.0)) * CLOUD_SPEED * time.y;
+    return point;
+}
 
-    // Sample the noise frequencies
-    vec4 lowFreqNoises = sampleBaseNoise(uvw) * ubo.clouds.density * 10;
+float sampleLowFrequency(vec3 point, in vec3 unskewedSamplePoint, in float relativeHeight, in vec3 earthCenter)
+{
+    //Read in the low-frequency Perlin-Worley noises and Worley noises
+    vec4 lowFrequencyNoises = texture(baseNoiseSampler, point);// * 0.8);	// MANIPULATE ME
 
-    // Build the FBM
-    float lowFreqFBM = (lowFreqNoises.g * 0.625) +
-    (lowFreqNoises.b * 0.25) +
-    (lowFreqNoises.a * 0.125);
+    //Build an FBM out of the low-frequency Worley Noises that are used to add detail to the Low-frequency Perlin Worley noise
+    float lowFrequencyFBM = (lowFrequencyNoises.g * 0.625) +
+    (lowFrequencyNoises.b * 0.25)  +
+    (lowFrequencyNoises.a * 0.125);
 
-    // Clamp the FBM
-    lowFreqFBM = clamp(lowFreqFBM, 0.0, 1.0);
+    // lowFrequencyFBM = clamp(abs(lowFrequencyFBM), 0.0, 1.0);
+    lowFrequencyFBM = clamp(lowFrequencyFBM, 0.0, 1.0);
 
-    // Build the base shape by eroding low freq noise using the FBM
-    // TODO remap clamped
-    float baseCloud = remap(clamp(lowFreqNoises.r + ubo.clouds.densityOffset, 0.0, 1.0), (lowFreqFBM - 0.9), 1.0, 0.0, 1.0 );
+    // Define the base cloud shape by dilating it with the low-frequency FBM
+    float baseCloud = remapc( lowFrequencyNoises.r, (lowFrequencyFBM - 0.9), 1.0, 0.0, 1.0 );
 
-    return baseCloud;
+    // TODO: Use weater map for cloud types and blend between them and their densities
+    // ------------------ only screws it up; but needed for blending cloud types -----------------------
+    // // Get the density-height gradient
+    // vec2 weatherSamplePoint = unskewedSamplePoint.xz;// / 50.0;// / 50.0;//50000.0f;
+    // vec3 weather_data = texture(weatherMapSampler, weatherSamplePoint).rgb;
+    // float cloudType = weather_data.g;
+    // float densityHeightGradient = getDensityHeightGradientForPoint(relativeHeight, weather_data.g);
 
-    // Cloud coverage is stored in cloud map in red channel
-    vec4 cloudMap = texture(cloudMap, vec2(uvw.x, uvw.z));
-    float cloudCoverage = cloudMap.r;
+    // // Apply Height function to the base cloud shape
+    // baseCloud *= densityHeightGradient * 0.5;// * 0.8;
+    // -------------------------------------------------------------------------------------------------
 
-    float baseCloudWithCoverage = remap(baseCloud, cloudCoverage, 1.0, 0.0, 1.0);
+    // Cloud coverage is stored in weather data’s red channel .
+    //WHAT EVEN???? --> increasing cloud coverage apparently reduces base_cloud_with_coverage
+    float cloud_coverage = 0.6;// weather_data.r;
+
+    // Use remap to apply the cloud coverage attribute.
+    float base_cloud_with_coverage = remapcc ( baseCloud, cloud_coverage, 1.0, 0.0, 1.0);
 
     // To ensure that the density increases with coverage in an aesthetically pleasing manner
     // Multiply the result by the cloud coverage attribute so that smaller clouds are lighter
     // and more aesthetically pleasing
-    baseCloudWithCoverage *= cloudCoverage;
+    base_cloud_with_coverage *= cloud_coverage;
 
-    return baseCloudWithCoverage;
+    return base_cloud_with_coverage;
+}
+
+float erodeCloudWithHighFrequency(in float baseCloud, in vec3 rayDir, in vec3 point, in float height_fraction)
+{
+    // Add turbulence to the bottom of the clouds
+    vec4 curlNoise = texture(curlNoiseSampler, point.xy);
+    point.xy += curlNoise.xy * (1.0 - height_fraction) * 0.5;
+
+    // Sample High Frequency Noises
+    vec4 highFrequencyNoise = texture(detailNoiseSampler, point);	// MANIPULATE ME
+
+    // Build High Frequency FBM
+    float high_freq_FBM = (highFrequencyNoise.r * 0.625) +
+    (highFrequencyNoise.g * 0.25)  +
+    (highFrequencyNoise.b * 0.125);
+
+    //Erode the base shape of the cloud with the distorted high frequency worley noises
+
+    // MANIPULATE ME
+    float high_freq_modifier = clamp( mix(high_freq_FBM, 1.0 - high_freq_FBM, clamp(height_fraction * 2.0, 0.0, 1.0)), 0.0, 1.0);
+
+    float final_cloud = remap(baseCloud, high_freq_modifier * 0.005, 1.0, 0.0, 1.0);
+    return final_cloud;
 }
 
 
-// Number of steps based on the intersection length
-int computeRaymarchSteps(float chordLength, float minChord, float maxChord, int minSteps, int maxSteps) {
-    // Normalize the chord length between 0 and 1.
-    float t = clamp((chordLength - minChord) / (maxChord - minChord), 0.0, 1.0);
-    // Interpolate between minSteps and maxSteps.
-    return int(mix(float(minSteps), float(maxSteps), t));
-}
+vec3 rayMarch(Ray ray, vec3 earthCenter, in vec3 startPos, in float start_t, in float end_t, in int pixelID, inout float accumDensity)
+{
+    float _dot = dot(ray.direction, vec3(0.0f, 1.0f, 0.0f));
+    float jitterfactor = 1.180f;//4.0f;
 
+    // MANIPULATE ME
+    const float baseDensityFactor = 0.380f;//0.5f; // increase this to get more dense cloud centers
+    const float maxSteps = floor(mix(35.0f, 60.0f, 1.0f - _dot));
 
-float henyeyGreenstein(float cosTheta, float g) {
-    return (1.0 / 4.0 * PI) * ((1 - (g * g)) / pow((1 - (g * cosTheta)), 2));
-}
+    const float atmosphereThickness = (end_t - start_t);
+    const float stepSize = (atmosphereThickness / maxSteps);
+    float transmittance = 1.0;
 
+    vec3 pos;
+    vec3 samplePoint;
+    vec3 returnColor = vec3(0.0);
+    float baseDensity;
 
-vec3 lightEnergy(vec3 pos, float cosTheta) {
-    vec3 direction = normalize(ubo.sun.position.xyz - pos);
+    // Lighting data -------------------------------------------------------------------
+    // Henyey-Greenstein
+    const vec3 lightDir = normalize(SUN_LOCATION - ray.origin);
+    const float cos_angle = dot(normalize(ray.direction), lightDir);
+    const float eccentricity = 0.6;
+    const float silver_intensity = 0.7;
+    const float silver_spread = 0.1;
+    const float HG_light = HenyeyGreensteinArtDirected(cos_angle, eccentricity, silver_intensity, silver_spread);
 
-    vec3 totalEnergy = vec3(1.0);
+    // Random unit vectors for your cone sample.
+    // These are positioned to be facing the sun
+    // Create random samples within a unit cone facing world up (y direction)
+    // Construct TBN matrix towards light
+    // Then rotate unit cone towards the sun using TBN
 
-    for (int i = 0; i < LIGHT_STEPS; i++) {
-        vec3 rayPos = pos + direction * (i * ubo.clouds.lightStepSize);
-
-        float density = 0.0;
-        float intersection = rayBoxDst(storageBuffer.bbMin.xyz, storageBuffer.bbMax.xyz, rayPos, direction).y;
-        if (intersection > 0.0) {
-            density = baseDensity(rayPos);
-        }
-
-        // transmittance
-        vec3 sigma_t = ubo.clouds.sigmaS.rgb + ubo.clouds.sigmaA.rgb;
-        vec3 transmittance = exp(-density *  sigma_t * ubo.clouds.lightStepSize );
-
-        // phase
-        float phase = henyeyGreenstein(cosTheta, ubo.clouds.phase);
-
-        // Multiply in the fraction that is actually scattered
-        vec3 singleScatter = phase * density * totalEnergy * ubo.clouds.lightStepSize;
-
-        totalEnergy *= totalEnergy * transmittance + singleScatter;
-
-        if (length(totalEnergy) < 0.01) break;
+    vec3 maxCompUnitVector;
+    if(abs(lightDir[0]) > abs(lightDir[1]) && abs(lightDir[0]) > abs(lightDir[2]))
+    {
+        maxCompUnitVector = vec3(abs(lightDir[0]), 0.0, 0.0);
+    }
+    else if(abs(lightDir[1]) > abs(lightDir[0]) && abs(lightDir[1]) > abs(lightDir[2]))
+    {
+        maxCompUnitVector = vec3(0.0, abs(lightDir[1]), 0.0);
+    }
+    else
+    {
+        maxCompUnitVector = vec3(0.0, 0.0, abs(lightDir[2]));
     }
 
-    return totalEnergy;
-}
+    vec3 zComponent = cross(lightDir, maxCompUnitVector);
+    vec3 xComponent = cross(zComponent, lightDir);
+    mat3 sunRotMatrix = mat3(xComponent, lightDir, zComponent);
 
+    const vec3 noise_kernel[] =
+    {
+        sunRotMatrix * vec3(0.1, 0.25, -0.15),
+        sunRotMatrix * vec3(0.2, 0.5, 0.2),
+        sunRotMatrix * vec3(-0.2, 0.1, -0.1),
+        sunRotMatrix * vec3(-0.05, 0.75, 0.05),
+        sunRotMatrix * vec3(-0.1, 1.0, 0.0),
+        sunRotMatrix * vec3(0.0, 3.0, 0.0),     // One sample should be at distance 3x cone length
+    };
+    // ---------------------------------------------------------------------------------
 
-void main() {
-    // Compute the UV coordinates
-    ivec2 dim = imageSize(storageImage);
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
+    for (float t = start_t; t < end_t; t += stepSize)
+    {
+        vec3 colorPerSample = vec3(0.0);
 
-    // Final color
-    vec4 outColor = vec4(0.0);
+        int _index = int(mod((pixelID+int(t)),16.0f));
+        vec2 jitterLocation = getJitterOffset(_index, ivec2(75.0f));
+        pos = ray.origin + t * (ray.direction + vec3(jitterLocation.x, (jitterLocation.x + jitterLocation.y)*jitterfactor, jitterLocation.y));
+        samplePoint = getRelativeAtmosphericPosition(pos, earthCenter);
+        samplePoint /= 8.0f; //controls the frequency of how we are sampling the noise texture
 
-    // Ray origin and direction
-    vec3 rayOrigin = getRayOrigin();
-    vec3 rayDirection = getRayDirection();
+        float relativeHeight = getRelativeAtmosphericHeight(pos, earthCenter, startPos, ray.direction, ray.origin);
+        vec3 skewedSamplePoint = skewSamplePointWithWind(samplePoint, relativeHeight);
 
-    vec3 outgoingRadiance = vec3(0.0);
+        baseDensity = sampleLowFrequency(skewedSamplePoint, pos, relativeHeight, earthCenter) * baseDensityFactor; //helps for early termination of rays
 
+        if(baseDensity > 0.0) // Useful to prevent lighting calculations for zero density points
+        {
+            //Erode Base cloud shape with higher frequency noise (more expensive and so done when we know for sure we are inside the cloud)
+            float highFreqDensity = erodeCloudWithHighFrequency(baseDensity*1.4f, ray.direction, skewedSamplePoint, relativeHeight);
 
-    // Intersect the boudning box of the atmosphere
-    vec2 bboxIntersection = rayBoxDst(storageBuffer.bbMin.xyz, storageBuffer.bbMax.xyz, rayOrigin, rayDirection);
-    float dstToBox = bboxIntersection.x; // Distance to the intersection
-    float dstInsideBox = bboxIntersection.y; // Intersection length
+            // MANIPULATE ME
+            accumDensity += highFreqDensity * 0.5;
 
-    // If we intersect the clouds bounding box
-    if (dstInsideBox > 0.0) {
-        // Compute longest and shortest intersection lengths
-        vec2 lengths = computeIntersectionLengths(storageBuffer.bbMin.xyz, storageBuffer.bbMax.xyz);
-        // Compute number of steps relative to the lenght of the intersection
-        float numSteps = computeRaymarchSteps(dstInsideBox, lengths.x, lengths.y, MIN_STEPS, MAX_STEPS);
+            // Do Lighting calculations with cone sampling
+            float densityAlongLight = 0.0;
+            int light_samples = 6;
 
-        float stepSize = dstInsideBox / numSteps;
+            for(int i = 0; i < light_samples; ++i)
+            {
+                // Add the current step offset to the sample position
+                vec3 lightPos = pos + (stepSize * noise_kernel[i] * float(i));
+                vec3 sampleLightPos =  getRelativeAtmosphericPosition(lightPos, earthCenter);
 
+                // MANIPULATE ME
+                float currBaseLightDensity = sampleLowFrequency(sampleLightPos, sampleLightPos, relativeHeight, earthCenter);
 
-        vec3 totalTransmittance = vec3(1.0);
-        vec3 totalScattering = vec3(0.0);
-
-        for (int i = 0; i < numSteps; i++) {
-            vec3 rayPos = rayOrigin + rayDirection * (dstToBox + i * stepSize);
-
-            float density = baseDensity(rayPos);
-            if(density > 0.0){
-
-                // sigma_t = sigma_s + sigma_a
-                vec3 sigma_t = ubo.clouds.sigmaS.rgb + ubo.clouds.sigmaA.rgb;
-
-                // Tr(x_a, x_b) = exp(- integral_xa->xb(sigma_t))
-                vec3 transmittance = exp(- density * sigma_t * stepSize );
-                totalTransmittance *= transmittance;
-
-                float cosTheta = dot(rayDirection, normalize(ubo.sun.position.xyz - rayPos));
-
-                vec3 light = lightEnergy(rayPos, cosTheta);
-
-                vec3 scattering = light * transmittance  * ubo.sun.color.rgb;
-
-                totalScattering += scattering ;
-
-                if(length(totalTransmittance) < 0.01) break;
+                if(currBaseLightDensity > 0.0)
+                {
+                    float currLightDensity = erodeCloudWithHighFrequency(1.5 * currBaseLightDensity, ray.direction, skewedSamplePoint, relativeHeight);
+                    densityAlongLight += currLightDensity;
+                }
             }
-        }
 
+            // ------------------------------------------------------------------------------------------------------------------
+            // MANIPULATE ME
+            float brightness = 5.0;
+            float totalLightEnergy = GetLightEnergy(relativeHeight, densityAlongLight, baseDensity, HG_light, cos_angle, stepSize, brightness);
+            transmittance = mix(transmittance, totalLightEnergy, (1.0 - accumDensity));
+            colorPerSample = vec3(transmittance);
 
-        outColor = vec4(totalScattering * totalTransmittance, 1.0 - length(totalTransmittance));
+            returnColor += colorPerSample;
+        } //end if
 
+        if(accumDensity >= 1.0)
+        {
+            accumDensity = 1.0;
+            break;
+        } //end if
+
+    } //end raymarcher for loop
+    return returnColor;
+}// end raymarch function
+
+void main()
+{
+    ivec2 dim = imageSize(storageImage);
+
+    //Actually only raymarch for every 16th pixel because reprojection should handle the other pixels
+    int pixelID = frameCountMod16;
+
+    int pX = int(floor(pixelID/4));
+    int pY = int(floor(mod(pixelID,4)));
+
+    uint pixelX = gl_GlobalInvocationID.x * 4 + pX;
+    uint pixelY = gl_GlobalInvocationID.y * 4 + pY;
+
+    vec2 uv = vec2(pixelX, pixelY) / dim;
+    ivec2 chosenPixel = ivec2(pixelX, pixelY);
+
+    uv.y = 1.0 - uv.y; //cause vulkan inverts y compared to openGL
+    vec3 eyePos = -camera.eye.xyz;
+    Ray ray = castRay(uv, eyePos, pixelID, dim);
+
+    float sunIntensity = SUN_INTENSITY;
+    vec3 backgroundCol = BLACK;
+
+    float _dot = dot( vec3(0.0, 1.0, 0.0), ray.direction );
+    const float backgroundColorMultiplier = max(0.620, _dot);
+    vec3 transitionGradient = WHITE;
+    const float cloudFadeOutPoint = 0.06f;
+
+    if ( _dot < 0.0 )
+    {
+        //kill threads because we shouldnt see clouds below the horizon
+        //magic numbers to make the colors look good after a tone map
+        vec3 colorNearHorizon = vec3(0.0, 0.16, 0.51) * 0.4; //dark ocean blue
+        vec3 color2 = vec3(0.0, 0.73, 0.95) * 0.5; //light ocean blue
+        backgroundCol = mix(colorNearHorizon, color2, -ray.direction.y * 5.5);
+
+//        imageStore( godRaysCreationDataImage, chosenPixel, vec4(0.0f) );
+        imageStore( storageImage, chosenPixel, vec4(backgroundCol, 1.0f) );
+        return;
+    }
+    else if (_dot < cloudFadeOutPoint )
+    {
+        // Get sky background color from Preetham Sun/Sky Model
+        // backgroundCol = getAtmosphereColorPhysical(ray.direction, SUN_LOCATION - ray.origin, sunIntensity); //day time
+//        backgroundCol = getAtmosphereColorPhysical(ray.direction, BACKGROUND_SKY_SUN_LOCATION - ray.origin, sunIntensity); //sunset
+//        backgroundCol *= backgroundColorMultiplier;
+
+//        imageStore( godRaysCreationDataImage, chosenPixel, vec4(0.0f) );
+        backgroundCol = BLUE;
+        imageStore( storageImage, chosenPixel, vec4(backgroundCol, 1.0f) );
+        return;
+    }
+    else
+    {
+        // Get sky background color from Preetham Sun/Sky Model
+        // backgroundCol = getAtmosphereColorPhysical(ray.direction, SUN_LOCATION - ray.origin, sunIntensity); //day time
+//        backgroundCol = getAtmosphereColorPhysical(ray.direction, BACKGROUND_SKY_SUN_LOCATION - ray.origin, sunIntensity); //sunset
+//        backgroundCol *= backgroundColorMultiplier;
+        backgroundCol = BLUE;
     }
 
-    imageStore(storageImage, ivec2(gl_GlobalInvocationID.xy), outColor);
+    // Find the start and end points of the ray march
+    vec3 earthCenter = eyePos;
+    earthCenter.y = -EARTH_RADIUS; //move earth below camera
+    Intersection atmosphereInnerIsect = raySphereIntersection(ray.origin, ray.direction, earthCenter, ATMOSPHERE_RADIUS_INNER);
+    Intersection atmosphereOuterIsect = raySphereIntersection(ray.origin, ray.direction, earthCenter, ATMOSPHERE_RADIUS_OUTER);
+
+    // Ray March
+    float accumDensity = 0.0;
+    vec3 rayMarchResult = rayMarch(ray, earthCenter, atmosphereInnerIsect.point, atmosphereInnerIsect.t, atmosphereOuterIsect.t, pixelID, accumDensity);
+
+
+    // Blend and fade out clouds into the horizon (CHANGE THIRD PARAM IN REMAP)
+    accumDensity *= smoothstep(0.0, 1.0, min(1.0, remap(ray.direction.y, cloudFadeOutPoint, 0.2f, 0.0f, 1.0f)));
+
+    vec4 finalColor = vec4(mix(backgroundCol, rayMarchResult, accumDensity), 1.0f);
+
+    // Begin debug renders
+    #if TEXTURE_LOW_FREQ
+	vec4 lowFrequencyNoises = texture( baseNoiseSampler, vec3(uv, sin(time.y)) );
+    finalColor = vec4(lowFrequencyNoises);
+    #elif TEXTURE_HIGH_FREQ
+	vec4 highFrequencyNoises = texture( detailNoiseSampler, vec3(uv, sin(time.y)) );
+    finalColor = vec4(highFrequencyNoises);
+    #elif TEXTURE_CURL_NOISE
+	vec4 curlNoise = texture( curlNoiseSampler, uv );
+    finalColor = vec4(curlNoise);
+    #elif CLOUD_DENSITY
+	finalColor = vec4( vec3(accumDensity), 1.0 );
+    #elif HG_TEST
+    const vec3 lightDir = normalize(SUN_LOCATION - ray.origin);
+    const float cos_angle = dot(normalize(ray.direction), lightDir);
+    const float eccentricity = 0.6;
+    const float silver_intensity = 0.7;
+    const float silver_spread = 0.1;
+    float HG_light = HenyeyGreensteinArtDirected(cos_angle, eccentricity, silver_intensity, silver_spread);
+    finalColor = vec4(vec3(HG_light), 1.0);
+    #elif BACKGROUND_SKY
+	finalColor = vec4(backgroundCol, 1.0);
+    #elif T_TESTS
+    if(atmosphereInnerIsect.valid == false)
+    {
+        // Renders red if innerIsect not valid
+        finalColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+    if(atmosphereOuterIsect.valid == false)
+    {
+        // Renders green if outerIsect not valid
+        finalColor = vec4(0.0, 1.0, 0.0, 1.0);
+    }
+    else
+    {
+        // Renders blue if both isects valid
+        finalColor = vec4(0.0, 0.0, 1.0, 1.0);
+    }
+    #elif BEERS_TEST
+    finalColor = vec4(rayMarchResult, 1.0);
+    #endif
+
+    imageStore( storageImage, chosenPixel, finalColor );
 }

@@ -1,41 +1,7 @@
 #include "SkyScene.h"
 
 void SkyScene::init() {
-    // For fast reads in the compute stage, storage buffer has GPU only memory
-    // Data needs to be staged -> moved to GPU/CPU visible memory and then transferred to GPU only memory
-    ResourceHandle stagingStorageBufferHandle = rm.createResource<Buffer>(
-        "staging-storage-buffer",
-        BufferDesc{
-            .instanceSize = sizeof(StorageBufferData),
-            .instanceCount = 1,
-            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        });
-
-    // Map the buffer and write the data
-    rm.getResource<Buffer>(stagingStorageBufferHandle)->map();
-    rm.getResource<Buffer>(stagingStorageBufferHandle)->writeToBuffer(&storageBufferData);
-
-    // Create the actual GPU only storage buffer
-    compute.storageBuffer = rm.createResource<Buffer>(
-        "compute-storage-buffer",
-        BufferDesc{
-            .instanceSize = sizeof(StorageBufferData),
-            .instanceCount = 1,
-            .usageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            .allocationFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, // GPU only
-            // concurrent so we can access the buffer from both compute and graphics queues
-            // without having to release and acquire the buffer on the queues
-            // although this comes at a cost, the difference in almost immeasurable
-            .sharingMode = VK_SHARING_MODE_CONCURRENT
-        });
-
-    // Transfer the data between buffer and release the staging buffer
-    device.copyBuffer(rm.getResource<Buffer>(stagingStorageBufferHandle)->getBuffer(),
-                      rm.getResource<Buffer>(compute.storageBuffer)->getBuffer(), sizeof(StorageBufferData));
-    rm.releaseResource(stagingStorageBufferHandle.getUid());
-
-    // Next, we need to load all the noises and images
+    // We need to load all the noises and images
     // Image memory is device dedicated (for best performance) - that means it is not accessible by the host directly
     // For each image, we need to create a "staging buffer" that is lives in the device memory and is accessible by the host
     // We need to:
@@ -209,6 +175,28 @@ void SkyScene::init() {
     // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
 
 
+    // Generate Halton sequence
+    timeUbo.haltonSeq1.X = haltonSequenceAt(1, 3);
+    timeUbo.haltonSeq1.Y = haltonSequenceAt(2, 3);
+    timeUbo.haltonSeq1.Z = haltonSequenceAt(3, 3);
+    timeUbo.haltonSeq1.W = haltonSequenceAt(4, 3);
+
+    timeUbo.haltonSeq2.X = haltonSequenceAt(5, 3);
+    timeUbo.haltonSeq2.Y = haltonSequenceAt(6, 3);
+    timeUbo.haltonSeq2.Z = haltonSequenceAt(7, 3);
+    timeUbo.haltonSeq2.W = haltonSequenceAt(8, 3);
+
+    timeUbo.haltonSeq3.X = haltonSequenceAt(9, 3);
+    timeUbo.haltonSeq3.Y = haltonSequenceAt(10, 3);
+    timeUbo.haltonSeq3.Z = haltonSequenceAt(11, 3);
+    timeUbo.haltonSeq3.W = haltonSequenceAt(12, 3);
+
+    timeUbo.haltonSeq4.X = haltonSequenceAt(13, 3);
+    timeUbo.haltonSeq4.Y = haltonSequenceAt(14, 3);
+    timeUbo.haltonSeq4.Z = haltonSequenceAt(15, 3);
+    timeUbo.haltonSeq4.W = haltonSequenceAt(16, 3);
+
+
     // Other resource are managed by the render graph
     buildRenderGraph();
 
@@ -223,15 +211,19 @@ void SkyScene::buildRenderGraph() {
     // First, declare the resources
     // Add the uniform buffer that holds mutable data
     renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
-        "compute-uniform-buffer", BufferDesc{
-            .instanceSize = sizeof(UniformBufferData),
+        "camera-ubo", BufferDesc{
+            .instanceSize = sizeof(CameraUbo),
             .instanceCount = 1,
             .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         });
-
-    // The storage buffer created earlier
-    renderGraph->addStaticResource<ResourceNode::Type::StorageBuffer>("compute-storage-buffer", compute.storageBuffer);
+    renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
+        "time-ubo", BufferDesc{
+            .instanceSize = sizeof(TimeUbo),
+            .instanceCount = 1,
+            .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        });
 
     // Base noise
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("compute-base-noise", compute.baseNoise);
@@ -267,12 +259,6 @@ void SkyScene::buildRenderGraph() {
     // Compute pass reads from storage and uniform buffers and writes into storage image
     renderGraph->addPass<CommandQueueFamily::Compute>("compute-pass")
             .read(ResourceAccess{
-                .resourceName = "compute-uniform-buffer",
-            })
-            .read(ResourceAccess{
-                .resourceName = "compute-storage-buffer",
-            })
-            .read(ResourceAccess{
                 .resourceName = "compute-base-noise",
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             })
@@ -288,14 +274,24 @@ void SkyScene::buildRenderGraph() {
                 .resourceName = "compute-cloud-map",
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             })
+            .read(ResourceAccess{
+                .resourceName = "camera-ubo",
+            })
+            .read(ResourceAccess{
+                .resourceName = "time-ubo",
+            })
             .descriptor(0, {
                             {0, {"compute-storage-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {1, {"compute-uniform-buffer"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {2, {"compute-storage-buffer"}, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {3, {"compute-base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {4, {"compute-detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {5, {"compute-curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {6, {"compute-cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                        })
+            .descriptor(1, {
+                            {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+                        })
+            .descriptor(2, {
+                            {0, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "compute-storage-image",
@@ -303,11 +299,20 @@ void SkyScene::buildRenderGraph() {
             })
             .execute([&](RenderPassContext context)-> void {
                 // This is the execution code of the compute pass
-                // First we bind the pipeline and descriptor
+                // First we bind the pipeline and descriptors
                 compute.pipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
-                context.get<Buffer>("compute-uniform-buffer")->writeToBuffer(&uniformBufferData);
+                context.get<Buffer>("camera-ubo")->writeToBuffer(&cameraUbo);
+                context.get<Buffer>("time-ubo")->writeToBuffer(&timeUbo);
+
                 context.bindDescriptorSet(0, 0, compute.pipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
+
+                context.bindDescriptorSet(1, 1, compute.pipeline->pipelineLayout,
+                                          VK_PIPELINE_BIND_POINT_COMPUTE);
+
+                context.bindDescriptorSet(2, 2, compute.pipeline->pipelineLayout,
+                                          VK_PIPELINE_BIND_POINT_COMPUTE);
+
 
                 // Then we dispatch the compute shader
                 // This way we can render in parallel which makes the raymarching way quicker than doing this in frag shader
@@ -337,8 +342,6 @@ void SkyScene::buildRenderGraph() {
                 context.bindDescriptorSet(0, 0, composition.pipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_GRAPHICS);
 
-                vkCmdPushConstants(context.commandBuffer, composition.pipeline->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                   sizeof(compositionPushConstants), &compositionPushConstants);
 
                 // Even though there is no vertex buffer, this call is safe as it does not actually read the vertices in the shader
                 // This only triggers fullscreen effect in vert shader that runs fragment shader for each pixel of the screen
@@ -403,22 +406,6 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
 
-                    ImGui::SeparatorText("Camera");
-                    ImGui::DragFloat3("Position", &cameraPosition.Elements[0], 0.01f);
-                    ImGui::DragFloat("Yaw", &yaw, 0.01f);
-                    ImGui::DragFloat("Pitch", &pitch, 0.01f);
-
-                    ImGui::SeparatorText("Lighting");
-                    ImGui::DragFloat3("Light position", &uniformBufferData.sun.position.Elements[0], 0.1f);
-                    ImGui::ColorEdit3("Light color", &uniformBufferData.sun.color.Elements[0]);
-
-                    ImGui::SeparatorText("Clouds");
-                    ImGui::DragFloat3("Sigma A (absorption)", &uniformBufferData.clouds.sigmaA.Elements[0], 0.0001f, 0.0f, 5.0f, "%.4f");
-                    ImGui::DragFloat3("Sigma S (scattering)", &uniformBufferData.clouds.sigmaS.Elements[0],0.0001f, 0.0f, 5.0f, "%.4f");
-                    ImGui::SliderFloat("Henye Greenstein g", &uniformBufferData.clouds.phase, -.955f, .955f);
-                    ImGui::SliderFloat("Density", &uniformBufferData.clouds.density, 0.0f, 1.0f);
-                    ImGui::SliderFloat("Density offset", &uniformBufferData.clouds.densityOffset, -1.0f, 1.0f);
-                    ImGui::SliderFloat("Light steps size", &uniformBufferData.clouds.lightStepSize, 0.0f, 100.0f, "%.4f");
 
                     ImGui::PopStyleVar();
                     ImGui::End();
@@ -433,8 +420,8 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
                     ImGui::SeparatorText("Performance");
-                    ImGui::Text("%.1f FPS ", 1.0f / frameTime);
-                    ImGui::Text("Frametime: %.2f ms", frameTime * 1000.0f);
+                    ImGui::Text("%.1f FPS ", 1.0f / deltaTime);
+                    ImGui::Text("Frametime: %.2f ms", deltaTime * 1000.0f);
                     ImGui::PlotLines("Frame Times", frameTimes, FRAMETIME_BUFFER_SIZE, frameTimeFrameIndex, nullptr, 0.0f, 33.0f,
                                      ImVec2(0, 80));
                     ImGui::PopStyleVar();
@@ -475,7 +462,7 @@ void SkyScene::buildPipelines() {
         // Fragment shader samples storage texture and writes it to swapchain image
         {.byteCode = Filesystem::readFile(compiledShaderPath("texture.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("composition-pass")},
-        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(CompositionPushConstants)}},
+        .pushConstantRanges{},
         .graphicsState{
             // We disable cull so that the vkCmdDraw command is not skipped
             .cullMode = VK_CULL_MODE_NONE,
@@ -493,6 +480,13 @@ void SkyScene::buildPipelines() {
 }
 
 void SkyScene::update() {
+    // Timing
+    timeUbo.time.X = deltaTime;
+    timeUbo.time.Y = totalElapsedTime;
+    frameCount++;
+    timeUbo.frameCountMod16 = frameCount % 16; // % 16
+
+
     // Movement and rotation speeds (adjust these as needed)
     const float movementSpeed = 10.0f; // Units per frame
     const float rotationSpeed = 2.0f; // Radians per frame
@@ -500,15 +494,15 @@ void SkyScene::update() {
     // Process rotation input using arrow keys.
     // Rotate left/right (yaw)
     if (window.isKeyDown(Surfer::KeyCode::ArrowLeft))
-        yaw -= rotationSpeed * frameTime;
+        yaw -= rotationSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::ArrowRight))
-        yaw += rotationSpeed * frameTime;
+        yaw += rotationSpeed * deltaTime;
 
     // Rotate up/down (pitch)
     if (window.isKeyDown(Surfer::KeyCode::ArrowUp))
-        pitch += rotationSpeed * frameTime;
+        pitch += rotationSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::ArrowDown))
-        pitch -= rotationSpeed * frameTime;
+        pitch -= rotationSpeed * deltaTime;
 
     // Clamp pitch to avoid excessive rotation (e.g., limit to +/- 89 degrees in radians)
     const float pitchLimit = 1.55334f; // ~89 degrees in radians
@@ -532,35 +526,31 @@ void SkyScene::update() {
 
     // Process translation input (WASD keys)
     if (window.isKeyDown(Surfer::KeyCode::KeyW))
-        cameraPosition += direction * movementSpeed * frameTime;
+        cameraPosition += direction * movementSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::KeyS))
-        cameraPosition -= direction * movementSpeed * frameTime;
+        cameraPosition -= direction * movementSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::KeyA))
-        cameraPosition -= right * movementSpeed * frameTime;
+        cameraPosition -= right * movementSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::KeyD))
-        cameraPosition += right * movementSpeed * frameTime;
+        cameraPosition += right * movementSpeed * deltaTime;
 
     if (window.isKeyDown(Surfer::KeyCode::Space))
-        cameraPosition += up * movementSpeed * frameTime;
+        cameraPosition += up * movementSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::LeftShift))
-        cameraPosition -= up * movementSpeed * frameTime;
+        cameraPosition -= up * movementSpeed * deltaTime;
 
     // Compute the target point from the camera position and forward direction.
     const HmckVec3 target = cameraPosition + direction;
 
     // Create the inverse view matrix based on the updated camera parameters.
     const HmckMat4 view = Projection().view(cameraPosition, target, up);
-    const HmckMat4 proj = Projection().perspective(HmckToRad(45.f), 1920.0 / 1080.0, 0.01, 1000, false);
+    const HmckMat4 proj = Projection().perspective(HmckToRad(45.f), fm.getAspectRatio(), 0.01, 1000, false);
 
-    uniformBufferData.camera.position = HmckVec4{cameraPosition, 0.0f};
-    uniformBufferData.camera.inverseView = HmckInvGeneral(view);
-
-    compositionPushConstants.lightPos = uniformBufferData.sun.position;
-    compositionPushConstants.lightColor = uniformBufferData.sun.color;
-    compositionPushConstants.bbMin = storageBufferData.bbMin;
-    compositionPushConstants.bbMax = storageBufferData.bbMax;
-    compositionPushConstants.cameraPos = HmckVec4{cameraPosition, 0.0f};
-    compositionPushConstants.viewProj = proj * view;
+    cameraUbo.eye = HmckVec4{cameraPosition, 0.0f};
+    cameraUbo.view = view;
+    cameraUbo.proj = proj;
+    cameraUbo.tanFovBy2.Y = std::abs(std::tan(45.f * 0.5f * (HmckPI / 180.0f)));
+    cameraUbo.tanFovBy2.X = fm.getAspectRatio() * cameraUbo.tanFovBy2.Y;
 }
 
 
@@ -569,11 +559,12 @@ void SkyScene::render() {
     while (!window.shouldClose()) {
         // Timing
         auto newTime = std::chrono::high_resolution_clock::now();
-        frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+        deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+        totalElapsedTime += deltaTime;
         currentTime = newTime;
 
         // Update frame time tracking
-        frameTimes[frameTimeFrameIndex] = frameTime * 1000.0f;
+        frameTimes[frameTimeFrameIndex] = deltaTime * 1000.0f;
         frameTimeFrameIndex = (frameTimeFrameIndex + 1) % FRAMETIME_BUFFER_SIZE;
 
         // Poll for events
