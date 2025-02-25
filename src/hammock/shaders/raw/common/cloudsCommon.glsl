@@ -17,9 +17,6 @@
 #define WIND_DIRECTION vec3(1.0,0.0,0.0)
 
 // SUN
-#define SUN_LOCATION vec3(0.0, EARTH_RADIUS * 2.0, -EARTH_RADIUS * 10.0)
-#define SUN_COLOR vec3(1.0, 1.0, 1.0)
-#define SUN_INTENSITY 0.780
 
 // Global Defines for Preetham
 #define EE 1000.0
@@ -157,25 +154,26 @@ float GetLightEnergy(float height_fraction, float dl, float ds_loded, float phas
 
     // NOTE: in the slides, seconary_attenuation was "secondary_intensity_curve", and primary_attenuation was "primary_intensity_curve". UNSURE IF SAME
     // FIRST INSTANCE
-    // float secondary_attenuation = exp(-dl * 0.25) * 0.7;
-//    float secondary_attenuation = exp(-dl);
-//    float attenuation_probability = max(
-//        remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25),
-//        primary_attenuation);
+
+    float secondary_attenuation = exp(-dl * 1.55) * 0.7;
+    float attenuation_probability = max(
+        remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25),
+        primary_attenuation);
+
 
     // --------------------------------------------------------------------------------------------------------------------
 
     // // SECOND INSTANCE -------> DARKER THAN THE FIRST INSTANCE
-     float beerLambertModified = BeerLambertModified(-dl, 0.25, 0.7);
-     float attenuation_probability = mix(primary_attenuation, beerLambertModified, -cos_angle * 0.5 + 0.5);
+//     float beerLambertModified = BeerLambertModified(-dl, 0.25, 0.7);
+//     float attenuation_probability = mix(primary_attenuation, beerLambertModified, -cos_angle * 0.5 + 0.5);
 
 
     // In-scattering – one difference from presentation slides – we also reduce this effect once light has attenuated to make it directional.
 
     // // FIRST INSTANCE -----> THIS PRODUCES MORE BANDING EFFECTS
-    // float depth_probability = mix( 0.05 + pow(ds_loded,
-    //                                           remap(height_fraction, 0.3, 0.85, 0.5, 2.0))
-    //                              , 1.0, clamp( dl / step_size, 0.0, 1.0));
+//     float depth_probability = mix( 0.05 + pow(ds_loded,
+//                                               remap(height_fraction, 0.3, 0.85, 0.5, 2.0))
+//                                  , 1.0, clamp( dl / step_size, 0.0, 1.0));
 
     // --------------------------------------------------------------------------------------------------------------------
 
@@ -204,86 +202,9 @@ float GetLightEnergy(float height_fraction, float dl, float ds_loded, float phas
 
     float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;						// ORIGINAL (LIGHTEST)
     //float light_energy = attenuation_probability * primary_attenuation * in_scatter_probability * phase_probability * brightness;	// MEDIUM
-    // float light_energy = primary_attenuation * secondary_attenuation * in_scatter_probability * phase_probability * brightness;	// DARKEST
+     //float light_energy = primary_attenuation * secondary_attenuation * in_scatter_probability * phase_probability * brightness;	// DARKEST
     return light_energy;
 }
-
-/*
-	Preetham Sky from:
-	https://github.com/markstock/GenUtahSky/blob/master/utah.cal
-
-	Other resources for preetham sky model:
-	Adapted from open source of zz85 on Github, math from Preetham Model, initially implemented by Simon Wallner and Martin Upitis
-*/
-
-float rayleighPhase(float cosTheta)
-{
-    return THREE_OVER_SIXTEEN_PI * (1.0 + cosTheta * cosTheta);
-}
-
-vec3 calcSkyBetaR()
-{
-    float rayleigh = 2.0;
-    float sunFade = 1.0 - clamp(1.0 - exp(SUN_LOCATION.y / 450000.0), 0.0, 1.0);
-    return vec3(RAYLEIGH_TOTAL * (rayleigh - 1.0 + sunFade));
-}
-
-vec3 calcSkyBetaV()
-{
-    float turbidity = 10.0;
-    float mie = 0.005;
-    float c = (0.2 * turbidity) * 10E-18;
-    return vec3(0.434 * c * MIE_CONST * mie);
-}
-
-float calcSunIntensity()
-{
-    float zenithAngleCos = clamp(normalize(SUN_LOCATION).y, -1.0, 1.0);
-    return EE * max(0.0, 1.0 - pow(E, -((SHADOW_CUTOFF - acos(zenithAngleCos)) / SHADOW_STEEPNESS)));
-}
-
-vec3 getAtmosphereColorPhysical(vec3 dir, vec3 sunDir, float sunIntensity)
-{
-    vec3 color = vec3(0);
-
-    sunDir = normalize(sunDir);
-    float sunE = sunIntensity * calcSunIntensity();
-    vec3 BetaR = calcSkyBetaR();
-    vec3 BetaM = calcSkyBetaV();
-
-    // optical length
-    float zenith = acos(max(0.0, dir.y)); // acos?
-    float inverse = 1.0 / (cos(zenith) + 0.15 * pow(93.885 - ((zenith * 180.0) / PI), -1.253));
-    float sR = 8.4E3 * inverse;
-    float sM = 1.25E3 * inverse;
-
-    vec3 fex = exp( -BetaR * sR + BetaM * sM);
-
-    float cosTheta = dot(sunDir, dir);
-
-    float rPhase = rayleighPhase(cosTheta * 0.5 + 0.5);
-    vec3 betaRTheta = BetaR * rPhase;
-    float mie_directional = 0.8;
-    float mPhase = HenyeyGreenstein(cosTheta, mie_directional);
-    vec3 betaMTheta = BetaM * mPhase;
-
-    float yDot = 1.0 - sunDir.y;
-    yDot *= yDot * yDot * yDot * yDot;
-    vec3 betas = (betaRTheta + betaMTheta) / (BetaR + BetaM);
-    vec3 Lin = pow(sunE * (betas) * (1.0 - fex), vec3(1.5));
-    Lin *= mix(vec3(1), pow(sunE * (betas) * fex, vec3(0.5)), clamp(yDot, 0.0, 1.0));
-
-    vec3 L0 = 0.1 * fex;
-
-    float sunDisk = smoothstep(SUN_ANGULAR_COS, SUN_ANGULAR_COS + 0.00002, cosTheta);
-    L0 += (sunE * 15000.0 * fex) * sunDisk;
-
-    color = (Lin + L0) * 0.04 + vec3(0.0, 0.0003, 0.00075);
-
-    // return color in HDR space
-    return color;
-}
-
 
 
 

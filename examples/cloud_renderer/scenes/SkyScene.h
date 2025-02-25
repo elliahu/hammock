@@ -1,5 +1,7 @@
 #include "IScene.h"
 
+#define EARTH_RADIUS 6371000.0
+
 class SkyScene final : public IScene {
     // Compute work group and local size computation
     static constexpr uint32_t WORKGROUP_SIZE_X = 32;
@@ -37,11 +39,16 @@ class SkyScene final : public IScene {
         float time;
     } postProcPushConsts;
 
+    struct SunAndSkyUbo {
+        HmckVec4 sunPosition{0.0, EARTH_RADIUS * 2.0, -EARTH_RADIUS * 10.0};
+        HmckVec4 sunColor{1.0f, 1.0f, 1.0f, 0.78f}; // w is intensity
+    } sunAndSkyUbo;
+
     struct ComputePushConsts {
         float cloudCoverageOverride = 0.6f;
-        float baseDensityFactor = 0.38f;
+        float baseDensityFactor = 1.0f;
         float samplingFrequency = 8.0f;
-        float highFreqDensityMult = .5f;
+        float highFreqDensityMult = 1.0f;
         float lightBrightness = 5.0f;
         int debugBackgroundSky = 0;
         int debugCloudDensity = 0;

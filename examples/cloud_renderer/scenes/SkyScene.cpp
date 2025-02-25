@@ -217,6 +217,8 @@ void SkyScene::buildRenderGraph() {
             .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         });
+    // cant use addResourceFromPreviousFrame
+    // needs to be created like this, so that the buffer is not left hanging mapped at destruction time
     renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
         "old-camera-ubo", BufferDesc{
             .instanceSize = sizeof(CameraUbo),
@@ -227,6 +229,14 @@ void SkyScene::buildRenderGraph() {
     renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
         "time-ubo", BufferDesc{
             .instanceSize = sizeof(TimeUbo),
+            .instanceCount = 1,
+            .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        });
+
+    renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
+        "sun-and-sky-ubo", BufferDesc{
+            .instanceSize = sizeof(SunAndSkyUbo),
             .instanceCount = 1,
             .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
@@ -299,6 +309,9 @@ void SkyScene::buildRenderGraph() {
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
             })
+            .read(ResourceAccess{
+                .resourceName = "sun-and-sky-ubo",
+            })
             .descriptor(0, {
                             {0, {"compute-storage-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
                             {1, {"prev-compute-storage-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
@@ -306,6 +319,8 @@ void SkyScene::buildRenderGraph() {
                             {3, {"compute-detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {4, {"compute-curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {5, {"compute-cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {6, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+
                         })
             .descriptor(1, {
                             {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
@@ -327,6 +342,7 @@ void SkyScene::buildRenderGraph() {
                 context.get<Buffer>("camera-ubo")->writeToBuffer(&cameraUbo);
                 context.get<Buffer>("old-camera-ubo")->writeToBuffer(&oldCameraUbo);
                 context.get<Buffer>("time-ubo")->writeToBuffer(&timeUbo);
+                context.get<Buffer>("sun-and-sky-ubo")->writeToBuffer(&sunAndSkyUbo);
 
                 context.bindDescriptorSet(0, 0, compute.cloudPipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
@@ -458,7 +474,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Cloud properties");
                     ImGui::SliderFloat("Coverage override", &computePushConsts.cloudCoverageOverride, 0.0f, 1.0f);
                     ImGui::SliderFloat("Base density factor", &computePushConsts.baseDensityFactor, 0.0f, 1.0f);
-                    ImGui::SliderFloat("High frequency density multiplier", &computePushConsts.highFreqDensityMult, 0.0f, 5.0f);
+                    ImGui::SliderFloat("High frequency density multiplier", &computePushConsts.highFreqDensityMult, 0.0f, 10.0f);
                     ImGui::SliderFloat("Light brightness", &computePushConsts.lightBrightness, 1.0f, 50.0f);
                     ImGui::SliderFloat("Wind speed", &computePushConsts.windSpeed, 0.0f, .2f);
                     ImGui::SliderFloat("Wind top offset", &computePushConsts.windTopOffset, .0f, 5.0f);
@@ -472,6 +488,8 @@ void SkyScene::buildRenderGraph() {
 
                     ImGui::SeparatorText("Sun and time");
                     ImGui::Checkbox("Progress time", &progressTime);
+                    ImGui::ColorEdit3("Sunlight color", &sunAndSkyUbo.sunColor.Elements[0]);
+                    ImGui::SliderFloat("Sunlight intensity", &sunAndSkyUbo.sunColor.Elements[3], 0.0f, 1.0f);
 
                     camWindowPos = ImGui::GetWindowPos();
 
@@ -614,7 +632,7 @@ void SkyScene::buildPipelines() {
 void SkyScene::update() {
     // Timing
     timeUbo.time.X = deltaTime;
-    timeUbo.time.Y = progressTime? totalElapsedTime : timeUbo.time.Y;
+    timeUbo.time.Y = progressTime ? totalElapsedTime : timeUbo.time.Y;
     postProcPushConsts.time = timeUbo.time.Y;
     frameCount++;
     timeUbo.frameCountMod16 = frameCount % 16; // % 16
