@@ -8,7 +8,10 @@ layout (location = 0) out vec4 outFragColor;
 
 
 layout (push_constant) uniform PushConstants {
-    vec2 time;
+    float whitePoint;
+    float exposure;
+    float gamma;
+    float time;
 };
 
 //Reference: http://filmicworlds.com/blog/filmic-tonemapping-operators/
@@ -20,8 +23,7 @@ layout (push_constant) uniform PushConstants {
 #define D 0.20
 #define E 0.02
 #define F 0.30
-#define INVGAMMA (1.0 / 2.2)
-#define EXPOSURE 2.5
+#define INVGAMMA (1.0 / gamma)
 
 vec3 Uncharted2Tonemap(vec3 x)
 {
@@ -30,7 +32,7 @@ vec3 Uncharted2Tonemap(vec3 x)
 
 vec3 tonemap(vec3 x, float whiteBalance)
 {
-    vec3 color = Uncharted2Tonemap(EXPOSURE * x);
+    vec3 color = Uncharted2Tonemap(exposure * x);
 
     vec3 white = vec3(whiteBalance);
     vec3 whitemap = 1.0 / Uncharted2Tonemap(white);
@@ -66,12 +68,12 @@ void main()
 
     vec3 in_color = texture(samplerColor, inUV).rgb;
 
-    float whitepoint = 100.0f; //changes the point at which something becomes pure white
+    float whitepoint = whitePoint * 100; //changes the point at which something becomes pure white
     //The white point is the value that is mapped to 1.0 in the regular RGB space.
     vec3 toneMapped_color = tonemap(in_color, whitepoint);
 
     //Dithering to prevent banding
-    float noise = WangHashNoise(pixelPos.x, pixelPos.y, uint(time.y))*0.01;
+    float noise = WangHashNoise(pixelPos.x, pixelPos.y, uint(time))*0.01;
     toneMapped_color += vec3(noise);
 
     outFragColor = vec4(toneMapped_color, 1.0);

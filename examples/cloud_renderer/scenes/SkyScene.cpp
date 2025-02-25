@@ -256,6 +256,8 @@ void SkyScene::buildRenderGraph() {
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
         });
 
+    renderGraph->addResourceFromPreviousFrame("prev-compute-storage-image", "compute-storage-image");
+
     // Create a default sampler that will be used to sample output images (in this case storage image)
     renderGraph->createSampler("default-sampler");
 
@@ -292,14 +294,14 @@ void SkyScene::buildRenderGraph() {
             .read(ResourceAccess{
                 .resourceName = "time-ubo",
             })
-            // .read(ResourceAccess{
-            //     .resourceName = "compute-storage-image",
-            //     .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
-            //     .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-            // })
+            .read(ResourceAccess{
+                .resourceName = "prev-compute-storage-image",
+                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+            })
             .descriptor(0, {
                             {0, {"compute-storage-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {1, {"compute-storage-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0, -1},
+                            {1, {"prev-compute-storage-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
                             {2, {"compute-base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {3, {"compute-detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {4, {"compute-curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
@@ -338,6 +340,9 @@ void SkyScene::buildRenderGraph() {
                 context.bindDescriptorSet(3, 3, compute.cloudPipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
 
+                vkCmdPushConstants(context.commandBuffer, compute.cloudPipeline->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                                   sizeof(ComputePushConsts), &computePushConsts);
+
 
                 vkCmdDispatch(context.commandBuffer, groupsX, groupsY, 1);
 
@@ -374,7 +379,7 @@ void SkyScene::buildRenderGraph() {
                                           VK_PIPELINE_BIND_POINT_GRAPHICS);
 
                 vkCmdPushConstants(context.commandBuffer, composition.pipeline->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                   sizeof(HmckVec2), &timeUbo.time);
+                                   sizeof(PostProcPushConsts), &postProcPushConsts);
 
 
                 // Even though there is no vertex buffer, this call is safe as it does not actually read the vertices in the shader
@@ -414,12 +419,16 @@ void SkyScene::buildRenderGraph() {
 
                 static bool showCam = true;
                 static bool showPerf = true;
+                static bool showDebug = true;
 
                 // Main menu bar
                 if (ImGui::BeginMainMenuBar()) {
                     if (ImGui::BeginMenu("Editors")) {
                         if (ImGui::MenuItem("Show property editor", NULL, showCam)) {
                             showCam = !showCam;
+                        }
+                        if (ImGui::MenuItem("Show debug views", NULL, showDebug)) {
+                            showDebug = !showDebug;
                         }
 
                         if (ImGui::MenuItem("Show performance overview", NULL, showPerf)) {
@@ -432,6 +441,8 @@ void SkyScene::buildRenderGraph() {
                 }
 
 
+                ImVec2 camWindowPos = ImVec2(0.0f, 0.0f);
+
                 if (showCam) {
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
                     ImGui::SetNextWindowPos({0, static_cast<float>(window.getExtent().height)}, 0, {0, 1});
@@ -439,6 +450,76 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
+                    ImGui::SeparatorText("Tone mapping");
+                    ImGui::SliderFloat("White point", &postProcPushConsts.whitePoint, 0.0f, 1.5f);
+                    ImGui::SliderFloat("Exposure", &postProcPushConsts.exposure, 0.0f, 5.f);
+                    ImGui::SliderFloat("Gamma", &postProcPushConsts.gamma, 0.0f, 5.0f);
+
+                    ImGui::SeparatorText("Cloud properties");
+                    ImGui::SliderFloat("Coverage override", &computePushConsts.cloudCoverageOverride, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Base density factor", &computePushConsts.baseDensityFactor, 0.0f, 1.0f);
+                    ImGui::SliderFloat("High frequency density multiplier", &computePushConsts.highFreqDensityMult, 0.0f, 5.0f);
+                    ImGui::SliderFloat("Light brightness", &computePushConsts.lightBrightness, 1.0f, 50.0f);
+
+                    ImGui::SeparatorText("Noise properties");
+                    ImGui::SliderFloat("Sampling frequency", &computePushConsts.samplingFrequency, 1.0f, 100.0f);
+
+                    camWindowPos = ImGui::GetWindowPos();
+
+                    ImGui::PopStyleVar();
+                    ImGui::End();
+                }
+
+                if (showDebug) {
+                    static int selectedOption = 0; // Default to the first option
+
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+                    ImGui::SetNextWindowPos(camWindowPos, 0, {0, 1});
+                    ImGui::Begin("Debug options", (bool *) false,
+                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
+                    ImGui::SeparatorText("Debug views");
+                    if (ImGui::RadioButton("None", selectedOption == 0)) {
+                        selectedOption = 0;
+                    }
+                    if (ImGui::RadioButton("Background Sky", selectedOption == 1)) {
+                        selectedOption = 1;
+                    }
+                    if (ImGui::RadioButton("Cloud Density", selectedOption == 2)) {
+                        selectedOption = 2;
+                    }
+                    if (ImGui::RadioButton("Texture Curl Noise", selectedOption == 3)) {
+                        selectedOption = 3;
+                    }
+                    if (ImGui::RadioButton("Texture Base Noise", selectedOption == 4)) {
+                        selectedOption = 4;
+                    }
+                    if (ImGui::RadioButton("Texture Detail Noise", selectedOption == 5)) {
+                        selectedOption = 5;
+                    }
+                    if (ImGui::RadioButton("Height Gradient", selectedOption == 6)) {
+                        selectedOption = 6;
+                    }
+                    if (ImGui::RadioButton("T Test", selectedOption == 7)) {
+                        selectedOption = 7;
+                    }
+                    if (ImGui::RadioButton("Phase Test", selectedOption == 8)) {
+                        selectedOption = 8;
+                    }
+                    if (ImGui::RadioButton("Beer Test", selectedOption == 9)) {
+                        selectedOption = 9;
+                    }
+
+                    computePushConsts.debugBackgroundSky = (selectedOption == 1) ? 1 : 0;
+                    computePushConsts.debugCloudDensity = (selectedOption == 2) ? 1 : 0;
+                    computePushConsts.debugTextureCurlNoise = (selectedOption == 3) ? 1 : 0;
+                    computePushConsts.debugTextureBaseNoise = (selectedOption == 4) ? 1 : 0;
+                    computePushConsts.debugTextureDetailNoise = (selectedOption == 5) ? 1 : 0;
+                    computePushConsts.debugHeightGradient = (selectedOption == 6) ? 1 : 0;
+                    computePushConsts.debugTTest = (selectedOption == 7) ? 1 : 0;
+                    computePushConsts.debugPhaseTest = (selectedOption == 8) ? 1 : 0;
+                    computePushConsts.debugBeerTest = (selectedOption == 9) ? 1 : 0;
 
 
                     ImGui::PopStyleVar();
@@ -481,7 +562,7 @@ void SkyScene::buildPipelines() {
         .device = device,
         .computeShader{.byteCode = Filesystem::readFile(compiledShaderPath("reprojection.comp")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("compute-pass")},
-        .pushConstantRanges{} // We do not use push constants
+        .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConsts)}}
     });
 
     // Compute pipeline is not very complicated
@@ -490,7 +571,7 @@ void SkyScene::buildPipelines() {
         .device = device,
         .computeShader{.byteCode = Filesystem::readFile(compiledShaderPath("clouds.comp")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("compute-pass")},
-        .pushConstantRanges{} // We do not use push constants
+        .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConsts)}}
     });
 
     // Composition pass
@@ -504,7 +585,7 @@ void SkyScene::buildPipelines() {
         // Fragment shader samples storage texture and writes it to swapchain image
         {.byteCode = Filesystem::readFile(compiledShaderPath("texture.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("composition-pass")},
-        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(HmckVec2)}},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PostProcPushConsts)}},
         .graphicsState{
             // We disable cull so that the vkCmdDraw command is not skipped
             .cullMode = VK_CULL_MODE_NONE,
@@ -519,39 +600,13 @@ void SkyScene::buildPipelines() {
             .colorAttachmentFormats = {fm.getSwapChain()->getSwapChainImageFormat()},
         }
     });
-
-    // Tonemap
-    // postProc.toneMapPipeline = GraphicsPipeline::create({
-    //     .debugName = "tonemap-pipeline",
-    //     .device = device,
-    //     .vertexShader
-    //     // Fullscreen vertex shader
-    //     {.byteCode = Filesystem::readFile(compiledShaderPath("fullscreen_headless.vert")),},
-    //     .fragmentShader
-    //     // Fragment shader samples storage texture and writes it to swapchain image
-    //     {.byteCode = Filesystem::readFile(compiledShaderPath("tonemap.frag")),},
-    //     .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("postproc-pass")},
-    //     .pushConstantRanges{},
-    //     .graphicsState{
-    //         // We disable cull so that the vkCmdDraw command is not skipped
-    //         .cullMode = VK_CULL_MODE_NONE,
-    //         // No vertex buffer means no buffer bindings
-    //         .vertexBufferBindings{}
-    //     },
-    //     .dynamicRendering = {
-    //         // Render graph requires by default dynamic rendering
-    //         .enabled = true,
-    //         .colorAttachmentCount = 1,
-    //         // We draw to the swapchain image
-    //         .colorAttachmentFormats = {fm.getSwapChain()->getSwapChainImageFormat()},
-    //     }
-    // });
 }
 
 void SkyScene::update() {
     // Timing
     timeUbo.time.X = deltaTime;
     timeUbo.time.Y = totalElapsedTime;
+    postProcPushConsts.time = totalElapsedTime;
     frameCount++;
     timeUbo.frameCountMod16 = frameCount % 16; // % 16
 
@@ -623,9 +678,9 @@ void SkyScene::update() {
     cameraUbo.tanFovBy2.Y = std::abs(std::tan(45.f * 0.5f * (HmckPI / 180.0f)));
     cameraUbo.tanFovBy2.X = fm.getAspectRatio() * cameraUbo.tanFovBy2.Y;
 
-    if (oldCameraEmpty) {
+    if (isOldCameraEmpty) {
         oldCameraUbo = cameraUbo;
-        oldCameraEmpty = false;
+        isOldCameraEmpty = false;
     }
 }
 

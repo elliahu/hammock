@@ -194,7 +194,6 @@ namespace hammock {
             VkDescriptorType descriptorType;
             VkShaderStageFlags stageFlags;
             VkDescriptorBindingFlags bindingFlags = 0;
-            int32_t offset = 0;
         };
 
         CommandQueueFamily type; // Type of the pass
@@ -516,6 +515,22 @@ namespace hammock {
             node.name = name;
             node.type = ResourceNode::Type::SwapChainImage;
             node.resolver = nullptr;
+            resources[name] = std::move(node);
+        }
+
+        /**
+         * Creates a new resource node that represents another resources state in a previous frame
+         * @param name Name of the resource
+         * @param refName Name of the resource that this resource references
+         */
+        void addResourceFromPreviousFrame(const std::string &name, const std::string &refName) {
+            ResourceNode node;
+            node.type = resources.at(refName).type;
+            node.name = name;
+            node.resolver = [this, refName](ResourceManager &rm, uint32_t frameIndex) {
+                uint32_t previousFrameIndex = (frameIndex + SwapChain::MAX_FRAMES_IN_FLIGHT - 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
+                return resources.at(refName).resolve(rm, previousFrameIndex);
+            };
             resources[name] = std::move(node);
         }
 
@@ -955,7 +970,7 @@ namespace hammock {
 
                             if (resourceNode.isImage()) {
                                 const auto *image = rm.getResource<Image>(
-                                    resourceNode.resolve(rm, (frameInFlight +  binding.offset + SwapChain::MAX_FRAMES_IN_FLIGHT) % SwapChain::MAX_FRAMES_IN_FLIGHT));
+                                    resourceNode.resolve(rm, (frameInFlight + SwapChain::MAX_FRAMES_IN_FLIGHT) % SwapChain::MAX_FRAMES_IN_FLIGHT));
 
                                 ASSERT(samplers.size() > 0,
                                        "There are no samplers that can be used to sample the attachment. Did you forget to call createSampler() or addSampler()?")

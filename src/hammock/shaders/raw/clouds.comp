@@ -9,7 +9,7 @@ layout (binding = 1, rgba16f) uniform writeonly image2D prevStorageImage;
 layout (binding = 2) uniform sampler3D baseNoiseSampler;
 layout (binding = 3) uniform sampler3D detailNoiseSampler;
 layout (binding = 4) uniform sampler2D curlNoiseSampler;
-layout (binding = 5) uniform sampler2D cloudMap;
+layout (binding = 5) uniform sampler2D cloudMapSampler;
 
 layout (set = 1, binding = 0) uniform CameraUBO
 {
@@ -29,17 +29,23 @@ layout (set = 2, binding = 0) uniform TimeUBO
     int frameCountMod16; // unused
 };
 
+layout (push_constant) uniform PushConstants {
+    float cloudCoverageOverride_;
+    float baseDensityFactor_;
+    float samplingFrequency_;
+    float highFreqDensityMult_;
+    float brightness_;
 
-// DEBUG VIEWS
-#define BACKGROUND_SKY 0
-#define CLOUD_DENSITY 0
-#define TEXTURE_CURL_NOISE 0
-#define TEXTURE_HIGH_FREQ 0
-#define TEXTURE_LOW_FREQ 0
-#define HEIGHT_GRADIENT 0
-#define T_TESTS 0
-#define HG_TEST 0
-#define BEERS_TEST 0
+    int debugBackgroundSky_;
+    int debugCloudDensity_;
+    int debugTextureCurlNoise_;
+    int debugTextureBaseNoise_;
+    int debugTextureDetailNoise_;
+    int debugHeightGradient_;
+    int debugTTest_;
+    int debugPhaseTest_;
+    int debugBeerTest_;
+};
 
 // RAYCASTING
 
@@ -220,8 +226,8 @@ float sampleLowFrequency(vec3 point, in vec3 unskewedSamplePoint, in float relat
     // TODO: Use weater map for cloud types and blend between them and their densities
     // ------------------ only screws it up; but needed for blending cloud types -----------------------
     // // Get the density-height gradient
-    // vec2 weatherSamplePoint = unskewedSamplePoint.xz;// / 50.0;// / 50.0;//50000.0f;
-    // vec3 weather_data = texture(weatherMapSampler, weatherSamplePoint).rgb;
+//    vec2 weatherSamplePoint = point.xz;// / 50.0;// / 50.0;//50000.0f;
+//    vec3 weather_data = texture(cloudMapSampler, weatherSamplePoint).rgb;
     // float cloudType = weather_data.g;
     // float densityHeightGradient = getDensityHeightGradientForPoint(relativeHeight, weather_data.g);
 
@@ -231,7 +237,7 @@ float sampleLowFrequency(vec3 point, in vec3 unskewedSamplePoint, in float relat
 
     // Cloud coverage is stored in weather data’s red channel .
     //WHAT EVEN???? --> increasing cloud coverage apparently reduces base_cloud_with_coverage
-    float cloud_coverage = 0.6;// weather_data.r;
+    float cloud_coverage =  cloudCoverageOverride_; //weather_data.r;
 
     // Use remap to apply the cloud coverage attribute.
     float base_cloud_with_coverage = remapcc ( baseCloud, cloud_coverage, 1.0, 0.0, 1.0);
@@ -274,7 +280,7 @@ vec3 rayMarch(Ray ray, vec3 earthCenter, in vec3 startPos, in float start_t, in 
     float jitterfactor = 1.180f;//4.0f;
 
     // MANIPULATE ME
-    const float baseDensityFactor = 0.380f;//0.5f; // increase this to get more dense cloud centers
+    const float baseDensityFactor = baseDensityFactor_;//0.38f; // increase this to get more dense cloud centers
     const float maxSteps = floor(mix(35.0f, 60.0f, 1.0f - _dot));
 
     const float atmosphereThickness = (end_t - start_t);
@@ -338,7 +344,7 @@ vec3 rayMarch(Ray ray, vec3 earthCenter, in vec3 startPos, in float start_t, in 
         vec2 jitterLocation = getJitterOffset(_index, ivec2(75.0f));
         pos = ray.origin + t * (ray.direction + vec3(jitterLocation.x, (jitterLocation.x + jitterLocation.y)*jitterfactor, jitterLocation.y));
         samplePoint = getRelativeAtmosphericPosition(pos, earthCenter);
-        samplePoint /= 8.0f; //controls the frequency of how we are sampling the noise texture
+        samplePoint /= samplingFrequency_; //controls the frequency of how we are sampling the noise texture
 
         float relativeHeight = getRelativeAtmosphericHeight(pos, earthCenter, startPos, ray.direction, ray.origin);
         vec3 skewedSamplePoint = skewSamplePointWithWind(samplePoint, relativeHeight);
@@ -351,7 +357,7 @@ vec3 rayMarch(Ray ray, vec3 earthCenter, in vec3 startPos, in float start_t, in 
             float highFreqDensity = erodeCloudWithHighFrequency(baseDensity*1.4f, ray.direction, skewedSamplePoint, relativeHeight);
 
             // MANIPULATE ME
-            accumDensity += highFreqDensity * 0.5;
+            accumDensity += highFreqDensity * highFreqDensityMult_;
 
             // Do Lighting calculations with cone sampling
             float densityAlongLight = 0.0;
@@ -375,7 +381,7 @@ vec3 rayMarch(Ray ray, vec3 earthCenter, in vec3 startPos, in float start_t, in 
 
             // ------------------------------------------------------------------------------------------------------------------
             // MANIPULATE ME
-            float brightness = 5.0;
+            float brightness = brightness_;
             float totalLightEnergy = GetLightEnergy(relativeHeight, densityAlongLight, baseDensity, HG_light, cos_angle, stepSize, brightness);
             transmittance = mix(transmittance, totalLightEnergy, (1.0 - accumDensity));
             colorPerSample = vec3(transmittance);
@@ -471,46 +477,53 @@ void main()
     vec4 finalColor = vec4(mix(backgroundCol, rayMarchResult, accumDensity), 1.0f);
 
     // Begin debug renders
-    #if TEXTURE_LOW_FREQ
-	vec4 lowFrequencyNoises = texture( baseNoiseSampler, vec3(uv, sin(time.y)) );
-    finalColor = vec4(lowFrequencyNoises);
-    #elif TEXTURE_HIGH_FREQ
-	vec4 highFrequencyNoises = texture( detailNoiseSampler, vec3(uv, sin(time.y)) );
-    finalColor = vec4(highFrequencyNoises);
-    #elif TEXTURE_CURL_NOISE
-	vec4 curlNoise = texture( curlNoiseSampler, uv );
-    finalColor = vec4(curlNoise);
-    #elif CLOUD_DENSITY
-	finalColor = vec4( vec3(accumDensity), 1.0 );
-    #elif HG_TEST
-    const vec3 lightDir = normalize(SUN_LOCATION - ray.origin);
-    const float cos_angle = dot(normalize(ray.direction), lightDir);
-    const float eccentricity = 0.6;
-    const float silver_intensity = 0.7;
-    const float silver_spread = 0.1;
-    float HG_light = HenyeyGreensteinArtDirected(cos_angle, eccentricity, silver_intensity, silver_spread);
-    finalColor = vec4(vec3(HG_light), 1.0);
-    #elif BACKGROUND_SKY
-	finalColor = vec4(backgroundCol, 1.0);
-    #elif T_TESTS
-    if(atmosphereInnerIsect.valid == false)
-    {
-        // Renders red if innerIsect not valid
-        finalColor = vec4(1.0, 0.0, 0.0, 1.0);
+    if(debugTextureBaseNoise_ == 1){
+        vec4 lowFrequencyNoises = texture( baseNoiseSampler, vec3(uv, sin(time.y)) );
+        finalColor = vec4(lowFrequencyNoises);
     }
-    if(atmosphereOuterIsect.valid == false)
-    {
-        // Renders green if outerIsect not valid
-        finalColor = vec4(0.0, 1.0, 0.0, 1.0);
+    else if(debugTextureDetailNoise_ == 1){
+        vec4 highFrequencyNoises = texture( detailNoiseSampler, vec3(uv, sin(time.y)) );
+        finalColor = vec4(highFrequencyNoises);
     }
-    else
-    {
-        // Renders blue if both isects valid
-        finalColor = vec4(0.0, 0.0, 1.0, 1.0);
+	else if(debugTextureCurlNoise_ == 1){
+        vec4 curlNoise = texture( curlNoiseSampler, uv );
+        finalColor = vec4(curlNoise);
     }
-    #elif BEERS_TEST
-    finalColor = vec4(rayMarchResult, 1.0);
-    #endif
+    else if(debugCloudDensity_ == 1){
+        finalColor = vec4( vec3(accumDensity), 1.0 );
+    }
+    else if(debugPhaseTest_ == 1){
+        const vec3 lightDir = normalize(SUN_LOCATION - ray.origin);
+        const float cos_angle = dot(normalize(ray.direction), lightDir);
+        const float eccentricity = 0.6;
+        const float silver_intensity = 0.7;
+        const float silver_spread = 0.1;
+        float HG_light = HenyeyGreensteinArtDirected(cos_angle, eccentricity, silver_intensity, silver_spread);
+        finalColor = vec4(vec3(HG_light), 1.0);
+    }
+    else if(debugBackgroundSky_ == 1){
+        finalColor = vec4(backgroundCol, 1.0);
+    }
+    else if(debugTTest_ == 1){
+        if(atmosphereInnerIsect.valid == false)
+        {
+            // Renders red if innerIsect not valid
+            finalColor = vec4(1.0, 0.0, 0.0, 1.0);
+        }
+        if(atmosphereOuterIsect.valid == false)
+        {
+            // Renders green if outerIsect not valid
+            finalColor = vec4(0.0, 1.0, 0.0, 1.0);
+        }
+        else
+        {
+            // Renders blue if both isects valid
+            finalColor = vec4(0.0, 0.0, 1.0, 1.0);
+        }
+    }
+    else if(debugBeerTest_ == 1){
+        finalColor = vec4(rayMarchResult, 1.0);
+    }
 
     imageStore( storageImage, chosenPixel, finalColor );
 }

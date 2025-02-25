@@ -1,6 +1,8 @@
 // Motion Blur Reference: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch27.html
 #version 450
 
+#include "common/cloudsCommon.glsl"
+
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 
@@ -45,27 +47,6 @@ struct Intersection {
     bool valid;
     float t;
 };
-
-//Global Defines for math constants
-#define PI 3.14159265
-#define THREE_OVER_SIXTEEN_PI 0.05968310365946075
-#define ONE_OVER_FOUR_PI 0.07957747154594767
-#define E 2.718281828459
-
-//Global Defines for Colors
-#define BLACK vec3(0,0,0)
-#define WHITE vec3(1,1,1)
-#define RED vec3(1,0,0)
-
-//Global Defines for Earth and Cloud Layers
-#define EARTH_RADIUS 6371000.0 // earth's actual radius in km = 6371
-#define ATMOSPHERE_RADIUS_INNER (EARTH_RADIUS + 7500.0) //paper suggests values of 15000-35000m above
-
-#define NUM_MOTION_BLUR_SAMPLES 10
-
-//--------------------------------------------------------
-//					TOOL BOX FUNCTIONS
-//--------------------------------------------------------
 
 vec2 getJitterOffset (in int index, ivec2 dim)
 {

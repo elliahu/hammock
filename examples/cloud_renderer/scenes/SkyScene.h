@@ -17,7 +17,7 @@ class SkyScene final : public IScene {
         HmckVec2 tanFovBy2;
     } cameraUbo, oldCameraUbo;
 
-    bool oldCameraEmpty = true;
+    bool isOldCameraEmpty = true;
 
     struct TimeUbo {
         HmckVec4 haltonSeq1;
@@ -27,6 +27,30 @@ class SkyScene final : public IScene {
         HmckVec2 time;
         uint32_t frameCountMod16;
     } timeUbo;
+
+    struct PostProcPushConsts {
+        float whitePoint = 1.0f;
+        float exposure = 2.5;
+        float gamma = 2.2;
+        float time;
+    } postProcPushConsts;
+
+    struct ComputePushConsts {
+        float cloudCoverageOverride = 0.6f;
+        float baseDensityFactor = 0.38f;
+        float samplingFrequency = 8.0f;
+        float highFreqDensityMult = .5f;
+        float lightBrightness = 5.0f;
+        int debugBackgroundSky = 0;
+        int debugCloudDensity = 0;
+        int debugTextureCurlNoise = 0;
+        int debugTextureBaseNoise = 0;
+        int debugTextureDetailNoise = 0;
+        int debugHeightGradient = 0;
+        int debugTTest = 0;
+        int debugPhaseTest = 0;
+        int debugBeerTest = 0;
+    } computePushConsts;
 
     // TODO SunAndSkyUbo
 

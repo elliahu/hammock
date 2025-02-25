@@ -13,11 +13,6 @@
 #define ATMOSPHERE_RADIUS_OUTER (EARTH_RADIUS + 20000.0)
 #define ATMOSPHERE_THICKNESS (ATMOSPHERE_RADIUS_OUTER - ATMOSPHERE_RADIUS_INNER)
 
-// RENDERING
-#define MAX_STEPS 128
-#define MIN_STEPS 64;
-#define LIGHT_STEPS 6
-
 // WIND
 #define WIND_DIRECTION vec3(1.0,0.0,0.0)
 #define CLOUD_SPEED 0.080
@@ -33,6 +28,10 @@
 #define BLACK vec3(0,0,0)
 #define BLUE vec3(0.529, 0.808, 0.922)
 #define WHITE vec3(1,1,1)
+#define RED vec3(1,0,0)
+
+// POST
+#define NUM_MOTION_BLUR_SAMPLES 10
 
 // TOOLBOX
 
@@ -152,16 +151,16 @@ float GetLightEnergy(float height_fraction, float dl, float ds_loded, float phas
     // NOTE: in the slides, seconary_attenuation was "secondary_intensity_curve", and primary_attenuation was "primary_intensity_curve". UNSURE IF SAME
     // FIRST INSTANCE
     // float secondary_attenuation = exp(-dl * 0.25) * 0.7;
-    float secondary_attenuation = exp(-dl);
-    float attenuation_probability = max(
-        remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25),
-        primary_attenuation);
+//    float secondary_attenuation = exp(-dl);
+//    float attenuation_probability = max(
+//        remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25),
+//        primary_attenuation);
 
     // --------------------------------------------------------------------------------------------------------------------
 
     // // SECOND INSTANCE -------> DARKER THAN THE FIRST INSTANCE
-    // float beerLambertModified = BeerLambertModified(-dl, 0.25, 0.7);
-    // float attenuation_probability = mix(primary_attenuation, beerLambertModified, -cos_angle * 0.5 + 0.5);
+     float beerLambertModified = BeerLambertModified(-dl, 0.25, 0.7);
+     float attenuation_probability = mix(primary_attenuation, beerLambertModified, -cos_angle * 0.5 + 0.5);
 
 
     // In-scattering – one difference from presentation slides – we also reduce this effect once light has attenuated to make it directional.
@@ -196,8 +195,8 @@ float GetLightEnergy(float height_fraction, float dl, float ds_loded, float phas
     // MANIPULATE ME
     float in_scatter_probability = depth_probability * vertical_probability;
 
-    // float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;						// ORIGINAL (LIGHTEST)
-    float light_energy = attenuation_probability * primary_attenuation * in_scatter_probability * phase_probability * brightness;	// MEDIUM
+    float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;						// ORIGINAL (LIGHTEST)
+    //float light_energy = attenuation_probability * primary_attenuation * in_scatter_probability * phase_probability * brightness;	// MEDIUM
     // float light_energy = primary_attenuation * secondary_attenuation * in_scatter_probability * phase_probability * brightness;	// DARKEST
     return light_energy;
 }
