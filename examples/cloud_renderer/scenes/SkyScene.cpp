@@ -243,7 +243,7 @@ void SkyScene::buildRenderGraph() {
             .width = window.getExtent().width,
             .height = window.getExtent().height,
             .channels = 4,
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -477,6 +477,34 @@ void SkyScene::buildPipelines() {
             .colorAttachmentFormats = {fm.getSwapChain()->getSwapChainImageFormat()},
         }
     });
+
+    // Tonemap
+    // postProc.toneMapPipeline = GraphicsPipeline::create({
+    //     .debugName = "tonemap-pipeline",
+    //     .device = device,
+    //     .vertexShader
+    //     // Fullscreen vertex shader
+    //     {.byteCode = Filesystem::readFile(compiledShaderPath("fullscreen_headless.vert")),},
+    //     .fragmentShader
+    //     // Fragment shader samples storage texture and writes it to swapchain image
+    //     {.byteCode = Filesystem::readFile(compiledShaderPath("tonemap.frag")),},
+    //     .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("postproc-pass")},
+    //     .pushConstantRanges{},
+    //     .graphicsState{
+    //         // We disable cull so that the vkCmdDraw command is not skipped
+    //         .cullMode = VK_CULL_MODE_NONE,
+    //         // No vertex buffer means no buffer bindings
+    //         .vertexBufferBindings{}
+    //     },
+    //     .dynamicRendering = {
+    //         // Render graph requires by default dynamic rendering
+    //         .enabled = true,
+    //         .colorAttachmentCount = 1,
+    //         // We draw to the swapchain image
+    //         .colorAttachmentFormats = {fm.getSwapChain()->getSwapChainImageFormat()},
+    //     }
+    // });
+
 }
 
 void SkyScene::update() {

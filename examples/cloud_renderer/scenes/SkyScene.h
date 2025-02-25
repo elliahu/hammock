@@ -28,8 +28,6 @@ class SkyScene final : public IScene {
 
     // TODO SunAndSkyUbo
 
-
-
     // Compute pass resources
     struct {
         // Compute pipeline to draw the clouds in parallel patches
@@ -56,6 +54,12 @@ class SkyScene final : public IScene {
         std::unique_ptr<GraphicsPipeline> pipeline;
         // Other resources are managed on-the-fly by the rendergraph
     } composition;
+
+    // Post-processing pass
+    struct {
+        std::unique_ptr<GraphicsPipeline> toneMapPipeline;
+    } postProc;
+
 
     // This is used to measure frame time
     float32_t deltaTime = 0.0f;
