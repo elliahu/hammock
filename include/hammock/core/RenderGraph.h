@@ -194,6 +194,7 @@ namespace hammock {
             VkDescriptorType descriptorType;
             VkShaderStageFlags stageFlags;
             VkDescriptorBindingFlags bindingFlags = 0;
+            int32_t offset = 0;
         };
 
         CommandQueueFamily type; // Type of the pass
@@ -954,7 +955,7 @@ namespace hammock {
 
                             if (resourceNode.isImage()) {
                                 const auto *image = rm.getResource<Image>(
-                                    resourceNode.resolve(rm, frameInFlight));
+                                    resourceNode.resolve(rm, (frameInFlight +  binding.offset + SwapChain::MAX_FRAMES_IN_FLIGHT) % SwapChain::MAX_FRAMES_IN_FLIGHT));
 
                                 ASSERT(samplers.size() > 0,
                                        "There are no samplers that can be used to sample the attachment. Did you forget to call createSampler() or addSampler()?")

@@ -218,6 +218,13 @@ void SkyScene::buildRenderGraph() {
             .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         });
     renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
+        "old-camera-ubo", BufferDesc{
+            .instanceSize = sizeof(CameraUbo),
+            .instanceCount = 1,
+            .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        });
+    renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
         "time-ubo", BufferDesc{
             .instanceSize = sizeof(TimeUbo),
             .instanceCount = 1,
@@ -255,6 +262,8 @@ void SkyScene::buildRenderGraph() {
     // And tell the graph that we will be outputting to swap chain
     renderGraph->addSwapChainImageResource("swap-color-image");
 
+    // TODO addPreviousFrameResource
+
     // Next, declare the render passes and what resources each pass uses
     // Compute pass reads from storage and uniform buffers and writes into storage image
     renderGraph->addPass<CommandQueueFamily::Compute>("compute-pass")
@@ -278,14 +287,23 @@ void SkyScene::buildRenderGraph() {
                 .resourceName = "camera-ubo",
             })
             .read(ResourceAccess{
+                .resourceName = "old-camera-ubo",
+            })
+            .read(ResourceAccess{
                 .resourceName = "time-ubo",
             })
+            // .read(ResourceAccess{
+            //     .resourceName = "compute-storage-image",
+            //     .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+            //     .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+            // })
             .descriptor(0, {
                             {0, {"compute-storage-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {3, {"compute-base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {4, {"compute-detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {5, {"compute-curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {6, {"compute-cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {1, {"compute-storage-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0, -1},
+                            {2, {"compute-base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {3, {"compute-detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {4, {"compute-curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {5, {"compute-cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .descriptor(1, {
                             {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
@@ -293,25 +311,38 @@ void SkyScene::buildRenderGraph() {
             .descriptor(2, {
                             {0, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
+            .descriptor(3, {
+                            {0, {"old-camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+                        })
             .write(ResourceAccess{
                 .resourceName = "compute-storage-image",
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
             })
             .execute([&](RenderPassContext context)-> void {
                 // This is the execution code of the compute pass
-                // First we bind the pipeline and descriptors
-                compute.pipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
+                compute.reprojectionPipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
+
                 context.get<Buffer>("camera-ubo")->writeToBuffer(&cameraUbo);
+                context.get<Buffer>("old-camera-ubo")->writeToBuffer(&oldCameraUbo);
                 context.get<Buffer>("time-ubo")->writeToBuffer(&timeUbo);
 
-                context.bindDescriptorSet(0, 0, compute.pipeline->pipelineLayout,
+                context.bindDescriptorSet(0, 0, compute.cloudPipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
 
-                context.bindDescriptorSet(1, 1, compute.pipeline->pipelineLayout,
+                context.bindDescriptorSet(1, 1, compute.cloudPipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
 
-                context.bindDescriptorSet(2, 2, compute.pipeline->pipelineLayout,
+                context.bindDescriptorSet(2, 2, compute.cloudPipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
+
+                context.bindDescriptorSet(3, 3, compute.cloudPipeline->pipelineLayout,
+                                          VK_PIPELINE_BIND_POINT_COMPUTE);
+
+
+                vkCmdDispatch(context.commandBuffer, groupsX, groupsY, 1);
+
+
+                compute.cloudPipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
 
 
                 // Then we dispatch the compute shader
@@ -341,6 +372,9 @@ void SkyScene::buildRenderGraph() {
                 composition.pipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
                 context.bindDescriptorSet(0, 0, composition.pipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_GRAPHICS);
+
+                vkCmdPushConstants(context.commandBuffer, composition.pipeline->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                   sizeof(HmckVec2), &timeUbo.time);
 
 
                 // Even though there is no vertex buffer, this call is safe as it does not actually read the vertices in the shader
@@ -442,8 +476,16 @@ void SkyScene::buildRenderGraph() {
 }
 
 void SkyScene::buildPipelines() {
+    compute.reprojectionPipeline = ComputePipeline::create({
+        .debugName = "reprojection-pipeline",
+        .device = device,
+        .computeShader{.byteCode = Filesystem::readFile(compiledShaderPath("reprojection.comp")),},
+        .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("compute-pass")},
+        .pushConstantRanges{} // We do not use push constants
+    });
+
     // Compute pipeline is not very complicated
-    compute.pipeline = ComputePipeline::create({
+    compute.cloudPipeline = ComputePipeline::create({
         .debugName = "compute-pipeline",
         .device = device,
         .computeShader{.byteCode = Filesystem::readFile(compiledShaderPath("clouds.comp")),},
@@ -462,7 +504,7 @@ void SkyScene::buildPipelines() {
         // Fragment shader samples storage texture and writes it to swapchain image
         {.byteCode = Filesystem::readFile(compiledShaderPath("texture.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("composition-pass")},
-        .pushConstantRanges{},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(HmckVec2)}},
         .graphicsState{
             // We disable cull so that the vkCmdDraw command is not skipped
             .cullMode = VK_CULL_MODE_NONE,
@@ -504,7 +546,6 @@ void SkyScene::buildPipelines() {
     //         .colorAttachmentFormats = {fm.getSwapChain()->getSwapChainImageFormat()},
     //     }
     // });
-
 }
 
 void SkyScene::update() {
@@ -514,6 +555,8 @@ void SkyScene::update() {
     frameCount++;
     timeUbo.frameCountMod16 = frameCount % 16; // % 16
 
+
+    oldCameraUbo = cameraUbo;
 
     // Movement and rotation speeds (adjust these as needed)
     const float movementSpeed = 10.0f; // Units per frame
@@ -579,6 +622,11 @@ void SkyScene::update() {
     cameraUbo.proj = proj;
     cameraUbo.tanFovBy2.Y = std::abs(std::tan(45.f * 0.5f * (HmckPI / 180.0f)));
     cameraUbo.tanFovBy2.X = fm.getAspectRatio() * cameraUbo.tanFovBy2.Y;
+
+    if (oldCameraEmpty) {
+        oldCameraUbo = cameraUbo;
+        oldCameraEmpty = false;
+    }
 }
 
 

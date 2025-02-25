@@ -15,7 +15,9 @@ class SkyScene final : public IScene {
         HmckMat4 proj;
         HmckVec4 eye;
         HmckVec2 tanFovBy2;
-    } cameraUbo;
+    } cameraUbo, oldCameraUbo;
+
+    bool oldCameraEmpty = true;
 
     struct TimeUbo {
         HmckVec4 haltonSeq1;
@@ -30,8 +32,10 @@ class SkyScene final : public IScene {
 
     // Compute pass resources
     struct {
+        std::unique_ptr<ComputePipeline> reprojectionPipeline;
+
         // Compute pipeline to draw the clouds in parallel patches
-        std::unique_ptr<ComputePipeline> pipeline;
+        std::unique_ptr<ComputePipeline> cloudPipeline;
 
         // Base cloud noise
         ResourceHandle baseNoise;
