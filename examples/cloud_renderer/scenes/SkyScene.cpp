@@ -460,9 +460,18 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Base density factor", &computePushConsts.baseDensityFactor, 0.0f, 1.0f);
                     ImGui::SliderFloat("High frequency density multiplier", &computePushConsts.highFreqDensityMult, 0.0f, 5.0f);
                     ImGui::SliderFloat("Light brightness", &computePushConsts.lightBrightness, 1.0f, 50.0f);
+                    ImGui::SliderFloat("Wind speed", &computePushConsts.windSpeed, 0.0f, .2f);
+                    ImGui::SliderFloat("Wind top offset", &computePushConsts.windTopOffset, .0f, 5.0f);
+                    ImGui::SeparatorText("Cloud silver lining");
+                    ImGui::SliderFloat("Eccentricity", &computePushConsts.silverEccentricity, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Intensity", &computePushConsts.silverIntensity, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Spread", &computePushConsts.silverSpread, 0.0f, 1.0f);
 
                     ImGui::SeparatorText("Noise properties");
                     ImGui::SliderFloat("Sampling frequency", &computePushConsts.samplingFrequency, 1.0f, 100.0f);
+
+                    ImGui::SeparatorText("Sun and time");
+                    ImGui::Checkbox("Progress time", &progressTime);
 
                     camWindowPos = ImGui::GetWindowPos();
 
@@ -605,8 +614,8 @@ void SkyScene::buildPipelines() {
 void SkyScene::update() {
     // Timing
     timeUbo.time.X = deltaTime;
-    timeUbo.time.Y = totalElapsedTime;
-    postProcPushConsts.time = totalElapsedTime;
+    timeUbo.time.Y = progressTime? totalElapsedTime : timeUbo.time.Y;
+    postProcPushConsts.time = timeUbo.time.Y;
     frameCount++;
     timeUbo.frameCountMod16 = frameCount % 16; // % 16
 
@@ -691,7 +700,7 @@ void SkyScene::render() {
         // Timing
         auto newTime = std::chrono::high_resolution_clock::now();
         deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
-        totalElapsedTime += deltaTime;
+        if (progressTime) totalElapsedTime += deltaTime;
         currentTime = newTime;
 
         // Update frame time tracking

@@ -24,9 +24,11 @@ class SkyScene final : public IScene {
         HmckVec4 haltonSeq2;
         HmckVec4 haltonSeq3;
         HmckVec4 haltonSeq4;
-        HmckVec2 time;
+        HmckVec2 time{0.0f, 0.0f};
         uint32_t frameCountMod16;
     } timeUbo;
+
+    bool progressTime = false;
 
     struct PostProcPushConsts {
         float whitePoint = 1.0f;
@@ -50,7 +52,12 @@ class SkyScene final : public IScene {
         int debugTTest = 0;
         int debugPhaseTest = 0;
         int debugBeerTest = 0;
-    } computePushConsts;
+        float windSpeed = 0.08f;
+        float windTopOffset = 1.0f; // this offset pushes the tops of the clouds along this wind direction by this many units
+        float silverEccentricity = 0.6f;
+        float silverIntensity = 0.7f;
+        float silverSpread = 0.1f;
+    } computePushConsts; // 128 bytes limit (32 floats or ints)
 
     // TODO SunAndSkyUbo
 

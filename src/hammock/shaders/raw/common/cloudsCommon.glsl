@@ -15,14 +15,19 @@
 
 // WIND
 #define WIND_DIRECTION vec3(1.0,0.0,0.0)
-#define CLOUD_SPEED 0.080
-#define CLOUD_TOP_OFFSET 1.0// this offset pushes the tops of the clouds along this wind direction by this many units
 
 // SUN
-#define SUN_LOCATION vec3(0.0, ATMOSPHERE_RADIUS_OUTER * 0.9, -ATMOSPHERE_RADIUS_OUTER * 0.9)
-#define BACKGROUND_SKY_SUN_LOCATION vec3(0.0, EARTH_RADIUS * 2.0, -EARTH_RADIUS * 10.0)
+#define SUN_LOCATION vec3(0.0, EARTH_RADIUS * 2.0, -EARTH_RADIUS * 10.0)
 #define SUN_COLOR vec3(1.0, 1.0, 1.0)
 #define SUN_INTENSITY 0.780
+
+// Global Defines for Preetham
+#define EE 1000.0
+#define SHADOW_CUTOFF 1.6110731557
+#define SHADOW_STEEPNESS 1.5
+#define SUN_ANGULAR_COS 0.999956676946448443553574619906976478926848692873900859324
+#define MIE_CONST vec3( 1.839991851443397, 2.779802391966052, 4.079047954386109)
+#define RAYLEIGH_TOTAL vec3(5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5)
 
 // COLORS
 #define BLACK vec3(0,0,0)
@@ -32,6 +37,8 @@
 
 // POST
 #define NUM_MOTION_BLUR_SAMPLES 10
+#define MOTION_BLUR_INTENSITY 0.1;
+#define ENABLE_MOTION_BLUR 0
 
 // TOOLBOX
 
@@ -199,6 +206,82 @@ float GetLightEnergy(float height_fraction, float dl, float ds_loded, float phas
     //float light_energy = attenuation_probability * primary_attenuation * in_scatter_probability * phase_probability * brightness;	// MEDIUM
     // float light_energy = primary_attenuation * secondary_attenuation * in_scatter_probability * phase_probability * brightness;	// DARKEST
     return light_energy;
+}
+
+/*
+	Preetham Sky from:
+	https://github.com/markstock/GenUtahSky/blob/master/utah.cal
+
+	Other resources for preetham sky model:
+	Adapted from open source of zz85 on Github, math from Preetham Model, initially implemented by Simon Wallner and Martin Upitis
+*/
+
+float rayleighPhase(float cosTheta)
+{
+    return THREE_OVER_SIXTEEN_PI * (1.0 + cosTheta * cosTheta);
+}
+
+vec3 calcSkyBetaR()
+{
+    float rayleigh = 2.0;
+    float sunFade = 1.0 - clamp(1.0 - exp(SUN_LOCATION.y / 450000.0), 0.0, 1.0);
+    return vec3(RAYLEIGH_TOTAL * (rayleigh - 1.0 + sunFade));
+}
+
+vec3 calcSkyBetaV()
+{
+    float turbidity = 10.0;
+    float mie = 0.005;
+    float c = (0.2 * turbidity) * 10E-18;
+    return vec3(0.434 * c * MIE_CONST * mie);
+}
+
+float calcSunIntensity()
+{
+    float zenithAngleCos = clamp(normalize(SUN_LOCATION).y, -1.0, 1.0);
+    return EE * max(0.0, 1.0 - pow(E, -((SHADOW_CUTOFF - acos(zenithAngleCos)) / SHADOW_STEEPNESS)));
+}
+
+vec3 getAtmosphereColorPhysical(vec3 dir, vec3 sunDir, float sunIntensity)
+{
+    vec3 color = vec3(0);
+
+    sunDir = normalize(sunDir);
+    float sunE = sunIntensity * calcSunIntensity();
+    vec3 BetaR = calcSkyBetaR();
+    vec3 BetaM = calcSkyBetaV();
+
+    // optical length
+    float zenith = acos(max(0.0, dir.y)); // acos?
+    float inverse = 1.0 / (cos(zenith) + 0.15 * pow(93.885 - ((zenith * 180.0) / PI), -1.253));
+    float sR = 8.4E3 * inverse;
+    float sM = 1.25E3 * inverse;
+
+    vec3 fex = exp( -BetaR * sR + BetaM * sM);
+
+    float cosTheta = dot(sunDir, dir);
+
+    float rPhase = rayleighPhase(cosTheta * 0.5 + 0.5);
+    vec3 betaRTheta = BetaR * rPhase;
+    float mie_directional = 0.8;
+    float mPhase = HenyeyGreenstein(cosTheta, mie_directional);
+    vec3 betaMTheta = BetaM * mPhase;
+
+    float yDot = 1.0 - sunDir.y;
+    yDot *= yDot * yDot * yDot * yDot;
+    vec3 betas = (betaRTheta + betaMTheta) / (BetaR + BetaM);
+    vec3 Lin = pow(sunE * (betas) * (1.0 - fex), vec3(1.5));
+    Lin *= mix(vec3(1), pow(sunE * (betas) * fex, vec3(0.5)), clamp(yDot, 0.0, 1.0));
+
+    vec3 L0 = 0.1 * fex;
+
+    float sunDisk = smoothstep(SUN_ANGULAR_COS, SUN_ANGULAR_COS + 0.00002, cosTheta);
+    L0 += (sunE * 15000.0 * fex) * sunDisk;
+
+    color = (Lin + L0) * 0.04 + vec3(0.0, 0.0003, 0.00075);
+
+    // return color in HDR space
+    return color;
 }
 
 

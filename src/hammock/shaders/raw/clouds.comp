@@ -45,6 +45,13 @@ layout (push_constant) uniform PushConstants {
     int debugTTest_;
     int debugPhaseTest_;
     int debugBeerTest_;
+
+    float windSpeed_;
+    float windTopOffset_;
+
+    float silverEccentricity_;
+    float silverIntensity_;
+    float silverSpread_;
 };
 
 // RAYCASTING
@@ -200,10 +207,10 @@ float getDensityHeightGradientForPoint(in float relativeHeight, in float cloudTy
 vec3 skewSamplePointWithWind(in vec3 point, inout float height_fraction)
 {
     //skew in wind direction
-    point += height_fraction * WIND_DIRECTION * CLOUD_TOP_OFFSET * 0.009;
+    point += height_fraction * WIND_DIRECTION * windTopOffset_ * 0.009;
 
     //Animate clouds in wind direction and add a small upward bias to the wind direction
-    point += (WIND_DIRECTION + vec3(0.0, 0.1, 0.0)) * CLOUD_SPEED * time.y;
+    point += (WIND_DIRECTION + vec3(0.0, 0.1, 0.0)) * windSpeed_ * time.y;
     return point;
 }
 
@@ -296,9 +303,9 @@ vec3 rayMarch(Ray ray, vec3 earthCenter, in vec3 startPos, in float start_t, in 
     // Henyey-Greenstein
     const vec3 lightDir = normalize(SUN_LOCATION - ray.origin);
     const float cos_angle = dot(normalize(ray.direction), lightDir);
-    const float eccentricity = 0.6;
-    const float silver_intensity = 0.7;
-    const float silver_spread = 0.1;
+    const float eccentricity = silverEccentricity_;
+    const float silver_intensity = silverIntensity_;
+    const float silver_spread = silverSpread_;
     const float HG_light = HenyeyGreensteinArtDirected(cos_angle, eccentricity, silver_intensity, silver_spread);
 
     // Random unit vectors for your cone sample.
@@ -425,7 +432,7 @@ void main()
     float _dot = dot( vec3(0.0, 1.0, 0.0), ray.direction );
     const float backgroundColorMultiplier = max(0.620, _dot);
     vec3 transitionGradient = WHITE;
-    const float cloudFadeOutPoint = 0.06f;
+    const float cloudFadeOutPoint = 0.02f;
 
     if ( _dot < 0.0 )
     {
@@ -434,7 +441,6 @@ void main()
         vec3 colorNearHorizon = vec3(0.0, 0.16, 0.51) * 0.4; //dark ocean blue
         vec3 color2 = vec3(0.0, 0.73, 0.95) * 0.5; //light ocean blue
         backgroundCol = mix(colorNearHorizon, color2, -ray.direction.y * 5.5);
-
 //        imageStore( godRaysCreationDataImage, chosenPixel, vec4(0.0f) );
         imageStore( storageImage, chosenPixel, vec4(backgroundCol, 1.0f) );
         return;
@@ -442,22 +448,19 @@ void main()
     else if (_dot < cloudFadeOutPoint )
     {
         // Get sky background color from Preetham Sun/Sky Model
-        // backgroundCol = getAtmosphereColorPhysical(ray.direction, SUN_LOCATION - ray.origin, sunIntensity); //day time
-//        backgroundCol = getAtmosphereColorPhysical(ray.direction, BACKGROUND_SKY_SUN_LOCATION - ray.origin, sunIntensity); //sunset
-//        backgroundCol *= backgroundColorMultiplier;
+        backgroundCol = getAtmosphereColorPhysical(ray.direction, SUN_LOCATION - ray.origin, sunIntensity);
+        backgroundCol *= backgroundColorMultiplier;
 
 //        imageStore( godRaysCreationDataImage, chosenPixel, vec4(0.0f) );
-        backgroundCol = BLUE;
+
         imageStore( storageImage, chosenPixel, vec4(backgroundCol, 1.0f) );
         return;
     }
     else
     {
         // Get sky background color from Preetham Sun/Sky Model
-        // backgroundCol = getAtmosphereColorPhysical(ray.direction, SUN_LOCATION - ray.origin, sunIntensity); //day time
-//        backgroundCol = getAtmosphereColorPhysical(ray.direction, BACKGROUND_SKY_SUN_LOCATION - ray.origin, sunIntensity); //sunset
-//        backgroundCol *= backgroundColorMultiplier;
-        backgroundCol = BLUE;
+        backgroundCol = getAtmosphereColorPhysical(ray.direction, SUN_LOCATION - ray.origin, sunIntensity);
+        backgroundCol *= backgroundColorMultiplier;
     }
 
     // Find the start and end points of the ray march
@@ -495,9 +498,9 @@ void main()
     else if(debugPhaseTest_ == 1){
         const vec3 lightDir = normalize(SUN_LOCATION - ray.origin);
         const float cos_angle = dot(normalize(ray.direction), lightDir);
-        const float eccentricity = 0.6;
-        const float silver_intensity = 0.7;
-        const float silver_spread = 0.1;
+        const float eccentricity = silverEccentricity_;
+        const float silver_intensity = silverIntensity_;
+        const float silver_spread = silverSpread_;
         float HG_light = HenyeyGreensteinArtDirected(cos_angle, eccentricity, silver_intensity, silver_spread);
         finalColor = vec4(vec3(HG_light), 1.0);
     }
