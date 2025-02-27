@@ -12,7 +12,7 @@ std::string compiledShaderPath(const std::string &shader) {
 
 int main() {
     VulkanInstance instance{};
-    hammock::Window window{instance, "Render Graph", 1920, 1080};
+    hammock::Window window{instance, "Render Graph", 1280, 720};
     Device device{instance, window.getSurface()};
     ResourceManager rm{device};
     // TODO decouple context and window
@@ -119,7 +119,7 @@ int main() {
                                                                  .allocationFlags =
                                                                  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                                  // CPU & GPU
-                                                                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
+                                                                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                                                              });
     rm.getResource<Buffer>(stagingBuffer)->map();
     rm.getResource<Buffer>(stagingBuffer)->writeToBuffer(sceneObjects.data());
@@ -132,7 +132,7 @@ int main() {
                                                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                                  .allocationFlags =
                                                                  VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, // GPU only
-                                                                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
+                                                                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                                                              });
     device.copyBuffer(rm.getResource<Buffer>(stagingBuffer)->getBuffer(),
                       rm.getResource<Buffer>(storageBuffer)->getBuffer(), storageBufferSize);
@@ -153,7 +153,7 @@ int main() {
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             .allocationFlags =
             VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-            .sharingMode = VK_SHARING_MODE_CONCURRENT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         });
     renderGraph->addStaticResource<ResourceNode::Type::StorageBuffer>(
         "compute-storage-buffer", storageBuffer);
@@ -166,7 +166,7 @@ int main() {
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
-            .sharingMode = VK_SHARING_MODE_CONCURRENT
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE
         }
     );
     renderGraph->createSampler("default-sampler");
@@ -263,7 +263,7 @@ int main() {
         .vertexShader
         {.byteCode = Filesystem::readFile(compiledShaderPath("fullscreen_headless.vert")),},
         .fragmentShader
-        {.byteCode = Filesystem::readFile(compiledShaderPath("texture.frag")),},
+        {.byteCode = Filesystem::readFile(compiledShaderPath("render_graph.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("present-pass")},
         .pushConstantRanges{},
         .graphicsState{
