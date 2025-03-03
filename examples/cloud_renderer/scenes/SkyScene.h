@@ -13,21 +13,18 @@ class SkyScene final : public IScene {
     // Lives in a GPU memory that is visible to CPU
 
     struct CameraUbo {
-        HmckMat4 view;
-        HmckMat4 proj;
-        HmckVec4 eye;
-        HmckVec2 tanFovBy2;
-    } cameraUbo, oldCameraUbo;
+        HmckMat4 invView;
+        HmckMat4 invProj;
+        HmckMat4 invViewProj;
+        HmckVec4 cameraPosition;
+        float32_t resX;
+        float32_t resY;
+        float32_t fov;
+    } cameraUbo;
 
-    bool isOldCameraEmpty = true;
 
     struct TimeUbo {
-        HmckVec4 haltonSeq1;
-        HmckVec4 haltonSeq2;
-        HmckVec4 haltonSeq3;
-        HmckVec4 haltonSeq4;
-        HmckVec2 time{0.0f, 0.0f};
-        uint32_t frameCountMod16;
+        float32_t time;
     } timeUbo;
 
     bool progressTime = false;
@@ -40,38 +37,27 @@ class SkyScene final : public IScene {
     } postProcPushConsts;
 
     struct SunAndSkyUbo {
-        HmckVec4 sunPosition{0.0, EARTH_RADIUS * 2.0, -EARTH_RADIUS * 10.0};
-        HmckVec4 sunColor{1.0f, 1.0f, 1.0f, 0.78f}; // w is intensity
+        HmckVec4 cloudColorTop{0.99f, 0.876f, 0.876f, 1.0f};
+        HmckVec4 cloudColorBottom{0.382f, 0.411f, 0.470f, 1.0f};
+        HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 1.0f};
+        HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
+        HmckVec4 skyColorBottom{0.462f, 0.654f, 0.956f, 1.0f};
+        HmckVec4 skyColorTop{0.376f,0.443f, 0.843f, 1.0};
     } sunAndSkyUbo;
 
     struct ComputePushConsts {
-        float cloudCoverageOverride = 0.6f;
-        float baseDensityFactor = 1.0f;
-        float samplingFrequency = 8.0f;
-        float highFreqDensityMult = 1.0f;
-        float lightBrightness = 5.0f;
-        int debugBackgroundSky = 0;
-        int debugCloudDensity = 0;
-        int debugTextureCurlNoise = 0;
-        int debugTextureBaseNoise = 0;
-        int debugTextureDetailNoise = 0;
-        int debugHeightGradient = 0;
-        int debugTTest = 0;
-        int debugPhaseTest = 0;
-        int debugBeerTest = 0;
-        float windSpeed = 0.08f;
-        float windTopOffset = 1.0f; // this offset pushes the tops of the clouds along this wind direction by this many units
-        float silverEccentricity = 0.6f;
-        float silverIntensity = 0.7f;
-        float silverSpread = 0.1f;
-    } computePushConsts; // 128 bytes limit (32 floats or ints)
+        float coverage = 0.3f;
+        float cloudSpeed = 0.1f;
+        float crispiness = 0.4f; // .4
+        float curliness = 0.5f;
+        float absorption = 0.0035f; //0.0035
+        float densityFactor =  0.02f; //  0.02;
+        int enablePowder = 0; // 0
+    } computePushConsts;
 
-    // TODO SunAndSkyUbo
 
     // Compute pass resources
     struct {
-        std::unique_ptr<ComputePipeline> reprojectionPipeline;
-
         // Compute pipeline to draw the clouds in parallel patches
         std::unique_ptr<ComputePipeline> cloudPipeline;
 
@@ -111,13 +97,14 @@ class SkyScene final : public IScene {
     // camera movement
     float32_t yaw{0.f}, pitch{0.f};
     HmckVec3 cameraPosition{0.f, 0.f, 0.f};
+    float32_t fov = 45.f;
 
 
     // Benchmarking
     // Constants
     static constexpr int FRAMETIME_BUFFER_SIZE = 512; // Number of frames to track
     // Variables
-    float frameTimes[FRAMETIME_BUFFER_SIZE] = { 0.0f };
+    float frameTimes[FRAMETIME_BUFFER_SIZE] = {0.0f};
     int frameTimeFrameIndex = 0;
 
 public:

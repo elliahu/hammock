@@ -1,608 +1,558 @@
 #version 450
 
-#include "common/cloudsCommon.glsl"
-
 layout (local_size_x = 32, local_size_y = 32) in;
-layout (binding = 0, rgba16f) uniform writeonly image2D storageImage;
-layout (binding = 1, rgba16f) uniform writeonly image2D prevStorageImage;
+layout (binding = 0, rgba16f) uniform writeonly image2D colorImage;
+layout (binding = 1, rgba16f) uniform writeonly image2D bloomImage;
+layout (binding = 2, rgba16f) uniform writeonly image2D alphanessImage;
+layout (binding = 3, rgba16f) uniform writeonly image2D cloudDistanceImage;
 
-layout (binding = 2) uniform sampler3D baseNoiseSampler;
-layout (binding = 3) uniform sampler3D detailNoiseSampler;
-layout (binding = 4) uniform sampler2D curlNoiseSampler;
-layout (binding = 5) uniform sampler2D cloudMapSampler;
+layout (binding = 4) uniform sampler3D baseNoiseSampler;
+layout (binding = 5) uniform sampler3D detailNoiseSampler;
+layout (binding = 6) uniform sampler2D curlNoiseSampler;
+layout (binding = 7) uniform sampler2D cloudMapSampler;
 
-layout (binding = 6) uniform SunAndSkyUBO {
-    vec4 sunPosition;
-    vec4 sunColor; // a is intensity
+layout (binding = 8) uniform SunAndSkyUBO {
+    vec4 cloudColorTop;
+    vec4 cloudColorBottom;
+    vec4 lightColor;
+    vec4 lightDirection;
+    vec4 skyColorBottom;
+    vec4 skyColorTop;
 };
 
 layout (set = 1, binding = 0) uniform CameraUBO
 {
-    mat4 view;
-    mat4 proj;
-    vec4 eye;
-    vec2 tanFovBy2;
-} camera;
+    mat4 inv_view;
+    mat4 inv_proj;
+    mat4 invViewProj;
+    vec4 cameraPosition;
+    float resX;
+    float resY;
+    float fov;
+};
+
+ivec2 iResolution = ivec2(resX, resY);
 
 layout (set = 2, binding = 0) uniform TimeUBO
 {
-    vec4 haltonSeq1;
-    vec4 haltonSeq2;
-    vec4 haltonSeq3;
-    vec4 haltonSeq4;
-    vec2 time; //stores delat time and total time
-    int frameCountMod16; // unused
+    float iTime;
 };
 
 layout (push_constant) uniform PushConstants {
-    float cloudCoverageOverride_;
-    float baseDensityFactor_;
-    float samplingFrequency_;
-    float highFreqDensityMult_;
-    float brightness_;
-
-    int debugBackgroundSky_;
-    int debugCloudDensity_;
-    int debugTextureCurlNoise_;
-    int debugTextureBaseNoise_;
-    int debugTextureDetailNoise_;
-    int debugHeightGradient_;
-    int debugTTest_;
-    int debugPhaseTest_;
-    int debugBeerTest_;
-
-    float windSpeed_;
-    float windTopOffset_;
-
-    float silverEccentricity_;
-    float silverIntensity_;
-    float silverSpread_;
+    float coverage_multiplier;
+    float cloudSpeed;
+    float crispiness; // .4
+    float curliness;
+    float absorption; //0.0035
+    float densityFactor; //  0.02;
+    int enablePowder; // 0
 };
 
+#define HDR(col, exps) 1.0 - exp(- col * exps)
 
-// Preetham Sky from: https://github.com/markstock/GenUtahSky/blob/master/utah.cal
-float rayleighPhase(float cosTheta)
+#define CLOUDS_AMBIENT_COLOR_TOP cloudColorTop.rgb
+#define CLOUDS_AMBIENT_COLOR_BOTTOM cloudColorBottom.rgb
+
+const vec3 noiseKernel[6u] = vec3[]
+(
+vec3(0.38051305, 0.92453449, -0.02111345),
+vec3(-0.50625799, -0.03590792, -0.86163418),
+vec3(-0.32509218, -0.94557439, 0.01428793),
+vec3(0.09026238, -0.27376545, 0.95755165),
+vec3(0.28128598, 0.42443639, -0.86065785),
+vec3(-0.16852403, 0.14748697, 0.97460106)
+);
+
+vec3 eye = cameraPosition.xyz;
+
+// Cloud types height density gradients
+#define STRATUS_GRADIENT vec4(0.0, 0.1, 0.2, 0.3)
+#define STRATOCUMULUS_GRADIENT vec4(0.02, 0.2, 0.48, 0.625)
+#define CUMULUS_GRADIENT vec4(0.00, 0.1625, 0.88, 0.98)
+
+
+const float earthRadius = 35000.0;
+const float sphereInnerRadius = 5000.0;
+const float sphereOuterRadius = 17000.0;
+
+#define EARTH_RADIUS earthRadius
+#define SPHERE_INNER_RADIUS (EARTH_RADIUS + sphereInnerRadius)
+#define SPHERE_OUTER_RADIUS (SPHERE_INNER_RADIUS + sphereOuterRadius)
+#define SPHERE_DELTA float(SPHERE_OUTER_RADIUS - SPHERE_INNER_RADIUS)
+
+
+#define CLOUDS_MIN_TRANSMITTANCE 1e-1
+#define CLOUDS_TRANSMITTANCE_THRESHOLD 1.0 - CLOUDS_MIN_TRANSMITTANCE
+
+#define SUN_DIR normalize(lightDirection.xyz)
+#define SUN_COLOR lightColor.rgb * vec3(1.1, 1.1, 0.95)
+vec3 sphereCenter = vec3(0.0, -EARTH_RADIUS, 0.0);
+
+#define CLOUD_TOP_OFFSET 750.0
+#define SATURATE(x) clamp(x, 0.0, 1.0)
+#define CLOUD_SCALE crispiness
+#define CLOUD_SPEED cloudSpeed
+const vec3 windDirection = normalize(vec3(0.5, 0.0, 0.1));
+
+vec3 ambientlight = vec3(255, 255, 235) / 255;
+float ambientFactor = 0.5;
+vec3 lc = ambientlight * ambientFactor;// * cloud_bright;
+
+#define BAYER_FACTOR 1.0 / 16.0
+const float bayerFilter[16u] = float[]
+(
+0.0 * BAYER_FACTOR, 8.0 * BAYER_FACTOR, 2.0 * BAYER_FACTOR, 10.0 * BAYER_FACTOR,
+12.0 * BAYER_FACTOR, 4.0 * BAYER_FACTOR, 14.0 * BAYER_FACTOR, 6.0 * BAYER_FACTOR,
+3.0 * BAYER_FACTOR, 11.0 * BAYER_FACTOR, 1.0 * BAYER_FACTOR, 9.0 * BAYER_FACTOR,
+15.0 * BAYER_FACTOR, 7.0 * BAYER_FACTOR, 13.0 * BAYER_FACTOR, 5.0 * BAYER_FACTOR
+);
+
+
+vec3 ambient_light(float heightFrac)
 {
-    return THREE_OVER_SIXTEEN_PI * (1.0 + cosTheta * cosTheta);
+    return mix(vec3(0.5, 0.67, 0.82), vec3(1.0), heightFrac);
 }
 
-vec3 calcSkyBetaR()
-{
-    float rayleigh = 2.0;
-    float sunFade = 1.0 - clamp(1.0 - exp(sunPosition.y / 450000.0), 0.0, 1.0);
-    return vec3(RAYLEIGH_TOTAL * (rayleigh - 1.0 + sunFade));
+
+float HG(float sundotrd, float g) {
+    float gg = g * g;
+    return (1. - gg) / pow(1. + gg - 2. * g * sundotrd, 1.5);
 }
 
-vec3 calcSkyBetaV()
+
+bool intersectCubeMap(vec3 o, vec3 d, out vec3 minT, out vec3 maxT)
 {
-    float turbidity = 10.0;
-    float mie = 0.005;
-    float c = (0.2 * turbidity) * 10E-18;
-    return vec3(0.434 * c * MIE_CONST * mie);
-}
+    vec3 cubeMin = vec3(-0.5, -0.5, -0.5);
+    vec3 cubeMax = vec3(0.5, 1 + cubeMin.y, 0.5);
 
-float calcSunIntensity()
-{
-    float zenithAngleCos = clamp(normalize(sunPosition.xyz).y, -1.0, 1.0);
-    return EE * max(0.0, 1.0 - pow(E, -((SHADOW_CUTOFF - acos(zenithAngleCos)) / SHADOW_STEEPNESS)));
-}
+    // compute intersection of ray with all six bbox planes
+    vec3 invR = 1.0 / d;
+    vec3 tbot = invR * (cubeMin - o);
+    vec3 ttop = invR * (cubeMax - o);
+    // re-order intersections to find smallest and largest on each axis
+    vec3 tmin = min(ttop, tbot);
+    vec3 tmax = max(ttop, tbot);
+    // find the largest tmin and the smallest tmax
+    vec2 t0 = max(tmin.xx, tmin.yz);
+    float tnear = max(t0.x, t0.y);
+    t0 = min(tmax.xx, tmax.yz);
+    float tfar = min(t0.x, t0.y);
 
-vec3 getAtmosphereColorPhysical(vec3 dir, vec3 sunDir, float sunIntensity)
-{
-    vec3 color = vec3(0);
-
-    sunDir = normalize(sunDir);
-    float sunE = sunIntensity * calcSunIntensity();
-    vec3 BetaR = calcSkyBetaR();
-    vec3 BetaM = calcSkyBetaV();
-
-    // optical length
-    float zenith = acos(max(0.0, dir.y)); // acos?
-    float inverse = 1.0 / (cos(zenith) + 0.15 * pow(93.885 - ((zenith * 180.0) / PI), -1.253));
-    float sR = 8.4E3 * inverse;
-    float sM = 1.25E3 * inverse;
-
-    vec3 fex = exp(-BetaR * sR + BetaM * sM);
-
-    float cosTheta = dot(sunDir, dir);
-
-    float rPhase = rayleighPhase(cosTheta * 0.5 + 0.5);
-    vec3 betaRTheta = BetaR * rPhase;
-    float mie_directional = 0.8;
-    float mPhase = HenyeyGreenstein(cosTheta, mie_directional);
-    vec3 betaMTheta = BetaM * mPhase;
-
-    float yDot = 1.0 - sunDir.y;
-    yDot *= yDot * yDot * yDot * yDot;
-    vec3 betas = (betaRTheta + betaMTheta) / (BetaR + BetaM);
-    vec3 Lin = pow(sunE * (betas) * (1.0 - fex), vec3(1.5));
-    Lin *= mix(vec3(1), pow(sunE * (betas) * fex, vec3(0.5)), clamp(yDot, 0.0, 1.0));
-
-    vec3 L0 = 0.1 * fex;
-
-    float sunDisk = smoothstep(SUN_ANGULAR_COS, SUN_ANGULAR_COS + 0.00002, cosTheta);
-    L0 += (sunE * 15000.0 * fex) * sunDisk;
-
-    color = (Lin + L0) * 0.04 + vec3(0.0, 0.0003, 0.00075);
-
-    // return color in HDR space
-    return color;
-}
-
-// RAYCASTING
-
-vec2 getJitterOffset(in int index, ivec2 dim)
-{
-    //index is a value from 0-15
-    //Use pre generated halton sequence to jitter point --> halton sequence is a low discrepancy sampling pattern
-    vec2 jitter = vec2(0.0);
-    index = index / 2;
-    if (index < 4)
-    {
-        jitter.x = haltonSeq1[index];
-        jitter.y = haltonSeq2[index];
-    }
+    // check for hit
+    bool hit;
+    if ((tnear > tfar) || tfar < 0.0)
+    hit = false;
     else
-    {
-        index -= 4;
-        jitter.x = haltonSeq3[index];
-        jitter.y = haltonSeq4[index];
-    }
-    return jitter / dim;
+    hit = true;
+
+    minT = tnear < 0.0 ? o : o + d * tnear; // if we are inside the bb, start point is cam pos
+    maxT = o + d * tfar;
+
+    return hit;
 }
 
-float getJitterOffset(in int index, float maxOffset)
-{
-    //index is a value from 0-15
-    //Use pre generated halton sequence to jitter point --> halton sequence is a low discrepancy sampling pattern
-    float jitter = 0.0;
-    index = index / 2;
-    if (index < 4)
-    {
-        jitter = haltonSeq1[index];
-    }
-    else
-    {
-        index -= 4;
-        jitter = haltonSeq2[index];
-    }
-    return jitter * maxOffset;
+void swap(in float a, in float b) {
+    float c = a;
+    a = b;
+    b = c;
 }
 
-struct Ray {
-    vec3 origin;
-    vec3 direction;
-};
+bool raySphereintersectionSkyMap(vec3 rd, float radius, out vec3 startPos) {
 
-struct Intersection {
-    vec3 normal;
-    vec3 point;
-    bool valid;
     float t;
-};
 
-Ray castRay(vec2 screenPoint, vec3 eye, int pixelID, ivec2 dim)
-{
-    Ray r;
+    vec3 sphereCenter_ = vec3(0.0);
 
-    // Extract camera information from uniform
-    vec3 camRight = normalize(vec3(camera.view[0][0],
-                              camera.view[1][0],
-                              camera.view[2][0]));
-    vec3 camUp = normalize(vec3(camera.view[0][1],
-                           camera.view[1][1],
-                           camera.view[2][1]));
-    vec3 camLook = -normalize(vec3(camera.view[0][2],
-                              camera.view[1][2],
-                              camera.view[2][2]));
+    float radius2 = radius * radius;
 
-    // Compute ndc space point from screenspace point //[-1,1] to [0,1] range
-    vec2 NDC_Space_Point = screenPoint * 2.0 - 1.0;
+    vec3 L = -sphereCenter_;
+    float a = dot(rd, rd);
+    float b = 2.0 * dot(rd, L);
+    float c = dot(L, L) - radius2;
 
-    //Jitter point with halton sequence
-    NDC_Space_Point += getJitterOffset(pixelID, dim);
+    float discr = b * b - 4.0 * a * c;
+    t = max(0.0, (-b + sqrt(discr)) / 2);
 
-    //convert to camera space
-    vec3 cam_x = NDC_Space_Point.x * camera.tanFovBy2.x * camRight;
-    vec3 cam_y = NDC_Space_Point.y * camera.tanFovBy2.y * camUp;
-    //convert to world space
-    vec3 ref = eye + camLook;
-    vec3 p = ref + cam_x + cam_y; //facing the screen
+    startPos = rd * t;
 
-    r.origin = eye;
-    r.direction = normalize(p - eye);
-
-    return r;
+    return true;
 }
 
-//Sphere Intersection Testing
-Intersection raySphereIntersection(in vec3 rO, in vec3 rD, in vec3 sphereCenter, in float sphereRadius)
+
+bool raySphereintersection(vec3 ro, vec3 rd, float radius, out vec3 startPos) {
+
+    float t;
+
+    sphereCenter.xz = cameraPosition.xz;
+
+    float radius2 = radius * radius;
+
+    vec3 L = ro - sphereCenter;
+    float a = dot(rd, rd);
+    float b = 2.0 * dot(rd, L);
+    float c = dot(L, L) - radius2;
+
+    float discr = b * b - 4.0 * a * c;
+    if (discr < 0.0) return false;
+    t = max(0.0, (-b + sqrt(discr)) / 2);
+    if (t == 0.0) {
+        return false;
+    }
+    startPos = ro + rd * t;
+
+    return true;
+}
+
+bool raySphereintersection2(vec3 ro, vec3 rd, float radius, out vec3 startPos) {
+
+    float t;
+
+    sphereCenter.xz = cameraPosition.xz;
+
+    float radius2 = radius * radius;
+
+    vec3 L = ro - sphereCenter;
+    float a = dot(rd, rd);
+    float b = 2.0 * dot(rd, L);
+    float c = dot(L, L) - radius2;
+
+    float discr = b * b - 4.0 * a * c;
+    if (discr < 0.0) return false;
+    t = max(0.0, (-b + sqrt(discr)) / 2);
+    if (t == 0.0) {
+        return false;
+    }
+    startPos = ro + rd * t;
+
+    return true;
+}
+
+vec3 getSun(const vec3 d, float powExp) {
+    float sun = clamp(dot(SUN_DIR, d), 0.0, 1.0);
+    vec3 col = 0.8 * vec3(1.0, .6, 0.1) * pow(sun, powExp);
+    return col;
+}
+
+float Random2D(in vec3 st)
 {
-    Intersection isect;
-    isect.valid = false;
-    isect.point = vec3(0.0);
-    isect.normal = vec3(0.0, 1.0, 0.0);
+    return fract(sin(iTime * dot(st.xyz, vec3(12.9898, 78.233, 57.152))) * 43758.5453123);
+}
 
-    // Transform Ray such that the spheres move down, such that the camera is close to the sky dome
-    // Only change sphere origin because you can't translate a direction
-    rO -= sphereCenter;
-    rO /= sphereRadius;
+float getHeightFraction(vec3 inPos) {
+    return (length(inPos - sphereCenter) - SPHERE_INNER_RADIUS) / (SPHERE_OUTER_RADIUS - SPHERE_INNER_RADIUS);
+}
 
-    float A = dot(rD, rD);
-    float B = 2.0 * dot(rD, rO);
-    float C = dot(rO, rO) - 1.0; //uniform sphere
-    float discriminant = B * B - 4.0 * A * C;
 
-    //If the discriminant is negative, then there is no real root
-    if (discriminant < 0.0)
-    {
-        return isect;
+float remap(float originalValue, float originalMin, float originalMax, float newMin, float newMax)
+{
+    return newMin + (((originalValue - originalMin) / (originalMax - originalMin)) * (newMax - newMin));
+}
+
+float getDensityForCloud(float heightFraction, float cloudType)
+{
+    float stratusFactor = 1.0 - clamp(cloudType * 2.0, 0.0, 1.0);
+    float stratoCumulusFactor = 1.0 - abs(cloudType - 0.5) * 2.0;
+    float cumulusFactor = clamp(cloudType - 0.5, 0.0, 1.0) * 2.0;
+
+    vec4 baseGradient = stratusFactor * STRATUS_GRADIENT + stratoCumulusFactor * STRATOCUMULUS_GRADIENT + cumulusFactor * CUMULUS_GRADIENT;
+
+    // gradicent computation (see Siggraph 2017 Nubis-Decima talk)
+    //return remap(heightFraction, baseGradient.x, baseGradient.y, 0.0, 1.0) * remap(heightFraction, baseGradient.z, baseGradient.w, 1.0, 0.0);
+    return smoothstep(baseGradient.x, baseGradient.y, heightFraction) - smoothstep(baseGradient.z, baseGradient.w, heightFraction);
+
+}
+
+float threshold(const float v, const float t)
+{
+    return v > t ? v : 0.0;
+}
+
+vec2 getUVProjection(vec3 p) {
+    return p.xz / SPHERE_INNER_RADIUS + 0.5;
+}
+
+float sampleCloudDensity(vec3 p, bool expensive, float lod) {
+
+    float heightFraction = getHeightFraction(p);
+    vec3 animation = heightFraction * windDirection * CLOUD_TOP_OFFSET + windDirection * iTime * CLOUD_SPEED;
+    vec2 uv = getUVProjection(p);
+    vec2 moving_uv = getUVProjection(p + animation);
+
+
+    if (heightFraction < 0.0 || heightFraction > 1.0) {
+        return 0.0;
     }
 
-    float t = (-B - sqrt(discriminant)) / (2.0 * A);
-
-    if (t < 0.0)
-    {
-        t = (-B + sqrt(discriminant)) / (2.0 * A);
+    vec3 weather_data = texture(cloudMapSampler, moving_uv).rgb;
+    float cloud_coverage = weather_data.r * coverage_multiplier;
+    if (cloud_coverage == 0.0){
+        return 0.0;
     }
 
-    if (t >= 0.0)
-    {
-        vec3 p = vec3(rO + t * rD);
-        isect.valid = true;
-        isect.normal = normalize(p);
 
-        p *= sphereRadius;
-        p += sphereCenter;
+    vec4 low_frequency_noise = textureLod(baseNoiseSampler, vec3(uv * CLOUD_SCALE, heightFraction), lod);
+    float lowFreqFBM = dot(low_frequency_noise.gba, vec3(0.625, 0.25, 0.125));
+    float base_cloud = remap(low_frequency_noise.r, -(1.0 - lowFreqFBM), 1., 0.0, 1.0);
 
-        isect.point = p;
-        isect.t = length(p - rO);
-    }
-
-    return isect;
-}
-
-
-// SAMPLING FUNCTIONS
-
-float getDensityHeightGradientForPoint(in float relativeHeight, in float cloudType)
-{
-    relativeHeight = clamp(relativeHeight, 0.0, 1.0);
-
-    float cumulus = max(0.0, remap(relativeHeight, 0.01, 0.3, 0.0, 1.0) * remap(relativeHeight, 0.6, 0.95, 1.0, 0.0));
-    float stratocumulus = max(0.0, remap(relativeHeight, 0.0, 0.25, 0.0, 1.0) * remap(relativeHeight, 0.3, 0.65, 1.0, 0.0));
-    float stratus = max(0.0, remap(relativeHeight, 0, 0.1, 0.0, 1.0) * remap(relativeHeight, 0.2, 0.3, 1.0, 0.0));
-
-    float a = mix(stratus, stratocumulus, clamp(cloudType * 2.0, 0.0, 1.0));
-
-    float b = mix(stratocumulus, stratus, clamp((cloudType - 0.5) * 2.0, 0.0, 1.0));
-    return mix(a, b, cloudType);
-}
-
-vec3 skewSamplePointWithWind(in vec3 point, inout float height_fraction)
-{
-    //skew in wind direction
-    point += height_fraction * WIND_DIRECTION * windTopOffset_ * 0.009;
-
-    //Animate clouds in wind direction and add a small upward bias to the wind direction
-    point += (WIND_DIRECTION + vec3(0.0, 0.1, 0.0)) * windSpeed_ * time.y;
-    return point;
-}
-
-float sampleLowFrequency(vec3 point, in vec3 unskewedSamplePoint, in float relativeHeight, in vec3 earthCenter)
-{
-    //Read in the low-frequency Perlin-Worley noises and Worley noises
-    vec4 lowFrequencyNoises = texture(baseNoiseSampler, point);// * 0.8);	// MANIPULATE ME
-
-    //Build an FBM out of the low-frequency Worley Noises that are used to add detail to the Low-frequency Perlin Worley noise
-    float lowFrequencyFBM = (lowFrequencyNoises.g * 0.625) +
-    (lowFrequencyNoises.b * 0.25) +
-    (lowFrequencyNoises.a * 0.125);
-
-    // lowFrequencyFBM = clamp(abs(lowFrequencyFBM), 0.0, 1.0);
-    lowFrequencyFBM = clamp(lowFrequencyFBM, 0.0, 1.0);
-
-    // Define the base cloud shape by dilating it with the low-frequency FBM
-    float baseCloud = remapc(lowFrequencyNoises.r, (lowFrequencyFBM - 0.9), 1.0, 0.0, 1.0);
-
-    // TODO: Use weater map for cloud types and blend between them and their densities
-    // ------------------ only screws it up; but needed for blending cloud types -----------------------
-    // // Get the density-height gradient
-    vec2 weatherSamplePoint = point.xz;// / 50.0;// / 50.0;//50000.0f;
-    //vec3 weather_data = texture(cloudMapSampler, weatherSamplePoint).rgb;
-    // float cloudType = weather_data.g;
-    // float densityHeightGradient = getDensityHeightGradientForPoint(relativeHeight, weather_data.g);
-
-    // // Apply Height function to the base cloud shape
-    // baseCloud *= densityHeightGradient * 0.5;// * 0.8;
-    // -------------------------------------------------------------------------------------------------
-
-    // Cloud coverage is stored in weather data’s red channel .
-    //WHAT EVEN???? --> increasing cloud coverage apparently reduces base_cloud_with_coverage
-    float cloud_coverage = cloudCoverageOverride_;
-    //float cloud_coverage = weather_data.r;
-
-    // Use remap to apply the cloud coverage attribute.
-    float base_cloud_with_coverage = remapcc(baseCloud, cloud_coverage, 1.0, 0.0, 1.0);
-
-    // To ensure that the density increases with coverage in an aesthetically pleasing manner
-    // Multiply the result by the cloud coverage attribute so that smaller clouds are lighter
-    // and more aesthetically pleasing
+    float density = getDensityForCloud(heightFraction, 0.0);
+    base_cloud *= (density / heightFraction);
+    float base_cloud_with_coverage = remap(base_cloud, cloud_coverage, 1.0, 0.0, 1.0);
     base_cloud_with_coverage *= cloud_coverage;
 
-    return base_cloud_with_coverage;
-}
+    if (expensive)
+    {
+        vec3 erodeCloudNoise = textureLod(detailNoiseSampler, vec3(moving_uv * CLOUD_SCALE, heightFraction) * curliness, lod).rgb;
+        float highFreqFBM = dot(erodeCloudNoise.rgb, vec3(0.625, 0.25, 0.125));//(erodeCloudNoise.r * 0.625) + (erodeCloudNoise.g * 0.25) + (erodeCloudNoise.b * 0.125);
+        float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, clamp(heightFraction * 10.0, 0.0, 1.0));
 
-float erodeCloudWithHighFrequency(in float baseCloud, in vec3 rayDir, in vec3 point, in float height_fraction)
-{
-    // Add turbulence to the bottom of the clouds
-    vec4 curlNoise = texture(curlNoiseSampler, point.xy);
-    point.xy += curlNoise.xy * (1.0 - height_fraction) * 0.5;
+        base_cloud_with_coverage = base_cloud_with_coverage - highFreqNoiseModifier * (1.0 - base_cloud_with_coverage);
 
-    // Sample High Frequency Noises
-    vec4 highFrequencyNoise = texture(detailNoiseSampler, point);    // MANIPULATE ME
+        base_cloud_with_coverage = remap(base_cloud_with_coverage * 2.0, highFreqNoiseModifier * 0.2, 1.0, 0.0, 1.0);
+    }
 
-    // Build High Frequency FBM
-    float high_freq_FBM = (highFrequencyNoise.r * 0.625) +
-    (highFrequencyNoise.g * 0.25) +
-    (highFrequencyNoise.b * 0.125);
-
-    //Erode the base shape of the cloud with the distorted high frequency worley noises
-
-    // MANIPULATE ME
-    float high_freq_modifier = clamp(mix(high_freq_FBM, 1.0 - high_freq_FBM, clamp(height_fraction * 2.0, 0.0, 1.0)), 0.0, 1.0);
-
-    float final_cloud = remap(baseCloud, high_freq_modifier * 0.005, 1.0, 0.0, 1.0);
-    return final_cloud;
+    return clamp(base_cloud_with_coverage, 0.0, 1.0);
 }
 
 
-vec3 rayMarch(Ray ray, vec3 earthCenter, in vec3 startPos, in float start_t, in float end_t, in int pixelID, inout float accumDensity)
+float beer(float d) {
+    return exp(-d);
+}
+
+float powder(float d) {
+    return (1. - exp(-2. * d));
+
+}
+
+float phase(vec3 inLightVec, vec3 inViewVec, float g) {
+    float costheta = dot(inLightVec, inViewVec) / length(inLightVec) / length(inViewVec);
+    return HG(costheta, g);
+}
+
+float raymarchToLight(vec3 o, float stepSize, vec3 lightDir, float originalDensity, float lightDotEye)
 {
-    float _dot = dot(ray.direction, vec3(0.0f, 1.0f, 0.0f));
-    float jitterfactor = 1.180f;//4.0f;
 
-    // MANIPULATE ME
-    const float baseDensityFactor = baseDensityFactor_;//0.38f; // increase this to get more dense cloud centers
-    const float maxSteps = floor(mix(35.0f, 60.0f, 1.0f - _dot));
-
-    const float atmosphereThickness = (end_t - start_t);
-    const float stepSize = (atmosphereThickness / maxSteps);
-    float transmittance = 1.0;
-
+    vec3 startPos = o;
+    float ds = stepSize * 6.0;
+    vec3 rayStep = lightDir * ds;
+    const float CONE_STEP = 1.0 / 6.0;
+    float coneRadius = 1.0;
+    float density = 0.0;
+    float coneDensity = 0.0;
+    float invDepth = 1.0 / ds;
+    float sigma_ds = -ds * absorption;
     vec3 pos;
-    vec3 samplePoint;
-    vec3 returnColor = vec3(0.0);
-    float baseDensity;
 
-    // Lighting data -------------------------------------------------------------------
-    // Henyey-Greenstein
-    const vec3 lightDir = normalize(sunPosition.xyz - ray.origin);
-    const float cos_angle = dot(normalize(ray.direction), lightDir);
-    const float eccentricity = silverEccentricity_;
-    const float silver_intensity = silverIntensity_;
-    const float silver_spread = silverSpread_;
-    const float HG_light = HenyeyGreensteinArtDirected(cos_angle, eccentricity, silver_intensity, silver_spread);
+    float T = 1.0;
 
-    // Random unit vectors for your cone sample.
-    // These are positioned to be facing the sun
-    // Create random samples within a unit cone facing world up (y direction)
-    // Construct TBN matrix towards light
-    // Then rotate unit cone towards the sun using TBN
-
-    vec3 maxCompUnitVector;
-    if (abs(lightDir[0]) > abs(lightDir[1]) && abs(lightDir[0]) > abs(lightDir[2]))
+    for (int i = 0; i < 6; i++)
     {
-        maxCompUnitVector = vec3(abs(lightDir[0]), 0.0, 0.0);
-    }
-    else if (abs(lightDir[1]) > abs(lightDir[0]) && abs(lightDir[1]) > abs(lightDir[2]))
-    {
-        maxCompUnitVector = vec3(0.0, abs(lightDir[1]), 0.0);
-    }
-    else
-    {
-        maxCompUnitVector = vec3(0.0, 0.0, abs(lightDir[2]));
-    }
+        pos = startPos + coneRadius * noiseKernel[i] * float(i);
 
-    vec3 zComponent = cross(lightDir, maxCompUnitVector);
-    vec3 xComponent = cross(zComponent, lightDir);
-    mat3 sunRotMatrix = mat3(xComponent, lightDir, zComponent);
-
-    const vec3 noise_kernel[] =
-    {
-        sunRotMatrix * vec3(0.1, 0.25, -0.15),
-        sunRotMatrix * vec3(0.2, 0.5, 0.2),
-        sunRotMatrix * vec3(-0.2, 0.1, -0.1),
-        sunRotMatrix * vec3(-0.05, 0.75, 0.05),
-        sunRotMatrix * vec3(-0.1, 1.0, 0.0),
-        sunRotMatrix * vec3(0.0, 3.0, 0.0), // One sample should be at distance 3x cone length
-    };
-    // ---------------------------------------------------------------------------------
-
-    for (float t = start_t; t < end_t; t += stepSize)
-    {
-        vec3 colorPerSample = vec3(0.0);
-
-        int _index = int(mod((pixelID + int(t)), 16.0f));
-        vec2 jitterLocation = getJitterOffset(_index, ivec2(75.0f));
-        pos = ray.origin + t * (ray.direction + vec3(jitterLocation.x, (jitterLocation.x + jitterLocation.y) * jitterfactor, jitterLocation.y));
-        samplePoint = getRelativeAtmosphericPosition(pos, earthCenter);
-        samplePoint /= samplingFrequency_; //controls the frequency of how we are sampling the noise texture
-
-        float relativeHeight = getRelativeAtmosphericHeight(pos, earthCenter, startPos, ray.direction, ray.origin);
-        vec3 skewedSamplePoint = skewSamplePointWithWind(samplePoint, relativeHeight);
-
-        baseDensity = sampleLowFrequency(skewedSamplePoint, pos, relativeHeight, earthCenter) * baseDensityFactor; //helps for early termination of rays
-
-        if (baseDensity > 0.0) // Useful to prevent lighting calculations for zero density points
+        float heightFraction = getHeightFraction(pos);
+        if (heightFraction >= 0)
         {
-            //Erode Base cloud shape with higher frequency noise (more expensive and so done when we know for sure we are inside the cloud)
-            float highFreqDensity = erodeCloudWithHighFrequency(baseDensity * 1.4f, ray.direction, skewedSamplePoint, relativeHeight);
 
-            // MANIPULATE ME
-            accumDensity += highFreqDensity * highFreqDensityMult_;
-
-            // Do Lighting calculations with cone sampling
-            float densityAlongLight = 0.0;
-            int light_samples = 6;
-
-            for (int i = 0; i < light_samples; ++i)
+            float cloudDensity = sampleCloudDensity(pos, density > 0.3, i / 16);
+            if (cloudDensity > 0.0)
             {
-                // Add the current step offset to the sample position
-                vec3 lightPos = pos + (stepSize * noise_kernel[i] * float(i));
-                vec3 sampleLightPos = getRelativeAtmosphericPosition(lightPos, earthCenter);
-
-                // MANIPULATE ME
-                float currBaseLightDensity = sampleLowFrequency(sampleLightPos, sampleLightPos, relativeHeight, earthCenter);
-
-                if (currBaseLightDensity > 0.0)
-                {
-                    float currLightDensity = erodeCloudWithHighFrequency(1.5 * currBaseLightDensity, ray.direction, skewedSamplePoint, relativeHeight);
-                    densityAlongLight += currLightDensity;
-                }
+                float Ti = exp(cloudDensity * sigma_ds);
+                T *= Ti;
+                density += cloudDensity;
             }
+        }
+        startPos += rayStep;
+        coneRadius += CONE_STEP;
+    }
 
-            // ------------------------------------------------------------------------------------------------------------------
-            // MANIPULATE ME
-            float brightness = brightness_;
-            float totalLightEnergy = GetLightEnergy(relativeHeight, densityAlongLight, baseDensity, HG_light, cos_angle, stepSize, brightness);
-            transmittance = mix(transmittance, totalLightEnergy, (1.0 - accumDensity));
-            colorPerSample = transmittance * sunColor.rgb; // vec3(transmittance);
+    //return 2.0*T*powder((originalDensity));//*powder(originalDensity, 0.0);
+    return T;
+}
 
-            returnColor += colorPerSample;
-        } //end if
+vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
+    vec3 path = endPos - startPos;
+    float len = length(path);
 
-        if (accumDensity >= 1.0)
+
+    const int nSteps = 64;
+
+    float ds = len / nSteps;
+    vec3 dir = path / len;
+    dir *= ds;
+    vec4 col = vec4(0.0);
+    uvec2 fragCoord = gl_GlobalInvocationID.xy;
+    int a = int(fragCoord.x) % 4;
+    int b = int(fragCoord.y) % 4;
+    startPos += dir * bayerFilter[a * 4 + b];
+    vec3 pos = startPos;
+
+    float density = 0.0;
+
+    float lightDotEye = dot(normalize(SUN_DIR), normalize(dir));
+
+    float T = 1.0;
+    float sigma_ds = -ds * densityFactor;
+    bool entered = false;
+
+    int zero_density_sample = 0;
+
+    for (int i = 0; i < nSteps; ++i)
+    {
+        float density_sample = sampleCloudDensity(pos, true, i / 16);
+        if (density_sample > 0.)
         {
-            accumDensity = 1.0;
-            break;
-        } //end if
+            if (!entered) {
+                cloudPos = vec4(pos, 1.0);
+                entered = true;
+            }
+            float height = getHeightFraction(pos);
+            vec3 ambientLight = CLOUDS_AMBIENT_COLOR_BOTTOM; //mix( CLOUDS_AMBIENT_COLOR_BOTTOM, CLOUDS_AMBIENT_COLOR_TOP, height );
+            float light_density = raymarchToLight(pos, ds * 0.1, SUN_DIR, density_sample, lightDotEye);
+            float scattering = mix(HG(lightDotEye, -0.08), HG(lightDotEye, 0.08), clamp(lightDotEye * 0.5 + 0.5, 0.0, 1.0));
+            //scattering = 0.6;
+            scattering = max(scattering, 1.0);
+            float powderTerm = powder(density_sample);
+            if (enablePowder == 0)
+            powderTerm = 1.0;
 
-    } //end raymarcher for loop
-    return returnColor;
-}// end raymarch function
+            vec3 S = 0.6 * (mix(mix(ambientLight * 1.8, bg, 0.2), scattering * SUN_COLOR, powderTerm * light_density)) * density_sample;
+            float dTrans = exp(density_sample * sigma_ds);
+            vec3 Sint = (S - S * dTrans) * (1. / density_sample);
+            col.rgb += T * Sint;
+            T *= dTrans;
+
+        }
+
+        if (T <= CLOUDS_MIN_TRANSMITTANCE) break;
+
+        pos += dir;
+
+    }
+    col.a = 1.0 - T;
+
+
+    return col;
+}
+
+vec3 computeClipSpaceCoord(uvec2 fragCoord) {
+    vec2 ray_nds = 2.0 * vec2(fragCoord.xy) / iResolution.xy - 1.0;
+    return vec3(ray_nds, 1.0);
+}
+
+vec2 computeScreenPos(vec2 ndc) {
+    return (ndc * 0.5 + 0.5);
+}
+
+float computeFogAmount(in vec3 startPos, in float factor) {
+    float dist = length(startPos - cameraPosition.xyz);
+    float radius = (cameraPosition.y - sphereCenter.y) * 0.3;
+    float alpha = (dist / radius);
+
+    return (1. - exp(-dist * alpha * factor));
+}
 
 void main()
 {
-    ivec2 dim = imageSize(storageImage);
+    vec4 fragColor_v, bloom_v, alphaness_v, cloudDistance_v;
+    ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
 
-    //Actually only raymarch for every 16th pixel because reprojection should handle the other pixels
-    int pixelID = frameCountMod16;
+    //compute ray direction
+    vec4 ray_clip = vec4(computeClipSpaceCoord(fragCoord), 1.0);
+    vec4 ray_view = inv_proj * ray_clip;
+    ray_view = vec4(ray_view.xy, -1.0, 0.0);
+    vec3 worldDir = (inv_view * ray_view).xyz;
+    worldDir = normalize(worldDir);
 
-    int pX = int(floor(pixelID / 4));
-    int pY = int(floor(mod(pixelID, 4)));
+    vec3 startPos, endPos;
+    vec4 v = vec4(0.0);
 
-    uint pixelX = gl_GlobalInvocationID.x * 4 + pX;
-    uint pixelY = gl_GlobalInvocationID.y * 4 + pY;
+    //compute background color
+    vec3 stub, cubeMapEndPos;
+    //intersectCubeMap(vec3(0.0, 0.0, 0.0), worldDir, stub, cubeMapEndPos);
+    bool hit = raySphereintersectionSkyMap(worldDir, 0.8, cubeMapEndPos);
 
-    vec2 uv = vec2(pixelX, pixelY) / dim;
-    ivec2 chosenPixel = ivec2(pixelX, pixelY);
+    vec4 bg = vec4(0.0, 0.0, 0.0, 1.0);
+    vec3 red = vec3(1.0);
 
-    uv.y = 1.0 - uv.y; //cause vulkan inverts y compared to openGL
-    vec3 eyePos = -camera.eye.xyz;
-    Ray ray = castRay(uv, eyePos, pixelID, dim);
-
-    float sunIntensity = sunColor.a;
-    vec3 backgroundCol = BLACK;
-
-    float _dot = dot(vec3(0.0, 1.0, 0.0), ray.direction);
-    const float backgroundColorMultiplier = max(0.620, _dot);
-    vec3 transitionGradient = WHITE;
-    const float cloudFadeOutPoint = 0.00f;
-
-    if (_dot < 0.0)
-    {
-        //kill threads because we shouldnt see clouds below the horizon
-        //magic numbers to make the colors look good after a tone map
-        vec3 colorNearHorizon = vec3(0.0, 0.16, 0.51) * 0.4; //dark ocean blue
-        vec3 color2 = vec3(0.0, 0.73, 0.95) * 0.5; //light ocean blue
-        backgroundCol = mix(colorNearHorizon, color2, -ray.direction.y * 5.5);
-        //        imageStore( godRaysCreationDataImage, chosenPixel, vec4(0.0f) );
-        imageStore(storageImage, chosenPixel, vec4(backgroundCol, 1.0f));
-        return;
-    }
-    else if (_dot < cloudFadeOutPoint)
-    {
-        // Get sky background color from Preetham Sun/Sky Model
-        backgroundCol = getAtmosphereColorPhysical(ray.direction, sunPosition.xyz - ray.origin, sunIntensity);
-        backgroundCol *= backgroundColorMultiplier;
-
-        //        imageStore( godRaysCreationDataImage, chosenPixel, vec4(0.0f) );
-
-        imageStore(storageImage, chosenPixel, vec4(backgroundCol, 1.0f));
-        return;
-    }
-    else
-    {
-        // Get sky background color from Preetham Sun/Sky Model
-        backgroundCol = getAtmosphereColorPhysical(ray.direction, sunPosition.xyz - ray.origin, sunIntensity);
-        backgroundCol *= backgroundColorMultiplier;
+    bg = mix(mix(red.rgbr, vec4(1.0), SUN_DIR.y), bg, pow(max(cubeMapEndPos.y + 0.1, .0), 0.2));
+    //vec4 bg = vec4( TonemapACES(preetham(worldDir)), 1.0);
+    int case_ = 0;
+    //compute raymarching starting and ending point
+    vec3 fogRay;
+    if (cameraPosition.y < SPHERE_INNER_RADIUS - EARTH_RADIUS) {
+        raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_INNER_RADIUS, startPos);
+        raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_OUTER_RADIUS, endPos);
+        fogRay = startPos;
+    } else if (cameraPosition.y > SPHERE_INNER_RADIUS - EARTH_RADIUS && cameraPosition.y < SPHERE_OUTER_RADIUS - EARTH_RADIUS) {
+        startPos = cameraPosition.xyz;
+        raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_OUTER_RADIUS, endPos);
+        bool hit = raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_INNER_RADIUS, fogRay);
+        if (!hit)
+        fogRay = startPos;
+        case_ = 1;
+    } else {
+        raySphereintersection2(cameraPosition.xyz, worldDir, SPHERE_OUTER_RADIUS, startPos);
+        raySphereintersection2(cameraPosition.xyz, worldDir, SPHERE_INNER_RADIUS, endPos);
+        raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_OUTER_RADIUS, fogRay);
+        case_ = 2;
     }
 
-    // Find the start and end points of the ray march
-    vec3 earthCenter = eyePos;
-    earthCenter.y = -EARTH_RADIUS; //move earth below camera
-    Intersection atmosphereInnerIsect = raySphereIntersection(ray.origin, ray.direction, earthCenter, ATMOSPHERE_RADIUS_INNER);
-    Intersection atmosphereOuterIsect = raySphereIntersection(ray.origin, ray.direction, earthCenter, ATMOSPHERE_RADIUS_OUTER);
+    //compute fog amount and early exit if over a certain value
+    float fogAmount = computeFogAmount(fogRay, 0.00006);
 
-    // Ray March
-    float accumDensity = 0.0;
-    vec3 rayMarchResult = rayMarch(ray, earthCenter, atmosphereInnerIsect.point, atmosphereInnerIsect.t, atmosphereOuterIsect.t, pixelID, accumDensity);
+    fragColor_v = bg;
+    bloom_v = vec4(getSun(worldDir, 128) * 1.3, 1.0);
 
-
-    // Blend and fade out clouds into the horizon (CHANGE THIRD PARAM IN REMAP)
-    //accumDensity *= smoothstep(0.0, 1.0, min(1.0, remap(ray.direction.y, cloudFadeOutPoint, .95f, 0.0f, 1.0f)));
-
-    vec4 finalColor = vec4(mix(backgroundCol, rayMarchResult, accumDensity), 1.0f);
-
-    // Begin debug renders
-    if (debugTextureBaseNoise_ == 1) {
-        vec4 lowFrequencyNoises = texture(baseNoiseSampler, vec3(uv, sin(time.y)));
-        finalColor = vec4(lowFrequencyNoises);
-    }
-    else if (debugTextureDetailNoise_ == 1) {
-        vec4 highFrequencyNoises = texture(detailNoiseSampler, vec3(uv, sin(time.y)));
-        finalColor = vec4(highFrequencyNoises);
-    }
-    else if (debugTextureCurlNoise_ == 1) {
-        vec4 curlNoise = texture(curlNoiseSampler, uv);
-        finalColor = vec4(curlNoise);
-    }
-    else if (debugCloudDensity_ == 1) {
-        finalColor = vec4(vec3(accumDensity), 1.0);
-    }
-    else if (debugPhaseTest_ == 1) {
-        const vec3 lightDir = normalize(sunPosition.xyz - ray.origin);
-        const float cos_angle = dot(normalize(ray.direction), lightDir);
-        const float eccentricity = silverEccentricity_;
-        const float silver_intensity = silverIntensity_;
-        const float silver_spread = silverSpread_;
-        float HG_light = HenyeyGreensteinArtDirected(cos_angle, eccentricity, silver_intensity, silver_spread);
-        finalColor = vec4(vec3(HG_light), 1.0);
-    }
-    else if (debugBackgroundSky_ == 1) {
-        finalColor = vec4(backgroundCol, 1.0);
-    }
-    else if (debugTTest_ == 1) {
-        if (atmosphereInnerIsect.valid == false)
-        {
-            // Renders red if innerIsect not valid
-            finalColor = vec4(1.0, 0.0, 0.0, 1.0);
-        }
-        if (atmosphereOuterIsect.valid == false)
-        {
-            // Renders green if outerIsect not valid
-            finalColor = vec4(0.0, 1.0, 0.0, 1.0);
-        }
-        else
-        {
-            // Renders blue if both isects valid
-            finalColor = vec4(0.0, 0.0, 1.0, 1.0);
-        }
-    }
-    else if (debugBeerTest_ == 1) {
-        finalColor = vec4(rayMarchResult, 1.0);
+    if (fogAmount > 0.965) {
+        fragColor_v = bg;
+        bloom_v = bg;
+        imageStore(colorImage, fragCoord, fragColor_v);
+        imageStore(bloomImage, fragCoord, bloom_v);
+        imageStore(alphanessImage, fragCoord, vec4(0.0));
+        imageStore(cloudDistanceImage, fragCoord, vec4(-1.0));
+        return; //early exit
     }
 
-    imageStore(storageImage, chosenPixel, finalColor);
+    v = raymarchToCloud(startPos, endPos, bg.rgb, cloudDistance_v);
+    cloudDistance_v = vec4(distance(cameraPosition.xyz, cloudDistance_v.xyz), 0.0, 0.0, 0.0);
+    //cloudDistance_v = v;
+
+    float cloudAlphaness = threshold(v.a, 0.2);
+    v.rgb = v.rgb * 1.8 - 0.1; // contrast-illumination tuning
+
+    // apply atmospheric fog to far away clouds
+    vec3 ambientColor = bg.rgb;
+
+    // use current position distance to center as action radius
+    v.rgb = mix(v.rgb, bg.rgb * v.a, clamp(fogAmount, 0., 1.));
+
+    // add sun glare to clouds
+    float sun = clamp(dot(SUN_DIR, normalize(endPos - startPos)), 0.0, 1.0);
+    vec3 s = 0.8 * vec3(1.0, 0.4, 0.2) * pow(sun, 256.0);
+    v.rgb += s * v.a;
+
+    // blend clouds and background
+
+    bg.rgb = bg.rgb * (1.0 - v.a) + v.rgb;
+    bg.a = 1.0;
+
+
+    fragColor_v = bg;
+    alphaness_v = vec4(cloudAlphaness, 0.0, 0.0, 1.0); // alphaness buffer
+
+    if (cloudAlphaness > 0.1) {
+        //apply fog to bloom buffer
+        float fogAmount = computeFogAmount(startPos, 0.00003);
+
+        vec3 cloud = mix(vec3(0.0), bloom_v.rgb, clamp(fogAmount, 0., 1.));
+        bloom_v.rgb = bloom_v.rgb * (1.0 - cloudAlphaness) + cloud.rgb;
+
+    }
+    fragColor_v.a = alphaness_v.r;
+    imageStore(colorImage, fragCoord, fragColor_v);
+    imageStore(bloomImage, fragCoord, bloom_v);
+    imageStore(alphanessImage, fragCoord, alphaness_v);
+    imageStore(cloudDistanceImage, fragCoord, cloudDistance_v);
 }
+
+
+
