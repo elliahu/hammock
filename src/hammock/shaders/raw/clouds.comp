@@ -40,6 +40,7 @@ layout (set = 2, binding = 0) uniform TimeUBO
 
 layout (push_constant) uniform PushConstants {
     float coverage_multiplier;
+    float base_coverage_multiplier;
     float cloudSpeed;
     float crispiness; // .4
     float curliness;
@@ -50,6 +51,8 @@ layout (push_constant) uniform PushConstants {
     float earthRadius;
     float sphereInnerRadius;
     float sphereOuterRadius;
+    float phaseG;
+    float ambientStrength;
 };
 
 #define HDR(col, exps) 1.0 - exp(- col * exps)
@@ -119,6 +122,10 @@ vec3 ambient_light(float heightFrac)
 float HG(float sundotrd, float g) {
     float gg = g * g;
     return (1. - gg) / pow(1. + gg - 2. * g * sundotrd, 1.5);
+}
+
+float dualLobePhase(float sundotrd, float g) {
+    return mix(HG(sundotrd, -g), HG(sundotrd, g), clamp(sundotrd * 0.5 + 0.5, 0.0, 1.0));
 }
 
 
@@ -287,7 +294,9 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 
     vec3 weather_data = texture(cloudMapSampler, moving_uv).rgb;
     float cloud_coverage = weather_data.r * coverage_multiplier;
-    if (cloud_coverage == 0.0){
+    float precipation = weather_data.g;
+    float cloud_type = weather_data.b;
+    if (cloud_coverage == 0.0) {
         return 0.0;
     }
 
@@ -296,39 +305,33 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
     float lowFreqFBM = dot(low_frequency_noise.gba, vec3(0.625, 0.25, 0.125));
     float base_cloud = remap(low_frequency_noise.r, -(1.0 - lowFreqFBM), 1., 0.0, 1.0);
 
-    float density = getDensityForCloud(heightFraction, 0.0);
+    float density = getDensityForCloud(heightFraction, cloud_type);
     base_cloud *= (density / heightFraction);
     float base_cloud_with_coverage = remap(base_cloud, cloud_coverage, 1.0, 0.0, 1.0);
     base_cloud_with_coverage *= cloud_coverage;
 
-    if (expensive)
+    if (expensive && weather_data.r > 0.0)
     {
-        vec3 erodeCloudNoise = textureLod(detailNoiseSampler, vec3(moving_uv * CLOUD_SCALE, heightFraction) * curliness, lod).rgb;
+        vec3 curlNoise = texture(curlNoiseSampler, moving_uv * curliness).rgb;
+        vec3 erodeCloudNoise = textureLod(detailNoiseSampler, vec3(moving_uv * CLOUD_SCALE, heightFraction), lod).rgb;
+        erodeCloudNoise = erodeCloudNoise - erodeCloudNoise * curlNoise;
         float highFreqFBM = (erodeCloudNoise.r * 0.625) + (erodeCloudNoise.g * 0.25) + (erodeCloudNoise.b * 0.125);
         float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, clamp(heightFraction * 10.0, 0.0, 1.0));
 
         base_cloud_with_coverage = base_cloud_with_coverage - highFreqNoiseModifier * (1.0 - base_cloud_with_coverage);
 
-        base_cloud_with_coverage = remap(base_cloud_with_coverage * 2.0, highFreqNoiseModifier * 0.2, 1.0, 0.0, 1.0);
+        base_cloud_with_coverage = remap(base_cloud_with_coverage * base_coverage_multiplier, highFreqNoiseModifier * 0.2, 1.0, 0.0, 1.0);
     }
 
     return clamp(base_cloud_with_coverage, 0.0, 1.0);
 }
 
 
-float beer(float d) {
-    return exp(-d);
-}
-
 float powder(float d) {
     return (1. - exp(-2. * d));
 
 }
 
-float phase(vec3 inLightVec, vec3 inViewVec, float g) {
-    float costheta = dot(inLightVec, inViewVec) / length(inLightVec) / length(inViewVec);
-    return HG(costheta, g);
-}
 
 float raymarchToLight(vec3 o, float stepSize, vec3 lightDir, float originalDensity, float lightDotEye)
 {
@@ -366,7 +369,7 @@ float raymarchToLight(vec3 o, float stepSize, vec3 lightDir, float originalDensi
         coneRadius += CONE_STEP;
     }
 
-    //return 2.0*T*powder((originalDensity));//*powder(originalDensity, 0.0);
+    //return T*powder((originalDensity));//*powder(originalDensity, 0.0);
     return T;
 }
 
@@ -407,16 +410,14 @@ vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
                 entered = true;
             }
             float height = getHeightFraction(pos);
-            vec3 ambientLight = CLOUDS_AMBIENT_COLOR_BOTTOM; //mix( CLOUDS_AMBIENT_COLOR_BOTTOM, CLOUDS_AMBIENT_COLOR_TOP, height );
+            vec3 ambientLight = mix(CLOUDS_AMBIENT_COLOR_BOTTOM, CLOUDS_AMBIENT_COLOR_TOP, height);
             float light_density = raymarchToLight(pos, ds * 0.1, SUN_DIR, density_sample, lightDotEye);
-            float scattering = mix(HG(lightDotEye, -0.08), HG(lightDotEye, 0.08), clamp(lightDotEye * 0.5 + 0.5, 0.0, 1.0));
-            //scattering = 0.6;
-            scattering = max(scattering, 1.0);
+            float phase = dualLobePhase(lightDotEye, phaseG);
             float powderTerm = powder(density_sample);
             if (enablePowder == 0)
             powderTerm = 1.0;
 
-            vec3 S = 0.6 * (mix(mix(ambientLight * 1.8, bg, 0.2), scattering * SUN_COLOR, powderTerm * light_density)) * density_sample;
+            vec3 S =(mix(mix(ambientLight * ambientStrength, bg, 0.2), phase * SUN_COLOR, powderTerm * light_density)) * density_sample;
             float dTrans = exp(density_sample * sigma_ds);
             vec3 Sint = (S - S * dTrans) * (1. / density_sample);
             col.rgb += T * Sint;

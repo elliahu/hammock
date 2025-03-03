@@ -456,26 +456,29 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Cloud properties");
                     ImGui::ColorEdit3("Cloud color top", &sunAndSkyUbo.cloudColorTop.Elements[0]);
                     ImGui::ColorEdit3("Cloud color bottom", &sunAndSkyUbo.cloudColorBottom.Elements[0]);
-                    ImGui::SliderFloat("Coverage override", &computePushConsts.coverage, 0.0f, 1.f);
-                    ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1.f);
-                    ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 10.f);
-                    ImGui::SliderFloat("Curliness", &computePushConsts.curliness, 0.0f, 10.f);
-                    ImGui::SliderFloat("Absorption", &computePushConsts.coverage, 0.001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Coverage override", &computePushConsts.coverageOverride, 0.0f, 1.f);
+                    ImGui::SliderFloat("Base coverage multiplier", &computePushConsts.baseCoverageMultiplier, 0.0f, 5.f);
+                    ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 20.f);
+                    ImGui::SliderFloat("Curliness", &computePushConsts.curliness, 0.0f, 20.f);
+                    ImGui::SliderFloat("Absorption", &computePushConsts.absorption, 0.001f, 0.009f, "%.7f");
                     ImGui::SliderFloat("Density", &computePushConsts.densityFactor, 0.001f, .09f, "%.7f");
                     ImGui::SliderInt("Powder effect", &computePushConsts.enablePowder, 0, 1);
+                    ImGui::SliderFloat("Scattering direction (phase g)", &computePushConsts.phaseG, 0.f, 0.995f);
 
                     ImGui::SeparatorText("Noise properties");
 
                     ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
+                    ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
                     ImGui::ColorEdit3("Sky color top", &sunAndSkyUbo.skyColorTop.Elements[0]);
                     ImGui::ColorEdit3("Sky color bottom", &sunAndSkyUbo.skyColorBottom.Elements[0]);
                     ImGui::SliderFloat("Fog factor", &computePushConsts.fogFactor, 0.0000001f, .00009f, "%.7f");
                     ImGui::DragFloat("Earth radius", &computePushConsts.earthRadius, 10.0f, 100.f);
-                    ImGui::DragFloat("Clouds inner radius", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
-                    ImGui::DragFloat("Clouds outer radius", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
+                    ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
+                    ImGui::DragFloat("Clouds height max.", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
+                    ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 10.f );
 
                     camWindowPos = ImGui::GetWindowPos();
 
@@ -554,8 +557,10 @@ void SkyScene::buildPipelines() {
 
 void SkyScene::update() {
     // Timing
-    postProcPushConsts.time += progressTime ? deltaTime : 0;
-    timeUbo.time = postProcPushConsts.time;
+    if (progressTime) {
+        postProcPushConsts.time += deltaTime;
+        timeUbo.time += deltaTime;
+    }
     frameCount++;
 
     // Movement and rotation speeds (adjust these as needed)

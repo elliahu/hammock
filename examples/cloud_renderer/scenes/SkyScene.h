@@ -24,7 +24,7 @@ class SkyScene final : public IScene {
 
 
     struct TimeUbo {
-        float32_t time;
+        float32_t time = 0.0f;
     } timeUbo;
 
     bool progressTime = false;
@@ -33,7 +33,7 @@ class SkyScene final : public IScene {
         float whitePoint = 1.0f;
         float exposure = 2.5;
         float gamma = 2.2;
-        float time;
+        float time = 0.0f;
     } postProcPushConsts;
 
     struct SunAndSkyUbo {
@@ -46,17 +46,20 @@ class SkyScene final : public IScene {
     } sunAndSkyUbo;
 
     struct ComputePushConsts {
-        float coverage = 0.3f;
-        float cloudSpeed = 0.1f;
-        float crispiness = 3.0f; // .4
-        float curliness = 4.0f;
+        float coverageOverride = 0.3f;
+        float baseCoverageMultiplier = 2.0f;
+        float cloudSpeed = 450.f;
+        float crispiness = 2.0f; // .4
+        float curliness = 10.0f;
         float absorption = 0.0035f; //0.0035
         float densityFactor =  0.02f; //  0.02;
-        int enablePowder = 0; // 0
+        int enablePowder = 1; // 0
         float fogFactor = 0.00006f;
-        float earthRadius = 35000.0f;
-        float cloudsInnerRadius = 5000.0f;
-        float cloudsOuterRadius = 17000.0f;
+        float earthRadius = 70000.0f; // 35000, 70000
+        float cloudsInnerRadius = 6000.0f; // 5000, 6000
+        float cloudsOuterRadius = 27000.0f; // 17000, 27000
+        float phaseG = 0.3f;
+        float ambientStrength = 2.0f;
     } computePushConsts;
 
 
