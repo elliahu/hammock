@@ -174,6 +174,43 @@ void SkyScene::init() {
     rm.getResource<Image>(compute.cloudMap)->queueCopyFromBuffer(rm.getResource<Buffer>(cloudMapStagingBuffer)->getBuffer());
     // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
 
+    // Load the sky dome
+    ScopedMemory skyDomeData(readImage(assetPath("textures/sky.jpg"), w, h, c,
+                                       Filesystem::ImageFormat::R8G8B8A8_UNORM));
+    // Create host visible staging buffer on device
+    ResourceHandle skyDomeStagingBuffer = rm.createResource<Buffer>(
+        "skydome-staging-buffer",
+        BufferDesc{
+            .instanceSize = sizeof(uchar8_t),
+            .instanceCount = static_cast<uint32_t>(w * h * c),
+            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        }
+    );
+
+    // Write the data into the staging buffer
+    rm.getResource<Buffer>(skyDomeStagingBuffer)->map();
+    rm.getResource<Buffer>(skyDomeStagingBuffer)->writeToBuffer(skyDomeData.get());
+
+    sky.skyDome = rm.createResource<Image>(
+        "skydome",
+        ImageDesc{
+            .width = static_cast<uint32_t>(w),
+            .height = static_cast<uint32_t>(h),
+            .channels = static_cast<uint32_t>(c),
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+        }
+    );
+
+    // Copy the data from buffer into the image
+    rm.getResource<Image>(sky.skyDome)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    rm.getResource<Image>(sky.skyDome)->queueCopyFromBuffer(rm.getResource<Buffer>(skyDomeStagingBuffer)->getBuffer());
+    // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
+
+
     // Other resource are managed by the render graph
     buildRenderGraph();
 
@@ -222,28 +259,32 @@ void SkyScene::buildRenderGraph() {
     // Cloud map
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("cloud-map", compute.cloudMap);
 
+    // Sky dome
+    renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("skydome-image", sky.skyDome);
+
     // Storage images that the compute pass outputs to and that is then read in the composition pass
 
-    auto outputImageDesc = ImageDesc{
-        .width = window.getExtent().width,
-        .height = window.getExtent().height,
-        .channels = 4,
-        .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
-    };
     renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
-        "color-image", outputImageDesc);
+        "color-image", ImageDesc{
+            .width = window.getExtent().width,
+            .height = window.getExtent().height,
+            .channels = 4,
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+        });
 
-    renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
-        "bloom-image", outputImageDesc);
-
-    renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
-        "alphaness-image", outputImageDesc);
-
-    renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
-        "cloud-distance-image", outputImageDesc);
+    renderGraph->addResource<ResourceNode::Type::ColorAttachment, Image, ImageDesc>(
+        "sky-image", ImageDesc{
+            .width = window.getExtent().width,
+            .height = window.getExtent().height,
+            .channels = 4,
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+        });
 
 
     // Create a default sampler that will be used to sample output images (in this case storage image)
@@ -253,6 +294,44 @@ void SkyScene::buildRenderGraph() {
     renderGraph->addSwapChainImageResource("swap-color-image");
 
     // Next, declare the render passes and what resources each pass uses
+
+    renderGraph->addPass<CommandQueueFamily::Graphics, RelativeViewPortSize::SwapChainRelative>("sky-pass")
+            .read(ResourceAccess{
+                .resourceName = "camera-ubo",
+            })
+            .read(ResourceAccess{
+                .resourceName = "time-ubo",
+            })
+            .read(ResourceAccess{
+                .resourceName = "sun-and-sky-ubo",
+            })
+            .read(ResourceAccess{
+                .resourceName = "skydome-image",
+                .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            })
+            .descriptor(0, {
+                            {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {1, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {2, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {3, {"skydome-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                        })
+            .write(ResourceAccess{
+                .resourceName = "sky-image",
+                .requiredLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            })
+            .execute([&](RenderPassContext context)-> void {
+                // The composition pass is straight forward
+                sky.pipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
+                context.bindDescriptorSet(0, 0, sky.pipeline->pipelineLayout,
+                                          VK_PIPELINE_BIND_POINT_GRAPHICS);
+
+
+                // Even though there is no vertex buffer, this call is safe as it does not actually read the vertices in the shader
+                // This only triggers fullscreen effect in vert shader that runs fragment shader for each pixel of the screen
+                vkCmdDraw(context.commandBuffer, 3, 1, 0, 0);
+            });
+
     // Compute pass reads from storage and uniform buffers and writes into storage image
     renderGraph->addPass<CommandQueueFamily::Compute>("compute-pass")
             .read(ResourceAccess{
@@ -280,16 +359,18 @@ void SkyScene::buildRenderGraph() {
             .read(ResourceAccess{
                 .resourceName = "sun-and-sky-ubo",
             })
+            .read(ResourceAccess{
+                .resourceName = "sky-image",
+                .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            })
             .descriptor(0, {
                             {0, {"color-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {1, {"bloom-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {2, {"alphaness-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {3, {"cloud-distance-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {4, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {5, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {6, {"curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {7, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {8, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {1, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {2, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {3, {"curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {4, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {5, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {6, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .descriptor(1, {
                             {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
@@ -299,18 +380,6 @@ void SkyScene::buildRenderGraph() {
                         })
             .write(ResourceAccess{
                 .resourceName = "color-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
-            })
-            .write(ResourceAccess{
-                .resourceName = "bloom-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
-            })
-            .write(ResourceAccess{
-                .resourceName = "alphaness-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
-            })
-            .write(ResourceAccess{
-                .resourceName = "cloud-distance-image",
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
             })
             .execute([&](RenderPassContext context)-> void {
@@ -338,6 +407,7 @@ void SkyScene::buildRenderGraph() {
                 vkCmdDispatch(context.commandBuffer, groupsX, groupsY, 1);
             });
 
+
     // Composition pass reads from the storage image and writes to the swap chain image
     renderGraph->addPass<CommandQueueFamily::Graphics, RelativeViewPortSize::SwapChainRelative>("composition-pass")
             .read(ResourceAccess{
@@ -346,28 +416,17 @@ void SkyScene::buildRenderGraph() {
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
             })
             .read(ResourceAccess{
-                .resourceName = "bloom-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
-            })
-            .read(ResourceAccess{
-                .resourceName = "alphaness-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
-            })
-            .read(ResourceAccess{
-                .resourceName = "cloud-distance-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .resourceName = "sky-image",
+                .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
             })
             .descriptor(0, {
                             {0, {"color-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {1, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "swap-color-image",
                 .requiredLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                // In case of swapchain image we always need to specify final layout
-                // In this case we declare that the layout will not change as this is not the last pass before present
                 .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             })
             .execute([&](RenderPassContext context)-> void {
@@ -375,9 +434,6 @@ void SkyScene::buildRenderGraph() {
                 composition.pipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
                 context.bindDescriptorSet(0, 0, composition.pipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_GRAPHICS);
-
-                vkCmdPushConstants(context.commandBuffer, composition.pipeline->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                   sizeof(PostProcPushConsts), &postProcPushConsts);
 
 
                 // Even though there is no vertex buffer, this call is safe as it does not actually read the vertices in the shader
@@ -448,16 +504,12 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
-                    ImGui::SeparatorText("Tone mapping");
-                    ImGui::SliderFloat("White point", &postProcPushConsts.whitePoint, 0.0f, 1.5f);
-                    ImGui::SliderFloat("Exposure", &postProcPushConsts.exposure, 0.0f, 5.f);
-                    ImGui::SliderFloat("Gamma", &postProcPushConsts.gamma, 0.0f, 5.0f);
 
                     ImGui::SeparatorText("Cloud properties");
                     ImGui::ColorEdit3("Cloud color top", &sunAndSkyUbo.cloudColorTop.Elements[0]);
                     ImGui::ColorEdit3("Cloud color bottom", &sunAndSkyUbo.cloudColorBottom.Elements[0]);
                     ImGui::SliderFloat("Coverage override", &computePushConsts.coverageOverride, 0.0f, 1.f);
-                    ImGui::SliderFloat("Base coverage multiplier", &computePushConsts.baseCoverageMultiplier, 0.0f, 5.f);
+
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 20.f);
                     ImGui::SliderFloat("Curliness", &computePushConsts.curliness, 0.0f, 20.f);
                     ImGui::SliderFloat("Absorption", &computePushConsts.absorption, 0.001f, 0.009f, "%.7f");
@@ -466,10 +518,16 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Scattering direction (phase g)", &computePushConsts.phaseG, 0.f, 0.995f);
 
                     ImGui::SeparatorText("Noise properties");
+                    ImGui::SliderFloat("Base multiplier", &computePushConsts.baseMultiplier, 0.0f, 5.f);
+                    ImGui::SliderFloat("Detail multiplier", &computePushConsts.detailMultiplier, 0.0f, 1.f);
+                    ImGui::SliderFloat("Connectedness", &computePushConsts.conectedness, 0.f, 1.f);
+
 
                     ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
+                    ImGui::SliderFloat("Time of day", &timeOfDay, 0.0f, 1.0f);
                     ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
+                    ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
                     ImGui::ColorEdit3("Sky color top", &sunAndSkyUbo.skyColorTop.Elements[0]);
@@ -478,7 +536,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragFloat("Earth radius", &computePushConsts.earthRadius, 10.0f, 100.f);
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
                     ImGui::DragFloat("Clouds height max.", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
-                    ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 10.f );
+                    ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 10.f);
 
                     camWindowPos = ImGui::GetWindowPos();
 
@@ -527,6 +585,31 @@ void SkyScene::buildPipelines() {
         .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConsts)}}
     });
 
+    //sky pass
+    sky.pipeline = GraphicsPipeline::create({
+        .debugName = "sky-pipeline",
+        .device = device,
+        .vertexShader
+        // Fullscreen vertex shader
+        {.byteCode = Filesystem::readFile(compiledShaderPath("fullscreen_headless.vert")),},
+        .fragmentShader
+        // Fragment shader samples storage texture and writes it to swapchain image
+        {.byteCode = Filesystem::readFile(compiledShaderPath("sky.frag")),},
+        .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("sky-pass")},
+        .pushConstantRanges{},
+        .graphicsState{
+            // We disable cull so that the vkCmdDraw command is not skipped
+            .cullMode = VK_CULL_MODE_NONE,
+            .vertexBufferBindings{}
+        },
+        .dynamicRendering = {
+            // Render graph requires by default dynamic rendering
+            .enabled = true,
+            .colorAttachmentCount = 1,
+            .colorAttachmentFormats = {VK_FORMAT_R8G8B8A8_UNORM},
+        }
+    });
+
     // Composition pass
     composition.pipeline = GraphicsPipeline::create({
         .debugName = "composition-pipeline",
@@ -538,11 +621,10 @@ void SkyScene::buildPipelines() {
         // Fragment shader samples storage texture and writes it to swapchain image
         {.byteCode = Filesystem::readFile(compiledShaderPath("texture.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("composition-pass")},
-        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PostProcPushConsts)}},
+        .pushConstantRanges{},
         .graphicsState{
             // We disable cull so that the vkCmdDraw command is not skipped
             .cullMode = VK_CULL_MODE_NONE,
-            // No vertex buffer means no buffer bindings
             .vertexBufferBindings{}
         },
         .dynamicRendering = {
@@ -558,10 +640,18 @@ void SkyScene::buildPipelines() {
 void SkyScene::update() {
     // Timing
     if (progressTime) {
-        postProcPushConsts.time += deltaTime;
         timeUbo.time += deltaTime;
     }
     frameCount++;
+
+    float angle = (timeOfDay - 0.25f) * 2.0f * HmckPI; // Shift so 0.25 (morning) starts at the horizon
+    float sunHeight = std::sin(angle);  // Vertical movement
+    float sunHorizontal = std::cos(angle); // Horizontal movement
+
+    sunAndSkyUbo.lightDirection =  HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f}; // Assuming movement in X-Y plane
+
+    float azimuthRadians = HmckToRad(HmckAngleDeg(windDirection));
+    sunAndSkyUbo.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians),0.0f};
 
     // Movement and rotation speeds (adjust these as needed)
     const float movementSpeed = 10.0f; // Units per frame

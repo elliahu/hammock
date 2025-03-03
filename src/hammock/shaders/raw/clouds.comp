@@ -2,22 +2,22 @@
 
 layout (local_size_x = 32, local_size_y = 32) in;
 layout (binding = 0, rgba16f) uniform writeonly image2D colorImage;
-layout (binding = 1, rgba16f) uniform writeonly image2D bloomImage;
-layout (binding = 2, rgba16f) uniform writeonly image2D alphanessImage;
-layout (binding = 3, rgba16f) uniform writeonly image2D cloudDistanceImage;
 
-layout (binding = 4) uniform sampler3D baseNoiseSampler;
-layout (binding = 5) uniform sampler3D detailNoiseSampler;
-layout (binding = 6) uniform sampler2D curlNoiseSampler;
-layout (binding = 7) uniform sampler2D cloudMapSampler;
+layout (binding = 1) uniform sampler3D baseNoiseSampler;
+layout (binding = 2) uniform sampler3D detailNoiseSampler;
+layout (binding = 3) uniform sampler2D curlNoiseSampler;
+layout (binding = 4) uniform sampler2D cloudMapSampler;
 
-layout (binding = 8) uniform SunAndSkyUBO {
+layout (binding = 5) uniform sampler2D skySampler;
+
+layout (binding = 6) uniform SunAndSkyUBO {
     vec4 cloudColorTop;
     vec4 cloudColorBottom;
     vec4 lightColor;
     vec4 lightDirection;
     vec4 skyColorBottom;
     vec4 skyColorTop;
+    vec4 windDirection;
 };
 
 layout (set = 1, binding = 0) uniform CameraUBO
@@ -40,7 +40,8 @@ layout (set = 2, binding = 0) uniform TimeUBO
 
 layout (push_constant) uniform PushConstants {
     float coverage_multiplier;
-    float base_coverage_multiplier;
+    float base_multiplier;
+    float detail_multiplier;
     float cloudSpeed;
     float crispiness; // .4
     float curliness;
@@ -53,6 +54,7 @@ layout (push_constant) uniform PushConstants {
     float sphereOuterRadius;
     float phaseG;
     float ambientStrength;
+    float conectedness;
 };
 
 #define HDR(col, exps) 1.0 - exp(- col * exps)
@@ -78,6 +80,7 @@ vec3 eye = cameraPosition.xyz;
 #define CUMULUS_GRADIENT vec4(0.00, 0.1625, 0.88, 0.98)
 
 
+#define WIND_DIRECTION normalize(windDirection.xyz)
 
 
 #define EARTH_RADIUS earthRadius
@@ -97,7 +100,6 @@ vec3 sphereCenter = vec3(0.0, -EARTH_RADIUS, 0.0);
 #define SATURATE(x) clamp(x, 0.0, 1.0)
 #define CLOUD_SCALE crispiness
 #define CLOUD_SPEED cloudSpeed
-const vec3 windDirection = normalize(vec3(0.5, 0.0, 0.1));
 
 vec3 ambientlight = vec3(255, 255, 235) / 255;
 float ambientFactor = 0.5;
@@ -283,7 +285,7 @@ vec2 getUVProjection(vec3 p) {
 float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 
     float heightFraction = getHeightFraction(p);
-    vec3 animation = heightFraction * windDirection * CLOUD_TOP_OFFSET + windDirection * iTime * CLOUD_SPEED;
+    vec3 animation = heightFraction * WIND_DIRECTION * CLOUD_TOP_OFFSET + WIND_DIRECTION * iTime * CLOUD_SPEED;
     vec2 uv = getUVProjection(p);
     vec2 moving_uv = getUVProjection(p + animation);
 
@@ -292,13 +294,9 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
         return 0.0;
     }
 
-    vec3 weather_data = texture(cloudMapSampler, moving_uv).rgb;
-    float cloud_coverage = weather_data.r * coverage_multiplier;
-    float precipation = weather_data.g;
+    vec3 weather_data = texture(cloudMapSampler, uv).rgb;
+    float cloud_coverage = mix(weather_data.r, weather_data.g, conectedness) * coverage_multiplier;
     float cloud_type = weather_data.b;
-    if (cloud_coverage == 0.0) {
-        return 0.0;
-    }
 
 
     vec4 low_frequency_noise = textureLod(baseNoiseSampler, vec3(uv * CLOUD_SCALE, heightFraction), lod);
@@ -312,15 +310,14 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 
     if (expensive && weather_data.r > 0.0)
     {
-        vec3 curlNoise = texture(curlNoiseSampler, moving_uv * curliness).rgb;
-        vec3 erodeCloudNoise = textureLod(detailNoiseSampler, vec3(moving_uv * CLOUD_SCALE, heightFraction), lod).rgb;
-        erodeCloudNoise = erodeCloudNoise - erodeCloudNoise * curlNoise;
+        vec3 erodeCloudNoise = textureLod(detailNoiseSampler, vec3(moving_uv * CLOUD_SCALE * curliness, heightFraction), lod).rgb;
+
         float highFreqFBM = (erodeCloudNoise.r * 0.625) + (erodeCloudNoise.g * 0.25) + (erodeCloudNoise.b * 0.125);
         float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, clamp(heightFraction * 10.0, 0.0, 1.0));
 
         base_cloud_with_coverage = base_cloud_with_coverage - highFreqNoiseModifier * (1.0 - base_cloud_with_coverage);
 
-        base_cloud_with_coverage = remap(base_cloud_with_coverage * base_coverage_multiplier, highFreqNoiseModifier * 0.2, 1.0, 0.0, 1.0);
+        base_cloud_with_coverage = remap(base_cloud_with_coverage * base_multiplier, highFreqNoiseModifier * detail_multiplier, 1.0, 0.0, 1.0);
     }
 
     return clamp(base_cloud_with_coverage, 0.0, 1.0);
@@ -417,7 +414,7 @@ vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
             if (enablePowder == 0)
             powderTerm = 1.0;
 
-            vec3 S =(mix(mix(ambientLight * ambientStrength, bg, 0.2), phase * SUN_COLOR, powderTerm * light_density)) * density_sample;
+            vec3 S = (mix(mix(ambientLight * ambientStrength, bg, 0.2), phase * SUN_COLOR, powderTerm * light_density)) * density_sample;
             float dTrans = exp(density_sample * sigma_ds);
             vec3 Sint = (S - S * dTrans) * (1. / density_sample);
             col.rgb += T * Sint;
@@ -473,10 +470,10 @@ void main()
     //intersectCubeMap(vec3(0.0, 0.0, 0.0), worldDir, stub, cubeMapEndPos);
     bool hit = raySphereintersectionSkyMap(worldDir, .75, cubeMapEndPos);
 
-    vec4 bg = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 bg = texture(skySampler, fragCoord);
     vec3 red = vec3(1.0);
 
-    //bg = mix(mix(red.rgbr, vec4(1.0), SUN_DIR.y), bg, pow(max(cubeMapEndPos.y + 0.1, .0), 0.2));
+    bg = mix(mix(red.rgbr, vec4(1.0), SUN_DIR.y), bg, pow(max(cubeMapEndPos.y + 1.0, .0), 0.0));
 
     //compute raymarching starting and ending point
     vec3 fogRay;
@@ -507,9 +504,6 @@ void main()
         fragColor_v = bg;
         bloom_v = bg;
         imageStore(colorImage, fragCoord, fragColor_v);
-        imageStore(bloomImage, fragCoord, bloom_v);
-        imageStore(alphanessImage, fragCoord, vec4(0.0));
-        imageStore(cloudDistanceImage, fragCoord, vec4(-1.0));
         return; //early exit
     }
 
@@ -550,9 +544,6 @@ void main()
     }
     fragColor_v.a = alphaness_v.r;
     imageStore(colorImage, fragCoord, fragColor_v);
-    imageStore(bloomImage, fragCoord, bloom_v);
-    imageStore(alphanessImage, fragCoord, alphaness_v);
-    imageStore(cloudDistanceImage, fragCoord, cloudDistance_v);
 }
 
 

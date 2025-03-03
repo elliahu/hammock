@@ -586,6 +586,7 @@ namespace hammock {
                     for (const auto &descriptor: pass.descriptors) {
                         layouts.push_back(descriptor.second.layout->getDescriptorSetLayout());
                     }
+                    return layouts;
                 }
             }
             return layouts;

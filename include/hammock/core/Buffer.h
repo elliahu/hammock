@@ -107,7 +107,10 @@ namespace hammock {
         */
         VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) {
             assert(m_buffer && m_allocation && "Called map on buffer before create");
-            return vmaMapMemory(device.allocator(), m_allocation, &m_mapped);
+            if (!m_mapped) {
+                return vmaMapMemory(device.allocator(), m_allocation, &m_mapped);
+            }
+            return VK_SUCCESS;
         }
 
         /**
