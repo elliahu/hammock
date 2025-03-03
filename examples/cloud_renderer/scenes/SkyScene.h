@@ -48,8 +48,8 @@ class SkyScene final : public IScene {
     struct ComputePushConsts {
         float coverage = 0.3f;
         float cloudSpeed = 0.1f;
-        float crispiness = 0.4f; // .4
-        float curliness = 0.5f;
+        float crispiness = 3.0f; // .4
+        float curliness = 4.0f;
         float absorption = 0.0035f; //0.0035
         float densityFactor =  0.02f; //  0.02;
         int enablePowder = 0; // 0

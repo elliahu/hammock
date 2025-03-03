@@ -458,8 +458,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::ColorEdit3("Cloud color bottom", &sunAndSkyUbo.cloudColorBottom.Elements[0]);
                     ImGui::SliderFloat("Coverage override", &computePushConsts.coverage, 0.0f, 1.f);
                     ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1.f);
-                    ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 1.f);
-                    ImGui::SliderFloat("Curliness", &computePushConsts.curliness, 0.0f, 1.f);
+                    ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 10.f);
+                    ImGui::SliderFloat("Curliness", &computePushConsts.curliness, 0.0f, 10.f);
                     ImGui::SliderFloat("Absorption", &computePushConsts.coverage, 0.001f, 0.009f, "%.7f");
                     ImGui::SliderFloat("Density", &computePushConsts.densityFactor, 0.001f, .09f, "%.7f");
                     ImGui::SliderInt("Powder effect", &computePushConsts.enablePowder, 0, 1);

@@ -302,7 +302,7 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
     if (expensive)
     {
         vec3 erodeCloudNoise = textureLod(detailNoiseSampler, vec3(moving_uv * CLOUD_SCALE, heightFraction) * curliness, lod).rgb;
-        float highFreqFBM = dot(erodeCloudNoise.rgb, vec3(0.625, 0.25, 0.125));//(erodeCloudNoise.r * 0.625) + (erodeCloudNoise.g * 0.25) + (erodeCloudNoise.b * 0.125);
+        float highFreqFBM = (erodeCloudNoise.r * 0.625) + (erodeCloudNoise.g * 0.25) + (erodeCloudNoise.b * 0.125);
         float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, clamp(heightFraction * 10.0, 0.0, 1.0));
 
         base_cloud_with_coverage = base_cloud_with_coverage - highFreqNoiseModifier * (1.0 - base_cloud_with_coverage);
