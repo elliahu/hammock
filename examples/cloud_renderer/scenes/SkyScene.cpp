@@ -466,12 +466,16 @@ void SkyScene::buildRenderGraph() {
 
                     ImGui::SeparatorText("Noise properties");
 
-                    ImGui::SeparatorText("Sun and time");
+                    ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
                     ImGui::ColorEdit3("Sky color top", &sunAndSkyUbo.skyColorTop.Elements[0]);
                     ImGui::ColorEdit3("Sky color bottom", &sunAndSkyUbo.skyColorBottom.Elements[0]);
+                    ImGui::SliderFloat("Fog factor", &computePushConsts.fogFactor, 0.0000001f, .00009f, "%.7f");
+                    ImGui::DragFloat("Earth radius", &computePushConsts.earthRadius, 10.0f, 100.f);
+                    ImGui::DragFloat("Clouds inner radius", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
+                    ImGui::DragFloat("Clouds outer radius", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
 
                     camWindowPos = ImGui::GetWindowPos();
 

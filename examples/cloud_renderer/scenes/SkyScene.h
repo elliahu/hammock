@@ -53,6 +53,10 @@ class SkyScene final : public IScene {
         float absorption = 0.0035f; //0.0035
         float densityFactor =  0.02f; //  0.02;
         int enablePowder = 0; // 0
+        float fogFactor = 0.00006f;
+        float earthRadius = 35000.0f;
+        float cloudsInnerRadius = 5000.0f;
+        float cloudsOuterRadius = 17000.0f;
     } computePushConsts;
 
 
