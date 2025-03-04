@@ -22,6 +22,9 @@
 #endif
 
 #include <vulkan/vulkan.h>
+#if defined(SURFER_PLATFORM_WIN32)
+#include <vulkan/vulkan_win32.h>
+#endif
 #if defined(SURFER_PLATFORM_X11)
 #include <vulkan/vulkan_xlib.h>
 #endif
@@ -559,11 +562,14 @@ namespace Surfer {
         }
 
         void Win32_onMouseMove(int xPos, int yPos) {
-            _x = xPos;
-            _y = yPos;
+            if (_mouse_x != xPos || _mouse_y != yPos) {
+                // save the internal state
+                _mouse_x = xPos;
+                _mouse_y = yPos;
 
-            if (_mouseMotionCallback != nullptr) {
-                _mouseMotionCallback(_x, _y);
+                if (_mouseMotionCallback != nullptr) {
+                    _mouseMotionCallback(xPos, yPos);
+                }
             }
         }
 

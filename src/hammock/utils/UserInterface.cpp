@@ -228,7 +228,8 @@ void hammock::UserInterface::forwardWindowEvents() {
     if (ImGui::GetCurrentContext()) {
         auto &io = ImGui::GetIO();
 
-        io.AddMousePosEvent(window.getMousePosition().X, window.getMousePosition().Y);
+        auto mousePos = window.getMousePosition();
+        io.AddMousePosEvent(mousePos.X, mousePos.Y);
         io.AddMouseButtonEvent(ImGuiMouseButton_Left, window.isKeyDown(Surfer::KeyCode::MouseLeft));
         io.AddMouseButtonEvent(ImGuiMouseButton_Right, window.isKeyDown(Surfer::KeyCode::MouseRight));
     }

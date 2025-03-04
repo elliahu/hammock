@@ -40,7 +40,7 @@ class NoiseEditor final : public IScene {
         HmckVec4 gridSize{10.f,10.f,10.f, 0.0f};
         int numOctaves = 1;
         float persistence = 0.5f;
-        float lacunarity = 1.5f;
+        float lacunarity = 2.0f;
         float fallOff = 1.0f;
         int channel = 0;
     };
