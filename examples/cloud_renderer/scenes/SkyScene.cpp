@@ -509,16 +509,20 @@ void SkyScene::buildRenderGraph() {
                     ImGui::ColorEdit3("Cloud color top", &sunAndSkyUbo.cloudColorTop.Elements[0]);
                     ImGui::ColorEdit3("Cloud color bottom", &sunAndSkyUbo.cloudColorBottom.Elements[0]);
                     ImGui::SliderFloat("Coverage override", &computePushConsts.coverageOverride, 0.0f, 1.f);
-
-                    ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 20.f);
-                    ImGui::SliderFloat("Curliness", &computePushConsts.curliness, 0.0f, 20.f);
+                    ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 10.f);
+                    ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
+                    ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
                     ImGui::SliderFloat("Absorption", &computePushConsts.absorption, 0.001f, 0.009f, "%.7f");
                     ImGui::SliderFloat("Density", &computePushConsts.densityFactor, 0.001f, .09f, "%.7f");
                     ImGui::SliderInt("Powder effect", &computePushConsts.enablePowder, 0, 1);
                     ImGui::SliderFloat("Scattering direction (phase g)", &computePushConsts.phaseG, 0.f, 0.995f);
+                    ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
+                    ImGui::SliderFloat("Silver intensity", &computePushConsts.silverIntensity, 0.f, 10.0f);
+                    ImGui::SliderFloat("Silver spread", &computePushConsts.silverSpread, 0.f, 1.0f);
+
 
                     ImGui::SeparatorText("Noise properties");
-                    ImGui::SliderFloat("Base multiplier", &computePushConsts.baseMultiplier, 0.0f, 5.f);
+                    ImGui::SliderFloat("Base multiplier", &computePushConsts.baseMultiplier, 0.0f, 1.f);
                     ImGui::SliderFloat("Detail multiplier", &computePushConsts.detailMultiplier, 0.0f, 1.f);
                     ImGui::SliderFloat("Connectedness", &computePushConsts.conectedness, 0.f, 1.f);
 
@@ -539,6 +543,29 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 10.f);
 
                     camWindowPos = ImGui::GetWindowPos();
+
+                    ImGui::PopStyleVar();
+                    ImGui::End();
+                }
+
+                if (showDebug) {
+                    static int selectedOption = 0; // Default to the first option
+
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+                    ImGui::SetNextWindowPos(camWindowPos, 0, {0, 1});
+                    ImGui::Begin("Debug options", (bool *) false,
+                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
+                    ImGui::SeparatorText("Debug views");
+                    if (ImGui::RadioButton("None", selectedOption == 0)) {
+                        selectedOption = 0;
+                    }
+                    if (ImGui::RadioButton("Cloud map", selectedOption == 1)) {
+                        selectedOption = 1;
+                    }
+                    computePushConsts.DEBUG_cloudmap = (selectedOption == 1) ? 1 : 0;
+
 
                     ImGui::PopStyleVar();
                     ImGui::End();
@@ -645,13 +672,13 @@ void SkyScene::update() {
     frameCount++;
 
     float angle = (timeOfDay - 0.25f) * 2.0f * HmckPI; // Shift so 0.25 (morning) starts at the horizon
-    float sunHeight = std::sin(angle);  // Vertical movement
+    float sunHeight = std::sin(angle); // Vertical movement
     float sunHorizontal = std::cos(angle); // Horizontal movement
 
-    sunAndSkyUbo.lightDirection =  HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f}; // Assuming movement in X-Y plane
+    sunAndSkyUbo.lightDirection = HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f}; // Assuming movement in X-Y plane
 
     float azimuthRadians = HmckToRad(HmckAngleDeg(windDirection));
-    sunAndSkyUbo.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians),0.0f};
+    sunAndSkyUbo.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};
 
     // Movement and rotation speeds (adjust these as needed)
     const float movementSpeed = 10.0f; // Units per frame

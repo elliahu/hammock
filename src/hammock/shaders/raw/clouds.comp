@@ -40,6 +40,7 @@ layout (set = 2, binding = 0) uniform TimeUBO
 
 layout (push_constant) uniform PushConstants {
     float coverage_multiplier;
+    float coverageRepeat;
     float base_multiplier;
     float detail_multiplier;
     float cloudSpeed;
@@ -53,8 +54,12 @@ layout (push_constant) uniform PushConstants {
     float sphereInnerRadius;
     float sphereOuterRadius;
     float phaseG;
+    float eccentricity;
+    float silverIntensity;
+    float silverSpread;
     float ambientStrength;
     float conectedness;
+    int DEBUG_cloudmap;
 };
 
 #define HDR(col, exps) 1.0 - exp(- col * exps)
@@ -114,6 +119,8 @@ const float bayerFilter[16u] = float[]
 15.0 * BAYER_FACTOR, 7.0 * BAYER_FACTOR, 13.0 * BAYER_FACTOR, 5.0 * BAYER_FACTOR
 );
 
+const float PI = 3.14159265359;
+
 
 vec3 ambient_light(float heightFrac)
 {
@@ -121,14 +128,23 @@ vec3 ambient_light(float heightFrac)
 }
 
 
-float HG(float sundotrd, float g) {
+float henyeyGreenstein(float sundotrd, float g) {
     float gg = g * g;
     return (1. - gg) / pow(1. + gg - 2. * g * sundotrd, 1.5);
 }
 
-float dualLobePhase(float sundotrd, float g) {
-    return mix(HG(sundotrd, -g), HG(sundotrd, g), clamp(sundotrd * 0.5 + 0.5, 0.0, 1.0));
+float dualLobePhase(float sundotrd) {
+    return mix(henyeyGreenstein(sundotrd, -phaseG), henyeyGreenstein(sundotrd, phaseG), clamp(sundotrd * 0.5 + 0.5, 0.0, 1.0));
 }
+
+float henyeyGreensteinModified(float sundotrd, float ecc){
+    return ((1.0 - ecc * ecc) / pow((1.0 + ecc * ecc - 2.0 * ecc * sundotrd), 3.0 / 2.0)) / 4.0 * PI;
+}
+
+float directedPhase(float sundotrd){
+    return max(henyeyGreensteinModified(sundotrd, eccentricity), silverIntensity * henyeyGreensteinModified(sundotrd, 0.99 - silverSpread));
+}
+
 
 
 bool intersectCubeMap(vec3 o, vec3 d, out vec3 minT, out vec3 maxT)
@@ -268,9 +284,7 @@ float getDensityForCloud(float heightFraction, float cloudType)
     vec4 baseGradient = stratusFactor * STRATUS_GRADIENT + stratoCumulusFactor * STRATOCUMULUS_GRADIENT + cumulusFactor * CUMULUS_GRADIENT;
 
     // gradicent computation (see Siggraph 2017 Nubis-Decima talk)
-    //return remap(heightFraction, baseGradient.x, baseGradient.y, 0.0, 1.0) * remap(heightFraction, baseGradient.z, baseGradient.w, 1.0, 0.0);
-    return smoothstep(baseGradient.x, baseGradient.y, heightFraction) - smoothstep(baseGradient.z, baseGradient.w, heightFraction);
-
+    return remap(heightFraction, baseGradient.x, baseGradient.y, 0.0, 1.0) * remap(heightFraction, baseGradient.z, baseGradient.w, 1.0, 0.0);
 }
 
 float threshold(const float v, const float t)
@@ -294,14 +308,15 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
         return 0.0;
     }
 
-    vec3 weather_data = texture(cloudMapSampler, uv).rgb;
-    float cloud_coverage = mix(weather_data.r, weather_data.g, conectedness) * coverage_multiplier;
-    float cloud_type = weather_data.b;
-
 
     vec4 low_frequency_noise = textureLod(baseNoiseSampler, vec3(uv * CLOUD_SCALE, heightFraction), lod);
     float lowFreqFBM = dot(low_frequency_noise.gba, vec3(0.625, 0.25, 0.125));
-    float base_cloud = remap(low_frequency_noise.r, -(1.0 - lowFreqFBM), 1., 0.0, 1.0);
+    float base_cloud = remap(low_frequency_noise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0);
+
+
+    vec3 weather_data = texture(cloudMapSampler, uv * coverageRepeat).rgb;
+    float cloud_coverage = weather_data.r * coverage_multiplier;
+    float cloud_type = weather_data.b;
 
     float density = getDensityForCloud(heightFraction, cloud_type);
     base_cloud *= (density / heightFraction);
@@ -310,9 +325,11 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 
     if (expensive && weather_data.r > 0.0)
     {
-        vec3 erodeCloudNoise = textureLod(detailNoiseSampler, vec3(moving_uv * CLOUD_SCALE * curliness, heightFraction), lod).rgb;
+        vec2 whisp = texture(curlNoiseSampler, moving_uv).xy;
+        vec2 detailSamplePos = (uv * CLOUD_SCALE) + whisp * curliness * (1.0 - heightFraction);
 
-        float highFreqFBM = (erodeCloudNoise.r * 0.625) + (erodeCloudNoise.g * 0.25) + (erodeCloudNoise.b * 0.125);
+        vec3 high_frequency_noise = textureLod(detailNoiseSampler, vec3(detailSamplePos, heightFraction), lod).rgb;
+        float highFreqFBM = dot(high_frequency_noise, vec3(0.625, 0.25, 0.125));
         float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, clamp(heightFraction * 10.0, 0.0, 1.0));
 
         base_cloud_with_coverage = base_cloud_with_coverage - highFreqNoiseModifier * (1.0 - base_cloud_with_coverage);
@@ -365,8 +382,6 @@ float raymarchToLight(vec3 o, float stepSize, vec3 lightDir, float originalDensi
         startPos += rayStep;
         coneRadius += CONE_STEP;
     }
-
-    //return T*powder((originalDensity));//*powder(originalDensity, 0.0);
     return T;
 }
 
@@ -409,7 +424,7 @@ vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
             float height = getHeightFraction(pos);
             vec3 ambientLight = mix(CLOUDS_AMBIENT_COLOR_BOTTOM, CLOUDS_AMBIENT_COLOR_TOP, height);
             float light_density = raymarchToLight(pos, ds * 0.1, SUN_DIR, density_sample, lightDotEye);
-            float phase = dualLobePhase(lightDotEye, phaseG);
+            float phase = directedPhase(lightDotEye);
             float powderTerm = powder(density_sample);
             if (enablePowder == 0)
             powderTerm = 1.0;
@@ -471,9 +486,8 @@ void main()
     bool hit = raySphereintersectionSkyMap(worldDir, .75, cubeMapEndPos);
 
     vec4 bg = texture(skySampler, fragCoord);
-    vec3 red = vec3(1.0);
 
-    bg = mix(mix(red.rgbr, vec4(1.0), SUN_DIR.y), bg, pow(max(cubeMapEndPos.y + 1.0, .0), 0.0));
+    //bg = mix(mix(red.rgbr, vec4(1.0), SUN_DIR.y), bg, pow(max(cubeMapEndPos.y + 1.0, .0), 0.9));
 
     //compute raymarching starting and ending point
     vec3 fogRay;
@@ -518,7 +532,7 @@ void main()
     vec3 ambientColor = bg.rgb;
 
     // use current position distance to center as action radius
-    v.rgb = mix(v.rgb, bg.rgb * v.a, clamp(fogAmount, 0., 1.));
+    //v.rgb = mix(v.rgb, bg.rgb * v.a, clamp(fogAmount, 0., 1.));
 
     // add sun glare to clouds
     float sun = clamp(dot(SUN_DIR, normalize(endPos - startPos)), 0.0, 1.0);
@@ -544,6 +558,11 @@ void main()
     }
     fragColor_v.a = alphaness_v.r;
     imageStore(colorImage, fragCoord, fragColor_v);
+
+    if(DEBUG_cloudmap == 1){
+        vec2 pos = getUVProjection(startPos) * coverageRepeat;
+        imageStore(colorImage, fragCoord, texture(cloudMapSampler, pos));
+    }
 }
 
 

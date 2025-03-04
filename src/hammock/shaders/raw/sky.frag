@@ -33,6 +33,7 @@ layout (binding = 1) uniform TimeUBO
 
 const float PI = 3.14159265359;
 
+
 void main(){
     vec4 direction_view = invViewProj * vec4(in_uv * 2.0 - 1.0, 1.0, 1.0);
     vec3 direction = normalize(direction_view.xyz / direction_view.w);

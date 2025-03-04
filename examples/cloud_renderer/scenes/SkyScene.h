@@ -40,11 +40,12 @@ class SkyScene final : public IScene {
     } sunAndSkyUbo;
 
     struct ComputePushConsts {
-        float coverageOverride = 0.3f;
-        float baseMultiplier = 2.0f;
-        float detailMultiplier = 1.0f;
+        float coverageOverride = 0.1f;
+        float coverageRepeat = 2.0f;
+        float baseMultiplier = 1.0f;
+        float detailMultiplier = 0.2f;
         float cloudSpeed = 450.f;
-        float crispiness = 3.0f; // .4
+        float crispiness = 16.f; // .4
         float curliness = 5.0f;
         float absorption = 0.0035f; //0.0035
         float densityFactor =  0.02f; //  0.02;
@@ -52,14 +53,19 @@ class SkyScene final : public IScene {
         float fogFactor = 0.00006f;
         float earthRadius = 70000.0f; // 35000, 70000
         float cloudsInnerRadius = 6000.0f; // 5000, 6000
-        float cloudsOuterRadius = 12000.0f; // 17000, 27000
+        float cloudsOuterRadius = 8000.0f; // 17000, 27000
         float phaseG = 0.3f;
-        float ambientStrength = 1.3f;
+        float eccentricity = 0.6f;
+        float silverIntensity = 0.5f;
+        float silverSpread = 0.5f;
+        float ambientStrength = .5f;
         float conectedness = 0.5f;
+        int DEBUG_cloudmap = 1;
     } computePushConsts;
 
     float32_t timeOfDay = 0.5f;
     float32_t windDirection = 0.0f;
+
 
 
     // Compute pass resources
