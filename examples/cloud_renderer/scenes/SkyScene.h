@@ -4,8 +4,8 @@
 
 class SkyScene final : public IScene {
     // Compute work group and local size computation
-    static constexpr uint32_t WORKGROUP_SIZE_X = 32;
-    static constexpr uint32_t WORKGROUP_SIZE_Y = 32;
+    static constexpr uint32_t WORKGROUP_SIZE_X = 16;
+    static constexpr uint32_t WORKGROUP_SIZE_Y = 16;
     static constexpr uint32_t groupsX = (1920 + WORKGROUP_SIZE_X - 1) / WORKGROUP_SIZE_X;
     static constexpr uint32_t groupsY = (1080 + WORKGROUP_SIZE_Y - 1) / WORKGROUP_SIZE_Y;
 
@@ -59,11 +59,12 @@ class SkyScene final : public IScene {
         float silverIntensity = 0.5f;
         float silverSpread = 0.5f;
         float ambientStrength = .5f;
-        float conectedness = 0.5f;
+        float cloudTypeOverride = 1.0f;
+        float atmosphereScatteringStrength = 50.0f;
         int DEBUG_cloudmap = 1;
     } computePushConsts;
 
-    float32_t timeOfDay = 0.5f;
+    float32_t timeOfDay = 0.4f;
     float32_t windDirection = 0.0f;
 
 

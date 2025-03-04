@@ -1,6 +1,6 @@
 #version 450
 
-layout (local_size_x = 32, local_size_y = 32) in;
+layout (local_size_x = 16, local_size_y = 16) in;
 layout (binding = 0, rgba16f) uniform writeonly image2D colorImage;
 
 layout (binding = 1) uniform sampler3D baseNoiseSampler;
@@ -58,7 +58,8 @@ layout (push_constant) uniform PushConstants {
     float silverIntensity;
     float silverSpread;
     float ambientStrength;
-    float conectedness;
+    float cloudTypeOverride;
+    float atmosphereScatteringStrength;
     int DEBUG_cloudmap;
 };
 
@@ -316,7 +317,7 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 
     vec3 weather_data = texture(cloudMapSampler, uv * coverageRepeat).rgb;
     float cloud_coverage = weather_data.r * coverage_multiplier;
-    float cloud_type = weather_data.b;
+    float cloud_type = clamp(weather_data.b * cloudTypeOverride, 0.0, 1.0);
 
     float density = getDensityForCloud(heightFraction, cloud_type);
     base_cloud *= (density / heightFraction);

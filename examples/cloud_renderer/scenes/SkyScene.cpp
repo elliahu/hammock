@@ -326,6 +326,9 @@ void SkyScene::buildRenderGraph() {
                 context.bindDescriptorSet(0, 0, sky.pipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_GRAPHICS);
 
+                vkCmdPushConstants(context.commandBuffer, sky.pipeline->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                   sizeof(ComputePushConsts), &computePushConsts);
+
 
                 // Even though there is no vertex buffer, this call is safe as it does not actually read the vertices in the shader
                 // This only triggers fullscreen effect in vert shader that runs fragment shader for each pixel of the screen
@@ -509,6 +512,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::ColorEdit3("Cloud color top", &sunAndSkyUbo.cloudColorTop.Elements[0]);
                     ImGui::ColorEdit3("Cloud color bottom", &sunAndSkyUbo.cloudColorBottom.Elements[0]);
                     ImGui::SliderFloat("Coverage override", &computePushConsts.coverageOverride, 0.0f, 1.f);
+                    ImGui::SliderFloat("Cloud type override", &computePushConsts.cloudTypeOverride, 0.f, 2.f);
                     ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 10.f);
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
@@ -524,12 +528,12 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Noise properties");
                     ImGui::SliderFloat("Base multiplier", &computePushConsts.baseMultiplier, 0.0f, 1.f);
                     ImGui::SliderFloat("Detail multiplier", &computePushConsts.detailMultiplier, 0.0f, 1.f);
-                    ImGui::SliderFloat("Connectedness", &computePushConsts.conectedness, 0.f, 1.f);
+
 
 
                     ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
-                    ImGui::SliderFloat("Time of day", &timeOfDay, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Time of day", &timeOfDay, 0.23f, .78f);
                     ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
@@ -541,6 +545,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
                     ImGui::DragFloat("Clouds height max.", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 10.f);
+                    ImGui::SliderFloat("AAtmosphere scattering strength", &computePushConsts.atmosphereScatteringStrength, 0.0f, 100.f);
 
                     camWindowPos = ImGui::GetWindowPos();
 
@@ -623,7 +628,7 @@ void SkyScene::buildPipelines() {
         // Fragment shader samples storage texture and writes it to swapchain image
         {.byteCode = Filesystem::readFile(compiledShaderPath("sky.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("sky-pass")},
-        .pushConstantRanges{},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ComputePushConsts)}},
         .graphicsState{
             // We disable cull so that the vkCmdDraw command is not skipped
             .cullMode = VK_CULL_MODE_NONE,
