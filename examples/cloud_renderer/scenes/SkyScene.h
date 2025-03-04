@@ -25,6 +25,7 @@ class SkyScene final : public IScene {
 
     struct TimeUbo {
         float32_t time = 0.0f;
+        float32_t timeOfDay = 0.0f;
     } timeUbo;
 
     bool progressTime = false;

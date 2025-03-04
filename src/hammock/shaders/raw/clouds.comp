@@ -36,6 +36,7 @@ ivec2 iResolution = ivec2(resX, resY);
 layout (set = 2, binding = 0) uniform TimeUBO
 {
     float iTime;
+    float timeOfDay;
 };
 
 layout (push_constant) uniform PushConstants {
@@ -98,8 +99,40 @@ vec3 eye = cameraPosition.xyz;
 #define CLOUDS_MIN_TRANSMITTANCE 1e-1
 #define CLOUDS_TRANSMITTANCE_THRESHOLD 1.0 - CLOUDS_MIN_TRANSMITTANCE
 
+vec3 getSunColor(float timeOfDay) {
+    // Define key colors:
+    vec3 midnightColor = vec3(0.0, 0.0, 0.2);       // dark blue at midnight
+    vec3 sunriseSunsetColor = vec3(1.0, 0.5, 0.2);    // orange/red at sunrise/sunset
+    vec3 noonColor = vec3(1.0, 1.0, 1.0);             // white at noon
+
+    // Ensure timeOfDay is between 0 and 1
+    timeOfDay = fract(timeOfDay);
+
+    if(timeOfDay < 0.25) {
+        // Transition from midnight to sunrise/sunset color
+        float t = timeOfDay / 0.25;
+        return mix(midnightColor, sunriseSunsetColor, smoothstep(0.0, 1.0, t));
+    }
+    else if(timeOfDay < 0.5) {
+        // Transition from sunrise/sunset color to noon color
+        float t = (timeOfDay - 0.25) / 0.25;
+        return mix(sunriseSunsetColor, noonColor, smoothstep(0.0, 1.0, t));
+    }
+    else if(timeOfDay < 0.75) {
+        // Transition from noon color back to sunrise/sunset color
+        float t = (timeOfDay - 0.5) / 0.25;
+        return mix(noonColor, sunriseSunsetColor, smoothstep(0.0, 1.0, t));
+    }
+    else {
+        // Transition from sunrise/sunset color back to midnight
+        float t = (timeOfDay - 0.75) / 0.25;
+        return mix(sunriseSunsetColor, midnightColor, smoothstep(0.0, 1.0, t));
+    }
+}
+
+
 #define SUN_DIR normalize(lightDirection.xyz)
-#define SUN_COLOR lightColor.rgb * vec3(1.1, 1.1, 0.95)
+#define SUN_COLOR getSunColor(timeOfDay)
 vec3 sphereCenter = vec3(0.0, -EARTH_RADIUS, 0.0);
 
 #define CLOUD_TOP_OFFSET 750.0

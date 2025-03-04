@@ -675,6 +675,7 @@ void SkyScene::update() {
         timeUbo.time += deltaTime;
     }
     frameCount++;
+    timeUbo.timeOfDay = timeOfDay;
 
     float angle = (timeOfDay - 0.25f) * 2.0f * HmckPI; // Shift so 0.25 (morning) starts at the horizon
     float sunHeight = std::sin(angle); // Vertical movement

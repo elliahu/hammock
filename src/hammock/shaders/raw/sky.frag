@@ -28,6 +28,7 @@ layout (binding = 0) uniform CameraUBO
 layout (binding = 1) uniform TimeUBO
 {
     float iTime;
+    float timeOfDay;
 };
 
 layout (push_constant) uniform PushConstants {
