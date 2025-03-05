@@ -99,6 +99,7 @@ vec3 eye = cameraPosition.xyz;
 #define CLOUDS_MIN_TRANSMITTANCE 1e-1
 #define CLOUDS_TRANSMITTANCE_THRESHOLD 1.0 - CLOUDS_MIN_TRANSMITTANCE
 
+// TODO this can be done on CPU
 vec3 getSunColor(float timeOfDay) {
     // Define key colors:
     vec3 midnightColor = vec3(0.0, 0.0, 0.2);       // dark blue at midnight
@@ -133,9 +134,9 @@ vec3 getSunColor(float timeOfDay) {
 
 #define SUN_DIR normalize(lightDirection.xyz)
 #define SUN_COLOR getSunColor(timeOfDay)
-vec3 sphereCenter = vec3(0.0, -EARTH_RADIUS, 0.0);
+vec3 sphereCenter = vec3(0.0, -EARTH_RADIUS - .5, 0.0) - cameraPosition.xyz;
 
-#define CLOUD_TOP_OFFSET 750.0
+#define CLOUD_TOP_OFFSET 0.0
 #define SATURATE(x) clamp(x, 0.0, 1.0)
 #define CLOUD_SCALE crispiness
 #define CLOUD_SPEED cloudSpeed
@@ -180,112 +181,33 @@ float directedPhase(float sundotrd){
 }
 
 
-
-bool intersectCubeMap(vec3 o, vec3 d, out vec3 minT, out vec3 maxT)
-{
-    vec3 cubeMin = vec3(-0.5, -0.5, -0.5);
-    vec3 cubeMax = vec3(0.5, 1 + cubeMin.y, 0.5);
-
-    // compute intersection of ray with all six bbox planes
-    vec3 invR = 1.0 / d;
-    vec3 tbot = invR * (cubeMin - o);
-    vec3 ttop = invR * (cubeMax - o);
-    // re-order intersections to find smallest and largest on each axis
-    vec3 tmin = min(ttop, tbot);
-    vec3 tmax = max(ttop, tbot);
-    // find the largest tmin and the smallest tmax
-    vec2 t0 = max(tmin.xx, tmin.yz);
-    float tnear = max(t0.x, t0.y);
-    t0 = min(tmax.xx, tmax.yz);
-    float tfar = min(t0.x, t0.y);
-
-    // check for hit
-    bool hit;
-    if ((tnear > tfar) || tfar < 0.0)
-    hit = false;
-    else
-    hit = true;
-
-    minT = tnear < 0.0 ? o : o + d * tnear; // if we are inside the bb, start point is cam pos
-    maxT = o + d * tfar;
-
-    return hit;
-}
-
 void swap(in float a, in float b) {
     float c = a;
     a = b;
     b = c;
 }
 
-bool raySphereintersectionSkyMap(vec3 rd, float radius, out vec3 startPos) {
+vec2 raySphere(vec3 center, float radius, vec3 origin, vec3 direction) {
+    vec3 offset = origin - center;
+    const float a = 1.0;
+    float b = 2.0 * dot(offset, direction);
+    float c = dot(offset, offset) - radius * radius;
 
-    float t;
+    float discriminant = b * b - 4.0 * a * c;
+    // No intersections: discriminant < 0
+    // 1 intersection: discriminant == 0
+    // 2 intersections: discriminant > 0
 
-    vec3 sphereCenter_ = vec3(0.0);
+    if (discriminant > 0) {
+        float s = sqrt(discriminant);
+        float dstToSphereNear = max(0, (-b - s) / (2 * a));
+        float dstToSphereFar = (-b + s) / (2 * a);
 
-    float radius2 = radius * radius;
-
-    vec3 L = -sphereCenter_;
-    float a = dot(rd, rd);
-    float b = 2.0 * dot(rd, L);
-    float c = dot(L, L) - radius2;
-
-    float discr = b * b - 4.0 * a * c;
-    t = max(0.0, (-b + sqrt(discr)) / 2);
-
-    startPos = rd * t;
-
-    return true;
-}
-
-
-bool raySphereintersection(vec3 ro, vec3 rd, float radius, out vec3 startPos) {
-
-    float t;
-
-    sphereCenter.xz = cameraPosition.xz;
-
-    float radius2 = radius * radius;
-
-    vec3 L = ro - sphereCenter;
-    float a = dot(rd, rd);
-    float b = 2.0 * dot(rd, L);
-    float c = dot(L, L) - radius2;
-
-    float discr = b * b - 4.0 * a * c;
-    if (discr < 0.0) return false;
-    t = max(0.0, (-b + sqrt(discr)) / 2);
-    if (t == 0.0) {
-        return false;
+        if (dstToSphereFar >= 0) {
+            return vec2(dstToSphereNear, dstToSphereFar - dstToSphereNear);
+        }
     }
-    startPos = ro + rd * t;
-
-    return true;
-}
-
-bool raySphereintersection2(vec3 ro, vec3 rd, float radius, out vec3 startPos) {
-
-    float t;
-
-    sphereCenter.xz = cameraPosition.xz;
-
-    float radius2 = radius * radius;
-
-    vec3 L = ro - sphereCenter;
-    float a = dot(rd, rd);
-    float b = 2.0 * dot(rd, L);
-    float c = dot(L, L) - radius2;
-
-    float discr = b * b - 4.0 * a * c;
-    if (discr < 0.0) return false;
-    t = max(0.0, (-b + sqrt(discr)) / 2);
-    if (t == 0.0) {
-        return false;
-    }
-    startPos = ro + rd * t;
-
-    return true;
+    return vec2(0.0, 0.0);
 }
 
 vec3 getSun(const vec3 d, float powExp) {
@@ -343,12 +265,12 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
     }
 
 
-    vec4 low_frequency_noise = textureLod(baseNoiseSampler, vec3(uv * CLOUD_SCALE, heightFraction), lod);
+    vec4 low_frequency_noise = textureLod(baseNoiseSampler, vec3(moving_uv * CLOUD_SCALE, heightFraction), lod);
     float lowFreqFBM = dot(low_frequency_noise.gba, vec3(0.625, 0.25, 0.125));
     float base_cloud = remap(low_frequency_noise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0);
 
 
-    vec3 weather_data = texture(cloudMapSampler, uv * coverageRepeat).rgb;
+    vec3 weather_data = texture(cloudMapSampler, moving_uv * coverageRepeat).rgb;
     float cloud_coverage = weather_data.r * coverage_multiplier;
     float cloud_type = clamp(weather_data.b * cloudTypeOverride, 0.0, 1.0);
 
@@ -456,7 +378,7 @@ vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
                 entered = true;
             }
             float height = getHeightFraction(pos);
-            vec3 ambientLight = mix(CLOUDS_AMBIENT_COLOR_BOTTOM, CLOUDS_AMBIENT_COLOR_TOP, height);
+            vec3 ambientLight = mix(CLOUDS_AMBIENT_COLOR_BOTTOM * SUN_COLOR, CLOUDS_AMBIENT_COLOR_TOP * SUN_COLOR, height);
             float light_density = raymarchToLight(pos, ds * 0.1, SUN_DIR, density_sample, lightDotEye);
             float phase = directedPhase(lightDotEye);
             float powderTerm = powder(density_sample);
@@ -501,100 +423,42 @@ float computeFogAmount(in vec3 startPos, in float factor) {
 
 void main()
 {
-    vec4 fragColor_v, bloom_v, alphaness_v, cloudDistance_v;
+    vec4 fragColor_v, cloudDistance_v;
     ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
 
     //compute ray direction
     vec4 ray_clip = vec4(computeClipSpaceCoord(fragCoord), 1.0);
     vec4 ray_view = inv_proj * ray_clip;
     ray_view = vec4(ray_view.xy, -1.0, 0.0);
-    vec3 worldDir = (inv_view * ray_view).xyz;
-    worldDir = normalize(worldDir);
+    vec3 rayDirection = (inv_view * ray_view).xyz;
+    rayDirection = normalize(rayDirection);
+    vec3 rayOrigin = cameraPosition.xyz;
 
-    vec3 startPos, endPos;
     vec4 v = vec4(0.0);
-
-    //compute background color
-    vec3 stub, cubeMapEndPos;
-    //intersectCubeMap(vec3(0.0, 0.0, 0.0), worldDir, stub, cubeMapEndPos);
-    bool hit = raySphereintersectionSkyMap(worldDir, .75, cubeMapEndPos);
-
     vec4 bg = texture(skySampler, fragCoord);
 
-    //bg = mix(mix(red.rgbr, vec4(1.0), SUN_DIR.y), bg, pow(max(cubeMapEndPos.y + 1.0, .0), 0.9));
-
     //compute raymarching starting and ending point
-    vec3 fogRay;
-    if (cameraPosition.y < SPHERE_INNER_RADIUS - EARTH_RADIUS) {
-        raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_INNER_RADIUS, startPos);
-        raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_OUTER_RADIUS, endPos);
-        fogRay = startPos;
-    } else if (cameraPosition.y > SPHERE_INNER_RADIUS - EARTH_RADIUS && cameraPosition.y < SPHERE_OUTER_RADIUS - EARTH_RADIUS) {
-        startPos = cameraPosition.xyz;
-        raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_OUTER_RADIUS, endPos);
-        bool hit = raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_INNER_RADIUS, fogRay);
-        if (!hit)
-        fogRay = startPos;
+    float dstToPlanet = raySphere(sphereCenter, EARTH_RADIUS, rayOrigin, rayDirection).x;
+    float dstToClouds = raySphere(sphereCenter, SPHERE_INNER_RADIUS, rayOrigin, rayDirection).y;
+    float dstToSpace = raySphere(sphereCenter, SPHERE_OUTER_RADIUS, rayOrigin, rayDirection).y;
 
-    } else {
-        raySphereintersection2(cameraPosition.xyz, worldDir, SPHERE_OUTER_RADIUS, startPos);
-        raySphereintersection2(cameraPosition.xyz, worldDir, SPHERE_INNER_RADIUS, endPos);
-        raySphereintersection(cameraPosition.xyz, worldDir, SPHERE_OUTER_RADIUS, fogRay);
+    // planet hit
+    if(dstToPlanet > 0.0){
+        imageStore(colorImage, fragCoord, vec4(1.0, 0.0, 0.0, 1.0));
+        return;
     }
 
-    //compute fog amount and early exit if over a certain value
-    float fogAmount = computeFogAmount(fogRay, fogFactor);
-
-    fragColor_v = bg;
-    bloom_v = vec4(getSun(worldDir, 128) * 1.3, 1.0);
-
-    if (fogAmount > 0.965) {
-        fragColor_v = bg;
-        bloom_v = bg;
-        imageStore(colorImage, fragCoord, fragColor_v);
-        return; //early exit
-    }
-
-    v = raymarchToCloud(startPos, endPos, bg.rgb, cloudDistance_v);
-    cloudDistance_v = vec4(distance(cameraPosition.xyz, cloudDistance_v.xyz), 0.0, 0.0, 0.0);
-    //cloudDistance_v = v;
-
-    float cloudAlphaness = threshold(v.a, 0.2);
-    v.rgb = v.rgb * 1.8 - 0.1; // contrast-illumination tuning
-
-    // apply atmospheric fog to far away clouds
-    vec3 ambientColor = bg.rgb;
-
-    // use current position distance to center as action radius
-    //v.rgb = mix(v.rgb, bg.rgb * v.a, clamp(fogAmount, 0., 1.));
-
-    // add sun glare to clouds
-    float sun = clamp(dot(SUN_DIR, normalize(endPos - startPos)), 0.0, 1.0);
-    vec3 s = 0.8 * vec3(1.0, 0.4, 0.2) * pow(sun, 256.0);
-    v.rgb += s * v.a;
-
-    // blend clouds and background
-
-    bg.rgb = bg.rgb * (1.0 - v.a) + v.rgb;
-    bg.a = 1.0;
+    vec3 start = rayOrigin + rayDirection * dstToClouds;
+    vec3 end = rayOrigin + rayDirection * (dstToSpace - dstToClouds);
 
 
-    fragColor_v = bg;
-    alphaness_v = vec4(cloudAlphaness, 0.0, 0.0, 1.0); // alphaness buffer
+    v = raymarchToCloud(start, end, bg.rgb, cloudDistance_v);
+    fragColor_v = v;
 
-    if (cloudAlphaness > 0.1) {
-        //apply fog to bloom buffer
-        float fogAmount = computeFogAmount(startPos, 0.00003);
-
-        vec3 cloud = mix(vec3(0.0), bloom_v.rgb, clamp(fogAmount, 0., 1.));
-        bloom_v.rgb = bloom_v.rgb * (1.0 - cloudAlphaness) + cloud.rgb;
-
-    }
-    fragColor_v.a = alphaness_v.r;
     imageStore(colorImage, fragCoord, fragColor_v);
 
     if(DEBUG_cloudmap == 1){
-        vec2 pos = getUVProjection(startPos) * coverageRepeat;
+        vec2 pos = getUVProjection(start) * coverageRepeat;
         imageStore(colorImage, fragCoord, texture(cloudMapSampler, pos));
     }
 }

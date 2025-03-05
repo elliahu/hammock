@@ -121,6 +121,17 @@ vec2 raySphere(vec3 center, float radius, vec3 origin, vec3 direction) {
     return vec2(0.0, 0.0);
 }
 
+// Rayleigh Phase Function
+float rayleighPhase(float cosTheta) {
+    return (3.0 / (16.0 * PI)) * (1.0 + cosTheta * cosTheta);
+}
+
+float miePhase(float cosTheta, float g) {
+    float gSq = g * g;
+    return (1.0 - gSq) / pow(1.0 + gSq - 2.0 * g * cosTheta, 1.5);
+}
+
+// Calculate Atmospheric Scattering with Phase Functions
 vec3 calculateLight(vec3 rayOrigin, vec3 rayDir, float rayLength) {
     vec3 inScatteredPoint = rayOrigin;
     float stepSize = rayLength / (ATMOSPHERE_SAMPLE_POINTS - 1);
@@ -130,6 +141,7 @@ vec3 calculateLight(vec3 rayOrigin, vec3 rayDir, float rayLength) {
         float sunRayLength = raySphere(sphereCenter, EARTH_RADIUS, inScatteredPoint, SUN_DIR).y;
         float sunRayOpticalDepth = opticalDepth(inScatteredPoint, SUN_DIR, sunRayLength);
         float viewRayOpticalDepth = opticalDepth(inScatteredPoint, -rayDir, stepSize * i);
+
         vec3 transmittance = exp(-(sunRayOpticalDepth + viewRayOpticalDepth) * SCATTER_COEFS);
         float localDensity = densityAtPoint(inScatteredPoint);
 
@@ -140,20 +152,9 @@ vec3 calculateLight(vec3 rayOrigin, vec3 rayDir, float rayLength) {
     return inScatteredLight;
 }
 
-
 void main() {
     vec4 direction_view = invViewProj * vec4(in_uv * 2.0 - 1.0, 1.0, 1.0);
     vec3 direction = normalize(direction_view.xyz / direction_view.w);
-
-    // Convert 3D direction to 2D UV coordinates using equirectangular projection
-    //    vec2 uv;
-    //    uv.x = 0.5 + 0.5 * atan(direction.z, direction.x) / PI;
-    //    uv.y = 0.5 - asin(clamp(direction.y, -1.0, 1.0)) / PI;
-    //
-    //
-    //    // Adjust gradient to have skyColorBottom at the horizon (y = 0) and skyColorTop at the top (y = 1)
-    //    float gradientFactor = clamp(direction.y * 0.5 + 0.5, 0.0, 1.0);
-    //    vec3 skyColor = mix(skyColorBottom.rgb, skyColorTop.rgb, gradientFactor);
 
     vec3 skyColor = calculateLight(cameraPosition.xyz, direction, raySphere(sphereCenter, SPHERE_OUTER_RADIUS, cameraPosition.xyz, direction).y) * SUN_COLOR;
 

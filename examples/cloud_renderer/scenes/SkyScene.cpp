@@ -516,7 +516,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 10.f);
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
-                    ImGui::SliderFloat("Absorption", &computePushConsts.absorption, 0.001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.009f, "%.7f");
                     ImGui::SliderFloat("Density", &computePushConsts.densityFactor, 0.001f, .09f, "%.7f");
                     ImGui::SliderInt("Powder effect", &computePushConsts.enablePowder, 0, 1);
                     ImGui::SliderFloat("Scattering direction (phase g)", &computePushConsts.phaseG, 0.f, 0.995f);
@@ -533,7 +533,7 @@ void SkyScene::buildRenderGraph() {
 
                     ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
-                    ImGui::SliderFloat("Time of day", &timeOfDay, 0.23f, .78f);
+                    ImGui::SliderFloat("Time of day", &timeOfDay, 0.0f, 1.0f);
                     ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
@@ -544,8 +544,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragFloat("Earth radius", &computePushConsts.earthRadius, 10.0f, 100.f);
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
                     ImGui::DragFloat("Clouds height max.", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
-                    ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 10.f);
-                    ImGui::SliderFloat("AAtmosphere scattering strength", &computePushConsts.atmosphereScatteringStrength, 0.0f, 100.f);
+                    ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
+                    ImGui::SliderFloat("Atmosphere scattering strength", &computePushConsts.atmosphereScatteringStrength, 0.0f, 100.f);
 
                     camWindowPos = ImGui::GetWindowPos();
 

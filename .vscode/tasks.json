@@ -2,29 +2,16 @@
   "tasks": [
     {
       "type": "shell",
-      "label": "build-hammock",
+      "label": "build-cloud-renderer",
       "command": "bash",
       "args": [
         "-c",
-        "mkdir -p ${workspaceFolder}/cmake-build-debug && cmake --build ${workspaceFolder}/cmake-build-debug --target hammock"
+        "mkdir -p ${workspaceFolder}/cmake-build-debug && cmake --build ${workspaceFolder}/cmake-build-debug --target cloud_renderer"
       ],
       "group": {
         "kind": "build",
         "isDefault": true
       }
     },
-    {
-      "type": "shell",
-      "label": "build-generate-environment-maps",
-      "command": "bash",
-      "args": [
-        "-c",
-        "mkdir -p ${workspaceFolder}/cmake-build-debug && cmake --build ${workspaceFolder}/cmake-build-debug --target generate_environment_maps"
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
-    }
   ]
 }

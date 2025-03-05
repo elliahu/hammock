@@ -3,19 +3,21 @@
       {
         "type": "cppdbg",
         "request": "launch",
-        "name": "Build and Debug Hammock",
-        "program": "${workspaceFolder}/cmake-build-debug/hammock",
-        "preLaunchTask": "build-hammock",
-        "cwd": "${workspaceFolder}/cmake-build-debug"
+        "name": "Noise generator",
+        "program": "${workspaceFolder}/cmake-build-debug/examples/cloud_renderer/cloud_renderer",
+        "preLaunchTask": "build-cloud-renderer",
+        "cwd": "${workspaceFolder}/cmake-build-debug/examples/cloud_renderer",
+        "args": ["--width", "1920", "--height", "1080", "--scene", "noise"]
       },
       {
         "type": "cppdbg",
         "request": "launch",
-        "name": "Build and Debug Generate Environment Maps",
-        "program": "${workspaceFolder}/cmake-build-debug/tools/generate_environment_maps/generate_environment_maps.exe",
-        "preLaunchTask": "build-generate-environment-maps",
-        "cwd": "${workspaceFolder}/cmake-build-debug"
-      }
+        "name": "Clouds",
+        "program": "${workspaceFolder}/cmake-build-debug/examples/cloud_renderer/cloud_renderer",
+        "preLaunchTask": "build-cloud-renderer",
+        "cwd": "${workspaceFolder}/cmake-build-debug/examples/cloud_renderer/",
+        "args": ["--width", "1920", "--height", "1080", "--scene", "clouds"]
+      },
     ],
     "inputs": [
       {

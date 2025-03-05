@@ -32,7 +32,7 @@ class SkyScene final : public IScene {
 
     struct SunAndSkyUbo {
         HmckVec4 cloudColorTop{0.99f, 0.876f, 0.876f, 1.0f};
-        HmckVec4 cloudColorBottom{0.382f, 0.411f, 0.470f, 1.0f};
+        HmckVec4 cloudColorBottom{0.755f, 0.846f, 0.988f, 1.0f};
         HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 1.0f};
         HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
         HmckVec4 skyColorBottom{0.462f, 0.654f, 0.956f, 1.0f};
@@ -47,13 +47,13 @@ class SkyScene final : public IScene {
         float detailMultiplier = 0.2f;
         float cloudSpeed = 450.f;
         float crispiness = 16.f; // .4
-        float curliness = 5.0f;
-        float absorption = 0.0035f; //0.0035
+        float curliness = 2.0f;
+        float absorption = 0.0010f; //0.0035
         float densityFactor =  0.02f; //  0.02;
         int enablePowder = 1; // 0
         float fogFactor = 0.00006f;
         float earthRadius = 70000.0f; // 35000, 70000
-        float cloudsInnerRadius = 6000.0f; // 5000, 6000
+        float cloudsInnerRadius = 3000.0f; // 5000, 6000
         float cloudsOuterRadius = 8000.0f; // 17000, 27000
         float phaseG = 0.3f;
         float eccentricity = 0.6f;
