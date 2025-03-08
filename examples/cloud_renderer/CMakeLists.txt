@@ -6,6 +6,9 @@ add_executable(cloud_renderer
         scenes/SkyScene.h
         scenes/NoiseEditor.cpp
         scenes/NoiseEditor.h
+        scenes/ParticipatingMediumScene.cpp
+        scenes/ParticipatingMediumScene.h
+        scenes/SignedDistanceField.h
 )
 
 # Link the engine library

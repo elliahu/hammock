@@ -444,7 +444,7 @@ void main()
 
     // planet hit
     if(dstToPlanet > 0.0){
-        imageStore(colorImage, fragCoord, vec4(1.0, 0.0, 0.0, 1.0));
+        imageStore(colorImage, fragCoord, vec4(0.0, 0.0, 0.0, 0.0));
         return;
     }
 
