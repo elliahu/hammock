@@ -22,15 +22,20 @@ layout (binding = 4) uniform sampler2D blueNoise;
 layout (push_constant) uniform PushConstants {
     vec4 scattering;
     vec4 absorption;
-    float mieG;
+    float g;
     float densityMultiplier;
+    float densityScale;
     int enableJitter;
     float jitterStrenght;
+    int lightSteps;
+    float lightStepSize;
 };
 
+#define BACKGROUND vec3(0.15)
+
 #define NUM_STEPS 128
-#define NUM_LIGHT_STEPS 8
-#define LIGHT_STEP_SIZE 0.5
+#define NUM_LIGHT_STEPS lightSteps
+#define LIGHT_STEP_SIZE lightStepSize
 
 #define AABB_MIN vec3(- 0.5)
 #define AABB_MAX vec3(0.5)
@@ -40,7 +45,7 @@ layout (push_constant) uniform PushConstants {
 // Scattering parameters
 #define SCATTERING scattering.xyz
 #define ABSORPTION absorption.xyz
-#define PHASE_G mieG
+#define PHASE_G g
 
 // Convert world position to AABB UVW
 vec3 worldToAABB(vec3 worldPos) {
@@ -87,20 +92,36 @@ float sampleDensity(vec3 p) {
     float dist = sdf(p);
     if (dist > 0.0) return 0.0;
 
-
-    // sample curl noise to offset the density
-    vec3 curl = texture(curlSampler, vec2(p.x, p.y) + elapsedTime).rgb;
-
-    vec3 uvw = worldToAABB(p + curl);
+    vec3 uvw = worldToAABB(p) * densityScale;
     vec4 density = texture(densityNoiseSampler, uvw);
+    //return (density.r + 0.5) * densityMultiplier;
     float fbm = dot(density.gba, vec3(0.625, 0.25, 0.125));
     return remap(density.r, -(1.0 - fbm), 1.0, 0.0, 1.0) * densityMultiplier;
 }
 
 
+const float PI = 3.14159265359;
+
 float henyeyGreenstein(float sundotrd, float g) {
     float gg = g * g;
     return (1. - gg) / pow(1. + gg - 2. * g * sundotrd, 1.5);
+}
+
+float dualLobePhase(float sundotrd, float phaseG) {
+    return mix(henyeyGreenstein(sundotrd, -phaseG), henyeyGreenstein(sundotrd, phaseG), clamp(sundotrd * 0.5 + 0.5, 0.0, 1.0));
+}
+
+
+float henyeyGreensteinModified(float sundotrd, float ecc){
+    return ((1.0 - ecc * ecc) / pow((1.0 + ecc * ecc - 2.0 * ecc * sundotrd), 3.0 / 2.0)) / 4.0 * PI;
+}
+
+float directedPhase(float sundotrd, float eccentricity, float silverIntensity, float silverSpread){
+    return max(henyeyGreensteinModified(sundotrd, eccentricity), silverIntensity * henyeyGreensteinModified(sundotrd, 0.99 - silverSpread));
+}
+
+float isophase(){
+    return 1.0 / 4.0 * PI;
 }
 
 vec3 lightRayAttenuation(vec3 p){
@@ -112,7 +133,7 @@ vec3 lightRayAttenuation(vec3 p){
         vec3 pos = p + dirToLight * l * LIGHT_STEP_SIZE;
         float density = sampleDensity(pos);
         if(density > 0.0){
-            vec3 attenuation = exp(-density * (SCATTERING + ABSORPTION));
+            vec3 attenuation = exp(-density * LIGHT_STEP_SIZE * (SCATTERING + ABSORPTION));
             attenuationAlongLightRay *= attenuation;
         }
 
@@ -130,7 +151,8 @@ void main() {
 
     vec2 intersection = intersectRayAABB(rayOrigin, rayDirection, AABB_MIN, AABB_MAX);
     if (intersection.y < 0.0) {
-        discard; // No intersection with box -> no fragment
+        outColor = vec4(BACKGROUND, 1.0);
+        return;
     }
 
 
@@ -161,11 +183,11 @@ void main() {
             float phase = henyeyGreenstein(cosTheta, PHASE_G);
 
             // Compute the differential in-scattering contribution using the current transmittance
-            vec3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution;
+            vec3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution * stepSize;
             inScattering += dL;
 
             // Now update total transmittance for extinction along the ray segment
-            vec3 attenuation = exp(-density * (SCATTERING + ABSORPTION));
+            vec3 attenuation = exp(-density* stepSize* (SCATTERING + ABSORPTION));
             totalTransmittance *= attenuation;
         }
 
@@ -183,4 +205,9 @@ void main() {
     vec3 color = inScattering;
 
     outColor = vec4(color, alpha);
+
+    if(alpha == 0.0){
+        outColor = vec4(BACKGROUND, 1.0);
+        return;
+    }
 }

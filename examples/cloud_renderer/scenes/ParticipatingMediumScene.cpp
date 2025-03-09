@@ -278,11 +278,14 @@ void ParticipatingMediumScene::buildRenderGraph() {
                              ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                              ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
 
+                ImGui::SeparatorText("Status");
+                ImGui::Text("Camera position <%.3f;%.3f;%.3f>", ubo.eye.X, ubo.eye.Y, ubo.eye.Z);
+
                 ImGui::SeparatorText("Participating medium properties");
-                ImGui::SliderFloat3("Scattering", &pushConstants.scattering.Elements[0], 0.0f, 1.0f);
-                ImGui::SliderFloat3("Absorption", &pushConstants.absorption.Elements[0], 0.0f, 1.0f);
+                ImGui::SliderFloat3("Scattering", &pushConstants.scattering.Elements[0], 0.0f, 10.0f);
+                ImGui::SliderFloat3("Absorption", &pushConstants.absorption.Elements[0], 0.0f, 10.0f);
                 ImGui::SliderFloat("Mie (phase) G", &pushConstants.mieG, -.99f, .99);
-                ImGui::SliderFloat("Density override", &pushConstants.densityMultiplier, 0.1f, 100.0f);
+                ImGui::SliderFloat("Density override", &pushConstants.densityMultiplier, 1.0f, 1000.0f, "%.0f");
 
                 ImGui::SeparatorText("Light");
                 ImGui::DragFloat3("Light position", &ubo.lightPosition.Elements[0], 0.1f);
@@ -294,6 +297,11 @@ void ParticipatingMediumScene::buildRenderGraph() {
                   ImGui::SetTooltip("Randomly offset ray origin to eliminate banding");
                 }
                 ImGui::SliderFloat("Jitter strength", &pushConstants.jitterStrength, 0.0f,10.0f);
+
+                ImGui::SeparatorText("Noise");
+                ImGui::SliderFloat("Scale", &pushConstants.densityScale, 0.5f, 10.0f);
+                ImGui::SliderInt("Light steps", &pushConstants.lightSteps, 1, 20);
+                ImGui::SliderFloat("Light step size", &pushConstants.lightStepSize, 0.0001f, .1f, "%.4f");
 
 
                 ImGui::PopStyleVar();
