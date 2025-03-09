@@ -8,121 +8,179 @@ layout (binding = 0) uniform Buffer {
     mat4 proj;
     vec4 eye;
     vec4 lightPosition;
+    vec4 lightColor;
     float resX;
     float resY;
     float elapsedTime;
 };
 
-
 layout (binding = 1) uniform sampler3D sdfSampler;
 layout (binding = 2) uniform sampler3D densityNoiseSampler;
-layout (binding = 3) uniform sampler2D curlNoiseSampler;
+layout (binding = 3) uniform sampler2D curlSampler;
+layout (binding = 4) uniform sampler2D blueNoise;
 
-#define NUM_STEPS 64
+layout (push_constant) uniform PushConstants {
+    vec4 scattering;
+    vec4 absorption;
+    float mieG;
+    float densityMultiplier;
+    int enableJitter;
+    float jitterStrenght;
+};
 
-#define AABB_MIN vec3(-0.5)
+#define NUM_STEPS 128
+#define NUM_LIGHT_STEPS 8
+#define LIGHT_STEP_SIZE 0.5
+
+#define AABB_MIN vec3(- 0.5)
 #define AABB_MAX vec3(0.5)
 
+#define LIGHT_COLOR lightColor.rgb
+
+// Scattering parameters
+#define SCATTERING scattering.xyz
+#define ABSORPTION absorption.xyz
+#define PHASE_G mieG
+
+// Convert world position to AABB UVW
 vec3 worldToAABB(vec3 worldPos) {
     return (worldPos - AABB_MIN) / (AABB_MAX - AABB_MIN);
 }
-vec3 getRayOrigin() {
-    return eye.xyz;
-}
 
+// Compute ray direction from camera
 vec3 getRayDirection() {
     mat4 inverseView = inverse(view);
-
-    // Calculate aspect ratio
     float aspectRatio = resX / resY;
-
-    vec2 uv = gl_FragCoord.xy / vec2(resX, resY);
-    uv -= 0.5;
-    uv.x *= aspectRatio;
-    uv.y *= -1.0;
-
-    // Ray Direction
-    vec3 rayDir = normalize(vec3(uv, -1.0));
-
-    // Transform ray direction by the camera's orientation
-    rayDir = (inverseView * vec4(rayDir, 0.0)).xyz;
-
-    return rayDir;
+    vec2 screenUV = gl_FragCoord.xy / vec2(resX, resY) - 0.5;
+    screenUV.x *= aspectRatio;
+    screenUV.y *= -1.0;
+    vec3 rayDir = normalize(vec3(screenUV, -1.0));
+    return (inverseView * vec4(rayDir, 0.0)).xyz;
 }
 
-vec2 intersectRayAABB(vec3 rayOrigin, vec3 rayDir, vec3 aabbMin, vec3 aabbMax) {
-    vec3 tMin = (aabbMin - rayOrigin) / rayDir;
-    vec3 tMax = (aabbMax - rayOrigin) / rayDir;
-
-    // Ensure tMin is always the entry point and tMax is the exit point
-    vec3 t1 = min(tMin, tMax);
-    vec3 t2 = max(tMin, tMax);
-
-    // Find the largest t1 (entry) and smallest t2 (exit)
-    float t_enter = max(t1.x, max(t1.y, t1.z));
-    float t_exit  = min(t2.x, min(t2.y, t2.z));
-
-    // No intersection if t_exit is behind the ray or if entry is after exit
-    if (t_exit < 0.0 || t_enter > t_exit) {
-        return vec2(-1.0, -1.0); // No hit
-    }
-
-    return vec2(t_enter, t_exit); // Distance to AABB entry and exit
-}
-
-bool isPointInsideAABB(vec3 point, vec3 minPoint, vec3 maxPoint) {
-    return all(greaterThanEqual(point, minPoint)) && all(lessThanEqual(point, maxPoint));
-}
-
-float remap(float originalValue, float originalMin, float originalMax, float newMin, float newMax)
-{
+float remap(float originalValue, float originalMin, float originalMax, float newMin, float newMax) {
     return newMin + (((originalValue - originalMin) / (originalMax - originalMin)) * (newMax - newMin));
 }
 
-float sdf(vec3 p) {
-    vec3 uvw = worldToAABB(p); // Map world pos to AABB UVW
-    uvw = clamp(uvw, vec3(0.001), vec3(0.999)); // Prevent out-of-bounds
-
-    return texture(sdfSampler, uvw).r; // Sample SDF
+// Ray-AABB intersection
+vec2 intersectRayAABB(vec3 rayOrigin, vec3 rayDir, vec3 aabbMin, vec3 aabbMax) {
+    vec3 tMin = (aabbMin - rayOrigin) / rayDir;
+    vec3 tMax = (aabbMax - rayOrigin) / rayDir;
+    vec3 t1 = min(tMin, tMax);
+    vec3 t2 = max(tMin, tMax);
+    float tEnter = max(t1.x, max(t1.y, t1.z));
+    float tExit = min(t2.x, min(t2.y, t2.z));
+    if (tExit < 0.0 || tEnter > tExit) return vec2(-1.0);
+    return vec2(tEnter, tExit);
 }
 
+// Sample the signed distance field
+float sdf(vec3 p) {
+    vec3 uvw = worldToAABB(p);
+    uvw = clamp(uvw, vec3(0.001), vec3(0.999));
+    return texture(sdfSampler, uvw).r;
+}
+
+
+// Density sampling function
 float sampleDensity(vec3 p) {
     float dist = sdf(p);
     if (dist > 0.0) return 0.0;
 
 
-    vec4 noise = texture(densityNoiseSampler, p);
-    return noise.r;
+    // sample curl noise to offset the density
+    vec3 curl = texture(curlSampler, vec2(p.x, p.y) + elapsedTime).rgb;
+
+    vec3 uvw = worldToAABB(p + curl);
+    vec4 density = texture(densityNoiseSampler, uvw);
+    float fbm = dot(density.gba, vec3(0.625, 0.25, 0.125));
+    return remap(density.r, -(1.0 - fbm), 1.0, 0.0, 1.0) * densityMultiplier;
 }
 
+
+float henyeyGreenstein(float sundotrd, float g) {
+    float gg = g * g;
+    return (1. - gg) / pow(1. + gg - 2. * g * sundotrd, 1.5);
+}
+
+vec3 lightRayAttenuation(vec3 p){
+    vec3 dirToLight = normalize(lightPosition.xyz);
+    vec3 attenuationAlongLightRay = vec3(1.0);
+
+    // Lightmarch
+    for(int l = 0; l < NUM_LIGHT_STEPS; l++){
+        vec3 pos = p + dirToLight * l * LIGHT_STEP_SIZE;
+        float density = sampleDensity(pos);
+        if(density > 0.0){
+            vec3 attenuation = exp(-density * (SCATTERING + ABSORPTION));
+            attenuationAlongLightRay *= attenuation;
+        }
+
+        if (max(attenuationAlongLightRay.r, max(attenuationAlongLightRay.g, attenuationAlongLightRay.b)) < 0.01) break;
+    }
+
+    return attenuationAlongLightRay;
+}
+
+
+
 void main() {
-    vec3 rayOrigin = getRayOrigin();
+    vec3 rayOrigin = eye.xyz;
     vec3 rayDirection = getRayDirection();
 
     vec2 intersection = intersectRayAABB(rayOrigin, rayDirection, AABB_MIN, AABB_MAX);
     if (intersection.y < 0.0) {
-        outColor = vec4(0.0); // No intersection
-        return;
+        discard; // No intersection with box -> no fragment
     }
+
 
     float stepSize = (intersection.y - intersection.x) / float(NUM_STEPS);
-    vec3 p = rayOrigin + rayDirection * intersection.x; // Start inside AABB
+    // Get a blue noise sample; ideally, normalize your coordinates
+    vec3 noise = (enableJitter == 1)? texture(blueNoise, gl_FragCoord.xy / 128.0).rgb * jitterStrenght : vec3(0.0);
+    // Use one channel (e.g., the red channel) to determine an offset within one step interval
+    float jitterOffset = noise.r * stepSize;
+    // Apply the jitter to the start position
+    vec3 p = rayOrigin + rayDirection * (intersection.x + jitterOffset);
+    // Acumulated values
+    vec3 totalTransmittance = vec3(1.0);
+    vec3 inScattering = vec3(0.0);
 
-    float transmittance = 1.0;
-
+    // Raymarch
     for (int i = 0; i < NUM_STEPS; i++) {
-        vec3 uvw = worldToAABB(p); // Convert to AABB-space
-        float sampledDensity = sampleDensity(p);
+        float density = sampleDensity(p);
 
-        if (sampledDensity > 0.0) {
-            float t = exp(-sampledDensity * stepSize);
-            transmittance *= t;
+        if (density > 0.0) {
+            // Compute the light contribution along the light ray from this point
+            vec3 attenuationAlongLightRay = lightRayAttenuation(p);
+            vec3 lightContribution = LIGHT_COLOR * attenuationAlongLightRay;
+
+            // Calculate phase using the angle between the light and view direction.
+            vec3 L = normalize(lightPosition.xyz - p);  // direction from point p to the light
+            vec3 V = -normalize(rayDirection);          // direction from point p to the camera
+            float cosTheta = dot(L, V);
+            float phase = henyeyGreenstein(cosTheta, PHASE_G);
+
+            // Compute the differential in-scattering contribution using the current transmittance
+            vec3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution;
+            inScattering += dL;
+
+            // Now update total transmittance for extinction along the ray segment
+            vec3 attenuation = exp(-density * (SCATTERING + ABSORPTION));
+            totalTransmittance *= attenuation;
         }
 
-        if (transmittance < 0.01) break;
+        if (max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)) < 0.01)
+        break;
 
-        p += rayDirection * stepSize; // Step inside the AABB
+        p += rayDirection * stepSize;
     }
 
-    outColor = vec4(1.0 - transmittance);
+    // Optionally, compute alpha from the accumulated optical depth,
+    // but here we base it on the remaining transmittance.
+    float alpha = 1.0 - max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b));
+
+    // Use the in-scattered radiance as the final color output.
+    vec3 color = inScattering;
+
+    outColor = vec4(color, alpha);
 }

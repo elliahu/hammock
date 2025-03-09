@@ -8,19 +8,27 @@ class ParticipatingMediumScene final : public IScene
     ResourceHandle densityNoise;
     // Curl noise used to offset the sampling position to create wave-like effect
     ResourceHandle curlNoise;
+    // Blue noise for offset
+    ResourceHandle blueNoise;
 
     struct UniformBuffer {
         HmckMat4 view;
         HmckMat4 proj;
         HmckVec4 eye;
-        HmckVec4 lightPosition;
+        HmckVec4 lightPosition {5.0f, .5f, 0.0f};
+        HmckVec4 lightColor {1.0f, 1.0f, 1.0f, 1.0f};
         float32_t resX;
         float32_t resY;
         float32_t elapsedTime;
     } ubo;
 
     struct PushConstants {
-        float a;
+        HmckVec4 scattering{0.25,0.25,0.2};
+        HmckVec4 absorption{0.02, 0.01, 0.005};
+        float mieG = 0.34;
+        float densityMultiplier = 1.0;
+        int jitter = 1;
+        float jitterStrength = 5.0f;
     } pushConstants;
 
 
