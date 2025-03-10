@@ -247,6 +247,14 @@ void SkyScene::buildRenderGraph() {
             .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         });
 
+    renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
+        "post-proc-ubo", BufferDesc{
+            .instanceSize = sizeof(PostProcessUBO),
+            .instanceCount = 1,
+            .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        });
+
     // Base noise
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("base-noise", compute.baseNoise);
 
@@ -262,7 +270,6 @@ void SkyScene::buildRenderGraph() {
 
     // Sky dome
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("skydome-image", sky.skyDome);
-
 
 
     // Storage images that the compute pass outputs to and that is then read in the composition pass
@@ -426,9 +433,13 @@ void SkyScene::buildRenderGraph() {
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
             })
+            .read(ResourceAccess{
+                .resourceName = "post-proc-ubo"
+            })
             .descriptor(0, {
                             {0, {"color-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {1, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {2, {"post-proc-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "swap-color-image",
@@ -437,6 +448,8 @@ void SkyScene::buildRenderGraph() {
             })
             .execute([&](RenderPassContext context)-> void {
                 // The composition pass is straight forward
+                context.get<Buffer>("post-proc-ubo")->writeToBuffer(&postProcUbo);
+
                 composition.pipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
                 context.bindDescriptorSet(0, 0, composition.pipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -479,22 +492,25 @@ void SkyScene::buildRenderGraph() {
 
                 static bool showCam = true;
                 static bool showPerf = true;
-                static bool showDebug = true;
+                static bool showPostProc = false;
 
                 // Main menu bar
                 if (ImGui::BeginMainMenuBar()) {
-                    if (ImGui::BeginMenu("Editors")) {
-                        if (ImGui::MenuItem("Show property editor", NULL, showCam)) {
+                    if (ImGui::BeginMenu("View")) {
+                        if (ImGui::MenuItem("Show cloud editor", NULL, showCam)) {
                             showCam = !showCam;
-                        }
-                        if (ImGui::MenuItem("Show debug views", NULL, showDebug)) {
-                            showDebug = !showDebug;
                         }
 
                         if (ImGui::MenuItem("Show performance overview", NULL, showPerf)) {
                             showPerf = !showPerf;
                         }
 
+                        ImGui::EndMenu();
+                    }
+                    if (ImGui::BeginMenu("Options")) {
+                        if (ImGui::MenuItem("Post processing", NULL, showPostProc)) {
+                            showPostProc = !showPostProc;
+                        }
                         ImGui::EndMenu();
                     }
                     ImGui::EndMainMenuBar();
@@ -542,7 +558,6 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
-                    ImGui::SliderFloat("Fog factor", &computePushConsts.fogFactor, 0.0000001f, .00009f, "%.7f");
                     ImGui::DragFloat("Earth radius", &computePushConsts.earthRadius, 10.0f, 100.f);
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
                     ImGui::DragFloat("Clouds height max.", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
@@ -555,23 +570,69 @@ void SkyScene::buildRenderGraph() {
                     ImGui::End();
                 }
 
-                if (showDebug) {
-                    static int selectedOption = 0; // Default to the first option
+                if (showPostProc) {
+                    // Disable other debug windows when post process is shown
+                    showCam = false;
+                    showPerf = false;
 
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-                    ImGui::SetNextWindowPos(camWindowPos, 0, {0, 1});
-                    ImGui::Begin("Debug options", (bool *) false,
-                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
-                                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
-                    ImGui::SeparatorText("Debug views");
-                    if (ImGui::RadioButton("None", selectedOption == 0)) {
-                        selectedOption = 0;
+                    // Center the window on the screen
+                    ImGui::SetNextWindowPos(
+                        ImVec2(window.getExtent().width / 2.0f, window.getExtent().height / 2.0f),
+                        ImGuiCond_Always,
+                        ImVec2(0.5f, 0.5f)
+                    );
+                    ImGui::Begin("Post Process Debug", nullptr,
+                                 ImGuiWindowFlags_AlwaysAutoResize |
+                                 ImGuiWindowFlags_NoTitleBar |
+                                 ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_NoSavedSettings |
+                                 ImGuiWindowFlags_NoFocusOnAppearing |
+                                 ImGuiWindowFlags_NoNav |
+                                 ImGuiWindowFlags_NoDecoration);
+
+                    // Color Tint
+                    ImGui::SeparatorText("Color Tint");
+                    // Assuming HmckVec4 is similar to a glm::vec4 or ImVec4
+                    ImGui::ColorEdit4("Tint", reinterpret_cast<float *>(&postProcUbo.colorTint));
+
+                    // Tone Mapping parameters
+                    ImGui::SeparatorText("Tone Mapping");
+                    ImGui::SliderFloat("Exposure", &postProcUbo.exposure, -5.0f, 5.0f);
+                    ImGui::SliderFloat("Gamma", &postProcUbo.gamma, 0.5f, 3.0f);
+                    const char *tonemapItems[] = {"Linear", "Reinhard", "ACES", "Uncharted 2"};
+                    ImGui::Combo("Tonemap Operator", &postProcUbo.tonemapOperator, tonemapItems, IM_ARRAYSIZE(tonemapItems));
+
+                    // Color Grading parameters
+                    ImGui::SeparatorText("Color Grading");
+                    ImGui::SliderFloat("Contrast", &postProcUbo.contrast, 0.5f, 2.0f);
+                    ImGui::SliderFloat("Brightness", &postProcUbo.brightness, -0.5f, 0.5f);
+                    ImGui::SliderFloat("Saturation", &postProcUbo.saturation, 0.0f, 2.0f);
+
+                    // Vignette parameters
+                    ImGui::SeparatorText("Vignette");
+                    ImGui::SliderFloat("Vignette Strength", &postProcUbo.vignetteStrength, 0.0f, 3.0f);
+                    ImGui::SliderFloat("Vignette Softness", &postProcUbo.vignetteSoftness, 0.0f, 2.0f);
+
+                    // Effects parameters
+                    ImGui::SeparatorText("Effects");
+
+                    ImGui::SliderFloat("Temperature", &postProcUbo.temperature, -1.0f, 1.0f);
+                    ImGui::BeginDisabled(true);
+                    ImGui::SliderFloat("Grain Amount", &postProcUbo.grainAmount, 0.0f, 0.1f);
+                    ImGui::EndDisabled();
+                    const char *blendModeItems[] = {"Normal", "Screen", "Soft light"};
+                    ImGui::Combo("Cloud blend mode", &postProcUbo.cloudBlendMode, blendModeItems, IM_ARRAYSIZE(blendModeItems));
+
+                    if (ImGui::Button("Close")) {
+                        showPostProc = false;
+                        showCam = true;
+                        showPerf = true;
                     }
-                    if (ImGui::RadioButton("Cloud map", selectedOption == 1)) {
-                        selectedOption = 1;
-                    }
-                    computePushConsts.DEBUG_cloudmap = (selectedOption == 1) ? 1 : 0;
+                    ImGui::SameLine();
+                    if (ImGui::Button("Reset to defaults")) {
+                       postProcUbo = backUpPostProcUbo;
+                   }
 
 
                     ImGui::PopStyleVar();

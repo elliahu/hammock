@@ -54,7 +54,6 @@ layout (push_constant) uniform PushConstants {
     float scatteringG;
     float scatteringB;
     float densityMultiplier;
-    float fogFactor;
     float earthRadius;
     float sphereInnerRadius;
     float sphereOuterRadius;
@@ -65,7 +64,6 @@ layout (push_constant) uniform PushConstants {
     float ambientStrength;
     float cloudTypeOverride;
     float lightStepsLength;
-    int DEBUG_cloudmap;
 };
 
 #define SCATTERING vec3(scatteringR,scatteringG,scatteringB)
@@ -275,7 +273,7 @@ vec4 raymarch(vec3 start, vec3 end){
     // Compute alpha from the accumulated optical depth,
     // Here we base it on the remaining transmittance.
     float alpha = 1.0 - pow(max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)), 0.35);
-    return vec4(inScatteredLight, alpha);
+    return vec4(pow(inScatteredLight, vec3(2.2)), alpha);
 }
 
 
@@ -367,10 +365,6 @@ void main()
 
     imageStore(colorImage, fragCoord, fragColor_v);
 
-    if (DEBUG_cloudmap == 1) {
-        vec2 pos = getUVProjection(start) * coverageRepeat;
-        imageStore(colorImage, fragCoord, texture(cloudMapSampler, pos));
-    }
 }
 
 

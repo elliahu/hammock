@@ -40,7 +40,7 @@ class SkyScene final : public IScene {
 
     struct ComputePushConsts {
         float coverageOverride = 0.2f;
-        float coverageRepeat = 2.0f;
+        float coverageRepeat = 3.0f;
         float baseMultiplier = 0.6f;
         float detailMultiplier = 1.0;
         float cloudSpeed = 450.f;
@@ -53,10 +53,9 @@ class SkyScene final : public IScene {
         float scatteringG = 0.0010f;
         float scatteringB = 0.0010f;
         float densityMultiplier =  1.0f;
-        float fogFactor = 0.00006f;
         float earthRadius = 70000.0f;
-        float cloudsInnerRadius = 6000.0f;
-        float cloudsOuterRadius = 5000.0f;
+        float cloudsInnerRadius = 3000.0f;
+        float cloudsOuterRadius = 3500.0f;
         float phaseG = 0.3f;
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
@@ -64,11 +63,38 @@ class SkyScene final : public IScene {
         float ambientStrength = .085f;
         float cloudTypeOverride = 1.0f;
         float lightStepsLength = 0.1f;
-        int DEBUG_cloudmap = 1;
     } computePushConsts;
 
     float32_t timeOfDay = 0.5f;
     float32_t windDirection = 0.0f;
+
+    struct PostProcessUBO {
+        HmckVec4 colorTint{1.0f, 1.0f, 1.0f,0.0f};        // Default: vec3(1.0, 1.0, 1.0)
+
+
+        // Tonemapping parameters
+        float exposure = 2.3f;        // Default: 0.0, Range: -5.0 to 5.0
+        float gamma = 2.2f;           // Default: 2.2, Range: 0.5 to 3.0
+        int tonemapOperator = 3;   // 0: Linear, 1: Reinhard, 2: ACES, 3: Uncharted 2
+
+        // Color grading parameters
+        float contrast = 1.25;        // Default: 1.0, Range: 0.5 to 2.0
+        float brightness = 0.0;      // Default: 0.0, Range: -1.0 to 1.0
+        float saturation = 1.0;      // Default: 1.0, Range: 0.0 to 2.0
+
+        // Vignette
+        float vignetteStrength = 2.f; // Default 2.0, Range: 0.0 to 3.0
+        float vignetteSoftness = 1.0f; // Default: 0.5, Range: 0.0 to 2.0
+
+        // Color temperature
+        float temperature = 0.0f;     // Default: 0.0, Range: -1.0 (cool) to 1.0 (warm)
+
+        // Film grain
+        float grainAmount = 0.0f;     // Default: 0.0, Range: 0.0 to 0.1
+
+        // Cloud blending mode
+        int cloudBlendMode = 0.0;  // Default: 0.0 (Normal)
+    } postProcUbo, backUpPostProcUbo;
 
 
 
@@ -103,11 +129,6 @@ class SkyScene final : public IScene {
         std::unique_ptr<GraphicsPipeline> pipeline;
         // Other resources are managed on-the-fly by the rendergraph
     } composition;
-
-    // Post-processing pass
-    struct {
-        std::unique_ptr<GraphicsPipeline> toneMapPipeline;
-    } postProc;
 
 
     // This is used to measure frame time

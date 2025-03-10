@@ -54,7 +54,7 @@ void main() {
     color -= 0.8 * vec3(0.90,0.75,0.90) * rayDirection.y;
     // Add sun color to sky
     color += 1.0 * getSunColor(timeOfDay) * pow(sun, 6.0);
-    outColor = vec4(color, 1.0);
+    outColor = vec4(pow(color, vec3(2.2)), 1.0);
 
     //outColor = vec4(vec3(0.0),1.0);
 }
