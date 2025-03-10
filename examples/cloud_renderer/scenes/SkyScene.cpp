@@ -518,7 +518,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
                     ImGui::SliderFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.009f, "%.7f");
                     ImGui::SliderFloat("Density", &computePushConsts.densityFactor, 0.001f, .09f, "%.7f");
-                    ImGui::SliderInt("Powder effect", &computePushConsts.enablePowder, 0, 1);
+                    ImGui::SliderFloat("Powder effect", &computePushConsts.powderEffectStrength, 1.f, 10.f);
                     ImGui::SliderFloat("Scattering direction (phase g)", &computePushConsts.phaseG, 0.f, 0.995f);
                     ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
                     ImGui::SliderFloat("Silver intensity", &computePushConsts.silverIntensity, 0.f, 10.0f);
@@ -538,8 +538,6 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
-                    ImGui::ColorEdit3("Sky color top", &sunAndSkyUbo.skyColorTop.Elements[0]);
-                    ImGui::ColorEdit3("Sky color bottom", &sunAndSkyUbo.skyColorBottom.Elements[0]);
                     ImGui::SliderFloat("Fog factor", &computePushConsts.fogFactor, 0.0000001f, .00009f, "%.7f");
                     ImGui::DragFloat("Earth radius", &computePushConsts.earthRadius, 10.0f, 100.f);
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);

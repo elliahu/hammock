@@ -47,11 +47,11 @@ layout (push_constant) uniform PushConstants {
     float base_multiplier;
     float detail_multiplier;
     float cloudSpeed;
-    float crispiness; // .4
+    float crispiness;
     float curliness;
-    float absorption; //0.0035
-    float densityFactor; //  0.02;
-    int enablePowder; // 0
+    float absorption;
+    float densityFactor;
+    float powderEffectStrength;
     float fogFactor;
     float earthRadius;
     float sphereInnerRadius;
@@ -65,6 +65,7 @@ layout (push_constant) uniform PushConstants {
     float atmosphereScatteringStrength;
     int DEBUG_cloudmap;
 };
+
 
 #define CLOUDS_AMBIENT_COLOR_TOP cloudColorTop.rgb
 #define CLOUDS_AMBIENT_COLOR_BOTTOM cloudColorBottom.rgb
@@ -98,38 +99,6 @@ vec3 sphereCenter = vec3(0.0, -EARTH_RADIUS, 0.0);
 #define CLOUDS_MIN_TRANSMITTANCE 1e-1
 #define CLOUDS_TRANSMITTANCE_THRESHOLD 1.0 - CLOUDS_MIN_TRANSMITTANCE
 
-// TODO this can be done on CPU
-vec3 getSunColor(float timeOfDay) {
-    // Define key colors:
-    vec3 midnightColor = vec3(0.0, 0.0, 0.2);       // dark blue at midnight
-    vec3 sunriseSunsetColor =  vec3(1.0, 0.5, 0.2);    // orange/red at sunrise/sunset
-    vec3 noonColor = vec3(1.0, 1.0, 1.0);             // white at noon
-
-    // Ensure timeOfDay is between 0 and 1
-    timeOfDay = fract(timeOfDay);
-
-    if (timeOfDay < 0.25) {
-        // Transition from midnight to sunrise/sunset color
-        float t = timeOfDay / 0.25;
-        return mix(midnightColor, sunriseSunsetColor, smoothstep(0.0, 1.0, t));
-    }
-    else if (timeOfDay < 0.5) {
-        // Transition from sunrise/sunset color to noon color
-        float t = (timeOfDay - 0.25) / 0.25;
-        return mix(sunriseSunsetColor, noonColor, smoothstep(0.0, 1.0, t));
-    }
-    else if (timeOfDay < 0.75) {
-        // Transition from noon color back to sunrise/sunset color
-        float t = (timeOfDay - 0.5) / 0.25;
-        return mix(noonColor, sunriseSunsetColor, smoothstep(0.0, 1.0, t));
-    }
-    else {
-        // Transition from sunrise/sunset color back to midnight
-        float t = (timeOfDay - 0.75) / 0.25;
-        return mix(sunriseSunsetColor, midnightColor, smoothstep(0.0, 1.0, t));
-    }
-}
-
 // Sun
 #define SUN_DIR normalize(lightDirection.xyz)
 #define SUN_COLOR getSunColor(timeOfDay)
@@ -149,6 +118,14 @@ const float bayerFilter[16u] = float[]
 3.0 * BAYER_FACTOR, 11.0 * BAYER_FACTOR, 1.0 * BAYER_FACTOR, 9.0 * BAYER_FACTOR,
 15.0 * BAYER_FACTOR, 7.0 * BAYER_FACTOR, 13.0 * BAYER_FACTOR, 5.0 * BAYER_FACTOR
 );
+
+#define NUM_STEPS 64
+
+#define NUM_LIGHT_STEPS 6
+#define LIGHT_STEP_SIZE 1.0
+
+#define SCATTERING vec3(0.001,0.001,0.001)
+#define ABSORPTION vec3(0.001,0.001,0.001)
 
 float getHeightFraction(vec3 inPos) {
     return (length(inPos - sphereCenter) - SPHERE_INNER_RADIUS) / (SPHERE_OUTER_RADIUS - SPHERE_INNER_RADIUS);
@@ -213,52 +190,34 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 }
 
 
-float raymarchToLight(vec3 o, float stepSize, vec3 lightDir, float originalDensity, float lightDotEye)
-{
+vec3 lightRayAttenuation(vec3 p){
+    vec3 dirToLight = normalize(lightDirection.xyz);
+    vec3 attenuationAlongLightRay = vec3(1.0);
 
-    vec3 startPos = o;
-    float ds = stepSize * 6.0;
-    vec3 rayStep = lightDir * ds;
-    const float CONE_STEP = 1.0 / 6.0;
-    float coneRadius = 1.0;
-    float density = 0.0;
-    float coneDensity = 0.0;
-    float invDepth = 1.0 / ds;
-    float sigma_ds = -ds * absorption;
-    vec3 pos;
-
-    float T = 1.0;
-
-    for (int i = 0; i < 6; i++)
-    {
-        pos = startPos + coneRadius * noiseKernel[i] * float(i);
-
+    // Lightmarch
+    for(int l = 0; l < NUM_LIGHT_STEPS; l++){
+        vec3 pos = p + dirToLight * l * LIGHT_STEP_SIZE;
         float heightFraction = getHeightFraction(pos);
-        if (heightFraction >= 0)
-        {
 
-            float cloudDensity = sampleCloudDensity(pos, density > 0.3, i / 16);
-            if (cloudDensity > 0.0)
-            {
-                float Ti = exp(cloudDensity * sigma_ds);
-                T *= Ti;
-                density += cloudDensity;
+        if (heightFraction >= 0){
+            float cloudDensity = sampleCloudDensity(pos, false, l / 16);
+            if (cloudDensity > 0.0){
+                vec3 attenuation = exp(-cloudDensity * LIGHT_STEP_SIZE * (SCATTERING + ABSORPTION));
+                attenuationAlongLightRay *= attenuation;
             }
         }
-        startPos += rayStep;
-        coneRadius += CONE_STEP;
+
+        if (max(attenuationAlongLightRay.r, max(attenuationAlongLightRay.g, attenuationAlongLightRay.b)) < 0.01) break;
     }
-    return T;
+
+    return attenuationAlongLightRay;
 }
 
 vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
     vec3 path = endPos - startPos;
     float len = length(path);
 
-
-    const int nSteps = 64;
-
-    float ds = len / nSteps;
+    float ds = len / NUM_STEPS;
     vec3 dir = path / len;
     dir *= ds;
     vec4 col = vec4(0.0);
@@ -278,7 +237,7 @@ vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
 
     int zero_density_sample = 0;
 
-    for (int i = 0; i < nSteps; ++i)
+    for (int i = 0; i < NUM_STEPS; ++i)
     {
         float density_sample = sampleCloudDensity(pos, true, i / 16);
         if (density_sample > 0.)
@@ -289,13 +248,11 @@ vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
             }
             float height = getHeightFraction(pos);
             vec3 ambientLight = mix(CLOUDS_AMBIENT_COLOR_BOTTOM * SUN_COLOR, CLOUDS_AMBIENT_COLOR_TOP * SUN_COLOR, height);
-            float light_density = raymarchToLight(pos, ds * 0.1, SUN_DIR, density_sample, lightDotEye);
+            vec3 attenuationAlongLightRay = lightRayAttenuation(pos);
             float phase = directedPhase(lightDotEye, eccentricity, silverIntensity, silverSpread);
-            float powderTerm = powder(density_sample);
-            if (enablePowder == 0)
-            powderTerm = 1.0;
+            float powderTerm = powder(density_sample) * powderEffectStrength;
 
-            vec3 S = (mix(mix(ambientLight * ambientStrength, bg, 0.2), phase * SUN_COLOR, powderTerm * light_density)) * density_sample;
+            vec3 S = (mix(ambientLight * ambientStrength, phase * SUN_COLOR, powderTerm  * attenuationAlongLightRay)) * density_sample;
             float dTrans = exp(density_sample * sigma_ds);
             vec3 Sint = (S - S * dTrans) * (1. / density_sample);
             col.rgb += T * Sint;
@@ -314,10 +271,7 @@ vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
     return col;
 }
 
-vec3 computeClipSpaceCoord(uvec2 fragCoord) {
-    vec2 ray_nds = 2.0 * vec2(fragCoord.xy) / iResolution.xy - 1.0;
-    return vec3(ray_nds, 1.0);
-}
+
 
 void main()
 {
@@ -325,7 +279,7 @@ void main()
     ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
 
     // Compute ray direction.
-    vec4 ray_clip = vec4(computeClipSpaceCoord(fragCoord), 1.0);
+    vec4 ray_clip = vec4(computeClipSpaceCoord(fragCoord, iResolution.xy), 1.0);
     vec4 ray_view = inv_proj * ray_clip;
     ray_view = vec4(ray_view.xy, -1.0, 0.0);
     vec3 rayDirection = (inv_view * ray_view).xyz;

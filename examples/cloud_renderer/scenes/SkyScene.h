@@ -50,7 +50,7 @@ class SkyScene final : public IScene {
         float curliness = 2.0f;
         float absorption = 0.0010f; //0.0035
         float densityFactor =  0.02f; //  0.02;
-        int enablePowder = 1; // 0
+        float powderEffectStrength = 1.0; // 0
         float fogFactor = 0.00006f;
         float earthRadius = 70000.0f; // 35000, 70000
         float cloudsInnerRadius = 6000.0f; // 5000, 6000
