@@ -618,9 +618,9 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Effects");
 
                     ImGui::SliderFloat("Temperature", &postProcUbo.temperature, -1.0f, 1.0f);
-                    ImGui::BeginDisabled(true);
-                    ImGui::SliderFloat("Grain Amount", &postProcUbo.grainAmount, 0.0f, 0.1f);
-                    ImGui::EndDisabled();
+                    //ImGui::BeginDisabled(true);
+                    ImGui::SliderFloat("Grain Amount", &postProcUbo.grainAmount, 0.0f, 1.0f);
+                    //ImGui::EndDisabled();
                     const char *blendModeItems[] = {"Normal", "Screen", "Soft light"};
                     ImGui::Combo("Cloud blend mode", &postProcUbo.cloudBlendMode, blendModeItems, IM_ARRAYSIZE(blendModeItems));
 
@@ -736,6 +736,8 @@ void SkyScene::update() {
     // Timing
     if (progressTime) {
         timeUbo.time += deltaTime;
+        postProcUbo.time += deltaTime;
+        backUpPostProcUbo.time += deltaTime;
     }
     frameCount++;
     timeUbo.timeOfDay = timeOfDay;

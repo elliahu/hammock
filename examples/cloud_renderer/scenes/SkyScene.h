@@ -93,6 +93,8 @@ class SkyScene final : public IScene {
 
         // Cloud blending mode
         int cloudBlendMode = 0.0;  // Default: 0.0 (Normal)
+
+        float time = 0.0f;
     } postProcUbo, backUpPostProcUbo;
 
 
