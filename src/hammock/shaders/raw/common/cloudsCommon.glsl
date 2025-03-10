@@ -1,53 +1,10 @@
 #ifndef CLOUDS_COMMON
 #define CLOUDS_COMMON
 
-// MATH
-#define PI 3.14159265359
-#define THREE_OVER_SIXTEEN_PI 0.05968310365946075
-#define ONE_OVER_FOUR_PI 0.07957747154594767
-#define E 2.718281828459
+#define PI 3.14159265358979323846
 
-// EARTH
-#define EARTH_RADIUS 6371000.0 // earth's actual radius in km = 6371
-#define ATMOSPHERE_RADIUS_INNER (EARTH_RADIUS + 7500.0) //paper suggests values of 15000-35000m above
-#define ATMOSPHERE_RADIUS_OUTER (EARTH_RADIUS + 20000.0)
-#define ATMOSPHERE_THICKNESS (ATMOSPHERE_RADIUS_OUTER - ATMOSPHERE_RADIUS_INNER)
-
-// WIND
-#define WIND_DIRECTION vec3(1.0,0.0,0.0)
-
-// SUN
-
-// Global Defines for Preetham
-#define EE 1000.0
-#define SHADOW_CUTOFF 1.6110731557
-#define SHADOW_STEEPNESS 1.5
-#define SUN_ANGULAR_COS 0.999956676946448443553574619906976478926848692873900859324
-#define MIE_CONST vec3( 1.839991851443397, 2.779802391966052, 4.079047954386109)
-#define RAYLEIGH_TOTAL vec3(5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5)
-
-// COLORS
-#define BLACK vec3(0,0,0)
-#define BLUE vec3(0.529, 0.808, 0.922)
-#define WHITE vec3(1,1,1)
-#define RED vec3(1,0,0)
-
-// POST
-#define NUM_MOTION_BLUR_SAMPLES 10
-#define MOTION_BLUR_INTENSITY 0.1;
-#define ENABLE_MOTION_BLUR 0
 
 // TOOLBOX
-
-//This bit of code is for converting a 32 bit float to store as 4 8 bit floats
-const vec4 bitEnc = vec4(1.,255.,65025.,16581375.);
-vec4 EncodeFloatRGBA (float v) {
-    vec4 enc = bitEnc * v;
-    enc = fract(enc);
-    enc -= enc.yzww * vec2(1./255., 0.).xxxy;
-    return enc;
-}
-
 // Remaps value from one range to another
 float remap(float value, float inMin, float inMax, float outMin, float outMax) {
     return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
@@ -68,144 +25,80 @@ float remapcc(in float value, in float original_min, in float original_max, in f
     return clamp(t, new_min, new_max);
 }
 
-float getRelativeAtmosphericHeight(in vec3 point, in vec3 earthCenter, in vec3 startPosOnInnerShell, in vec3 rayDir, in vec3 eye)
-{
-    float lengthOfRayfromCamera = length(point - eye);
-    float lengthOfRayToInnerShell = length(startPosOnInnerShell - eye);
-    vec3 pointToEarthDir = normalize(point - earthCenter);
-    // assuming RayDir is normalised
-    float cosTheta = dot(rayDir, pointToEarthDir);
-
-    // CosTheta is an approximation whose error gets relatively big near the horizon and could lead to problems.
-    // However, the actual calculationis involve a lot of trig and thats expensive;
-    // No longer drawing clouds that close to the horizon and so the cosTheta Approximation is fine
-
-    float numerator = abs(cosTheta * (lengthOfRayfromCamera - lengthOfRayToInnerShell));
-    return numerator/ATMOSPHERE_THICKNESS;
-    // return clamp( length(point.y - projectedPos.y) / ATMOSPHERE_THICKNESS, 0.0, 1.0);
+void swap(in float a, in float b) {
+    float c = a;
+    a = b;
+    b = c;
 }
 
-vec3 getRelativeAtmosphericPosition(in vec3 pos, in vec3 earthCenter)
-{
-    return vec3( ( pos - vec3(earthCenter.x, ATMOSPHERE_RADIUS_INNER - EARTH_RADIUS, earthCenter.z) )/ ATMOSPHERE_THICKNESS );
-}
-
-// LIGHTING
-/*
-    Note:
-        - Apply this result whenever you calculate radiance of your sample
-
-    Functionality:
-        - Combine 2 HG functions with max() to retain baseline forward scattering and achieve silver lining highlights
-
-        eccentricity = 0.6
-
-        silver_intensity = user controlled param [0, 1]
-                            Controls intensity of the effect of using 2 HG functions and the spread away from the sun
-                            Increase this to add intensity on clouds near the sun
-
-        silver_spread = user contorlled param [0, 1]
-                            Decrease this to increase brightness that's spread throughout clouds away from the sun
-*/
-float HenyeyGreenstein(float cos_angle, float eccentricity)
-{
-    float numerator =  1.0 - eccentricity * eccentricity;
-    float denominator = pow((1.0 + eccentricity * eccentricity - 2.0 * eccentricity * cos_angle), 1.5);
-    return (numerator / denominator) * ONE_OVER_FOUR_PI;
-}
-
-float HenyeyGreensteinArtDirected(float cos_angle, float eccentricity, float silver_intensity, float silver_spread)
-{
-    return max( HenyeyGreenstein(cos_angle, eccentricity),
-                silver_intensity * HenyeyGreenstein(cos_angle, 0.99 - silver_spread) );
+// Powder aprox
+float powder(float d) {
+    return (1. - exp(-2. * d));
 }
 
 
-/*
-    Note:
-        - Only do this when you look away from sun
-        - Ramp down this affect as angle b/w viewRay and lightRay decrease
-        - attenuation_reduction_factor = 0.25;
-    	- influence_reduction_factor = 0.7;
-
-    Functionality:
-        - Attenuation value for the second function was reduced to push light further into the cloud
-        - Reduce its influence so to not overpower the result.
-        - density_along_light_ray comes from cone sampling
-*/
-
-float BeerLambertModified(float density_along_light_ray, float attenuation_reduction_factor, float influence_reduction_factor)
-{
-    return max( exp(density_along_light_ray) ,
-                exp(density_along_light_ray * attenuation_reduction_factor) * influence_reduction_factor );
+// PHASE FUNCTIONS
+// mie scattering Henyey-Greenstein phase function
+float henyeyGreenstein(float sundotrd, float g) {
+    float gg = g * g;
+    return (1. - gg) / pow(1. + gg - 2. * g * sundotrd, 1.5);
 }
 
 
-/*
-	Notes:
-		- dl is the density sampled along the light ray for the given sample position.
-		- ds_loded is the low lod sample of density at the given sample position.
-*/
-float GetLightEnergy(float height_fraction, float dl, float ds_loded, float phase_probability, float cos_angle, float step_size, float brightness)
-{
-    // Attenuation – difference from slides – reduce the secondary component when we look toward the sun.
-    float primary_attenuation = exp(-dl);
-
-
-    // NOTE: in the slides, seconary_attenuation was "secondary_intensity_curve", and primary_attenuation was "primary_intensity_curve". UNSURE IF SAME
-    // FIRST INSTANCE
-
-    float secondary_attenuation = exp(-dl * 1.55) * 0.7;
-    float attenuation_probability = max(
-        remap(cos_angle, 0.7, 1.0, secondary_attenuation, secondary_attenuation * 0.25),
-        primary_attenuation);
-
-
-    // --------------------------------------------------------------------------------------------------------------------
-
-    // // SECOND INSTANCE -------> DARKER THAN THE FIRST INSTANCE
-//     float beerLambertModified = BeerLambertModified(-dl, 0.25, 0.7);
-//     float attenuation_probability = mix(primary_attenuation, beerLambertModified, -cos_angle * 0.5 + 0.5);
-
-
-    // In-scattering – one difference from presentation slides – we also reduce this effect once light has attenuated to make it directional.
-
-    // // FIRST INSTANCE -----> THIS PRODUCES MORE BANDING EFFECTS
-//     float depth_probability = mix( 0.05 + pow(ds_loded,
-//                                               remap(height_fraction, 0.3, 0.85, 0.5, 2.0))
-//                                  , 1.0, clamp( dl / step_size, 0.0, 1.0));
-
-    // --------------------------------------------------------------------------------------------------------------------
-
-    // // SECOND INSTANCE
-    // float depth_probability = mix(0.05 + pow(ds_loded, clamp(
-    // 														remap(height_fraction, 0.3, 0.85, 0.5, 2.0),
-    // 														0.6, 2.0)),
-    // 							1.0,
-    // 							clamp(dl / step_size, 0.0, 1.0));
-
-
-    // float vertical_probability = pow(clamp(
-    // 										remap(height_fraction, 0.07, 0.14, 0.1, 1.0),
-    // 										0.1, 1.0),
-    // 								0.8 );
-
-
-    // THIRD INSTANCE ------> LOOKS ESSENTIALLY SAME AS SECOND INSTANCE
-
-    // MANIPULATE ME
-    float depth_probability = 0.05 + pow(ds_loded, clamp(remap(height_fraction * 0.125, 0.3, 0.85, 0.5, 2.0), 0.5, 2.0));
-    float vertical_probability = pow(clamp(remap(height_fraction * 1.5, 0.07, 0.34, 0.1, 1.0), 0.1, 1.0), 0.8);
-
-    // MANIPULATE ME
-    float in_scatter_probability = depth_probability * vertical_probability;
-
-    float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;						// ORIGINAL (LIGHTEST)
-    //float light_energy = attenuation_probability * primary_attenuation * in_scatter_probability * phase_probability * brightness;	// MEDIUM
-     //float light_energy = primary_attenuation * secondary_attenuation * in_scatter_probability * phase_probability * brightness;	// DARKEST
-    return light_energy;
+float dualLobePhase(float sundotrd, float phaseG) {
+    return mix(henyeyGreenstein(sundotrd, -phaseG), henyeyGreenstein(sundotrd, phaseG), clamp(sundotrd * 0.5 + 0.5, 0.0, 1.0));
 }
 
+
+float henyeyGreensteinModified(float sundotrd, float ecc){
+    return ((1.0 - ecc * ecc) / pow((1.0 + ecc * ecc - 2.0 * ecc * sundotrd), 3.0 / 2.0)) / 4.0 * PI;
+}
+
+float directedPhase(float sundotrd, float eccentricity, float silverIntensity, float silverSpread){
+    return max(henyeyGreensteinModified(sundotrd, eccentricity), silverIntensity * henyeyGreensteinModified(sundotrd, 0.99 - silverSpread));
+}
+
+// Isotropic scattering phase function
+float isophase(){
+    return 1.0 / 4.0 * PI;
+}
+
+// RAYCASTING
+
+// Ray-AABB intersection
+// TODO this can be done using ray querie - will be hardware accelerated
+vec2 intersectRayAABB(vec3 rayOrigin, vec3 rayDir, vec3 aabbMin, vec3 aabbMax) {
+    vec3 tMin = (aabbMin - rayOrigin) / rayDir;
+    vec3 tMax = (aabbMax - rayOrigin) / rayDir;
+    vec3 t1 = min(tMin, tMax);
+    vec3 t2 = max(tMin, tMax);
+    float tEnter = max(t1.x, max(t1.y, t1.z));
+    float tExit = min(t2.x, min(t2.y, t2.z));
+    if (tExit < 0.0 || tEnter > tExit) return vec2(-1.0);
+    return vec2(tEnter, tExit);
+}
+
+// Ray-sphere intersection
+// TODO this can be done using ray querie - will be hardware accelerated
+vec2 intersectRaySphere(vec3 center, float radius, vec3 origin, vec3 direction) {
+    vec3 offset = origin - center;
+    const float a = 1.0;
+    float b = 2.0 * dot(offset, direction);
+    float c = dot(offset, offset) - radius * radius;
+
+    float discriminant = b * b - 4.0 * a * c;
+
+    if (discriminant > 0) {
+        float s = sqrt(discriminant);
+        float dstToSphereNear = max(0, (-b - s) / (2 * a));
+        float dstToSphereFar = (-b + s) / (2 * a);
+
+        if (dstToSphereFar >= 0) {
+            return vec2(dstToSphereNear, dstToSphereFar - dstToSphereNear);
+        }
+    }
+    return vec2(0.0, 0.0);
+}
 
 
 #endif

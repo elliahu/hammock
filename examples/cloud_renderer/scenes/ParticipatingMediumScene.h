@@ -42,7 +42,7 @@ class ParticipatingMediumScene final : public IScene
     float32_t deltaTime = 0.0f;
     bool progressTime = true;
 
-    float32_t radius{2.0f}, azimuth{0.0f}, elevation{0.0f};
+    float32_t radius{.9f}, azimuth{0.0f}, elevation{0.0f};
 
 public:
     ParticipatingMediumScene(const std::string &name, const uint32_t width, const uint32_t height)

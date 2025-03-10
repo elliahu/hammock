@@ -1,5 +1,7 @@
 #version 450
 
+#include "common/cloudsCommon.glsl"
+
 layout (location = 0) in vec2 uv;
 layout (location = 0) out vec4 outColor;
 
@@ -63,29 +65,12 @@ vec3 getRayDirection() {
     return (inverseView * vec4(rayDir, 0.0)).xyz;
 }
 
-float remap(float originalValue, float originalMin, float originalMax, float newMin, float newMax) {
-    return newMin + (((originalValue - originalMin) / (originalMax - originalMin)) * (newMax - newMin));
-}
-
-// Ray-AABB intersection
-vec2 intersectRayAABB(vec3 rayOrigin, vec3 rayDir, vec3 aabbMin, vec3 aabbMax) {
-    vec3 tMin = (aabbMin - rayOrigin) / rayDir;
-    vec3 tMax = (aabbMax - rayOrigin) / rayDir;
-    vec3 t1 = min(tMin, tMax);
-    vec3 t2 = max(tMin, tMax);
-    float tEnter = max(t1.x, max(t1.y, t1.z));
-    float tExit = min(t2.x, min(t2.y, t2.z));
-    if (tExit < 0.0 || tEnter > tExit) return vec2(-1.0);
-    return vec2(tEnter, tExit);
-}
-
 // Sample the signed distance field
 float sdf(vec3 p) {
     vec3 uvw = worldToAABB(p);
     uvw = clamp(uvw, vec3(0.001), vec3(0.999));
     return texture(sdfSampler, uvw).r;
 }
-
 
 // Density sampling function
 float sampleDensity(vec3 p) {
@@ -97,31 +82,6 @@ float sampleDensity(vec3 p) {
     //return (density.r + 0.5) * densityMultiplier;
     float fbm = dot(density.gba, vec3(0.625, 0.25, 0.125));
     return remap(density.r, -(1.0 - fbm), 1.0, 0.0, 1.0) * densityMultiplier;
-}
-
-
-const float PI = 3.14159265359;
-
-float henyeyGreenstein(float sundotrd, float g) {
-    float gg = g * g;
-    return (1. - gg) / pow(1. + gg - 2. * g * sundotrd, 1.5);
-}
-
-float dualLobePhase(float sundotrd, float phaseG) {
-    return mix(henyeyGreenstein(sundotrd, -phaseG), henyeyGreenstein(sundotrd, phaseG), clamp(sundotrd * 0.5 + 0.5, 0.0, 1.0));
-}
-
-
-float henyeyGreensteinModified(float sundotrd, float ecc){
-    return ((1.0 - ecc * ecc) / pow((1.0 + ecc * ecc - 2.0 * ecc * sundotrd), 3.0 / 2.0)) / 4.0 * PI;
-}
-
-float directedPhase(float sundotrd, float eccentricity, float silverIntensity, float silverSpread){
-    return max(henyeyGreensteinModified(sundotrd, eccentricity), silverIntensity * henyeyGreensteinModified(sundotrd, 0.99 - silverSpread));
-}
-
-float isophase(){
-    return 1.0 / 4.0 * PI;
 }
 
 vec3 lightRayAttenuation(vec3 p){

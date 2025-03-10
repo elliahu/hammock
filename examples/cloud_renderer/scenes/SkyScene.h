@@ -53,8 +53,8 @@ class SkyScene final : public IScene {
         int enablePowder = 1; // 0
         float fogFactor = 0.00006f;
         float earthRadius = 70000.0f; // 35000, 70000
-        float cloudsInnerRadius = 3000.0f; // 5000, 6000
-        float cloudsOuterRadius = 8000.0f; // 17000, 27000
+        float cloudsInnerRadius = 6000.0f; // 5000, 6000
+        float cloudsOuterRadius = 5000.0f; // 17000, 27000
         float phaseG = 0.3f;
         float eccentricity = 0.6f;
         float silverIntensity = 0.5f;
@@ -115,7 +115,7 @@ class SkyScene final : public IScene {
 
     // camera movement
     float32_t yaw{0.f}, pitch{0.f};
-    HmckVec3 cameraPosition{0.f, 0.f, 0.f};
+    HmckVec3 cameraPosition{0.f, 3.f, 0.f};
     float32_t fov = 45.f;
 
 

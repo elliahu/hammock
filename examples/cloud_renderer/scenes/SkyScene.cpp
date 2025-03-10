@@ -687,7 +687,7 @@ void SkyScene::update() {
     sunAndSkyUbo.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};
 
     // Movement and rotation speeds (adjust these as needed)
-    const float movementSpeed = 10.0f; // Units per frame
+    const float movementSpeed = 500.0f; // Units per frame
     const float rotationSpeed = 2.0f; // Radians per frame
 
     // Process rotation input using arrow keys.
