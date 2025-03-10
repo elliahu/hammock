@@ -13,8 +13,6 @@ layout (binding = 4) uniform sampler2D cloudMapSampler;
 layout (binding = 5) uniform sampler2D skySampler;
 
 layout (binding = 6) uniform SunAndSkyUBO {
-    vec4 cloudColorTop;
-    vec4 cloudColorBottom;
     vec4 lightColor;
     vec4 lightDirection;
     vec4 skyColorBottom;
@@ -49,9 +47,13 @@ layout (push_constant) uniform PushConstants {
     float cloudSpeed;
     float crispiness;
     float curliness;
-    float absorption;
-    float densityFactor;
-    float powderEffectStrength;
+    float absorptionR;
+    float absorptionG;
+    float absorptionB;
+    float scatteringR;
+    float scatteringG;
+    float scatteringB;
+    float densityMultiplier;
     float fogFactor;
     float earthRadius;
     float sphereInnerRadius;
@@ -62,13 +64,13 @@ layout (push_constant) uniform PushConstants {
     float silverSpread;
     float ambientStrength;
     float cloudTypeOverride;
-    float atmosphereScatteringStrength;
+    float lightStepsLength;
     int DEBUG_cloudmap;
 };
 
+#define SCATTERING vec3(scatteringR,scatteringG,scatteringB)
+#define ABSORPTION vec3(absorptionR,absorptionG,absorptionB)
 
-#define CLOUDS_AMBIENT_COLOR_TOP cloudColorTop.rgb
-#define CLOUDS_AMBIENT_COLOR_BOTTOM cloudColorBottom.rgb
 
 const vec3 noiseKernel[6u] = vec3[]
 (
@@ -122,10 +124,9 @@ const float bayerFilter[16u] = float[]
 #define NUM_STEPS 64
 
 #define NUM_LIGHT_STEPS 6
-#define LIGHT_STEP_SIZE 1.0
+#define LIGHT_STEP_SIZE lightStepsLength
 
-#define SCATTERING vec3(0.001,0.001,0.001)
-#define ABSORPTION vec3(0.001,0.001,0.001)
+
 
 float getHeightFraction(vec3 inPos) {
     return (length(inPos - sphereCenter) - SPHERE_INNER_RADIUS) / (SPHERE_OUTER_RADIUS - SPHERE_INNER_RADIUS);
@@ -186,7 +187,7 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
         base_cloud_with_coverage = remap(base_cloud_with_coverage * base_multiplier, highFreqNoiseModifier * detail_multiplier, 1.0, 0.0, 1.0);
     }
 
-    return clamp(base_cloud_with_coverage, 0.0, 1.0);
+    return clamp(base_cloud_with_coverage * densityMultiplier, 0.0, 1.0);
 }
 
 
@@ -213,64 +214,69 @@ vec3 lightRayAttenuation(vec3 p){
     return attenuationAlongLightRay;
 }
 
-vec4 raymarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
-    vec3 path = endPos - startPos;
-    float len = length(path);
+vec4 raymarch(vec3 start, vec3 end){
+    // Create the ray to march along
+    vec3 ray = end - start;
+    float rayLenght = length(ray);
+    vec3 rayDirection = normalize(ray);
 
-    float ds = len / NUM_STEPS;
-    vec3 dir = path / len;
-    dir *= ds;
-    vec4 col = vec4(0.0);
+    // Sampling position (jittered)
+    float stepSize = rayLenght / NUM_STEPS;
     uvec2 fragCoord = gl_GlobalInvocationID.xy;
     int a = int(fragCoord.x) % 4;
     int b = int(fragCoord.y) % 4;
-    startPos += dir * bayerFilter[a * 4 + b];
-    vec3 pos = startPos;
+    vec3 p = start + rayDirection * stepSize * bayerFilter[a * 4 + b];
 
-    float density = 0.0;
+    // Phase function
+    vec3 L = normalize(SUN_DIR);
+    vec3 V = normalize(rayDirection);
+    float cosTheta = dot(L, V);
+    float phase = directedPhase(cosTheta, eccentricity, silverIntensity, silverSpread);
 
-    float lightDotEye = dot(normalize(SUN_DIR), normalize(dir));
+    // Raymarch variables
+    vec3 totalTransmittance = vec3(1.0);
+    vec3 inScatteredLight = vec3(0.0);
 
-    float T = 1.0;
-    float sigma_ds = -ds * densityFactor;
-    bool entered = false;
+    // Raymarch
+    // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
+    for (int i = 0; i < NUM_STEPS; i++){
+        float density = sampleCloudDensity(p, true, i / 16);
 
-    int zero_density_sample = 0;
+        // Expensive computation only for non-zero density regions
+        if(density > 0.0){
+            // compute the height fraction: relative height in cloud layer <0;1>
+            float heightFraction = getHeightFraction(p);
 
-    for (int i = 0; i < NUM_STEPS; ++i)
-    {
-        float density_sample = sampleCloudDensity(pos, true, i / 16);
-        if (density_sample > 0.)
-        {
-            if (!entered) {
-                cloudPos = vec4(pos, 1.0);
-                entered = true;
-            }
-            float height = getHeightFraction(pos);
-            vec3 ambientLight = mix(CLOUDS_AMBIENT_COLOR_BOTTOM * SUN_COLOR, CLOUDS_AMBIENT_COLOR_TOP * SUN_COLOR, height);
-            vec3 attenuationAlongLightRay = lightRayAttenuation(pos);
-            float phase = directedPhase(lightDotEye, eccentricity, silverIntensity, silverSpread);
-            float powderTerm = powder(density_sample) * powderEffectStrength;
+            // Beer-powder aprox
+            float powderTerm = powder(density);
 
-            vec3 S = (mix(ambientLight * ambientStrength, phase * SUN_COLOR, powderTerm  * attenuationAlongLightRay)) * density_sample;
-            float dTrans = exp(density_sample * sigma_ds);
-            vec3 Sint = (S - S * dTrans) * (1. / density_sample);
-            col.rgb += T * Sint;
-            T *= dTrans;
+            // compute the light ray attenuation
+            vec3 attenuationAlongLightRay = lightRayAttenuation(p);
+            vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay + SUN_COLOR * (ambientStrength + (1.0 - density) * 0.2);
 
+            // Compute the differential in-scattering contribution using the current transmittance
+            vec3 dL = totalTransmittance * density * SCATTERING * phase  * lightContribution * powderTerm * stepSize;
+            inScatteredLight += dL;
+
+            // Update total transmittance for extinction along the ray segment
+            vec3 attenuation = exp(-density* stepSize* (SCATTERING + ABSORPTION));
+            totalTransmittance *= attenuation;
         }
 
-        if (T <= CLOUDS_MIN_TRANSMITTANCE) break;
+        // Early exit if fully opaque
+        if (max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)) < CLOUDS_MIN_TRANSMITTANCE){
+            break;
+        }
 
-        pos += dir;
-
+        // Move one step
+        p += rayDirection * stepSize;
     }
-    col.a = 1.0 - T;
 
-
-    return col;
+    // Compute alpha from the accumulated optical depth,
+    // Here we base it on the remaining transmittance.
+    float alpha = 1.0 - pow(max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)), 0.35);
+    return vec4(inScatteredLight, alpha);
 }
-
 
 
 void main()
@@ -356,7 +362,7 @@ void main()
     vec3 end = rayOrigin + rayDirection * endDist;
 
     // Perform raymarching for clouds.
-    v = raymarchToCloud(start, end, bg.rgb, cloudDistance_v);
+    v = raymarch(start,end);
     fragColor_v = v;
 
     imageStore(colorImage, fragCoord, fragColor_v);

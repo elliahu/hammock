@@ -259,8 +259,11 @@ void SkyScene::buildRenderGraph() {
     // Cloud map
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("cloud-map", compute.cloudMap);
 
+
     // Sky dome
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("skydome-image", sky.skyDome);
+
+
 
     // Storage images that the compute pass outputs to and that is then read in the composition pass
 
@@ -509,16 +512,18 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
 
                     ImGui::SeparatorText("Cloud properties");
-                    ImGui::ColorEdit3("Cloud color top", &sunAndSkyUbo.cloudColorTop.Elements[0]);
-                    ImGui::ColorEdit3("Cloud color bottom", &sunAndSkyUbo.cloudColorBottom.Elements[0]);
                     ImGui::SliderFloat("Coverage override", &computePushConsts.coverageOverride, 0.0f, 1.f);
                     ImGui::SliderFloat("Cloud type override", &computePushConsts.cloudTypeOverride, 0.f, 2.f);
                     ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 10.f);
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
-                    ImGui::SliderFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.009f, "%.7f");
-                    ImGui::SliderFloat("Density", &computePushConsts.densityFactor, 0.001f, .09f, "%.7f");
-                    ImGui::SliderFloat("Powder effect", &computePushConsts.powderEffectStrength, 1.f, 10.f);
+                    ImGui::SliderFloat("Absorption R", &computePushConsts.absorptionR, 0.0001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Absorption G", &computePushConsts.absorptionG, 0.0001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Absorption B", &computePushConsts.absorptionB, 0.0001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Scattering R", &computePushConsts.scatteringR, 0.0001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Scattering G", &computePushConsts.scatteringG, 0.0001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Scattering B", &computePushConsts.scatteringB, 0.0001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Density", &computePushConsts.densityMultiplier, 0.0f, 5.0f);
                     ImGui::SliderFloat("Scattering direction (phase g)", &computePushConsts.phaseG, 0.f, 0.995f);
                     ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
                     ImGui::SliderFloat("Silver intensity", &computePushConsts.silverIntensity, 0.f, 10.0f);
@@ -526,9 +531,8 @@ void SkyScene::buildRenderGraph() {
 
 
                     ImGui::SeparatorText("Noise properties");
-                    ImGui::SliderFloat("Base multiplier", &computePushConsts.baseMultiplier, 0.0f, 1.f);
+                    ImGui::SliderFloat("Base multiplier", &computePushConsts.baseMultiplier, 0.0f, 5.f);
                     ImGui::SliderFloat("Detail multiplier", &computePushConsts.detailMultiplier, 0.0f, 1.f);
-
 
 
                     ImGui::SeparatorText("Environment properties");
@@ -543,7 +547,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
                     ImGui::DragFloat("Clouds height max.", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
-                    ImGui::SliderFloat("Atmosphere scattering strength", &computePushConsts.atmosphereScatteringStrength, 0.0f, 100.f);
+                    ImGui::SliderFloat("Light step length", &computePushConsts.lightStepsLength, 0.0f, 0.1f);
 
                     camWindowPos = ImGui::GetWindowPos();
 

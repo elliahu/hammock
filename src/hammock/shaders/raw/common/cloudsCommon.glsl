@@ -3,7 +3,6 @@
 
 #define PI 3.14159265358979323846
 
-
 // TOOLBOX
 // Remaps value from one range to another
 float remap(float value, float inMin, float inMax, float outMin, float outMax) {

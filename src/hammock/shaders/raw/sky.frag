@@ -8,8 +8,6 @@ layout (location = 0) out vec4 outColor;
 //layout (binding = 3) uniform sampler2D skyDomeSampler;
 
 layout (binding = 2) uniform SunAndSkyUBO {
-    vec4 cloudColorTop;
-    vec4 cloudColorBottom;
     vec4 lightColor;
     vec4 lightDirection;
     vec4 skyColorBottom;
@@ -33,30 +31,6 @@ layout (binding = 1) uniform TimeUBO
     float timeOfDay;
 };
 
-layout (push_constant) uniform PushConstants {
-    float coverage_multiplier;
-    float coverageRepeat;
-    float base_multiplier;
-    float detail_multiplier;
-    float cloudSpeed;
-    float crispiness;
-    float curliness;
-    float absorption;
-    float densityFactor;
-    float powderEffectStrength;
-    float fogFactor;
-    float earthRadius;
-    float sphereInnerRadius;
-    float sphereOuterRadius;
-    float phaseG;
-    float eccentricity;
-    float silverIntensity;
-    float silverSpread;
-    float ambientStrength;
-    float cloudTypeOverride;
-    float atmosphereScatteringStrength;
-    int DEBUG_cloudmap;
-};
 
 
 void main() {
@@ -82,4 +56,5 @@ void main() {
     color += 1.0 * getSunColor(timeOfDay) * pow(sun, 6.0);
     outColor = vec4(color, 1.0);
 
+    //outColor = vec4(vec3(0.0),1.0);
 }

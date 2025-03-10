@@ -31,8 +31,6 @@ class SkyScene final : public IScene {
     bool progressTime = false;
 
     struct SunAndSkyUbo {
-        HmckVec4 cloudColorTop{0.99f, 0.876f, 0.876f, 1.0f};
-        HmckVec4 cloudColorBottom{0.755f, 0.846f, 0.988f, 1.0f};
         HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 1.0f};
         HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
         HmckVec4 skyColorBottom{0.462f, 0.654f, 0.956f, 1.0f};
@@ -41,31 +39,35 @@ class SkyScene final : public IScene {
     } sunAndSkyUbo;
 
     struct ComputePushConsts {
-        float coverageOverride = 0.1f;
+        float coverageOverride = 0.2f;
         float coverageRepeat = 2.0f;
-        float baseMultiplier = 1.0f;
-        float detailMultiplier = 0.2f;
+        float baseMultiplier = 0.6f;
+        float detailMultiplier = 1.0;
         float cloudSpeed = 450.f;
-        float crispiness = 16.f; // .4
+        float crispiness = 16.f;
         float curliness = 2.0f;
-        float absorption = 0.0010f; //0.0035
-        float densityFactor =  0.02f; //  0.02;
-        float powderEffectStrength = 1.0; // 0
+        float absorptionR = 0.0010f;
+        float absorptionG = 0.0010f;
+        float absorptionB = 0.0010f;
+        float scatteringR = 0.0010f;
+        float scatteringG = 0.0010f;
+        float scatteringB = 0.0010f;
+        float densityMultiplier =  1.0f;
         float fogFactor = 0.00006f;
-        float earthRadius = 70000.0f; // 35000, 70000
-        float cloudsInnerRadius = 6000.0f; // 5000, 6000
-        float cloudsOuterRadius = 5000.0f; // 17000, 27000
+        float earthRadius = 70000.0f;
+        float cloudsInnerRadius = 6000.0f;
+        float cloudsOuterRadius = 5000.0f;
         float phaseG = 0.3f;
         float eccentricity = 0.6f;
-        float silverIntensity = 0.5f;
-        float silverSpread = 0.5f;
-        float ambientStrength = .5f;
+        float silverIntensity = 1.73f;
+        float silverSpread = 0.887f;
+        float ambientStrength = .085f;
         float cloudTypeOverride = 1.0f;
-        float atmosphereScatteringStrength = 50.0f;
+        float lightStepsLength = 0.1f;
         int DEBUG_cloudmap = 1;
     } computePushConsts;
 
-    float32_t timeOfDay = 0.4f;
+    float32_t timeOfDay = 0.5f;
     float32_t windDirection = 0.0f;
 
 
