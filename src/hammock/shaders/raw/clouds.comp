@@ -3,7 +3,7 @@
 #include "common/cloudsCommon.glsl"
 
 layout (local_size_x = 16, local_size_y = 16) in;
-layout (binding = 0, rgba16f) uniform writeonly image2D colorImage;
+layout (binding = 0, rgba32f) uniform writeonly image2D colorImage;
 
 layout (binding = 1) uniform sampler3D baseNoiseSampler;
 layout (binding = 2) uniform sampler3D detailNoiseSampler;
@@ -250,7 +250,7 @@ vec4 raymarch(vec3 start, vec3 end){
 
             // compute the light ray attenuation
             vec3 attenuationAlongLightRay = lightRayAttenuation(p);
-            vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay + SUN_COLOR * (ambientStrength + (1.0 - density) * 0.2);
+            vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay + SUN_COLOR * ambientStrength;
 
             // Compute the differential in-scattering contribution using the current transmittance
             vec3 dL = totalTransmittance * density * SCATTERING * phase  * lightContribution * powderTerm * stepSize;

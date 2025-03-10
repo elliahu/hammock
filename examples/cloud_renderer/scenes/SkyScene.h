@@ -60,7 +60,7 @@ class SkyScene final : public IScene {
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;
-        float ambientStrength = .085f;
+        float ambientStrength = .050f;
         float cloudTypeOverride = 1.0f;
         float lightStepsLength = 0.1f;
     } computePushConsts;
@@ -71,14 +71,13 @@ class SkyScene final : public IScene {
     struct PostProcessUBO {
         HmckVec4 colorTint{1.0f, 1.0f, 1.0f,0.0f};        // Default: vec3(1.0, 1.0, 1.0)
 
-
         // Tonemapping parameters
         float exposure = 2.3f;        // Default: 0.0, Range: -5.0 to 5.0
         float gamma = 2.2f;           // Default: 2.2, Range: 0.5 to 3.0
         int tonemapOperator = 3;   // 0: Linear, 1: Reinhard, 2: ACES, 3: Uncharted 2
 
         // Color grading parameters
-        float contrast = 1.25;        // Default: 1.0, Range: 0.5 to 2.0
+        float contrast = 1.05;        // Default: 1.0, Range: 0.5 to 2.0
         float brightness = 0.0;      // Default: 0.0, Range: -1.0 to 1.0
         float saturation = 1.0;      // Default: 1.0, Range: 0.0 to 2.0
 

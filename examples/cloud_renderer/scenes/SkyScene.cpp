@@ -279,7 +279,7 @@ void SkyScene::buildRenderGraph() {
             .width = window.getExtent().width,
             .height = window.getExtent().height,
             .channels = 4,
-            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
