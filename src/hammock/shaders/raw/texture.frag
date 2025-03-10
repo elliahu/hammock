@@ -180,7 +180,7 @@ void main()
 
     // Apply film grain
     if (grainAmount > 0.0) {
-        float grain = hash(uv * 100.0 + time * 10.0);
+        float grain = hash((uv * vec2(1920,1080)) + time * 10.0);
         graded += (grain - 0.5) * grainAmount;
     }
 
