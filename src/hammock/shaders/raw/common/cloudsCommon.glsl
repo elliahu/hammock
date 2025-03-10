@@ -24,13 +24,14 @@ float remapcc(in float value, in float original_min, in float original_max, in f
     return clamp(t, new_min, new_max);
 }
 
+// Swap two values
 void swap(in float a, in float b) {
     float c = a;
     a = b;
     b = c;
 }
 
-// Powder aprox
+// Beers-powder aproximation
 float powder(float d) {
     return (1. - exp(-2. * d));
 }
@@ -68,8 +69,8 @@ vec3 getSunColor(float timeOfDay) {
 }
 
 vec3 computeClipSpaceCoord(uvec2 fragCoord, ivec2 res) {
-    vec2 ray_nds = 2.0 * vec2(fragCoord.xy) / res - 1.0;
-    return vec3(ray_nds, 1.0);
+    vec2 rayNds = 2.0 * vec2(fragCoord.xy) / res - 1.0;
+    return vec3(rayNds, 1.0);
 }
 
 
@@ -80,16 +81,17 @@ float henyeyGreenstein(float sundotrd, float g) {
     return (1. - gg) / pow(1. + gg - 2. * g * sundotrd, 1.5);
 }
 
-
+// Dula lobe Henyey-Greenstein phase function
 float dualLobePhase(float sundotrd, float phaseG) {
     return mix(henyeyGreenstein(sundotrd, -phaseG), henyeyGreenstein(sundotrd, phaseG), clamp(sundotrd * 0.5 + 0.5, 0.0, 1.0));
 }
 
-
+// Modified Henyey-Greenstein phase function
 float henyeyGreensteinModified(float sundotrd, float ecc){
     return ((1.0 - ecc * ecc) / pow((1.0 + ecc * ecc - 2.0 * ecc * sundotrd), 3.0 / 2.0)) / 4.0 * PI;
 }
 
+// Adjusted dual-lobe Henyey Greenstein phase function that can be artistically adjusted
 float directedPhase(float sundotrd, float eccentricity, float silverIntensity, float silverSpread){
     return max(henyeyGreensteinModified(sundotrd, eccentricity), silverIntensity * henyeyGreensteinModified(sundotrd, 0.99 - silverSpread));
 }
@@ -102,7 +104,7 @@ float isophase(){
 // RAYCASTING
 
 // Ray-AABB intersection
-// TODO this can be done using ray querie - will be hardware accelerated
+// TODO this can be done using ray queries - will be hardware accelerated
 vec2 intersectRayAABB(vec3 rayOrigin, vec3 rayDir, vec3 aabbMin, vec3 aabbMax) {
     vec3 tMin = (aabbMin - rayOrigin) / rayDir;
     vec3 tMax = (aabbMax - rayOrigin) / rayDir;
@@ -115,7 +117,7 @@ vec2 intersectRayAABB(vec3 rayOrigin, vec3 rayDir, vec3 aabbMin, vec3 aabbMax) {
 }
 
 // Ray-sphere intersection
-// TODO this can be done using ray querie - will be hardware accelerated
+// TODO this can be done using ray queries - will be hardware accelerated
 vec2 intersectRaySphere(vec3 center, float radius, vec3 origin, vec3 direction) {
     vec3 offset = origin - center;
     const float a = 1.0;

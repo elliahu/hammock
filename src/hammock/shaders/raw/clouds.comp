@@ -40,7 +40,7 @@ layout (set = 2, binding = 0) uniform TimeUBO
 };
 
 layout (push_constant) uniform PushConstants {
-    float coverage_multiplier;
+    float coverageMultiplier;
     float coverageRepeat;
     float base_multiplier;
     float detail_multiplier;
@@ -124,12 +124,15 @@ const float bayerFilter[16u] = float[]
 #define NUM_LIGHT_STEPS 6
 #define LIGHT_STEP_SIZE lightStepsLength
 
-
-
+// Returns a relative hight in cloud layer 0 to 1
 float getHeightFraction(vec3 inPos) {
     return (length(inPos - sphereCenter) - SPHERE_INNER_RADIUS) / (SPHERE_OUTER_RADIUS - SPHERE_INNER_RADIUS);
 }
 
+// Returns density for a specific cloud type
+// 0.0 stratus
+// 0.5 stratocumulus
+// 1.0 cumulus
 float getDensityForCloudType(float heightFraction, float cloudType)
 {
     float stratusFactor = 1.0 - clamp(cloudType * 2.0, 0.0, 1.0);
@@ -142,53 +145,68 @@ float getDensityForCloudType(float heightFraction, float cloudType)
     return remap(heightFraction, baseGradient.x, baseGradient.y, 0.0, 1.0) * remap(heightFraction, baseGradient.z, baseGradient.w, 1.0, 0.0);
 }
 
+// spherical uv projection
 vec2 getUVProjection(vec3 p) {
     return p.xz / SPHERE_INNER_RADIUS + 0.5;
 }
 
+// Smples a density at a point
+// If expensive, detail hight-frequency noise will be used to erode the base shape
 float sampleCloudDensity(vec3 p, bool expensive, float lod) {
+    // Height fraction and uv coords for sampling
     float heightFraction = getHeightFraction(p);
     vec3 animation = heightFraction * WIND_DIRECTION * CLOUD_TOP_OFFSET + WIND_DIRECTION * iTime * CLOUD_SPEED;
-    vec2 uv = getUVProjection(p);
-    vec2 moving_uv = getUVProjection(p + animation);
+    vec2 staticUv = getUVProjection(p);
+    vec2 animatedUv = getUVProjection(p + animation);
 
-
+    // Early exit if out of the cloud layer
     if (heightFraction < 0.0 || heightFraction > 1.0) {
         return 0.0;
     }
 
+    // Sample low frequency noise to contruct FBM
+    vec4 lowFrequencyNoise = textureLod(baseNoiseSampler, vec3(animatedUv * CLOUD_SCALE, heightFraction), lod);
+    float lowFreqFBM = dot(lowFrequencyNoise.gba, vec3(0.625, 0.25, 0.125));
+    float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0);
 
-    vec4 low_frequency_noise = textureLod(baseNoiseSampler, vec3(moving_uv * CLOUD_SCALE, heightFraction), lod);
-    float lowFreqFBM = dot(low_frequency_noise.gba, vec3(0.625, 0.25, 0.125));
-    float base_cloud = remap(low_frequency_noise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0);
+    // Sample the cloud map
+    vec3 cloudMap = texture(cloudMapSampler, animatedUv * coverageRepeat).rgb;
+    // Coverage is in red and green channels
+    float coverage = cloudMap.r * coverageMultiplier;
+    // Cloud type is in the blue channel
+    float cloudType = clamp(cloudMap.b * cloudTypeOverride, 0.0, 1.0);
 
+    // Adjust the density based on the cloud type
+    float cloudTypeDensity = getDensityForCloudType(heightFraction, cloudType);
+    baseCloud *= (cloudTypeDensity / heightFraction);
 
-    vec3 weather_data = texture(cloudMapSampler, moving_uv * coverageRepeat).rgb;
-    float cloud_coverage = weather_data.r * coverage_multiplier;
-    float cloud_type = clamp(weather_data.b * cloudTypeOverride, 0.0, 1.0);
+    // Apply the coverage
+    float baseCloudWithCoverage = remap(baseCloud, coverage, 1.0, 0.0, 1.0);
+    baseCloudWithCoverage *= coverage;
 
-    float density = getDensityForCloudType(heightFraction, cloud_type);
-    base_cloud *= (density / heightFraction);
-    float base_cloud_with_coverage = remap(base_cloud, cloud_coverage, 1.0, 0.0, 1.0);
-    base_cloud_with_coverage *= cloud_coverage;
-
-    if (expensive && weather_data.r > 0.0)
+    // Check if we are doing expensive sampling
+    if (expensive)
     {
-        vec2 whisp = texture(curlNoiseSampler, moving_uv).xy;
-        vec2 detailSamplePos = (uv * CLOUD_SCALE) + whisp * curliness * (1.0 - heightFraction);
+        // Curl noise for whisps
+        vec2 whisp = texture(curlNoiseSampler, animatedUv).xy;
+        // Use the curl noise to offset sample position
+        vec2 detailSamplePos = (staticUv * CLOUD_SCALE) + whisp * curliness * (1.0 - heightFraction);
 
-        vec3 high_frequency_noise = textureLod(detailNoiseSampler, vec3(detailSamplePos, heightFraction), lod).rgb;
-        float highFreqFBM = dot(high_frequency_noise, vec3(0.625, 0.25, 0.125));
-        float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, clamp(heightFraction * 10.0, 0.0, 1.0));
+        // Sample hight frequency noise and build the FBM
+        vec3 highFrequencyNoise = textureLod(detailNoiseSampler, vec3(detailSamplePos, heightFraction), lod).rgb;
+        float highFreqFBM = dot(highFrequencyNoise, vec3(0.625, 0.25, 0.125));
+        //baseCloudWithCoverage = remap(baseCloudWithCoverage* base_multiplier, highFreqFBM* detail_multiplier, 1.0,0.0,1.0);
 
-        base_cloud_with_coverage = base_cloud_with_coverage - highFreqNoiseModifier * (1.0 - base_cloud_with_coverage);
-        base_cloud_with_coverage = remap(base_cloud_with_coverage * base_multiplier, highFreqNoiseModifier * detail_multiplier, 1.0, 0.0, 1.0);
+        float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, heightFraction);
+        baseCloudWithCoverage = baseCloudWithCoverage - highFreqNoiseModifier * (1.0 - baseCloudWithCoverage);
+        baseCloudWithCoverage = remap(baseCloudWithCoverage * base_multiplier, highFreqFBM * detail_multiplier, 1.0, 0.0, 1.0);
     }
 
-    return clamp(base_cloud_with_coverage * densityMultiplier, 0.0, 1.0);
+    return clamp(baseCloudWithCoverage * densityMultiplier, 0.0, 1.0);
 }
 
-
+// Compute level of attenuation along a light ray
+// TODO: cone sampling
 vec3 lightRayAttenuation(vec3 p){
     vec3 dirToLight = normalize(lightDirection.xyz);
     vec3 attenuationAlongLightRay = vec3(1.0);
@@ -201,6 +219,7 @@ vec3 lightRayAttenuation(vec3 p){
         if (heightFraction >= 0){
             float cloudDensity = sampleCloudDensity(pos, false, l / 16);
             if (cloudDensity > 0.0){
+                // Beers law
                 vec3 attenuation = exp(-cloudDensity * LIGHT_STEP_SIZE * (SCATTERING + ABSORPTION));
                 attenuationAlongLightRay *= attenuation;
             }
@@ -212,6 +231,7 @@ vec3 lightRayAttenuation(vec3 p){
     return attenuationAlongLightRay;
 }
 
+// Raymarches from the start to the end position
 vec4 raymarch(vec3 start, vec3 end){
     // Create the ray to march along
     vec3 ray = end - start;
@@ -364,7 +384,6 @@ void main()
     fragColor_v = v;
 
     imageStore(colorImage, fragCoord, fragColor_v);
-
 }
 
 
