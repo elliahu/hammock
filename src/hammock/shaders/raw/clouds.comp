@@ -181,7 +181,7 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
     // Compute the distance of the smaple point from the camera and remap it to 0 to 1
     float dst = remap(clamp(length(p - cameraPosition.xyz), 0.0, epicDistance),0.0, epicDistance, 0.0, 1.0);
     // Gradually change clouds to stratocumulus type at the horizon
-    cloudType = clamp(mix(cloudType - 0.5, 1.0, dst),0.0, 1.0);
+    cloudType = clamp(mix(cloudType, 1.0, dst),0.0, 1.0);
 
 
     // Adjust the density based on the cloud type

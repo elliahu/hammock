@@ -300,7 +300,7 @@ void ParticipatingMediumScene::buildRenderGraph() {
 
                 ImGui::SeparatorText("Noise");
                 ImGui::SliderFloat("Scale", &pushConstants.densityScale, 0.5f, 10.0f);
-                ImGui::SliderInt("Light steps", &pushConstants.lightSteps, 1, 20);
+                ImGui::SliderInt("Light steps", &pushConstants.lightSteps, 1, 100);
                 ImGui::SliderFloat("Light step size", &pushConstants.lightStepSize, 0.0001f, .1f, "%.4f");
 
 

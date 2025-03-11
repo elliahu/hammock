@@ -138,7 +138,7 @@ void main() {
 
             // Calculate phase using the angle between the light and view direction.
             vec3 L = normalize(lightPosition.xyz - p);  // direction from point p to the light
-            vec3 V = -normalize(rayDirection);          // direction from point p to the camera
+            vec3 V = normalize(rayDirection);          // direction from point p to the camera
             float cosTheta = dot(L, V);
             float phase = henyeyGreenstein(cosTheta, PHASE_G);
 
