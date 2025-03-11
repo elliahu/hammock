@@ -15,8 +15,8 @@ layout (binding = 5) uniform sampler2D skySampler;
 layout (binding = 6) uniform SunAndSkyUBO {
     vec4 lightColor;
     vec4 lightDirection;
-    vec4 skyColorBottom;
-    vec4 skyColorTop;
+    vec4 cloudColorBottom;
+    vec4 cloudColorTop;
     vec4 windDirection;
 };
 
@@ -264,12 +264,13 @@ vec4 raymarch(vec3 start, vec3 end) {
     vec3 inScatteredLight = vec3(0.0);
 
     // Raymarch
+    // TODO adjust step size based on the raymarch distance (64 straight up, 128 forward)
     // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
     for (int i = 0; i < NUM_STEPS; i++) {
         float density = sampleCloudDensity(p, true, i / 16);
 
         // Expensive computation only for non-zero density regions
-        if (density > 0.0) {
+        if (density > 0.1) {
             // compute the height fraction: relative height in cloud layer <0;1>
             float heightFraction = getHeightFraction(p);
 
@@ -278,7 +279,7 @@ vec4 raymarch(vec3 start, vec3 end) {
 
             // compute the light ray attenuation
             vec3 attenuationAlongLightRay = lightRayAttenuation(p);
-            vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay + SUN_COLOR * ambientStrength;
+            vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay * heightFraction;
 
             // Compute the differential in-scattering contribution using the current transmittance
             vec3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution * powderTerm * stepSize;

@@ -533,12 +533,29 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 1000.f);
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
-                    ImGui::SliderFloat("Absorption R", &computePushConsts.absorptionR, 0.0001f, 0.009f, "%.7f");
-                    ImGui::SliderFloat("Absorption G", &computePushConsts.absorptionG, 0.0001f, 0.009f, "%.7f");
-                    ImGui::SliderFloat("Absorption B", &computePushConsts.absorptionB, 0.0001f, 0.009f, "%.7f");
-                    ImGui::SliderFloat("Scattering R", &computePushConsts.scatteringR, 0.0001f, 0.01f, "%.7f");
-                    ImGui::SliderFloat("Scattering G", &computePushConsts.scatteringG, 0.0001f, 0.01f, "%.7f");
-                    ImGui::SliderFloat("Scattering B", &computePushConsts.scatteringB, 0.0001f, 0.01f, "%.7f");
+                    HmckVec3 absorption{
+                        computePushConsts.absorptionR,
+                        computePushConsts.absorptionG,
+                        computePushConsts.absorptionB,
+                    };
+
+                    HmckVec3 scattering{
+                        computePushConsts.scatteringR,
+                        computePushConsts.scatteringG,
+                        computePushConsts.scatteringB,
+                    };
+                    ImGui::DragFloat3("Absorption", &absorption.Elements[0], 0.0001f);
+                    ImGui::DragFloat3("Scattering", &scattering.Elements[0], 0.0001f);
+
+                    computePushConsts.absorptionR = absorption.R;
+                    computePushConsts.absorptionG = absorption.G;
+                    computePushConsts.absorptionB = absorption.B;
+
+                    computePushConsts.scatteringR = scattering.R;
+                    computePushConsts.scatteringG = scattering.G;
+                    computePushConsts.scatteringB = scattering.B;
+
+
                     ImGui::SliderFloat("Density", &computePushConsts.densityMultiplier, 0.0f, 5.0f);
                     ImGui::SliderFloat("Scattering direction (phase g)", &computePushConsts.phaseG, 0.f, 0.995f);
                     ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
@@ -559,6 +576,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
+                    ImGui::ColorEdit3("Ambient sky color ", &sunAndSkyUbo.cloudColorTop.Elements[1]);
+                    ImGui::ColorEdit3("Ambient ground color ", &sunAndSkyUbo.cloudColorBottom.Elements[1]);
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
                     ImGui::DragFloat("Earth radius", &computePushConsts.earthRadius, 10.0f, 100.f);
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
@@ -634,8 +653,8 @@ void SkyScene::buildRenderGraph() {
                     }
                     ImGui::SameLine();
                     if (ImGui::Button("Reset to defaults")) {
-                       postProcUbo = backUpPostProcUbo;
-                   }
+                        postProcUbo = backUpPostProcUbo;
+                    }
 
 
                     ImGui::PopStyleVar();
