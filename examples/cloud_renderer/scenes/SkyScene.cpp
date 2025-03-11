@@ -530,15 +530,15 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Cloud properties");
                     ImGui::SliderFloat("Coverage override", &computePushConsts.coverageOverride, 0.0f, 1.f);
                     ImGui::SliderFloat("Cloud type override", &computePushConsts.cloudTypeOverride, 0.f, 2.f);
-                    ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 10.f);
+                    ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 1000.f);
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
                     ImGui::SliderFloat("Absorption R", &computePushConsts.absorptionR, 0.0001f, 0.009f, "%.7f");
                     ImGui::SliderFloat("Absorption G", &computePushConsts.absorptionG, 0.0001f, 0.009f, "%.7f");
                     ImGui::SliderFloat("Absorption B", &computePushConsts.absorptionB, 0.0001f, 0.009f, "%.7f");
-                    ImGui::SliderFloat("Scattering R", &computePushConsts.scatteringR, 0.0001f, 0.009f, "%.7f");
-                    ImGui::SliderFloat("Scattering G", &computePushConsts.scatteringG, 0.0001f, 0.009f, "%.7f");
-                    ImGui::SliderFloat("Scattering B", &computePushConsts.scatteringB, 0.0001f, 0.009f, "%.7f");
+                    ImGui::SliderFloat("Scattering R", &computePushConsts.scatteringR, 0.0001f, 0.01f, "%.7f");
+                    ImGui::SliderFloat("Scattering G", &computePushConsts.scatteringG, 0.0001f, 0.01f, "%.7f");
+                    ImGui::SliderFloat("Scattering B", &computePushConsts.scatteringB, 0.0001f, 0.01f, "%.7f");
                     ImGui::SliderFloat("Density", &computePushConsts.densityMultiplier, 0.0f, 5.0f);
                     ImGui::SliderFloat("Scattering direction (phase g)", &computePushConsts.phaseG, 0.f, 0.995f);
                     ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
@@ -562,7 +562,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
                     ImGui::DragFloat("Clouds height max.", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
-                    ImGui::SliderFloat("Light step length", &computePushConsts.lightStepsLength, 0.0f, 0.1f);
+                    ImGui::SliderFloat("Light step length", &computePushConsts.lightStepsLength, 0.0f, 10.0f);
+                    ImGui::SliderFloat("Epic distance", &computePushConsts.epicDistance, 0.0f, 100000.0f);
 
                     camWindowPos = ImGui::GetWindowPos();
 

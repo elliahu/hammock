@@ -50,6 +50,6 @@ void main() {
     // Add vertical gradient
     color -= 0.8 * vec3(0.90,0.75,0.90) * rayDirection.y;
     // Add sun color to sky
-    color += 1.0 * getSunColor(timeOfDay) * pow(sun, 6.0);
-    outColor = vec4(pow(color, vec3(2.2)), 1.0);
+    color += 0.1 * pow(lightColor.rgb, vec3(2.2)) * pow(sun, 20.0);
+    outColor = vec4(color, 1.0);
 }

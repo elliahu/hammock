@@ -64,10 +64,11 @@ layout (push_constant) uniform PushConstants {
     float ambientStrength;
     float cloudTypeOverride;
     float lightStepsLength;
+    float epicDistance;
 };
 
-#define SCATTERING vec3(scatteringR,scatteringG,scatteringB)
-#define ABSORPTION vec3(absorptionR,absorptionG,absorptionB)
+#define SCATTERING vec3(scatteringR, scatteringG, scatteringB)
+#define ABSORPTION vec3(absorptionR, absorptionG, absorptionB)
 
 
 const vec3 noiseKernel[6u] = vec3[]
@@ -101,7 +102,7 @@ vec3 sphereCenter = vec3(0.0, -EARTH_RADIUS, 0.0);
 
 // Sun
 #define SUN_DIR normalize(lightDirection.xyz)
-#define SUN_COLOR getSunColor(timeOfDay)
+#define SUN_COLOR pow(lightColor.rgb, vec3(10.0))
 
 // Cloud sampling
 #define CLOUD_TOP_OFFSET 750.0
@@ -165,16 +166,21 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
     }
 
     // Sample low frequency noise to contruct FBM
-    vec4 lowFrequencyNoise = textureLod(baseNoiseSampler, vec3(animatedUv * CLOUD_SCALE, heightFraction), lod);
+    vec4 lowFrequencyNoise = textureLod(baseNoiseSampler, vec3(staticUv * CLOUD_SCALE, heightFraction), lod);
     float lowFreqFBM = dot(lowFrequencyNoise.gba, vec3(0.625, 0.25, 0.125));
     float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0);
 
     // Sample the cloud map
-    vec3 cloudMap = texture(cloudMapSampler, animatedUv * coverageRepeat).rgb;
+    vec3 cloudMap = texture(cloudMapSampler, staticUv * coverageRepeat).rgb;
     // Coverage is in red and green channels
-    float coverage = cloudMap.r * coverageMultiplier;
+    float coverage = mix(0.0, cloudMap.g, coverageMultiplier);
     // Cloud type is in the blue channel
-    float cloudType = clamp(cloudMap.b * cloudTypeOverride, 0.0, 1.0);
+    float cloudType = mix(0.0, cloudMap.b, cloudTypeOverride);
+    // Compute the distance of the smaple point from the camera and remap it to 0 to 1
+    float dst = remap(clamp(length(p - cameraPosition.xyz), 0.0, epicDistance),0.0, epicDistance, 0.0, 1.0);
+    // Gradually change clouds to stratocumulus type at the horizon
+    cloudType = clamp(mix(cloudType - 0.5, 1.0, dst),0.0, 1.0);
+
 
     // Adjust the density based on the cloud type
     float cloudTypeDensity = getDensityForCloudType(heightFraction, cloudType);
@@ -207,18 +213,18 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 
 // Compute level of attenuation along a light ray
 // TODO: cone sampling
-vec3 lightRayAttenuation(vec3 p){
+vec3 lightRayAttenuation(vec3 p) {
     vec3 dirToLight = normalize(lightDirection.xyz);
     vec3 attenuationAlongLightRay = vec3(1.0);
 
     // Lightmarch
-    for(int l = 0; l < NUM_LIGHT_STEPS; l++){
+    for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
         vec3 pos = p + dirToLight * l * LIGHT_STEP_SIZE;
         float heightFraction = getHeightFraction(pos);
 
-        if (heightFraction >= 0){
+        if (heightFraction >= 0) {
             float cloudDensity = sampleCloudDensity(pos, false, l / 16);
-            if (cloudDensity > 0.0){
+            if (cloudDensity > 0.0) {
                 // Beers law
                 vec3 attenuation = exp(-cloudDensity * LIGHT_STEP_SIZE * (SCATTERING + ABSORPTION));
                 attenuationAlongLightRay *= attenuation;
@@ -232,7 +238,7 @@ vec3 lightRayAttenuation(vec3 p){
 }
 
 // Raymarches from the start to the end position
-vec4 raymarch(vec3 start, vec3 end){
+vec4 raymarch(vec3 start, vec3 end) {
     // Create the ray to march along
     vec3 ray = end - start;
     float rayLenght = length(ray);
@@ -257,11 +263,11 @@ vec4 raymarch(vec3 start, vec3 end){
 
     // Raymarch
     // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
-    for (int i = 0; i < NUM_STEPS; i++){
+    for (int i = 0; i < NUM_STEPS; i++) {
         float density = sampleCloudDensity(p, true, i / 16);
 
         // Expensive computation only for non-zero density regions
-        if(density > 0.0){
+        if (density > 0.0) {
             // compute the height fraction: relative height in cloud layer <0;1>
             float heightFraction = getHeightFraction(p);
 
@@ -273,16 +279,16 @@ vec4 raymarch(vec3 start, vec3 end){
             vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay + SUN_COLOR * ambientStrength;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            vec3 dL = totalTransmittance * density * SCATTERING * phase  * lightContribution * powderTerm * stepSize;
+            vec3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution * powderTerm * stepSize;
             inScatteredLight += dL;
 
             // Update total transmittance for extinction along the ray segment
-            vec3 attenuation = exp(-density* stepSize* (SCATTERING + ABSORPTION));
+            vec3 attenuation = exp(-density * stepSize * (SCATTERING + ABSORPTION));
             totalTransmittance *= attenuation;
         }
 
         // Early exit if fully opaque
-        if (max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)) < CLOUDS_MIN_TRANSMITTANCE){
+        if (max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)) < CLOUDS_MIN_TRANSMITTANCE) {
             break;
         }
 
@@ -293,7 +299,7 @@ vec4 raymarch(vec3 start, vec3 end){
     // Compute alpha from the accumulated optical depth,
     // Here we base it on the remaining transmittance.
     float alpha = 1.0 - pow(max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)), 0.35);
-    return vec4(pow(inScatteredLight, vec3(2.2)), alpha);
+    return vec4(inScatteredLight, alpha);
 }
 
 
@@ -380,7 +386,7 @@ void main()
     vec3 end = rayOrigin + rayDirection * endDist;
 
     // Perform raymarching for clouds.
-    v = raymarch(start,end);
+    v = raymarch(start, end);
     fragColor_v = v;
 
     imageStore(colorImage, fragCoord, fragColor_v);

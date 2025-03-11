@@ -36,38 +36,6 @@ float powder(float d) {
     return (1. - exp(-2. * d));
 }
 
-// TODO this can be done on CPU
-vec3 getSunColor(float timeOfDay) {
-    // Define key colors:
-    vec3 midnightColor = vec3(0.0, 0.0, 0.2);       // dark blue at midnight
-    vec3 sunriseSunsetColor =  vec3(1.0,0.5,0.3); //vec3(1.0, 0.5, 0.2);    // orange/red at sunrise/sunset
-    vec3 noonColor = vec3(1.0, .9, .9);             // white at noon
-
-    // Ensure timeOfDay is between 0 and 1
-    timeOfDay = fract(timeOfDay);
-
-    if (timeOfDay < 0.25) {
-        // Transition from midnight to sunrise/sunset color
-        float t = timeOfDay / 0.25;
-        return mix(midnightColor, sunriseSunsetColor, smoothstep(0.0, 1.0, t));
-    }
-    else if (timeOfDay < 0.5) {
-        // Transition from sunrise/sunset color to noon color
-        float t = (timeOfDay - 0.25) / 0.25;
-        return mix(sunriseSunsetColor, noonColor, smoothstep(0.0, 1.0, t));
-    }
-    else if (timeOfDay < 0.75) {
-        // Transition from noon color back to sunrise/sunset color
-        float t = (timeOfDay - 0.5) / 0.25;
-        return mix(noonColor, sunriseSunsetColor, smoothstep(0.0, 1.0, t));
-    }
-    else {
-        // Transition from sunrise/sunset color back to midnight
-        float t = (timeOfDay - 0.75) / 0.25;
-        return mix(sunriseSunsetColor, midnightColor, smoothstep(0.0, 1.0, t));
-    }
-}
-
 vec3 computeClipSpaceCoord(uvec2 fragCoord, ivec2 res) {
     vec2 rayNds = 2.0 * vec2(fragCoord.xy) / res - 1.0;
     return vec3(rayNds, 1.0);

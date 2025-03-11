@@ -119,6 +119,8 @@ void main()
     vec4 clouds = texture(cloudsSampler, vec2(uv.x, 1.0 - uv.y));
     vec4 sky = texture(skySampler, vec2(uv.x, 1.0 - uv.y));
 
+    sky = vec4(pow(sky.xyz, vec3(2.2)),sky.a);
+
     // Cloud blending based on selected mode
     vec3 cloudBlended;
     if (cloudBlendMode < 0.5) {
@@ -133,7 +135,7 @@ void main()
     }
 
     // Apply exposure
-    vec3 hdrColor = cloudBlended * pow(2.0, exposure);
+    vec3 hdrColor = cloudBlended* pow(2.0, exposure);
 
     // Apply tonemapping based on selected operator
     vec3 tonemapped;
