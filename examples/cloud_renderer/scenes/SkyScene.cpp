@@ -544,6 +544,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
                     ImGui::SliderFloat("Silver intensity", &computePushConsts.silverIntensity, 0.f, 10.0f);
                     ImGui::SliderFloat("Silver spread", &computePushConsts.silverSpread, 0.f, 1.0f);
+                    ImGui::SliderFloat("Attenuation bias", &computePushConsts.attenuationBias, 0.f, 10.0f);
+                    ImGui::SliderFloat("Powder bias", &computePushConsts.powderBias, 0.f, 10.0f);
 
 
                     ImGui::SeparatorText("Noise properties");

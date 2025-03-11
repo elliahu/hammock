@@ -65,6 +65,8 @@ layout (push_constant) uniform PushConstants {
     float cloudTypeOverride;
     float lightStepsLength;
     float epicDistance;
+    float attenuationBias;
+    float powderBias;
 };
 
 #define SCATTERING vec3(scatteringR, scatteringG, scatteringB)
@@ -272,7 +274,7 @@ vec4 raymarch(vec3 start, vec3 end) {
             float heightFraction = getHeightFraction(p);
 
             // Beer-powder aprox
-            float powderTerm = powder(density);
+            float powderTerm = powder(density * powderBias);
 
             // compute the light ray attenuation
             vec3 attenuationAlongLightRay = lightRayAttenuation(p);
@@ -283,7 +285,7 @@ vec4 raymarch(vec3 start, vec3 end) {
             inScatteredLight += dL;
 
             // Update total transmittance for extinction along the ray segment
-            vec3 attenuation = exp(-density * stepSize * (SCATTERING + ABSORPTION));
+            vec3 attenuation = exp(-density * stepSize * (SCATTERING + ABSORPTION)) * attenuationBias;
             totalTransmittance *= attenuation;
         }
 

@@ -64,6 +64,8 @@ class SkyScene final : public IScene {
         float cloudTypeOverride = 1.0f;
         float lightStepsLength = 0.1f;
         float epicDistance = 30000.f;
+        float attenuationBias = 1.0f;
+        float powderBias = 1.f;
     } computePushConsts;
 
     float32_t timeOfDay = 0.5f;
