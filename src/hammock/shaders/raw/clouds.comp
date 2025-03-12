@@ -233,7 +233,7 @@ float lightRayAttenuation(vec3 p) {
         if (attenuationAlongLightRay < 0.01) break;
     }
 
-    float multipleScatteringAprox = 1.0 - exp(-opticalDepth * 0.5);
+    float multipleScatteringAprox = 1.0 - exp(-opticalDepth * 0.1);
 
     return mix(attenuationAlongLightRay, multipleScatteringAprox * isophase(), 0.1);
 }
