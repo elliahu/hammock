@@ -232,9 +232,9 @@ float lightRayAttenuation(vec3 p) {
         if (attenuationAlongLightRay < 0.01) break;
     }
 
-    float multipleScatteringAprox = 1.0 - exp(-opticalDepth * 0.1);
+    float multipleScatteringAprox = powder(opticalDepth * 0.0001);
 
-    return mix(attenuationAlongLightRay, multipleScatteringAprox * isophase(), 0.1);
+    return mix(attenuationAlongLightRay, multipleScatteringAprox * 0.4, 0.1);
 }
 
 // Raymarches from the start to the end position

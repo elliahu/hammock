@@ -551,7 +551,7 @@ void SkyScene::buildRenderGraph() {
 
                     ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
-                    ImGui::SliderFloat("Time of day", &timeOfDay, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Time of day", &timeOfDay, 0.250f, 0.750f);
                     ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
