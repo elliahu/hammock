@@ -33,8 +33,6 @@ class SkyScene final : public IScene {
     struct SunAndSkyUbo {
         HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 1.0f};
         HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
-        HmckVec4 cloudColorBottom{0.102f, 0.133f, 0.223f, 1.0f};
-        HmckVec4 cloudColorTop{1.f,1.f, 1.f, 1.0};
         HmckVec4 windDirection;
     } sunAndSkyUbo;
 
@@ -52,7 +50,6 @@ class SkyScene final : public IScene {
         float earthRadius = 135000.0f;
         float cloudsInnerRadius = 3000.0f;
         float cloudsOuterRadius = 6000.0f;
-        float phaseG = 0.3f;
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;
@@ -60,8 +57,6 @@ class SkyScene final : public IScene {
         float cloudTypeOverride = 1.0f;
         float lightStepsLength = 0.1f;
         float epicDistance = 30000.f;
-        float attenuationBias = 1.0f;
-        float powderBias = 1.f;
     } computePushConsts, backUpComputePushConsts;
 
     float32_t timeOfDay = 0.5f;

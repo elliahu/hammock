@@ -15,8 +15,6 @@ layout (binding = 5) uniform sampler2D skySampler;
 layout (binding = 6) uniform SunAndSkyUBO {
     vec4 lightColor;
     vec4 lightDirection;
-    vec4 cloudColorBottom;
-    vec4 cloudColorTop;
     vec4 windDirection;
 };
 
@@ -53,7 +51,6 @@ layout (push_constant) uniform PushConstants {
     float earthRadius;
     float sphereInnerRadius;
     float sphereOuterRadius;
-    float phaseG;
     float eccentricity;
     float silverIntensity;
     float silverSpread;
@@ -61,8 +58,6 @@ layout (push_constant) uniform PushConstants {
     float cloudTypeOverride;
     float lightStepsLength;
     float epicDistance;
-    float attenuationBias;
-    float powderBias;
 };
 
 #define SCATTERING scattering
@@ -279,7 +274,7 @@ vec4 raymarch(vec3 start, vec3 end, vec3 skyColor) {
             float heightFraction = getHeightFraction(p);
 
             // Beer-powder aprox
-            float powderTerm = powder(density) * powderBias;
+            float powderTerm = powder(density);
 
             // compute the light ray attenuation
             float attenuationAlongLightRay = lightRayAttenuation(p);
@@ -297,7 +292,7 @@ vec4 raymarch(vec3 start, vec3 end, vec3 skyColor) {
             inScatteredLight += dL;
 
             // Update total transmittance for extinction along the ray segment
-            float attenuation = exp(-density * stepSize * (ABSORPTION )) * attenuationBias;
+            float attenuation = exp(-density * stepSize * (ABSORPTION ));
             totalAttenuation *= attenuation;
         }
 
