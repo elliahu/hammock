@@ -214,6 +214,7 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 float lightRayAttenuation(vec3 p) {
     vec3 dirToLight = normalize(lightDirection.xyz);
     float attenuationAlongLightRay = 1.0;
+    float opticalDepth = 0.0;
 
     float dstOut = intersectRaySphere(sphereCenter, SPHERE_OUTER_RADIUS, p, dirToLight).y;
     float stepSize = dstOut / NUM_LIGHT_STEPS;
@@ -227,15 +228,19 @@ float lightRayAttenuation(vec3 p) {
             float cloudDensity = sampleCloudDensity(pos, false, l / 16);
             if (cloudDensity > 0.0) {
                 // Beers law
-                float attenuation = exp(-cloudDensity * stepSize *  ABSORPTION);
+                float attenuation = exp(-cloudDensity * stepSize *  (ABSORPTION ));
                 attenuationAlongLightRay *= attenuation;
+
+                opticalDepth += cloudDensity * stepSize;
             }
         }
 
         if (attenuationAlongLightRay < 0.01) break;
     }
 
-    return attenuationAlongLightRay;
+    float multipleScatteringAprox = 1.0 - exp(-opticalDepth * 0.5);
+
+    return mix(attenuationAlongLightRay, multipleScatteringAprox * isophase(), 0.1);
 }
 
 // Raymarches from the start to the end position
@@ -292,7 +297,7 @@ vec4 raymarch(vec3 start, vec3 end, vec3 skyColor) {
             inScatteredLight += dL;
 
             // Update total transmittance for extinction along the ray segment
-            float attenuation = exp(-density * stepSize * ABSORPTION) * attenuationBias;
+            float attenuation = exp(-density * stepSize * (ABSORPTION )) * attenuationBias;
             totalAttenuation *= attenuation;
         }
 
