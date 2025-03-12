@@ -143,7 +143,7 @@ void main() {
             float phase = henyeyGreenstein(cosTheta, PHASE_G);
 
             // Compute the differential in-scattering contribution using the current transmittance
-            vec3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution * stepSize;
+            vec3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution  * stepSize;
             inScattering += dL;
 
             // Now update total transmittance for extinction along the ray segment

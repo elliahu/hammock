@@ -15,7 +15,7 @@ class ParticipatingMediumScene final : public IScene
         HmckMat4 view;
         HmckMat4 proj;
         HmckVec4 eye;
-        HmckVec4 lightPosition {1.f, .1f, -1.7f};
+        HmckVec4 lightPosition {-4.f, .3f, 0.0f};
         HmckVec4 lightColor {1.0f, 1.0f, 1.0f, 1.0f};
         float32_t resX;
         float32_t resY;
@@ -23,9 +23,9 @@ class ParticipatingMediumScene final : public IScene
     } ubo;
 
     struct PushConstants {
-        HmckVec4 scattering{0.25,0.5,1.0};
+        HmckVec4 scattering{0.25,0.5, 1.0};
         HmckVec4 absorption{0.25, 0.5, 1.0};
-        float mieG = 0.225;
+        float mieG = 0.950;
         float densityMultiplier = 100.0f;
         float densityScale = 1.0f;
         int jitter = 1;

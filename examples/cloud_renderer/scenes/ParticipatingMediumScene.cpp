@@ -282,8 +282,8 @@ void ParticipatingMediumScene::buildRenderGraph() {
                 ImGui::Text("Camera position <%.3f;%.3f;%.3f>", ubo.eye.X, ubo.eye.Y, ubo.eye.Z);
 
                 ImGui::SeparatorText("Participating medium properties");
-                ImGui::SliderFloat3("Scattering", &pushConstants.scattering.Elements[0], 0.0f, 10.0f);
-                ImGui::SliderFloat3("Absorption", &pushConstants.absorption.Elements[0], 0.0f, 10.0f);
+                ImGui::SliderFloat3("Scattering", &pushConstants.scattering.Elements[0], 0.0f, 2.0f);
+                ImGui::SliderFloat3("Absorption", &pushConstants.absorption.Elements[0], 0.0f, 2.0f);
                 ImGui::SliderFloat("Mie (phase) G", &pushConstants.mieG, -.99f, .99);
                 ImGui::SliderFloat("Density override", &pushConstants.densityMultiplier, 1.0f, 1000.0f, "%.0f");
 

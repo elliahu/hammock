@@ -46,12 +46,8 @@ class SkyScene final : public IScene {
         float cloudSpeed = 100.f;
         float crispiness = 16.f;
         float curliness = 2.0f;
-        float absorptionR = 0.0010f;
-        float absorptionG = 0.0010f;
-        float absorptionB = 0.0010f;
-        float scatteringR = 0.00163f;
-        float scatteringG = 0.00163f;
-        float scatteringB = 0.00163f;
+        float absorption = 0.0010f;
+        float scattering = 0.002f;
         float densityMultiplier =  1.0f;
         float earthRadius = 135000.0f;
         float cloudsInnerRadius = 3000.0f;
@@ -66,7 +62,7 @@ class SkyScene final : public IScene {
         float epicDistance = 30000.f;
         float attenuationBias = 1.0f;
         float powderBias = 1.f;
-    } computePushConsts;
+    } computePushConsts, backUpComputePushConsts;
 
     float32_t timeOfDay = 0.5f;
     float32_t windDirection = 0.0f;

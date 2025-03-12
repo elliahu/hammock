@@ -533,27 +533,9 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 1000.f);
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
-                    HmckVec3 absorption{
-                        computePushConsts.absorptionR,
-                        computePushConsts.absorptionG,
-                        computePushConsts.absorptionB,
-                    };
 
-                    HmckVec3 scattering{
-                        computePushConsts.scatteringR,
-                        computePushConsts.scatteringG,
-                        computePushConsts.scatteringB,
-                    };
-                    ImGui::DragFloat3("Absorption", &absorption.Elements[0], 0.0001f);
-                    ImGui::DragFloat3("Scattering", &scattering.Elements[0], 0.0001f);
-
-                    computePushConsts.absorptionR = absorption.R;
-                    computePushConsts.absorptionG = absorption.G;
-                    computePushConsts.absorptionB = absorption.B;
-
-                    computePushConsts.scatteringR = scattering.R;
-                    computePushConsts.scatteringG = scattering.G;
-                    computePushConsts.scatteringB = scattering.B;
+                    ImGui::DragFloat("Absorption", &computePushConsts.absorption, 0.0001f,0.0f, 1.0f, "%.7f");
+                    ImGui::DragFloat("Scattering", &computePushConsts.scattering, 0.0001f, 0.0f, 1.0f, "%.7f");
 
 
                     ImGui::SliderFloat("Density", &computePushConsts.densityMultiplier, 0.0f, 5.0f);
@@ -583,8 +565,12 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragFloat("Clouds height min.", &computePushConsts.cloudsInnerRadius, 10.0f, 0.f);
                     ImGui::DragFloat("Clouds height max.", &computePushConsts.cloudsOuterRadius, 10.0f, 0.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
-                    ImGui::SliderFloat("Light step length", &computePushConsts.lightStepsLength, 0.0f, 10.0f);
+                    ImGui::SliderFloat("Light step length", &computePushConsts.lightStepsLength, 0.0f, 1000.0f);
                     ImGui::SliderFloat("Epic distance", &computePushConsts.epicDistance, 0.0f, 100000.0f);
+
+                    if (ImGui::Button("Reset to defaults")) {
+                        computePushConsts = backUpComputePushConsts;
+                    }
 
                     camWindowPos = ImGui::GetWindowPos();
 

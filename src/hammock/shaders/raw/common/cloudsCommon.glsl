@@ -24,6 +24,10 @@ float remapcc(in float value, in float original_min, in float original_max, in f
     return clamp(t, new_min, new_max);
 }
 
+float saturate(float value){
+    return clamp(value, 0.0, 1.0);
+}
+
 // Swap two values
 void swap(in float a, in float b) {
     float c = a;

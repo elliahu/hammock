@@ -47,12 +47,8 @@ layout (push_constant) uniform PushConstants {
     float cloudSpeed;
     float crispiness;
     float curliness;
-    float absorptionR;
-    float absorptionG;
-    float absorptionB;
-    float scatteringR;
-    float scatteringG;
-    float scatteringB;
+    float absorption;
+    float scattering;
     float densityMultiplier;
     float earthRadius;
     float sphereInnerRadius;
@@ -69,8 +65,8 @@ layout (push_constant) uniform PushConstants {
     float powderBias;
 };
 
-#define SCATTERING vec3(scatteringR, scatteringG, scatteringB)
-#define ABSORPTION vec3(absorptionR, absorptionG, absorptionB)
+#define SCATTERING scattering
+#define ABSORPTION absorption
 
 
 const vec3 noiseKernel[6u] = vec3[]
@@ -104,7 +100,7 @@ vec3 sphereCenter = vec3(0.0, -EARTH_RADIUS, 0.0);
 
 // Sun
 #define SUN_DIR normalize(lightDirection.xyz)
-#define SUN_COLOR pow(lightColor.rgb, vec3(10.0))
+#define SUN_COLOR lightColor.rgb
 
 // Cloud sampling
 #define CLOUD_TOP_OFFSET 750.0
@@ -215,32 +211,35 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
 
 // Compute level of attenuation along a light ray
 // TODO: cone sampling
-vec3 lightRayAttenuation(vec3 p) {
+float lightRayAttenuation(vec3 p) {
     vec3 dirToLight = normalize(lightDirection.xyz);
-    vec3 attenuationAlongLightRay = vec3(1.0);
+    float attenuationAlongLightRay = 1.0;
+
+    float dstOut = intersectRaySphere(sphereCenter, SPHERE_OUTER_RADIUS, p, dirToLight).y;
+    float stepSize = dstOut / NUM_LIGHT_STEPS;
 
     // Lightmarch
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
-        vec3 pos = p + dirToLight * l * LIGHT_STEP_SIZE;
+        vec3 pos = p + dirToLight * l * stepSize;
         float heightFraction = getHeightFraction(pos);
 
         if (heightFraction >= 0) {
             float cloudDensity = sampleCloudDensity(pos, false, l / 16);
             if (cloudDensity > 0.0) {
                 // Beers law
-                vec3 attenuation = exp(-cloudDensity * LIGHT_STEP_SIZE * (SCATTERING + ABSORPTION));
+                float attenuation = exp(-cloudDensity * stepSize *  ABSORPTION);
                 attenuationAlongLightRay *= attenuation;
             }
         }
 
-        if (max(attenuationAlongLightRay.r, max(attenuationAlongLightRay.g, attenuationAlongLightRay.b)) < 0.01) break;
+        if (attenuationAlongLightRay < 0.01) break;
     }
 
     return attenuationAlongLightRay;
 }
 
 // Raymarches from the start to the end position
-vec4 raymarch(vec3 start, vec3 end) {
+vec4 raymarch(vec3 start, vec3 end, vec3 skyColor) {
     // Create the ray to march along
     vec3 ray = end - start;
     float rayLenght = length(ray);
@@ -257,10 +256,10 @@ vec4 raymarch(vec3 start, vec3 end) {
     vec3 L = normalize(SUN_DIR);
     vec3 V = normalize(rayDirection);
     float cosTheta = dot(L, V);
-    float phase = directedPhase(cosTheta, eccentricity, silverIntensity, silverSpread);
+    float phase = dualLobePhase(cosTheta, phaseG);
 
     // Raymarch variables
-    vec3 totalTransmittance = vec3(1.0);
+    float totalAttenuation = 1.0;
     vec3 inScatteredLight = vec3(0.0);
 
     // Raymarch
@@ -275,23 +274,23 @@ vec4 raymarch(vec3 start, vec3 end) {
             float heightFraction = getHeightFraction(p);
 
             // Beer-powder aprox
-            float powderTerm = powder(density * powderBias);
+            float powderTerm = powder(density) * powderBias;
 
             // compute the light ray attenuation
-            vec3 attenuationAlongLightRay = lightRayAttenuation(p);
-            vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay * heightFraction;
+            float attenuationAlongLightRay = lightRayAttenuation(p);
+            vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            vec3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution * powderTerm * stepSize;
+            vec3 dL = totalAttenuation * density * SCATTERING * phase * lightContribution * powderTerm * stepSize;
             inScatteredLight += dL;
 
             // Update total transmittance for extinction along the ray segment
-            vec3 attenuation = exp(-density * stepSize * (SCATTERING + ABSORPTION)) * attenuationBias;
-            totalTransmittance *= attenuation;
+            float attenuation = exp(-density * stepSize * ABSORPTION) * attenuationBias;
+            totalAttenuation *= attenuation;
         }
 
         // Early exit if fully opaque
-        if (max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)) < CLOUDS_MIN_TRANSMITTANCE) {
+        if (totalAttenuation < 0.01) {
             break;
         }
 
@@ -301,7 +300,7 @@ vec4 raymarch(vec3 start, vec3 end) {
 
     // Compute alpha from the accumulated optical depth,
     // Here we base it on the remaining transmittance.
-    float alpha = 1.0 - pow(max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)), 0.35);
+    float alpha = 1.0 - totalAttenuation;
     return vec4(inScatteredLight, alpha);
 }
 
@@ -320,7 +319,8 @@ void main()
     vec3 rayOrigin = cameraPosition.xyz;
 
     vec4 v = vec4(0.0);
-    vec4 bg = texture(skySampler, fragCoord);
+    vec2 normCoord = vec2(fragCoord) / vec2(iResolution);
+    vec4 skyColor = texture(skySampler, normCoord);
 
     // Compute distance from camera to sphere center.
     float cameraDist = length(rayOrigin - sphereCenter);
@@ -389,7 +389,7 @@ void main()
     vec3 end = rayOrigin + rayDirection * endDist;
 
     // Perform raymarching for clouds.
-    v = raymarch(start, end);
+    v = raymarch(start, end, skyColor.rgb);
     fragColor_v = v;
 
     imageStore(colorImage, fragCoord, fragColor_v);
