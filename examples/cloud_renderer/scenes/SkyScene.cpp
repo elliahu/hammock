@@ -530,7 +530,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Cloud properties");
                     ImGui::SliderFloat("Coverage override", &computePushConsts.coverageOverride, 0.0f, 1.f);
                     ImGui::SliderFloat("Cloud type override", &computePushConsts.cloudTypeOverride, 0.f, 2.f);
-                    ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 1000.f);
+                    ImGui::SliderFloat("Coverage repeat", &computePushConsts.coverageRepeat, 0.0f, 10.f);
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
 

@@ -71,7 +71,7 @@ class SkyScene final : public IScene {
         int tonemapOperator = 3;   // 0: Linear, 1: Reinhard, 2: ACES, 3: Uncharted 2
 
         // Color grading parameters
-        float contrast = 1.05;        // Default: 1.0, Range: 0.5 to 2.0
+        float contrast = 1.0;        // Default: 1.0, Range: 0.5 to 2.0
         float brightness = 0.0;      // Default: 0.0, Range: -1.0 to 1.0
         float saturation = 1.0;      // Default: 1.0, Range: 0.0 to 2.0
 

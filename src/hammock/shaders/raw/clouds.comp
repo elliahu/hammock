@@ -194,11 +194,10 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
         // Sample hight frequency noise and build the FBM
         vec3 highFrequencyNoise = textureLod(detailNoiseSampler, vec3(detailSamplePos, heightFraction), lod).rgb;
         float highFreqFBM = dot(highFrequencyNoise, vec3(0.625, 0.25, 0.125));
-        baseCloudWithCoverage = remap(baseCloudWithCoverage* base_multiplier, highFreqFBM* detail_multiplier, 1.0,0.0,1.0);
 
-//        float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, heightFraction);
-//        baseCloudWithCoverage = baseCloudWithCoverage - highFreqNoiseModifier * (1.0 - baseCloudWithCoverage);
-//        baseCloudWithCoverage = remap(baseCloudWithCoverage * base_multiplier, highFreqFBM * detail_multiplier, 1.0, 0.0, 1.0);
+        float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, heightFraction);
+        baseCloudWithCoverage = baseCloudWithCoverage - highFreqNoiseModifier * (1.0 - baseCloudWithCoverage);
+        baseCloudWithCoverage = remap(baseCloudWithCoverage * base_multiplier, highFreqFBM * detail_multiplier, 1.0, 0.0, 1.0);
     }
 
     return clamp(baseCloudWithCoverage, 0.0, 1.0);
