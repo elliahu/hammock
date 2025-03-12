@@ -199,14 +199,14 @@ float sampleCloudDensity(vec3 p, bool expensive, float lod) {
         // Sample hight frequency noise and build the FBM
         vec3 highFrequencyNoise = textureLod(detailNoiseSampler, vec3(detailSamplePos, heightFraction), lod).rgb;
         float highFreqFBM = dot(highFrequencyNoise, vec3(0.625, 0.25, 0.125));
-        //baseCloudWithCoverage = remap(baseCloudWithCoverage* base_multiplier, highFreqFBM* detail_multiplier, 1.0,0.0,1.0);
+        baseCloudWithCoverage = remap(baseCloudWithCoverage* base_multiplier, highFreqFBM* detail_multiplier, 1.0,0.0,1.0);
 
-        float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, heightFraction);
-        baseCloudWithCoverage = baseCloudWithCoverage - highFreqNoiseModifier * (1.0 - baseCloudWithCoverage);
-        baseCloudWithCoverage = remap(baseCloudWithCoverage * base_multiplier, highFreqFBM * detail_multiplier, 1.0, 0.0, 1.0);
+//        float highFreqNoiseModifier = mix(highFreqFBM, 1.0 - highFreqFBM, heightFraction);
+//        baseCloudWithCoverage = baseCloudWithCoverage - highFreqNoiseModifier * (1.0 - baseCloudWithCoverage);
+//        baseCloudWithCoverage = remap(baseCloudWithCoverage * base_multiplier, highFreqFBM * detail_multiplier, 1.0, 0.0, 1.0);
     }
 
-    return clamp(baseCloudWithCoverage * densityMultiplier, 0.0, 1.0);
+    return clamp(baseCloudWithCoverage, 0.0, 1.0);
 }
 
 // Compute level of attenuation along a light ray
@@ -256,7 +256,7 @@ vec4 raymarch(vec3 start, vec3 end, vec3 skyColor) {
     vec3 L = normalize(SUN_DIR);
     vec3 V = normalize(rayDirection);
     float cosTheta = dot(L, V);
-    float phase = dualLobePhase(cosTheta, phaseG);
+    float phase = directedPhase(cosTheta, eccentricity, silverIntensity, silverSpread);
 
     // Raymarch variables
     float totalAttenuation = 1.0;
@@ -278,7 +278,14 @@ vec4 raymarch(vec3 start, vec3 end, vec3 skyColor) {
 
             // compute the light ray attenuation
             float attenuationAlongLightRay = lightRayAttenuation(p);
-            vec3 lightContribution = SUN_COLOR * attenuationAlongLightRay;
+
+            // Sunlight
+            vec3 sunLight = SUN_COLOR * attenuationAlongLightRay;
+
+            // Ambient light
+            vec3 ambientLight = skyColor * heightFraction;
+
+            vec3 lightContribution = sunLight + ambientLight;
 
             // Compute the differential in-scattering contribution using the current transmittance
             vec3 dL = totalAttenuation * density * SCATTERING * phase * lightContribution * powderTerm * stepSize;
