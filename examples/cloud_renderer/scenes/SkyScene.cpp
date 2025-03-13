@@ -268,10 +268,6 @@ void SkyScene::buildRenderGraph() {
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("cloud-map", compute.cloudMap);
 
 
-    // Sky dome
-    renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("skydome-image", sky.skyDome);
-
-
     // Storage images that the compute pass outputs to and that is then read in the composition pass
 
     renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
@@ -315,16 +311,10 @@ void SkyScene::buildRenderGraph() {
             .read(ResourceAccess{
                 .resourceName = "sun-and-sky-ubo",
             })
-            .read(ResourceAccess{
-                .resourceName = "skydome-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-            })
             .descriptor(0, {
                             {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {1, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {2, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
-                            {3, {"skydome-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "sky-image",
@@ -335,9 +325,6 @@ void SkyScene::buildRenderGraph() {
                 sky.pipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
                 context.bindDescriptorSet(0, 0, sky.pipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_GRAPHICS);
-
-                vkCmdPushConstants(context.commandBuffer, sky.pipeline->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                   sizeof(ComputePushConsts), &computePushConsts);
 
 
                 // Even though there is no vertex buffer, this call is safe as it does not actually read the vertices in the shader
@@ -377,19 +364,15 @@ void SkyScene::buildRenderGraph() {
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             })
             .descriptor(0, {
-                            {0, {"color-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {1, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {2, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {3, {"curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {4, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {5, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {6, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
-                        })
-            .descriptor(1, {
                             {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
-                        })
-            .descriptor(2, {
-                            {0, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {1, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {2, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {3, {"color-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {4, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {5, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {6, {"curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {7, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {8, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "color-image",
@@ -404,12 +387,6 @@ void SkyScene::buildRenderGraph() {
                 context.get<Buffer>("sun-and-sky-ubo")->writeToBuffer(&sunAndSkyUbo);
 
                 context.bindDescriptorSet(0, 0, compute.cloudPipeline->pipelineLayout,
-                                          VK_PIPELINE_BIND_POINT_COMPUTE);
-
-                context.bindDescriptorSet(1, 1, compute.cloudPipeline->pipelineLayout,
-                                          VK_PIPELINE_BIND_POINT_COMPUTE);
-
-                context.bindDescriptorSet(2, 2, compute.cloudPipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
 
                 vkCmdPushConstants(context.commandBuffer, compute.cloudPipeline->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
@@ -534,7 +511,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 50.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
 
-                    ImGui::DragFloat("Absorption", &computePushConsts.absorption, 0.0001f,0.0f, 1.0f, "%.7f");
+                    ImGui::DragFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.0f, 1.0f, "%.7f");
                     ImGui::DragFloat("Scattering", &computePushConsts.scattering, 0.0001f, 0.0f, 1.0f, "%.7f");
 
 
@@ -694,7 +671,7 @@ void SkyScene::buildPipelines() {
         // Fragment shader samples storage texture and writes it to swapchain image
         {.byteCode = Filesystem::readFile(compiledShaderPath("sky.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("sky-pass")},
-        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ComputePushConsts)}},
+        .pushConstantRanges{},
         .graphicsState{
             // We disable cull so that the vkCmdDraw command is not skipped
             .cullMode = VK_CULL_MODE_NONE,

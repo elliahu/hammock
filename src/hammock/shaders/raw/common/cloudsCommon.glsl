@@ -3,6 +3,22 @@
 
 #define PI 3.14159265358979323846
 
+// Types
+
+struct CloudSample{
+    float density;
+    float coverage;
+    float type;
+};
+
+CloudSample emptyCloudSample(){
+    CloudSample s;
+    s.density = 0.0;
+    s.coverage = 0.0;
+    s.type = 0.0;
+    return s;
+}
+
 // TOOLBOX
 // Remaps value from one range to another
 float remap(float value, float inMin, float inMax, float outMin, float outMax) {

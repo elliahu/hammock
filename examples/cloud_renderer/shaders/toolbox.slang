@@ -1,0 +1,113 @@
+static const float PI = 3.14159265358979323846;
+
+// Types
+
+struct SunAndSkyBuffer{
+    float4 lightColor;
+    float4 lightDirection;
+    float4 windDirection;
+};
+
+struct CameraBuffer {
+    float4x4 inv_view;
+    float4x4 inv_proj;
+    float4x4 invViewProj;
+    float4 cameraPosition;
+    float resX;
+    float resY;
+    float fov;
+};
+
+struct TimeBuffer{
+    float time;
+    float timeOfDay;
+};
+
+// TOOLBOX
+float remap(float value, float inMin, float inMax, float outMin, float outMax) {
+    return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
+}
+
+float remapc(float value, float original_min, float original_max, float new_min, float new_max) {
+    float t = new_min + ((value - original_min) / (original_max - original_min)) * (new_max - new_min);
+    return clamp(t, new_min, new_max);
+}
+
+float remapcc(float value, float original_min, float original_max, float new_min, float new_max) {
+    value = clamp(value, original_min, original_max);
+    float t = new_min + ((value - original_min) / (original_max - original_min)) * (new_max - new_min);
+    return clamp(t, new_min, new_max);
+}
+
+float saturate(float value) {
+    return clamp(value, 0.0, 1.0);
+}
+
+void swap(inout float a, inout float b) {
+    float c = a;
+    a = b;
+    b = c;
+}
+
+float powder(float d) {
+    return (1.0 - exp(-2.0 * d));
+}
+
+float3 computeClipSpaceCoord(uint2 fragCoord, int2 res) {
+    float2 rayNds = 2.0 * float2(fragCoord.xy) / float2(res) - 1.0;
+    return float3(rayNds, 1.0);
+}
+
+// PHASE FUNCTIONS
+float henyeyGreenstein(float sundotrd, float g) {
+    float gg = g * g;
+    return (1.0 - gg) / pow(1.0 + gg - 2.0 * g * sundotrd, 1.5);
+}
+
+float dualLobePhase(float sundotrd, float phaseG) {
+    return lerp(henyeyGreenstein(sundotrd, -phaseG), henyeyGreenstein(sundotrd, phaseG), saturate(sundotrd * 0.5 + 0.5));
+}
+
+float henyeyGreensteinModified(float sundotrd, float ecc) {
+    return ((1.0 - ecc * ecc) / pow((1.0 + ecc * ecc - 2.0 * ecc * sundotrd), 1.5)) / (4.0 * PI);
+}
+
+float directedPhase(float sundotrd, float eccentricity, float silverIntensity, float silverSpread) {
+    return max(henyeyGreensteinModified(sundotrd, eccentricity), silverIntensity * henyeyGreensteinModified(sundotrd, 0.99 - silverSpread));
+}
+
+float isophase() {
+    return 1.0 / (4.0 * PI);
+}
+
+// RAYCASTING
+float2 intersectRayAABB(float3 rayOrigin, float3 rayDir, float3 aabbMin, float3 aabbMax) {
+    float3 tMin = (aabbMin - rayOrigin) / rayDir;
+    float3 tMax = (aabbMax - rayOrigin) / rayDir;
+    float3 t1 = min(tMin, tMax);
+    float3 t2 = max(tMin, tMax);
+    float tEnter = max(t1.x, max(t1.y, t1.z));
+    float tExit = min(t2.x, min(t2.y, t2.z));
+    if (tExit < 0.0 || tEnter > tExit) return float2(-1.0);
+    return float2(tEnter, tExit);
+}
+
+float2 intersectRaySphere(float3 center, float radius, float3 origin, float3 direction) {
+    float3 offset = origin - center;
+    const float a = 1.0;
+    float b = 2.0 * dot(offset, direction);
+    float c = dot(offset, offset) - radius * radius;
+
+    float discriminant = b * b - 4.0 * a * c;
+
+    if (discriminant > 0) {
+        float s = sqrt(discriminant);
+        float dstToSphereNear = max(0.0, (-b - s) / (2.0 * a));
+        float dstToSphereFar = (-b + s) / (2.0 * a);
+
+        if (dstToSphereFar >= 0.0) {
+            return float2(dstToSphereNear, dstToSphereFar - dstToSphereNear);
+        }
+    }
+    return float2(0.0, 0.0);
+}
