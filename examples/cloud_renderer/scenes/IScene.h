@@ -49,6 +49,6 @@ public:
     }
 
     static std::string compiledShaderPath(const std::string &shader) {
-        return "../../../src/hammock/shaders/compiled/" + shader + ".spv";
+        return "../../../examples/cloud_renderer/spv/" + shader + ".spv";
     }
 };

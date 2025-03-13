@@ -666,10 +666,10 @@ void SkyScene::buildPipelines() {
         .device = device,
         .vertexShader
         // Fullscreen vertex shader
-        {.byteCode = Filesystem::readFile(compiledShaderPath("fullscreen_headless.vert")),},
+        {.byteCode = Filesystem::readFile(compiledShaderPath("atmosphere.vert")),},
         .fragmentShader
         // Fragment shader samples storage texture and writes it to swapchain image
-        {.byteCode = Filesystem::readFile(compiledShaderPath("sky.frag")),},
+        {.byteCode = Filesystem::readFile(compiledShaderPath("atmosphere.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("sky-pass")},
         .pushConstantRanges{},
         .graphicsState{
@@ -691,10 +691,10 @@ void SkyScene::buildPipelines() {
         .device = device,
         .vertexShader
         // Fullscreen vertex shader
-        {.byteCode = Filesystem::readFile(compiledShaderPath("fullscreen_headless.vert")),},
+        {.byteCode = Filesystem::readFile(compiledShaderPath("composition.vert")),},
         .fragmentShader
         // Fragment shader samples storage texture and writes it to swapchain image
-        {.byteCode = Filesystem::readFile(compiledShaderPath("texture.frag")),},
+        {.byteCode = Filesystem::readFile(compiledShaderPath("composition.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("composition-pass")},
         .pushConstantRanges{},
         .graphicsState{
@@ -721,7 +721,6 @@ void SkyScene::update() {
     }
     frameCount++;
     timeUbo.timeOfDay = timeOfDay;
-
     float angle = (timeOfDay - 0.25f) * 2.0f * HmckPI; // Shift so 0.25 (morning) starts at the horizon
     float sunHeight = std::sin(angle); // Vertical movement
     float sunHorizontal = std::cos(angle); // Horizontal movement

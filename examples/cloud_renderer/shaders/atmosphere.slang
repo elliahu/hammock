@@ -1,5 +1,3 @@
-#pragma once
-
 import toolbox;
 
 // Input and output structures
@@ -23,25 +21,20 @@ ParameterBlock<Set> set;
 
 
 // Fullscreen vertex shader: Outputs a unit square (quad) in normalized device coordinates
+[shader("vertex")]
 VertexOutput vertexMain(uint vertexID : SV_VertexID) {
-    // Map the vertexID (0, 1, 2, 3) to the four corners of a fullscreen quad
     VertexOutput output;
-    
-    // Define the coordinates of a fullscreen quad in NDC (-1 to 1)
-    if (vertexID == 0) {
-        output.position = float4(-1.0, -1.0, 0.0, 1.0); // Bottom-left
-        output.uv = float2(0.0, 1.0); // Bottom-left UV
-    } else if (vertexID == 1) {
-        output.position = float4(1.0, -1.0, 0.0, 1.0); // Bottom-right
-        output.uv = float2(1.0, 1.0); // Bottom-right UV
-    } else if (vertexID == 2) {
-        output.position = float4(-1.0, 1.0, 0.0, 1.0); // Top-left
-        output.uv = float2(0.0, 0.0); // Top-left UV
-    } else {
-        output.position = float4(1.0, 1.0, 0.0, 1.0); // Top-right
-        output.uv = float2(1.0, 0.0); // Top-right UV
-    }
-    
+
+    // Replicate the GLSL trick:
+    //   outUV = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
+    output.uv = float2((vertexID << 1) & 2, vertexID & 2);
+
+    // Transform into clip space for a big triangle covering the screen
+    output.position = float4(output.uv * 2.0 - 1.0, 0.0, 1.0);
+
+    // If you need [0..1] UVs in the pixel shader, then do:
+    //output.uv *= 0.5;
+
     return output;
 }
 
@@ -51,7 +44,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     PixelOutput output;
 
     // Compute ray direction in world space
-    float4 rayClip = float4(computeClipSpaceCoord(uint2(fragCoord.xy), int2(set.cameraBuffer.resX, set.cameraBuffer.resY)), 1.0);
+    float4 rayClip = float4(computeClipSpaceCoord(uint2(input.uv.xy), int2(set.cameraBuffer.resX, set.cameraBuffer.resY)), 1.0);
     float4 rayView = mul(set.cameraBuffer.inv_proj, rayClip);
     rayView = float4(rayView.xy, -1.0, 1.0);
     float3 rayDirection = normalize(mul(set.cameraBuffer.inv_view, rayView).xyz);

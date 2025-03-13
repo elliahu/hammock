@@ -10,7 +10,11 @@ elif platform.system() == 'Linux':
 else:
     raise EnvironmentError("Unsupported OS")
 
+os.makedirs('spv', exist_ok=True)
+
 # Compile the shaders
-subprocess.check_call([compiler , "shaders/atmosphere.slang", '-o', 'atmosphere.vert.spv', '-target spirv', '-entry', 'vertexMain'])
-subprocess.check_call([compiler , "shaders/atmosphere.slang", '-o', 'atmosphere.frag.spv', '-target spirv', '-entry', 'pixelMain'])
-subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'clouds.comp.spv', '-target spirv', '-entry', 'computeMain'])
+subprocess.check_call([compiler , "shaders/atmosphere.slang", '-o', 'spv/atmosphere.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
+subprocess.check_call([compiler , "shaders/atmosphere.slang", '-o', 'spv/atmosphere.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])
+subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'spv/clouds.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
+subprocess.check_call([compiler , "shaders/composition.slang", '-o', 'spv/composition.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
+subprocess.check_call([compiler , "shaders/composition.slang", '-o', 'spv/composition.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])

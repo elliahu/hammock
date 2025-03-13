@@ -44,8 +44,8 @@ class SkyScene final : public IScene {
         float cloudSpeed = 100.f;
         float crispiness = 16.f;
         float curliness = 2.0f;
-        float absorption = 0.0010f;
-        float scattering = 0.002f;
+        float absorption = 0.0016f;
+        float scattering = 0.0462f;
         float densityMultiplier =  1.0f;
         float earthRadius = 135000.0f;
         float cloudsInnerRadius = 3000.0f;
