@@ -51,6 +51,8 @@ class SkyScene final : public IScene {
         float silverSpread = 0.887f;
         float ambientStrength = 0.2f;
         float epicDistance = 100000.f;
+        int DEBUG_earlyTermination = 0;
+        int DEBUG_lateTermination = 0;
     } computePushConsts, backUpComputePushConsts;
 
     float32_t timeOfDay = 0.5f;

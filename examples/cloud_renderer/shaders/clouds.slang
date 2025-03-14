@@ -22,6 +22,8 @@ struct PushConstants {
     float silverSpread;
     float ambientStrength;
     float epicDistance;
+    int DEBUG_earlyTermination;
+    int DEBUG_lateTermination;
 };
 
 
@@ -277,6 +279,9 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 
         // Early exit if fully opaque
         if (totalAttenuation < 0.01) {
+            if(constants.DEBUG_earlyTermination == 1){
+                inScatteredLight = float3(1.0,0.0,0.0);
+            }
             break;
         }
 

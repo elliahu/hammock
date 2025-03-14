@@ -637,6 +637,11 @@ void SkyScene::buildRenderGraph() {
                     ImGui::Text("Frametime: %.2f ms", deltaTime * 1000.0f);
                     ImGui::PlotLines("Frame Times", frameTimes, FRAMETIME_BUFFER_SIZE, frameTimeFrameIndex, nullptr, 0.0f, 33.0f,
                                      ImVec2(0, 80));
+
+                    ImGui::SeparatorText("Debug views");
+                    ImGui::Checkbox("Early termination regions", (bool*)&computePushConsts.DEBUG_earlyTermination);
+                    ImGui::Checkbox("Late termination regions", (bool*)&computePushConsts.DEBUG_lateTermination);
+
                     ImGui::PopStyleVar();
                     ImGui::End();
                 }
