@@ -504,35 +504,45 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
 
-                    ImGui::SeparatorText("Cloud properties");
-                    ImGui::SliderFloat("Global coverage", &computePushConsts.globalCoverage, 0.0f, 1.f);
-                    ImGui::SliderFloat("Global coverage density", &computePushConsts.globalCoverageDensity, 0.0f, 1.f);
+                    ImGui::SeparatorText("Clouds");
                     ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 200.f);
                     ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
-
+                    ImGui::SliderFloat("Low frequency", &computePushConsts.baseMultiplier, 0.0f, 1.f);
+                    ImGui::SliderFloat("High frequency", &computePushConsts.detailMultiplier, 0.0f, 1.f);
                     ImGui::DragFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.0f, 1.0f, "%.7f");
                     ImGui::DragFloat("Scattering", &computePushConsts.scattering, 0.0001f, 0.0f, 1.0f, "%.7f");
 
 
+                    ImGui::SeparatorText("Weather");
+                    ImGui::SliderFloat("Global coverage", &computePushConsts.globalCoverage, 0.0f, 1.f);
+                    ImGui::SliderFloat("Global coverage density", &computePushConsts.globalCoverageDensity, 0.0f, 1.f);
+                    ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
+                    ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
+
+
+
+
+                    ImGui::SeparatorText("Light");
+                    ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
+                    ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
+                    ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
+
+                    ImGui::SeparatorText("Phase");
                     ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
                     ImGui::SliderFloat("Silver intensity", &computePushConsts.silverIntensity, 0.f, 10.0f);
                     ImGui::SliderFloat("Silver spread", &computePushConsts.silverSpread, 0.f, 1.0f);
 
 
-                    ImGui::SeparatorText("Noise properties");
-                    ImGui::SliderFloat("Base multiplier", &computePushConsts.baseMultiplier, 0.0f, 5.f);
-                    ImGui::SliderFloat("Detail multiplier", &computePushConsts.detailMultiplier, 0.0f, 1.f);
-
 
                     ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
                     ImGui::SliderFloat("Time of day", &timeOfDay, 0.250f, 0.750f);
-                    ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
-                    ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
-                    ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
-                    ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
-                    ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
                     ImGui::SliderFloat("Epic distance", &computePushConsts.epicDistance, 0.0f, 500000.0f);
+
+
+
+                    ImGui::SeparatorText("Rendering");
+
 
                     if (ImGui::Button("Reset to defaults")) {
                         computePushConsts = backUpComputePushConsts;
