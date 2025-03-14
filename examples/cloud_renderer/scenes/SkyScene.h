@@ -37,7 +37,8 @@ class SkyScene final : public IScene {
     } sunAndSkyUbo;
 
     struct ComputePushConsts {
-        float coverageOverride = 0.1f;
+        float globalCoverageDensity = 0.1f;
+        float globalCoverage = 1.0;
         float baseMultiplier = 1.0f;
         float detailMultiplier = 1.0;
         float cloudSpeed = 100.f;
@@ -49,7 +50,6 @@ class SkyScene final : public IScene {
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;
         float ambientStrength = 0.2f;
-        float cloudTypeOverride = 1.0f;
         float epicDistance = 100000.f;
     } computePushConsts, backUpComputePushConsts;
 

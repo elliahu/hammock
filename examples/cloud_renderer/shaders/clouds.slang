@@ -8,7 +8,8 @@ struct CloudSample {
 
 
 struct PushConstants {
-    float coverageMultiplier;
+    float globalCoverageDensity;
+    float globalCoverage;
     float baseMultiplier;
     float detailMultiplier;
     float cloudSpeed;
@@ -20,7 +21,6 @@ struct PushConstants {
     float silverIntensity;
     float silverSpread;
     float ambientStrength;
-    float cloudTypeOverride;
     float epicDistance;
 };
 
@@ -144,9 +144,9 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Sample the cloud map
     float3 cloudMap = cloudMapTexture.SampleLevel(staticUv * COVERAGE_REPEAT, 0.0).rgb;
     // Coverage is in red and green channels
-    const float coverage = lerp(0.0, cloudMap.g, constants.coverageMultiplier);
+    float coverage = lerp(0.0,max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2), constants.globalCoverageDensity);
     // Cloud type is in the blue channel
-    float cloudType = lerp(0.0, cloudMap.b, constants.cloudTypeOverride);
+    float cloudType = cloudMap.b;
     // Compute the distance of the smaple point from the camera and remap it to 0 to 1
     float dst = remap(clamp(length(p - cameraBuffer.cameraPosition.xyz), 0.0, constants.epicDistance),0.0, constants.epicDistance, 0.0, 1.0);
     // Gradually change clouds to stratocumulus type at the horizon
