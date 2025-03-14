@@ -127,9 +127,8 @@ float2 getUVProjection(float3 p) {
 
 // Smples a density at a point
 // If expensive, detail hight-frequency noise will be used to erode the base shape
-CloudSample sampleCloudDensity(float3 p, bool expensive, float lod) {
+float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Init cloud sample
-    CloudSample cloudSample;
     // Height fraction and uv coords for sampling
     float heightFraction = getHeightFraction(p);
     float3 animation = heightFraction * WIND_DIRECTION * CLOUD_TOP_OFFSET + WIND_DIRECTION * timeBuffer.time * CLOUD_SPEED;
@@ -138,7 +137,7 @@ CloudSample sampleCloudDensity(float3 p, bool expensive, float lod) {
 
     // Early exit if out of the cloud layer
     if (heightFraction < 0.0 || heightFraction > 1.0) {
-        return {};
+        return 0.0;
     }
 
 
@@ -184,12 +183,7 @@ CloudSample sampleCloudDensity(float3 p, bool expensive, float lod) {
         baseCloudWithCoverage = remap(baseCloudWithCoverage * constants.baseMultiplier, highFreqFBM * constants.detailMultiplier, 1.0, 0.0, 1.0);
     }
 
-    cloudSample.density = saturate(baseCloudWithCoverage);
-    cloudSample.coverage = coverage;
-    cloudSample.type = cloudType;
-
-
-    return cloudSample;
+    return saturate(baseCloudWithCoverage);
 }
 
 
@@ -210,8 +204,7 @@ float lightRayAttenuation(float3 p) {
 
         if (heightFraction >= 0) {
             float cloudType = 0.0;
-            CloudSample cloudSample = sampleCloudDensity(pos, false, l / 16);
-            float cloudDensity = cloudSample.density;
+            float cloudDensity = sampleCloudDensity(pos, false, l / 16);
             if (cloudDensity > 0.0) {
                 // Beers law
                 float attenuation = exp(-cloudDensity * stepSize *  (ABSORPTION));
@@ -257,9 +250,8 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     // TODO adjust step size based on the raymarch distance (64 straight up, 128 forward)
     // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
     for (int i = 0; i < NUM_STEPS; i++) {
-        CloudSample cloudSample = sampleCloudDensity(p, true, i / 16);
-        float density = cloudSample.density;
-
+        float density = sampleCloudDensity(p, true, i / 16);
+        
         // Expensive computation only for non-zero density regions
         if (density > 0.1) {
             // compute the height fraction: relative height in cloud layer <0;1>
