@@ -38,25 +38,19 @@ class SkyScene final : public IScene {
 
     struct ComputePushConsts {
         float coverageOverride = 0.1f;
-        float coverageRepeat = 3.0f;
         float baseMultiplier = 1.0f;
         float detailMultiplier = 1.0;
         float cloudSpeed = 100.f;
-        float crispiness = 16.f;
+        float crispiness = 85.f;
         float curliness = 2.0f;
         float absorption = 0.0012f;
         float scattering = 0.1198f;
-        float densityMultiplier =  1.0f;
-        float earthRadius = 135000.0f;
-        float cloudsInnerRadius = 3000.0f;
-        float cloudsOuterRadius = 6000.0f;
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;
-        float ambientStrength = .050f;
+        float ambientStrength = 0.2f;
         float cloudTypeOverride = 1.0f;
-        float lightStepsLength = 0.1f;
-        float epicDistance = 30000.f;
+        float epicDistance = 100000.f;
     } computePushConsts, backUpComputePushConsts;
 
     float32_t timeOfDay = 0.5f;

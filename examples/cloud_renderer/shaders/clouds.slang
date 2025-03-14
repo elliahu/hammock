@@ -9,7 +9,6 @@ struct CloudSample {
 
 struct PushConstants {
     float coverageMultiplier;
-    float coverageRepeat;
     float baseMultiplier;
     float detailMultiplier;
     float cloudSpeed;
@@ -17,16 +16,11 @@ struct PushConstants {
     float curliness;
     float absorption;
     float scattering;
-    float densityMultiplier;
-    float earthRadius;
-    float sphereInnerRadius;
-    float sphereOuterRadius;
     float eccentricity;
     float silverIntensity;
     float silverSpread;
     float ambientStrength;
     float cloudTypeOverride;
-    float lightStepsLength;
     float epicDistance;
 };
 
@@ -63,10 +57,12 @@ struct PushConstants {
 // Wind
 #define WIND_DIRECTION normalize(sunAndSkyBuffer.windDirection.xyz)
 
+#define COVERAGE_REPEAT 9.0
+
 // Earth
-#define EARTH_RADIUS constants.earthRadius
-#define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + constants.sphereInnerRadius)
-#define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + constants.sphereOuterRadius)
+#define EARTH_RADIUS 637800
+#define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + 4000)
+#define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 6000)
 #define CENTER float3(0.0, -EARTH_RADIUS, 0.0)
 
 // Sun
@@ -74,7 +70,6 @@ struct PushConstants {
 #define SUN_COLOR sunAndSkyBuffer.lightColor.rgb
 
 // Cloud sampling
-#define CLOUD_TOP_OFFSET 750.0
 #define CLOUD_SCALE constants.crispiness
 #define CLOUD_SPEED constants.cloudSpeed
 
@@ -131,7 +126,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Init cloud sample
     // Height fraction and uv coords for sampling
     float heightFraction = getHeightFraction(p);
-    float3 animation = heightFraction * WIND_DIRECTION * CLOUD_TOP_OFFSET + WIND_DIRECTION * timeBuffer.time * CLOUD_SPEED;
+    float3 animation = heightFraction * WIND_DIRECTION + WIND_DIRECTION * timeBuffer.time * CLOUD_SPEED;
     float2 staticUv = getUVProjection(p);
     float2 animatedUv = getUVProjection(p + animation);
 
@@ -147,7 +142,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0);
 
     // Sample the cloud map
-    float3 cloudMap = cloudMapTexture.SampleLevel(staticUv * constants.coverageRepeat, 0.0).rgb;
+    float3 cloudMap = cloudMapTexture.SampleLevel(staticUv * COVERAGE_REPEAT, 0.0).rgb;
     // Coverage is in red and green channels
     const float coverage = lerp(0.0, cloudMap.g, constants.coverageMultiplier);
     // Cloud type is in the blue channel
@@ -271,15 +266,13 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float3 sunLight = SUN_COLOR * attenuationAlongLightRay;
 
             // Ambient light
-            float3 ambientLight = skyColor * heightFraction;
+            float3 ambientLight = skyColor * heightFraction * constants.ambientStrength;
 
             float3 lightContribution = sunLight + ambientLight;
 
             // Compute the differential in-scattering contribution using the current transmittance
             float3 dL = totalAttenuation * density * SCATTERING * phase * lightContribution * powderTerm * stepSize;
-            inScatteredLight += dL;
-
-           
+            inScatteredLight += dL;  
         }
 
         // Early exit if fully opaque
