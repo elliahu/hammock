@@ -251,9 +251,13 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
     for (int i = 0; i < NUM_STEPS; i++) {
         float density = sampleCloudDensity(p, true, i / 16);
-        
+
         // Expensive computation only for non-zero density regions
         if (density > 0.1) {
+            // Update total transmittance for extinction along the ray segment
+            float attenuation = exp(-density * stepSize * (ABSORPTION ));
+            totalAttenuation *= attenuation;
+
             // compute the height fraction: relative height in cloud layer <0;1>
             float heightFraction = getHeightFraction(p);
 
@@ -275,9 +279,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float3 dL = totalAttenuation * density * SCATTERING * phase * lightContribution * powderTerm * stepSize;
             inScatteredLight += dL;
 
-            // Update total transmittance for extinction along the ray segment
-            float attenuation = exp(-density * stepSize * (ABSORPTION ));
-            totalAttenuation *= attenuation;
+           
         }
 
         // Early exit if fully opaque
