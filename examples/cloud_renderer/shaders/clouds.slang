@@ -260,6 +260,9 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             // Beer-powder aprox
             float powderTerm = powder(density);
 
+            float extra = constants.eccentricity * pow(saturate(cosTheta), constants.silverSpread);
+
+            phase = max(phase, extra);
 
             // compute the light ray attenuation
             float attenuationAlongLightRay = lightRayAttenuation(p);
