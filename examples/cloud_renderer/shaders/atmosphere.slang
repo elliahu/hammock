@@ -50,7 +50,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     float3 rayDirection = normalize(mul(set.cameraBuffer.inv_view, rayView).xyz);
 
     //Base sky color
-    float3 skyColor = float3(59.0/255.0, 110.0/255.0, 219.0/255.0);
+    float3 skyColor = set.sunAndSkyBuffer.skyColor.rgb;
 
     // Sun disk params
     const float sunHalfAngle = 2.5 * PI / 180.0;

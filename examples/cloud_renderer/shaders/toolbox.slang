@@ -5,6 +5,7 @@ static const float PI = 3.14159265358979323846;
 struct SunAndSkyBuffer{
     float4 lightColor;
     float4 lightDirection;
+    float4 skyColor;
     float4 windDirection;
 };
 

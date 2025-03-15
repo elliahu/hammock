@@ -33,6 +33,7 @@ class SkyScene final : public IScene {
     struct SunAndSkyUbo {
         HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 1.0f};
         HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
+        HmckVec4 skyColor{59.0/255.0, 110.0/255.0, 219.0/255.0};
         HmckVec4 windDirection;
     } sunAndSkyUbo;
 

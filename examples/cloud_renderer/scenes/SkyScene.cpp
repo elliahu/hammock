@@ -527,6 +527,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Light");
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
+                    ImGui::ColorEdit3("Ambient color", &sunAndSkyUbo.skyColor.Elements[0]);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
 
                     ImGui::SeparatorText("Phase");
