@@ -505,8 +505,9 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
 
                     ImGui::SeparatorText("Clouds");
-                    ImGui::SliderFloat("Crispiness", &computePushConsts.crispiness, 0.0f, 200.f);
-                    ImGui::SliderFloat("Curlines", &computePushConsts.curliness, 0.0f, 50.f);
+                    ImGui::SliderFloat("Base scale", &computePushConsts.baseScale, 0.0f, 200.f);
+                    ImGui::SliderFloat("Detail scale", &computePushConsts.detailScale, 0.0f, 200.f);
+                    ImGui::SliderFloat("Curls", &computePushConsts.curliness, 0.0f, 50.f);
                     ImGui::SliderFloat("Low frequency", &computePushConsts.baseMultiplier, 0.0f, 1.f);
                     ImGui::SliderFloat("High frequency", &computePushConsts.detailMultiplier, 0.0f, 1.f);
                     ImGui::DragFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.0f, 1.0f, "%.7f");
@@ -537,7 +538,6 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
                     ImGui::SliderFloat("Time of day", &timeOfDay, 0.250f, 0.750f);
-                    ImGui::SliderFloat("Epic distance", &computePushConsts.epicDistance, 0.0f, 500000.0f);
 
 
 

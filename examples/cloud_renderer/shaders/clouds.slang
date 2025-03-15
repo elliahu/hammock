@@ -13,7 +13,8 @@ struct PushConstants {
     float baseMultiplier;
     float detailMultiplier;
     float cloudSpeed;
-    float crispiness;
+    float baseScale;
+    float detailScale;
     float curliness;
     float absorption;
     float scattering;
@@ -21,7 +22,6 @@ struct PushConstants {
     float silverIntensity;
     float silverSpread;
     float ambientStrength;
-    float epicDistance;
     int DEBUG_earlyTermination;
     int DEBUG_lateTermination;
 };
@@ -72,8 +72,9 @@ struct PushConstants {
 #define SUN_COLOR sunAndSkyBuffer.lightColor.rgb
 
 // Cloud sampling
-#define CLOUD_SCALE constants.crispiness
-#define CLOUD_SPEED constants.cloudSpeed
+#define BASE_SCALE constants.baseScale
+#define DETAIL_SCALE constants.detailScale
+#define WIND_SPEED constants.cloudSpeed
 
 // Bayer filter
 #define BAYER_FACTOR 1.0 / 16.0
@@ -128,7 +129,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Init cloud sample
     // Height fraction and uv coords for sampling
     float heightFraction = getHeightFraction(p);
-    float3 animation = heightFraction * WIND_DIRECTION + WIND_DIRECTION * timeBuffer.time * CLOUD_SPEED;
+    float3 animation = heightFraction * WIND_DIRECTION + WIND_DIRECTION * timeBuffer.time * WIND_SPEED;
     float2 staticUv = getUVProjection(p);
     float2 animatedUv = getUVProjection(p + animation);
 
@@ -139,7 +140,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 
 
     // Sample low frequency noise to contruct FBM
-    float4 lowFrequencyNoise = lowFreqNoiseTexture.SampleLevel(float3(staticUv * CLOUD_SCALE, heightFraction), lod);
+    float4 lowFrequencyNoise = lowFreqNoiseTexture.SampleLevel(float3(staticUv * BASE_SCALE, heightFraction), lod);
     float lowFreqFBM = dot(lowFrequencyNoise.gba, float3(0.625, 0.25, 0.125));
     float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0) * constants.globalDensity;
 
@@ -165,7 +166,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
         // Curl noise for whisps
         float2 whisp = curlNoiseTexture.SampleLevel(animatedUv, 0.0).xy;
         // Use the curl noise to offset sample position
-        float2 detailSamplePos = (staticUv * CLOUD_SCALE) + whisp * constants.curliness * (1.0 - heightFraction);
+        float2 detailSamplePos = (staticUv * DETAIL_SCALE) + whisp * constants.curliness * (1.0 - heightFraction);
 
         // Sample hight frequency noise and build the FBM
         float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(float3(detailSamplePos, heightFraction), lod).rgb;
