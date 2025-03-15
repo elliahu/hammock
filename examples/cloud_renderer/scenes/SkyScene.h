@@ -51,7 +51,7 @@ class SkyScene final : public IScene {
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;
-        float ambientStrength = 0.1f;
+        float ambientStrength = 1.0f;
         int DEBUG_earlyTermination = 0;
         int DEBUG_lateTermination = 0;
     } computePushConsts, backUpComputePushConsts;

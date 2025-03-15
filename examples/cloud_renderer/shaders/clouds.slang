@@ -251,7 +251,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
         // Expensive computation only for non-zero density regions
         if (density > 0.01) {
             // Update total transmittance for extinction along the ray segment
-            float attenuation = exp(-totalDensity  * (ABSORPTION ));
+            float attenuation = max(density * 0.2, exp(-totalDensity  * (ABSORPTION )));
             totalAttenuation *= attenuation;
 
             // compute the height fraction: relative height in cloud layer <0;1>
@@ -260,16 +260,18 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             // Beer-powder aprox
             float powderTerm = powder(density);
 
+
             // compute the light ray attenuation
             float attenuationAlongLightRay = lightRayAttenuation(p);
 
             // Sunlight
-            float3 sunLight = SUN_COLOR * attenuationAlongLightRay;
+            float3 sunLight = SUN_COLOR * 1.0 * attenuationAlongLightRay;
 
             // Ambient light
-            float3 ambientLight = skyColor * heightFraction * constants.ambientStrength;
+            float osa = constants.ambientStrength;
+            float3 ao = skyColor * (1.0 - saturate(osa * pow(density,remap(heightFraction, 0.3,0.9,0.5,1.0))) * saturate(pow(remap(heightFraction,0.0,0.3,0.8,1.0), 0.8)));
 
-            float3 lightContribution = sunLight + ambientLight;
+            float3 lightContribution = sunLight + ao * heightFraction;
 
             // Compute the differential in-scattering contribution using the current transmittance
             float3 dL = totalAttenuation * density * SCATTERING* phase * lightContribution * powderTerm * stepSize;
