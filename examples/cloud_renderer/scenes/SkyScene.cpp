@@ -515,7 +515,7 @@ void SkyScene::buildRenderGraph() {
 
                     ImGui::SeparatorText("Weather");
                     ImGui::SliderFloat("Global coverage", &computePushConsts.globalCoverage, 0.0f, 1.f);
-                    ImGui::SliderFloat("Global coverage density", &computePushConsts.globalCoverageDensity, 0.0f, 1.f);
+                    ImGui::SliderFloat("Global density", &computePushConsts.globalCoverageDensity, 0.0f, 10.f);
                     ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
 

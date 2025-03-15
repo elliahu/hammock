@@ -8,7 +8,7 @@ struct CloudSample {
 
 
 struct PushConstants {
-    float globalCoverageDensity;
+    float globalDensity;
     float globalCoverage;
     float baseMultiplier;
     float detailMultiplier;
@@ -141,18 +141,14 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Sample low frequency noise to contruct FBM
     float4 lowFrequencyNoise = lowFreqNoiseTexture.SampleLevel(float3(staticUv * CLOUD_SCALE, heightFraction), lod);
     float lowFreqFBM = dot(lowFrequencyNoise.gba, float3(0.625, 0.25, 0.125));
-    float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0);
+    float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0) * constants.globalDensity;
 
     // Sample the cloud map
     float3 cloudMap = cloudMapTexture.SampleLevel(staticUv * COVERAGE_REPEAT, 0.0).rgb;
     // Coverage is in red and green channels
-    float coverage = lerp(0.0,max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2), constants.globalCoverageDensity);
+    float coverage = max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2) * 0.1;
     // Cloud type is in the blue channel
     float cloudType = cloudMap.b;
-    // Compute the distance of the smaple point from the camera and remap it to 0 to 1
-    float dst = remap(clamp(length(p - cameraBuffer.cameraPosition.xyz), 0.0, constants.epicDistance),0.0, constants.epicDistance, 0.0, 1.0);
-    // Gradually change clouds to stratocumulus type at the horizon
-    cloudType = clamp(lerp(cloudType, 1.0, dst),0.0, 1.0);
 
 
     // Adjust the density based on the cloud type
@@ -160,7 +156,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     baseCloud *= (cloudTypeDensity / heightFraction);
 
     // Apply the coverage
-    float baseCloudWithCoverage = remap(baseCloud, coverage, 1.0, 0.0, 1.0);
+    float baseCloudWithCoverage = remap(baseCloud * constants.baseMultiplier, coverage, 1.0, 0.0, 1.0);
     baseCloudWithCoverage *= coverage;
 
     // Check if we are doing expensive sampling
@@ -177,7 +173,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 
         float highFreqNoiseModifier = lerp(highFreqFBM, 1.0 - highFreqFBM, heightFraction);
         baseCloudWithCoverage = baseCloudWithCoverage - highFreqNoiseModifier * (1.0 - baseCloudWithCoverage);
-        baseCloudWithCoverage = remap(baseCloudWithCoverage * constants.baseMultiplier, highFreqFBM * constants.detailMultiplier, 1.0, 0.0, 1.0);
+        baseCloudWithCoverage = remap(baseCloudWithCoverage, highFreqFBM * constants.detailMultiplier, 1.0, 0.0, 1.0);
     }
 
     return saturate(baseCloudWithCoverage);

@@ -37,7 +37,7 @@ class SkyScene final : public IScene {
     } sunAndSkyUbo;
 
     struct ComputePushConsts {
-        float globalCoverageDensity = 0.1f;
+        float globalCoverageDensity = 1.0f;
         float globalCoverage = 1.0;
         float baseMultiplier = 1.0f;
         float detailMultiplier = 1.0;
