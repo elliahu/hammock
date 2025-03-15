@@ -505,6 +505,7 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
 
                     ImGui::SeparatorText("Clouds");
+                    ImGui::SliderFloat("Anvil bias", &computePushConsts.anvilBias, 0.0f, 1.f);
                     ImGui::SliderFloat("Base scale", &computePushConsts.baseScale, 0.0f, 200.f);
                     ImGui::SliderFloat("Detail scale", &computePushConsts.detailScale, 0.0f, 200.f);
                     ImGui::SliderFloat("Curls", &computePushConsts.curliness, 0.0f, 50.f);
@@ -516,7 +517,7 @@ void SkyScene::buildRenderGraph() {
 
                     ImGui::SeparatorText("Weather");
                     ImGui::SliderFloat("Global coverage", &computePushConsts.globalCoverage, 0.0f, 1.f);
-                    ImGui::SliderFloat("Global density", &computePushConsts.globalCoverageDensity, 0.0f, 10.f);
+                    ImGui::SliderFloat("Global density", &computePushConsts.globalDensity, 0.0f, 1.f);
                     ImGui::SliderFloat("Wind speed", &computePushConsts.cloudSpeed, 0.0f, 1000.f);
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
 

@@ -8,6 +8,7 @@ struct CloudSample {
 
 
 struct PushConstants {
+    float anvilBias;
     float globalDensity;
     float globalCoverage;
     float baseMultiplier;
@@ -64,12 +65,12 @@ struct PushConstants {
 // Earth
 #define EARTH_RADIUS 637800
 #define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + 4000)
-#define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 6000)
+#define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 10000)
 #define CENTER float3(0.0, -EARTH_RADIUS, 0.0)
 
 // Sun
 #define SUN_DIR normalize(sunAndSkyBuffer.lightDirection.xyz)
-#define SUN_COLOR sunAndSkyBuffer.lightColor.rgb
+#define SUN_COLOR sunAndSkyBuffer.lightColor.rgb * 1.5
 
 // Cloud sampling
 #define BASE_SCALE constants.baseScale
@@ -147,18 +148,19 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Sample the cloud map
     float3 cloudMap = cloudMapTexture.SampleLevel(staticUv * COVERAGE_REPEAT, 0.0).rgb;
     // Coverage is in red and green channels
-    float coverage = max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2) * 0.1;
+    float coverage = max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2);
+    coverage = pow(coverage, remap(heightFraction, 0.7, 0.8, 1.0, lerp(1.0, 0.5, constants.anvilBias)));
     // Cloud type is in the blue channel
     float cloudType = cloudMap.b;
 
 
     // Adjust the density based on the cloud type
     float cloudTypeDensity = getDensityForCloudType(heightFraction, cloudType);
-    baseCloud *= (cloudTypeDensity / heightFraction);
+    baseCloud *= (cloudTypeDensity / ( heightFraction));
 
     // Apply the coverage
     float baseCloudWithCoverage = remap(baseCloud * constants.baseMultiplier, coverage, 1.0, 0.0, 1.0);
-    baseCloudWithCoverage *= coverage;
+    baseCloudWithCoverage *= pow(coverage,2.0);
 
     // Check if we are doing expensive sampling
     if (expensive)
