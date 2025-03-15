@@ -140,7 +140,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 
 
     // Sample low frequency noise to contruct FBM
-    float4 lowFrequencyNoise = lowFreqNoiseTexture.SampleLevel(float3(staticUv * BASE_SCALE, heightFraction), lod);
+    float4 lowFrequencyNoise = lowFreqNoiseTexture.SampleLevel(float3(animatedUv * BASE_SCALE, heightFraction), lod);
     float lowFreqFBM = dot(lowFrequencyNoise.gba, float3(0.625, 0.25, 0.125));
     float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0) * constants.globalDensity;
 
@@ -166,7 +166,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
         // Curl noise for whisps
         float2 whisp = curlNoiseTexture.SampleLevel(animatedUv, 0.0).xy;
         // Use the curl noise to offset sample position
-        float2 detailSamplePos = (staticUv * DETAIL_SCALE) + whisp * constants.curliness * (1.0 - heightFraction);
+        float2 detailSamplePos = (animatedUv * DETAIL_SCALE) + whisp * constants.curliness * (1.0 - heightFraction);
 
         // Sample hight frequency noise and build the FBM
         float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(float3(detailSamplePos, heightFraction), lod).rgb;
