@@ -42,7 +42,7 @@ class SkyScene final : public IScene {
         float globalCoverage = 0.0;
         float baseMultiplier = 0.75f;
         float detailMultiplier = 0.2;
-        float cloudSpeed = 100.f;
+        float cloudSpeed = 1000.f;
         float baseScale = 75.f;
         float detailScale = 100.0f;
         float curliness = 2.0f;

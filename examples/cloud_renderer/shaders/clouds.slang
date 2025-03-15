@@ -147,7 +147,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0) * constants.globalDensity;
 
     // Sample the cloud map
-    float3 cloudMap = cloudMapTexture.SampleLevel(staticUv * COVERAGE_REPEAT, 0.0).rgb;
+    float3 cloudMap = cloudMapTexture.SampleLevel(animatedUv * COVERAGE_REPEAT, 0.0).rgb;
     // Coverage is in red and green channels
     float coverage = max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2);
     coverage = pow(coverage, remap(heightFraction, 0.7, 0.8, 1.0, lerp(1.0, 0.5, constants.anvilBias)));
@@ -251,7 +251,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
         // Expensive computation only for non-zero density regions
         if (density > 0.01) {
             // Update total transmittance for extinction along the ray segment
-            float attenuation = max(density * 0.2, exp(-totalDensity  * (ABSORPTION )));
+            float attenuation = max(density * 0.2, exp(-totalDensity  * (ABSORPTION)));
             totalAttenuation *= attenuation;
 
             // compute the height fraction: relative height in cloud layer <0;1>
