@@ -47,6 +47,7 @@ struct PushConstants {
 #define NUM_STEPS 64
 
 #define NUM_LIGHT_STEPS 6
+#define LIGHT_STEP_SIZE 400.0
 
 
 #define SCATTERING constants.scattering
@@ -65,7 +66,7 @@ struct PushConstants {
 // Earth
 #define EARTH_RADIUS 637800
 #define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + 4000)
-#define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 10000)
+#define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 7000)
 #define CENTER float3(0.0, -EARTH_RADIUS, 0.0)
 
 // Sun
@@ -188,10 +189,10 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 float lightRayAttenuation(float3 p) {
     float3 dirToLight = normalize(sunAndSkyBuffer.lightDirection.xyz);
     float attenuationAlongLightRay = 1.0;
-    float opticalDepth = 0.0;
+    float accumulatedDensity = 0.0;
 
     float dstOut = intersectRaySphere(CENTER, CLOUDS_TOP_RADIUS, p, dirToLight).y;
-    float stepSize = dstOut / NUM_LIGHT_STEPS;
+    float stepSize = LIGHT_STEP_SIZE; // dstOut / NUM_LIGHT_STEPS;
 
     // Lightmarch
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
@@ -201,21 +202,18 @@ float lightRayAttenuation(float3 p) {
         if (heightFraction >= 0) {
             float cloudType = 0.0;
             float cloudDensity = sampleCloudDensity(pos, false, l / 16);
+            accumulatedDensity += cloudDensity * stepSize;
             if (cloudDensity > 0.0) {
                 // Beers law
-                float attenuation = exp(-cloudDensity * stepSize *  (ABSORPTION));
+                float attenuation = exp(-accumulatedDensity * ABSORPTION);
                 attenuationAlongLightRay *= attenuation;
-
-                opticalDepth += cloudDensity * stepSize;
             }
         }
 
         if (attenuationAlongLightRay < 0.01) break;
     }
 
-    float multipleScatteringAprox = powder(opticalDepth * 0.0001);
-
-    return lerp(attenuationAlongLightRay, multipleScatteringAprox * 0.4, 0.1);
+    return saturate(attenuationAlongLightRay);
 }
 
 // Raymarches from the start to the end position
@@ -240,6 +238,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 
     // Raymarch variables
     float totalAttenuation = 1.0;
+    float totalDensity= 0.0;
     float3 inScatteredLight = 0.0;
 
     // Raymarch
@@ -247,11 +246,12 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
     for (int i = 0; i < NUM_STEPS; i++) {
         float density = sampleCloudDensity(p, true, i / 16);
+        totalDensity += density * stepSize;
 
         // Expensive computation only for non-zero density regions
-        if (density > 0.1) {
+        if (density > 0.01) {
             // Update total transmittance for extinction along the ray segment
-            float attenuation = exp(-density * stepSize * (ABSORPTION ));
+            float attenuation = exp(-totalDensity  * (ABSORPTION ));
             totalAttenuation *= attenuation;
 
             // compute the height fraction: relative height in cloud layer <0;1>
@@ -272,7 +272,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float3 lightContribution = sunLight + ambientLight;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            float3 dL = totalAttenuation * density * SCATTERING * phase * lightContribution * powderTerm * stepSize;
+            float3 dL = totalAttenuation * density * SCATTERING* phase * lightContribution * powderTerm * stepSize;
             inScatteredLight += dL;  
         }
 

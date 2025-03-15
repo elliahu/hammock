@@ -39,20 +39,19 @@ class SkyScene final : public IScene {
     struct ComputePushConsts {
         float anvilBias = 0.0f;
         float globalDensity = 0.3f;
-        float globalCoverage = 1.0;
+        float globalCoverage = 0.0;
         float baseMultiplier = 0.75f;
         float detailMultiplier = 0.2;
         float cloudSpeed = 100.f;
         float baseScale = 75.f;
         float detailScale = 100.0f;
         float curliness = 2.0f;
-        float absorption = 0.0016f;
-        float scattering = 0.1198f;
+        float absorption = 0.0006f;
+        float scattering = 0.2f;
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;
-        float ambientStrength = 0.35f;
-        //float lightStepLength = 300.f;
+        float ambientStrength = 0.1f;
         int DEBUG_earlyTermination = 0;
         int DEBUG_lateTermination = 0;
     } computePushConsts, backUpComputePushConsts;
