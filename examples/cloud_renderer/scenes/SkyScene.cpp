@@ -639,6 +639,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::Text("Frametime: %.2f ms", deltaTime * 1000.0f);
                     ImGui::PlotLines("Frame Times", frameTimes, FRAMETIME_BUFFER_SIZE, frameTimeFrameIndex, nullptr, 0.0f, 33.0f,
                                      ImVec2(0, 80));
+                    ImGui::SeparatorText("Rendering");
+                    ImGui::DragInt("Maximum number of samples", &computePushConsts.DEBUG_maxSamples);
 
                     ImGui::SeparatorText("Debug views");
                     ImGui::Checkbox("Expensive light sampling", (bool*)&computePushConsts.DEBUG_expensiveSampling);

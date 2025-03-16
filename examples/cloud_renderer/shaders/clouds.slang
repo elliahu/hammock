@@ -23,6 +23,7 @@ struct PushConstants {
     float silverIntensity;
     float silverSpread;
     float ambientStrength;
+    int DEBUG_maxSamples;
     int DEBUG_expensiveSampling;
     int DEBUG_earlyTermination;
     int DEBUG_lateTermination;
@@ -45,7 +46,7 @@ struct PushConstants {
 
 [vk::push_constant] PushConstants constants;
 
-#define NUM_STEPS 64
+#define NUM_STEPS constants.DEBUG_maxSamples
 
 #define NUM_LIGHT_STEPS 6
 #define LIGHT_STEP_SIZE 400.0
@@ -253,7 +254,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float heightFraction = getHeightFraction(p);
 
             // Beer-powder aprox
-            float powderTerm = powder(density);
+            float powderTerm = powder(totalDensity);
 
             float extra = constants.eccentricity * pow(saturate(cosTheta), constants.silverSpread);
 
