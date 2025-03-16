@@ -33,7 +33,8 @@ class SkyScene final : public IScene {
     struct SunAndSkyUbo {
         HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 1.0f};
         HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
-        HmckVec4 skyColor{59.0/255.0, 110.0/255.0, 219.0/255.0};
+        HmckVec4 skyColorZenith{59.0/255.0, 110.0/255.0, 219.0/255.0};
+        HmckVec4 skyColorHorizon{169.0/255.0, 175.0/255.0, 188.0/255.0};
         HmckVec4 windDirection;
     } sunAndSkyUbo;
 
@@ -41,8 +42,8 @@ class SkyScene final : public IScene {
         float anvilBias = 0.0f;
         float globalDensity = 0.3f;
         float globalCoverage = 0.0;
-        float baseMultiplier = 0.75f;
-        float detailMultiplier = 0.2;
+        float baseMultiplier = 0.8f;
+        float detailMultiplier = 0.75;
         float cloudSpeed = 1000.f;
         float baseScale = 75.f;
         float detailScale = 100.0f;
@@ -52,7 +53,8 @@ class SkyScene final : public IScene {
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;
-        float ambientStrength = 1.0f;
+        float ambientStrength = 0.85f;
+        int DEBUG_expensiveSampling = 0;
         int DEBUG_earlyTermination = 0;
         int DEBUG_lateTermination = 0;
     } computePushConsts, backUpComputePushConsts;
@@ -130,7 +132,7 @@ class SkyScene final : public IScene {
     uint32_t frameCount = 0;
 
     // camera movement
-    float32_t yaw{0.f}, pitch{0.f};
+    float32_t yaw{-1.2187f}, pitch{0.4235f};
     HmckVec3 cameraPosition{0.f, 3.f, 0.f};
     float32_t fov = 45.f;
 

@@ -23,6 +23,7 @@ struct PushConstants {
     float silverIntensity;
     float silverSpread;
     float ambientStrength;
+    int DEBUG_expensiveSampling;
     int DEBUG_earlyTermination;
     int DEBUG_lateTermination;
 };
@@ -66,7 +67,7 @@ struct PushConstants {
 // Earth
 #define EARTH_RADIUS 637800
 #define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + 4000)
-#define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 7000)
+#define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 9000)
 #define CENTER float3(0.0, -EARTH_RADIUS, 0.0)
 
 // Sun
@@ -108,8 +109,7 @@ float getHeightFraction(float3 inPos) {
 // 0.0 stratus
 // 0.5 stratocumulus
 // 1.0 cumulus
-float getDensityForCloudType(float heightFraction, float cloudType)
-{
+float getDensityForCloudType(float heightFraction, float cloudType){
     float stratusFactor = 1.0 - clamp(cloudType * 2.0, 0.0, 1.0);
     float stratoCumulusFactor = 1.0 - abs(cloudType - 0.5) * 2.0;
     float cumulusFactor = clamp(cloudType - 0.5, 0.0, 1.0) * 2.0;
@@ -141,13 +141,13 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     }
 
 
-    // Sample low frequency noise to contruct FBM
+    // Sample low frequency noise to construct FBM
     float4 lowFrequencyNoise = lowFreqNoiseTexture.SampleLevel(float3(animatedUv * BASE_SCALE, heightFraction), lod);
     float lowFreqFBM = dot(lowFrequencyNoise.gba, float3(0.625, 0.25, 0.125));
-    float baseCloud = remap(lowFrequencyNoise.r, -(1.0 - lowFreqFBM), 1.0, 0.0, 1.0) * constants.globalDensity;
+    float baseCloud = remap(lowFrequencyNoise.r, lowFreqFBM - 1.0, 1.0, 0.0, 1.0) * constants.globalDensity;
 
     // Sample the cloud map
-    float3 cloudMap = cloudMapTexture.SampleLevel(animatedUv * COVERAGE_REPEAT, 0.0).rgb;
+    float3 cloudMap = cloudMapTexture.SampleLevel(animatedUv * COVERAGE_REPEAT, 0.0).rgb * constants.baseMultiplier;
     // Coverage is in red and green channels
     float coverage = max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2);
     coverage = pow(coverage, remap(heightFraction, 0.7, 0.8, 1.0, lerp(1.0, 0.5, constants.anvilBias)));
@@ -157,27 +157,22 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 
     // Adjust the density based on the cloud type
     float cloudTypeDensity = getDensityForCloudType(heightFraction, cloudType);
-    baseCloud *= (cloudTypeDensity / ( heightFraction));
+    baseCloud *= (cloudTypeDensity / max(0.001, heightFraction));
 
     // Apply the coverage
-    float baseCloudWithCoverage = remap(baseCloud * constants.baseMultiplier, coverage, 1.0, 0.0, 1.0);
-    baseCloudWithCoverage *= pow(coverage,2.0);
+    float baseCloudWithCoverage = remap(baseCloud , coverage, 1.0, 0.0, 1.0);
+    baseCloudWithCoverage = saturate(baseCloudWithCoverage * coverage);
+
 
     // Check if we are doing expensive sampling
-    if (expensive)
+    if (expensive || (constants.DEBUG_expensiveSampling == 1))
     {
-        // Curl noise for whisps
-        float2 whisp = curlNoiseTexture.SampleLevel(animatedUv, 0.0).xy;
-        // Use the curl noise to offset sample position
-        float2 detailSamplePos = (animatedUv * DETAIL_SCALE) + whisp * constants.curliness * (1.0 - heightFraction);
-
         // Sample hight frequency noise and build the FBM
-        float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(float3(detailSamplePos, heightFraction), lod).rgb;
+        float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(float3(staticUv * DETAIL_SCALE, heightFraction), lod).rgb * constants.detailMultiplier;
         float highFreqFBM = dot(highFrequencyNoise, float3(0.625, 0.25, 0.125));
 
-        float highFreqNoiseModifier = lerp(highFreqFBM, 1.0 - highFreqFBM, heightFraction);
-        baseCloudWithCoverage = baseCloudWithCoverage - highFreqNoiseModifier * (1.0 - baseCloudWithCoverage);
-        baseCloudWithCoverage = remap(baseCloudWithCoverage, highFreqFBM * constants.detailMultiplier, 1.0, 0.0, 1.0);
+        float highFreqNoiseModifier = lerp(highFreqFBM, 1.0 - highFreqFBM, saturate(heightFraction * 10.0));
+        baseCloudWithCoverage = remap(baseCloudWithCoverage, highFreqNoiseModifier, 1.0, 0.0, 1.0);
     }
 
     return saturate(baseCloudWithCoverage);
@@ -251,7 +246,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
         // Expensive computation only for non-zero density regions
         if (density > 0.01) {
             // Update total transmittance for extinction along the ray segment
-            float attenuation = max(density * 0.2, exp(-totalDensity  * (ABSORPTION)));
+            float attenuation = min(.95, exp(-totalDensity  * (ABSORPTION)));
             totalAttenuation *= attenuation;
 
             // compute the height fraction: relative height in cloud layer <0;1>
@@ -262,7 +257,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 
             float extra = constants.eccentricity * pow(saturate(cosTheta), constants.silverSpread);
 
-            phase = max(phase, extra);
+            //phase = max(phase, extra);
 
             // compute the light ray attenuation
             float attenuationAlongLightRay = lightRayAttenuation(p);
@@ -273,6 +268,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             // Ambient light
             float osa = constants.ambientStrength;
             float3 ao = skyColor * (1.0 - saturate(osa * pow(density,remap(heightFraction, 0.3,0.9,0.5,1.0))) * saturate(pow(remap(heightFraction,0.0,0.3,0.8,1.0), 0.8)));
+            //float3 ao = skyColor * osa;
 
             float3 lightContribution = sunLight + ao * heightFraction;
 
@@ -386,5 +382,9 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     // Perform raymarching for clouds.
     float4 color = raymarch(threadId,start, end, skyColor.rgb);
+
+    // Apply areal perspective
+    color.a *= exp(-length(start - rayOrigin) * .00001);
+
     storageImage[threadId.xy] = color;
 }

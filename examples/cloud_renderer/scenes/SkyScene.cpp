@@ -514,6 +514,10 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.0f, 1.0f, "%.7f");
                     ImGui::DragFloat("Scattering", &computePushConsts.scattering, 0.0001f, 0.0f, 1.0f, "%.7f");
 
+                    ImGui::SeparatorText("Phase");
+                    ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
+                    ImGui::SliderFloat("Silver intensity", &computePushConsts.silverIntensity, 0.f, 10.0f);
+                    ImGui::SliderFloat("Silver spread", &computePushConsts.silverSpread, 0.f, 1.0f);
 
                     ImGui::SeparatorText("Weather");
                     ImGui::SliderFloat("Global coverage", &computePushConsts.globalCoverage, 0.0f, 1.f);
@@ -522,19 +526,12 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Wind direction (deg.)", &windDirection, 0.0f, 365.f);
 
 
-
-
                     ImGui::SeparatorText("Light");
                     ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
-                    ImGui::ColorEdit3("Ambient color", &sunAndSkyUbo.skyColor.Elements[0]);
+                    ImGui::ColorEdit3("Zenith sky color", &sunAndSkyUbo.skyColorZenith.Elements[0]);
+                    ImGui::ColorEdit3("Horizon sky color", &sunAndSkyUbo.skyColorHorizon.Elements[0]);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
-
-                    ImGui::SeparatorText("Phase");
-                    ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
-                    ImGui::SliderFloat("Silver intensity", &computePushConsts.silverIntensity, 0.f, 10.0f);
-                    ImGui::SliderFloat("Silver spread", &computePushConsts.silverSpread, 0.f, 1.0f);
-
 
 
                     ImGui::SeparatorText("Environment properties");
@@ -634,6 +631,9 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
+                    ImGui::SeparatorText("Camera");
+                    ImGui::Text("Position x:%.3f y:%.3f z:%.3f", cameraUbo.cameraPosition.X, cameraUbo.cameraPosition.Y, cameraUbo.cameraPosition.Z);
+                    ImGui::Text("Rotation yaw:%.3f pitch:%.3f", yaw, pitch);
                     ImGui::SeparatorText("Performance");
                     ImGui::Text("%.1f FPS ", 1.0f / deltaTime);
                     ImGui::Text("Frametime: %.2f ms", deltaTime * 1000.0f);
@@ -641,6 +641,7 @@ void SkyScene::buildRenderGraph() {
                                      ImVec2(0, 80));
 
                     ImGui::SeparatorText("Debug views");
+                    ImGui::Checkbox("Expensive light sampling", (bool*)&computePushConsts.DEBUG_expensiveSampling);
                     ImGui::Checkbox("Early termination regions", (bool*)&computePushConsts.DEBUG_earlyTermination);
                     ImGui::Checkbox("Late termination regions", (bool*)&computePushConsts.DEBUG_lateTermination);
 
