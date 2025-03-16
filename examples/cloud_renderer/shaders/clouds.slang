@@ -23,6 +23,7 @@ struct PushConstants {
     float silverIntensity;
     float silverSpread;
     float ambientStrength;
+    int DEBUG_cheapSampleDistance;
     int DEBUG_maxSamples;
     int DEBUG_expensiveSampling;
     int DEBUG_earlyTermination;
@@ -45,6 +46,8 @@ struct PushConstants {
 [vk::binding(8)] Sampler2D skyTexture;
 
 [vk::push_constant] PushConstants constants;
+
+#define EYE cameraBuffer.cameraPosition.xyz
 
 #define NUM_STEPS constants.DEBUG_maxSamples
 
@@ -219,8 +222,12 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     float rayLenght = length(ray);
     float3 rayDirection = normalize(ray);
 
-    // Sampling position (jittered)
-    float stepSize = rayLenght / NUM_STEPS;
+    // Cosine of angle between ray and vertical (Y axis)
+    float angleFactor = abs(dot(rayDirection, float3(0.0, 1.0, 0.0))); // 1 when looking up, 0 when horizontal
+    float numOfSteps = lerp(NUM_STEPS, NUM_STEPS * 0.5, angleFactor); // fewer steps when looking up
+    float stepSize = rayLenght / numOfSteps;
+
+    // dither the ray start position to combat banding
     uint2 fragCoord = threadId.xy;
     int a = int(fragCoord.x) % 4;
     int b = int(fragCoord.y) % 4;
@@ -238,16 +245,22 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     float3 inScatteredLight = 0.0;
 
     // Raymarch
-    // TODO adjust step size based on the raymarch distance (64 straight up, 128 forward)
     // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
-    for (int i = 0; i < NUM_STEPS; i++) {
-        float density = sampleCloudDensity(p, true, i / 16);
+    // TODO at distance do only cheap sampling
+    for (int i = 0; i < numOfSteps; i++) {
+
+        // Calculate the distance from the camera
+        float distanceFromCamera = length(p - EYE);
+        bool expensive = distanceFromCamera < constants.DEBUG_cheapSampleDistance;
+
+        // Sample the density
+        float density = sampleCloudDensity(p, expensive, i / 16);
         totalDensity += density * stepSize;
 
         // Expensive computation only for non-zero density regions
         if (density > 0.01) {
             // Update total transmittance for extinction along the ray segment
-            float attenuation = min(.95, exp(-totalDensity  * (ABSORPTION)));
+            float attenuation = min(.95, exp(-totalDensity  * ABSORPTION));
             totalAttenuation *= attenuation;
 
             // compute the height fraction: relative height in cloud layer <0;1>
@@ -256,9 +269,9 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             // Beer-powder aprox
             float powderTerm = powder(totalDensity);
 
+            // extra in scattering
             float extra = constants.eccentricity * pow(saturate(cosTheta), constants.silverSpread);
-
-            //phase = max(phase, extra);
+            phase = max(phase, extra);
 
             // compute the light ray attenuation
             float attenuationAlongLightRay = lightRayAttenuation(p);
@@ -267,11 +280,9 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float3 sunLight = SUN_COLOR * 1.0 * attenuationAlongLightRay;
 
             // Ambient light
-            float osa = constants.ambientStrength;
-            float3 ao = skyColor * (1.0 - saturate(osa * pow(density,remap(heightFraction, 0.3,0.9,0.5,1.0))) * saturate(pow(remap(heightFraction,0.0,0.3,0.8,1.0), 0.8)));
-            //float3 ao = skyColor * osa;
+            float3 ambient = skyColor * (1.0 - saturate(constants.ambientStrength * pow(density,remap(heightFraction, 0.3,0.9,0.5,1.0))) * saturate(pow(remap(heightFraction,0.0,0.3,0.8,1.0), 0.8)));
 
-            float3 lightContribution = sunLight + ao * heightFraction;
+            float3 lightContribution = sunLight + ambient * heightFraction;
 
             // Compute the differential in-scattering contribution using the current transmittance
             float3 dL = totalAttenuation * density * SCATTERING* phase * lightContribution * powderTerm * stepSize;

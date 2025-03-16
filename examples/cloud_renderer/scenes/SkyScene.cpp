@@ -640,7 +640,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::PlotLines("Frame Times", frameTimes, FRAMETIME_BUFFER_SIZE, frameTimeFrameIndex, nullptr, 0.0f, 33.0f,
                                      ImVec2(0, 80));
                     ImGui::SeparatorText("Rendering");
-                    ImGui::DragInt("Max samples", &computePushConsts.DEBUG_maxSamples, 1, 0, 2048);
+                    ImGui::DragInt("Max samples", &computePushConsts.DEBUG_maxSamples, 1, 2, 2048);
+                    ImGui::DragInt("Cheap sample distance", &computePushConsts.DEBUG_cheapSampleDistance, 10, 0, 1000000);
 
                     ImGui::SeparatorText("Debug views");
                     ImGui::Checkbox("Expensive light sampling", (bool*)&computePushConsts.DEBUG_expensiveSampling);
