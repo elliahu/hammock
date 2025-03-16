@@ -268,6 +268,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float3 directSkyAmbient = skyColor * constants.ambientStrength * heightFraction * density;
             float3 ambient = directSkyAmbient * outScatteringAmbient;
 
+            // Total light contribution
             float3 lightContribution = sunLight + ambient;
 
             // Compute the differential in-scattering contribution using the current transmittance
