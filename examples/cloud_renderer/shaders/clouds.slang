@@ -25,6 +25,7 @@ struct PushConstants {
     float ambientStrength;
     int DEBUG_cheapSampleDistance;
     int DEBUG_maxSamples;
+    int DEBUG_maxLightSamples;
     int DEBUG_expensiveSampling;
     int DEBUG_earlyTermination;
     int DEBUG_lateTermination;
@@ -51,7 +52,7 @@ struct PushConstants {
 
 #define NUM_STEPS constants.DEBUG_maxSamples
 
-#define NUM_LIGHT_STEPS 6
+#define NUM_LIGHT_STEPS constants.DEBUG_maxLightSamples
 #define LIGHT_STEP_SIZE 400.0
 
 

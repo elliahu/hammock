@@ -56,6 +56,7 @@ class SkyScene final : public IScene {
         float ambientStrength = 0.85f;
         int DEBUG_cheapSampleDistance = 100000;
         int DEBUG_maxSamples = 128;
+        int DEBUG_maxLightSamples = 6;
         int DEBUG_expensiveSampling = 0;
         int DEBUG_earlyTermination = 0;
         int DEBUG_lateTermination = 0;
