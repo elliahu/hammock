@@ -229,9 +229,8 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     float stepSize = rayLenght / numOfSteps;
 
     // dither the ray start position to combat banding
-    uint2 fragCoord = threadId.xy;
-    int a = int(fragCoord.x) % 4;
-    int b = int(fragCoord.y) % 4;
+    int a = int(threadId.x) % 4;
+    int b = int(threadId.y) % 4;
     float3 p = start + rayDirection * stepSize * bayerFilter[a * 4 + b];
 
     // Phase function
@@ -247,7 +246,6 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 
     // Raymarch
     // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
-    // TODO at distance do only cheap sampling
     for (int i = 0; i < numOfSteps; i++) {
 
         // Calculate the distance from the camera
@@ -259,9 +257,9 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
         totalDensity += density * stepSize;
 
         // Expensive computation only for non-zero density regions
-        if (density > 0.01) {
+        if (density > 0.001) {
             // Update total transmittance for extinction along the ray segment
-            float attenuation = min(.95, exp(-totalDensity  * ABSORPTION));
+            float attenuation = exp(-totalDensity  * ABSORPTION);
             totalAttenuation *= attenuation;
 
             // compute the height fraction: relative height in cloud layer <0;1>
