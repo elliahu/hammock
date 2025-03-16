@@ -189,28 +189,13 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 float lightRayAttenuation(float3 p) {
     float3 dirToLight = normalize(sunAndSkyBuffer.lightDirection.xyz);
     float attenuationAlongLightRay = 1.0;
-    float accumulatedDensity = 0.0;
-
-    float dstOut = intersectRaySphere(CENTER, CLOUDS_TOP_RADIUS, p, dirToLight).y;
-    float stepSize = LIGHT_STEP_SIZE; // dstOut / NUM_LIGHT_STEPS;
+    float stepSize = 0.5 * (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS) / NUM_LIGHT_STEPS;
 
     // Lightmarch
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
         float3 pos = p + dirToLight * l * stepSize;
-        float heightFraction = getHeightFraction(pos);
-
-        if (heightFraction >= 0) {
-            float cloudType = 0.0;
-            float cloudDensity = sampleCloudDensity(pos, false, l / 16);
-            accumulatedDensity += cloudDensity * stepSize;
-            if (cloudDensity > 0.0) {
-                // Beers law
-                float attenuation = exp(-accumulatedDensity * ABSORPTION);
-                attenuationAlongLightRay *= attenuation;
-            }
-        }
-
-        if (attenuationAlongLightRay < 0.01) break;
+        float cloudDensity = sampleCloudDensity(pos, false, l / 16);
+        attenuationAlongLightRay *= exp(-cloudDensity * stepSize * ABSORPTION);
     }
 
     return saturate(attenuationAlongLightRay);
@@ -279,17 +264,19 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float3 sunLight = SUN_COLOR * 1.0 * attenuationAlongLightRay;
 
             // Ambient light
-            float3 ambient = skyColor * (1.0 - saturate(constants.ambientStrength * pow(density,remap(heightFraction, 0.3,0.9,0.5,1.0))) * saturate(pow(remap(heightFraction,0.0,0.3,0.8,1.0), 0.8)));
+            float3 outScatteringAmbient = skyColor * (1.0 - saturate(0.8 * pow(density,remap(heightFraction, 0.3,0.9,0.5,1.0))) * saturate(pow(remap(heightFraction,0.0,0.3,0.8,1.0), 0.8)));
+            float3 directSkyAmbient = skyColor * constants.ambientStrength * heightFraction * density;
+            float3 ambient = directSkyAmbient * outScatteringAmbient;
 
-            float3 lightContribution = sunLight + ambient * heightFraction;
+            float3 lightContribution = sunLight + ambient;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            float3 dL = totalAttenuation * density * SCATTERING* phase * lightContribution * powderTerm * stepSize;
+            float3 dL = totalAttenuation * SCATTERING * density * phase * lightContribution * powderTerm * stepSize;
             inScatteredLight += dL;  
         }
 
         // Early exit if fully opaque
-        if (totalAttenuation < 0.01) {
+        if (totalAttenuation < 0.001) {
             if(constants.DEBUG_earlyTermination == 1){
                 inScatteredLight = float3(1.0,0.0,0.0);
             }

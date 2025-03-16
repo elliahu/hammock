@@ -45,10 +45,18 @@ float saturate(float value) {
     return clamp(value, 0.0, 1.0);
 }
 
-void swap(inout float a, inout float b) {
-    float c = a;
-    a = b;
-    b = c;
+// Fast hash function based on thread position and optional time seed
+float getRandomOffset(uint3 threadId, uint frameSeed) {
+    // Simple integer hash
+    uint hash = threadId.x * 1597334673U + threadId.y * 3812015801U + frameSeed;
+    hash = hash ^ (hash >> 16);
+    hash = hash * 2246822519U;
+    hash = hash ^ (hash >> 13);
+    hash = hash * 3266489917U;
+    hash = hash ^ (hash >> 16);
+    
+    // Convert to [0,1] range
+    return float(hash) * (1.0 / 4294967296.0);
 }
 
 float powder(float d) {
