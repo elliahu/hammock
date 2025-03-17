@@ -185,7 +185,7 @@ float lightRayAttenuation(float3 p) {
     // Lightmarch
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
         float3 pos = p + dirToLight * l * stepSize;
-        float cloudDensity = sampleCloudDensity(pos, false, l / 16);
+        float cloudDensity = sampleCloudDensity(pos, false, l * 0.5);
         attenuationAlongLightRay *= exp(-cloudDensity * stepSize * ABSORPTION);
     }
 
@@ -228,9 +228,10 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
         // Calculate the distance from the camera
         float distanceFromCamera = length(p - EYE);
         bool expensive = distanceFromCamera < constants.DEBUG_cheapSampleDistance;
+        float lod = expensive ? 0.0 : 3.0;
 
         // Sample the density
-        float density = sampleCloudDensity(p, expensive, i / 16);
+        float density = sampleCloudDensity(p, expensive, lod);
         accumulatedDensity += density * stepSize;
 
         // Expensive computation only for non-zero density regions

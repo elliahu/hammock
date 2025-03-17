@@ -38,8 +38,9 @@ void SkyScene::init() {
             .height = static_cast<uint32_t>(h),
             .channels = static_cast<uint32_t>(c),
             .depth = static_cast<uint32_t>(d),
+            .mips = getNumberOfMipLevels(static_cast<uint32_t>(w), static_cast<uint32_t>(h)),
             .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-            .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             .imageType = VK_IMAGE_TYPE_3D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_3D,
         }
@@ -48,6 +49,8 @@ void SkyScene::init() {
     // Copy data from buffer to image
     rm.getResource<Image>(compute.baseNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     rm.getResource<Image>(compute.baseNoise)->queueCopyFromBuffer(rm.getResource<Buffer>(baseNoiseStagingBuffer)->getBuffer());
+    // Generate a mip map chain for the image to create multiple levels of detail
+    rm.getResource<Image>(compute.baseNoise)->generateMips();
     // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
 
     // Release the staging buffer
@@ -81,8 +84,9 @@ void SkyScene::init() {
             .height = static_cast<uint32_t>(h),
             .channels = static_cast<uint32_t>(c),
             .depth = static_cast<uint32_t>(d),
-            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-            .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .mips = getNumberOfMipLevels(static_cast<uint32_t>(w),static_cast<uint32_t>(h)),
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT, // We only use RGB channels but most devices do not support 3D RGB textures so we use RGBA
+            .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             .imageType = VK_IMAGE_TYPE_3D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_3D,
         }
@@ -91,6 +95,8 @@ void SkyScene::init() {
     // Copy data from buffer to image
     rm.getResource<Image>(compute.detailNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     rm.getResource<Image>(compute.detailNoise)->queueCopyFromBuffer(rm.getResource<Buffer>(detailNoiseStagingBuffer)->getBuffer());
+    // Generate a mip map chain for the image to create multiple levels of detail
+    rm.getResource<Image>(compute.detailNoise)->generateMips();
 
     // Release the staging buffer
     rm.releaseResource(detailNoiseStagingBuffer.getUid());

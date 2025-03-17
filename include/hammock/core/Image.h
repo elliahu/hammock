@@ -250,11 +250,6 @@ namespace hammock {
 
             checkResult(vkCreateImageView(device.device(), &viewInfo, nullptr, &m_view));
 
-            // generate mips if needed
-            if (m_mips > 1) {
-                generateMips();
-            }
-
             resident = true;
         }
 
