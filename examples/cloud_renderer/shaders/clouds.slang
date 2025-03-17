@@ -47,14 +47,18 @@ struct PushConstants {
 
 [vk::push_constant] PushConstants constants;
 
+// Camera
 #define EYE cameraBuffer.cameraPosition.xyz
 
+// Areal perspective
+#define FOG_DISTANCE 70000.0
+#define FOG_FACTOR 0.000008
+
+// Sampling
 #define NUM_STEPS constants.DEBUG_maxSamples
-
 #define NUM_LIGHT_STEPS constants.DEBUG_maxLightSamples
-#define LIGHT_STEP_SIZE 400.0
 
-
+// Physical properties
 #define SCATTERING 1.0
 #define ABSORPTION constants.absorption
 
@@ -66,6 +70,7 @@ struct PushConstants {
 // Wind
 #define WIND_DIRECTION normalize(sunAndSkyBuffer.windDirection.xyz)
 
+// Weather map
 #define COVERAGE_REPEAT 9.0
 
 // Earth
@@ -78,7 +83,7 @@ struct PushConstants {
 #define SUN_DIR normalize(sunAndSkyBuffer.lightDirection.xyz)
 #define SUN_COLOR sunAndSkyBuffer.lightColor.rgb * 1.5
 
-// Cloud sampling
+// Noise sampling
 #define BASE_SCALE constants.baseScale
 #define DETAIL_SCALE constants.detailScale
 #define WIND_SPEED constants.cloudSpeed
@@ -94,43 +99,30 @@ static const float bayerFilter[16u] = float[]
 );
 
 
-static const float3 noiseKernel[6u] = {
-    float3(0.38051305, 0.92453449, -0.02111345),
-    float3(-0.50625799, -0.03590792, -0.86163418),
-    float3(-0.32509218, -0.94557439, 0.01428793),
-    float3(0.09026238, -0.27376545, 0.95755165),
-    float3(0.28128598, 0.42443639, -0.86065785),
-    float3(-0.16852403, 0.14748697, 0.97460106)
-};
-
-
 // Returns a relative hight in cloud layer 0 to 1
 float getHeightFraction(float3 inPos) {
     return (length(inPos - CENTER) - CLOUDS_BOTTOM_RADIUS) / (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS);
 }
 
-// Returns density for a specific cloud type
-// 0.0 stratus
-// 0.5 stratocumulus
-// 1.0 cumulus
-float getDensityForCloudType(float heightFraction, float cloudType){
+// Returns gradient for a specific cloud type
+float getDensityGradient(float heightFraction, float cloudType){
     float stratusFactor = 1.0 - clamp(cloudType * 2.0, 0.0, 1.0);
     float stratoCumulusFactor = 1.0 - abs(cloudType - 0.5) * 2.0;
     float cumulusFactor = clamp(cloudType - 0.5, 0.0, 1.0) * 2.0;
 
     float4 baseGradient = stratusFactor * STRATUS_GRADIENT + stratoCumulusFactor * STRATOCUMULUS_GRADIENT + cumulusFactor * CUMULUS_GRADIENT;
 
-    // gradicent computation (see Siggraph 2017 Nubis-Decima talk)
+    // gradient computation (see Siggraph 2017 Nubis-Decima talk)
     return remap(heightFraction, baseGradient.x, baseGradient.y, 0.0, 1.0) * remap(heightFraction, baseGradient.z, baseGradient.w, 1.0, 0.0);
 }
 
-// spherical uv projection
+// Spherical uv projection
 float2 getUVProjection(float3 p) {
     return p.xz / CLOUDS_BOTTOM_RADIUS + 0.5;
 }
 
-// Smples a density at a point
-// If expensive, detail hight-frequency noise will be used to erode the base shape
+// Samples a density at a point
+// If expensive, detailed hight-frequency noise will be used to erode the base shape
 float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Init cloud sample
     // Height fraction and uv coords for sampling
@@ -160,7 +152,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 
 
     // Adjust the density based on the cloud type
-    float cloudTypeDensity = getDensityForCloudType(heightFraction, cloudType);
+    float cloudTypeDensity = getDensityGradient(heightFraction, cloudType);
     baseCloud *= (cloudTypeDensity / max(0.001, heightFraction));
 
     // Apply the coverage
@@ -200,19 +192,20 @@ float lightRayAttenuation(float3 p) {
     return saturate(attenuationAlongLightRay);
 }
 
-// Raymarches from the start to the end position
+// Marches along a ray from the start to the end position
 float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     // Create the ray to march along
     float3 ray = end - start;
     float rayLenght = length(ray);
     float3 rayDirection = normalize(ray);
 
+    // Compute the number of steps to take
     // Cosine of angle between ray and vertical (Y axis)
     float angleFactor = abs(dot(rayDirection, float3(0.0, 1.0, 0.0))); // 1 when looking up, 0 when horizontal
     float numOfSteps = lerp(NUM_STEPS, NUM_STEPS * 0.5, angleFactor); // fewer steps when looking up
     float stepSize = rayLenght / numOfSteps;
 
-    // dither the ray start position to combat banding
+    // Dither the ray start position to combat banding
     int a = int(threadId.x) % 4;
     int b = int(threadId.y) % 4;
     float3 p = start + rayDirection * stepSize * bayerFilter[a * 4 + b];
@@ -297,19 +290,18 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 [numthreads(16,16,1)]
 void computeMain(uint3 threadId : SV_DispatchThreadID)
 {
-    uint2 fragCoord = uint2(threadId.xy);
     int2 resolution = int2(cameraBuffer.resX, cameraBuffer.resY);
 
     // Compute ray direction.
-    float4 rayClip = float4(computeClipSpaceCoord(fragCoord, resolution), 1.0);
+    float4 rayClip = float4(computeClipSpaceCoord(threadId.xy, resolution), 1.0);
     float4 rayView = mul(cameraBuffer.inv_proj, rayClip);
     rayView = float4(rayView.xy, -1.0, 0.0);
     float3 rayDirection = mul(cameraBuffer.inv_view, rayView).xyz;
     rayDirection = normalize(rayDirection);
     float3 rayOrigin = cameraBuffer.cameraPosition.xyz;
 
-    float4 v = float4(0.0);
-    float2 normCoord = float2(fragCoord) / float2(resolution);
+    // Sample the sky color at this pixel
+    float2 normCoord = float2(threadId.xy) / float2(resolution);
     float4 skyColor = skyTexture.SampleLevel(normCoord, 0.0);
 
     // Compute distance from camera to sphere center.
@@ -377,12 +369,14 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     float3 start = rayOrigin + rayDirection * startDist;
     float3 end = rayOrigin + rayDirection * endDist;
+    float distanceToPixel = length(end - rayOrigin);
 
     // Perform raymarching for clouds.
     float4 color = raymarch(threadId,start, end, skyColor.rgb);
 
     // Apply areal perspective
-    color.a *= exp(-length(start - rayOrigin) * .00001);
+    color.rgb = applyAerialPerspective(color.rgb, skyColor.rgb, distanceToPixel, 70000.0, 0.000008);
 
+    // Store the final value
     storageImage[threadId.xy] = color;
 }
