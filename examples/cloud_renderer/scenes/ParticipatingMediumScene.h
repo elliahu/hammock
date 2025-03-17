@@ -29,7 +29,7 @@ class ParticipatingMediumScene final : public IScene
         float densityMultiplier = 100.0f;
         float densityScale = 1.0f;
         int jitter = 1;
-        float jitterStrength = 5.0f;
+        float jitterStrength = 10.0f;
         int lightSteps = 30;
         float lightStepSize = 0.0145f;
     } pushConstants;

@@ -322,7 +322,7 @@ void ParticipatingMediumScene::buildPipelines() {
         .device = device,
         .vertexShader
         // Fullscreen vertex shader
-        {.byteCode = Filesystem::readFile(compiledShaderPath("fullscreen_headless.vert")),},
+        {.byteCode = Filesystem::readFile(compiledShaderPath("medium.vert")),},
         .fragmentShader
         // Fragment shader samples storage texture and writes it to swapchain image
         {.byteCode = Filesystem::readFile(compiledShaderPath("medium.frag")),},

@@ -43,12 +43,12 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     // Prep the output
     PixelOutput output;
 
-// Simpler ray direction calculation for testing
-float2 ndc = (input.position.xy / float2(set.cameraBuffer.resX, set.cameraBuffer.resY)) * 2.0 - 1.0;
-float4 rayClip = float4(ndc, 1.0, 1.0);
-float4 rayEye = mul(set.cameraBuffer.inv_proj, rayClip);
-rayEye.w = 0.0; // Direction vector
-float3 rayDirection = normalize(mul(set.cameraBuffer.inv_view, rayEye).xyz);
+    // Simpler ray direction calculation for testing
+    float2 ndc = (input.position.xy / float2(set.cameraBuffer.resX, set.cameraBuffer.resY)) * 2.0 - 1.0;
+    float4 rayClip = float4(ndc, 1.0, 1.0);
+    float4 rayEye = mul(set.cameraBuffer.inv_proj, rayClip);
+    rayEye.w = 0.0; // Direction vector
+    float3 rayDirection = normalize(mul(set.cameraBuffer.inv_view, rayEye).xyz);
 
     //Base sky color
     float3 skyColorZenith = set.sunAndSkyBuffer.skyColorZenith.rgb;
