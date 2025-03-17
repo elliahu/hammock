@@ -52,7 +52,8 @@ class SkyScene final : public IScene {
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;
-        float ambientStrength = 0.85f;
+        float ambientStrength = 0.3f;
+        int DEBUG_epicView = 0;
         int DEBUG_cheapSampleDistance = 100000;
         int DEBUG_maxSamples = 128;
         int DEBUG_maxLightSamples = 6;

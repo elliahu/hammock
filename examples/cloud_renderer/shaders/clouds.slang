@@ -22,6 +22,7 @@ struct PushConstants {
     float silverIntensity;
     float silverSpread;
     float ambientStrength;
+    int DEBUG_epicView;
     int DEBUG_cheapSampleDistance;
     int DEBUG_maxSamples;
     int DEBUG_maxLightSamples;
@@ -150,6 +151,21 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Cloud type is in the blue channel
     float cloudType = cloudMap.b;
 
+    // Make clouds on the horizon look bigger to create 'epic' view
+    if(constants.DEBUG_epicView == 1){
+        // Calculate distance from camera
+        float distanceFromCamera = length(p - EYE);
+        // Define the distance threshold near the max view distance
+        float transitionStartDistance = FOG_DISTANCE * 0.8; // Start at 80% of max distance
+        float transitionWidth = FOG_DISTANCE * 0.1; // Transition over 10% of max distance
+        // Create a sharp transition that happens only near the horizon
+        float distanceFactor = saturate((distanceFromCamera - transitionStartDistance) / transitionWidth);
+        // Use a power function to make the transition even sharper
+        distanceFactor = pow(distanceFactor, 4.0);
+        // Apply the transition to cloud type
+        cloudType = lerp(cloudType, 1.0, distanceFactor);
+    }
+    
 
     // Adjust the density based on the cloud type
     float cloudTypeDensity = getDensityGradient(heightFraction, cloudType);
@@ -163,10 +179,9 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Check if we are doing expensive sampling
     if (expensive || (constants.DEBUG_expensiveSampling == 1))
     {
-        // Sample hight frequency noise and build the FBM
+        // Sample high frequency noise and build the FBM
         float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(float3(staticUv * DETAIL_SCALE, heightFraction), lod).rgb * constants.detailMultiplier;
         float highFreqFBM = dot(highFrequencyNoise, float3(0.625, 0.25, 0.125));
-
         float highFreqNoiseModifier = lerp(highFreqFBM, 1.0 - highFreqFBM, saturate(heightFraction * 10.0));
         baseCloudWithCoverage = remap(baseCloudWithCoverage, highFreqNoiseModifier, 1.0, 0.0, 1.0);
     }
@@ -228,7 +243,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
         // Calculate the distance from the camera
         float distanceFromCamera = length(p - EYE);
         bool expensive = distanceFromCamera < constants.DEBUG_cheapSampleDistance;
-        float lod = expensive ? 0.0 : 3.0;
+        float lod = expensive ? 0.0 : 1.5;
 
         // Sample the density
         float density = sampleCloudDensity(p, expensive, lod);

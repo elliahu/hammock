@@ -143,7 +143,7 @@ void SkyScene::init() {
     rm.releaseResource(curlNoiseStagingBuffer.getUid());
 
     // Load the cloud map
-    ScopedMemory cloudMapData(readImage(assetPath("noise/weatherMap.png"), w, h, c,
+    ScopedMemory cloudMapData(readImage(assetPath("noise/weather/stratocumulus.png"), w, h, c,
                                         Filesystem::ImageFormat::R8G8B8A8_UNORM));
 
     // Create host visible staging buffer on device
@@ -648,6 +648,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragInt("Max samples", &computePushConsts.DEBUG_maxSamples, 0.1f, 2, 2048);
                     ImGui::DragInt("Max light samples", &computePushConsts.DEBUG_maxLightSamples, 0.1f, 2, 64);
                     ImGui::DragInt("Cheap sample distance", &computePushConsts.DEBUG_cheapSampleDistance, 10, 0, 1000000);
+                    ImGui::Checkbox("Enable epic view", (bool*)&computePushConsts.DEBUG_epicView);
 
                     ImGui::SeparatorText("Debug views");
                     ImGui::Checkbox("Expensive light sampling", (bool*)&computePushConsts.DEBUG_expensiveSampling);
