@@ -48,8 +48,7 @@ class SkyScene final : public IScene {
         float baseScale = 75.f;
         float detailScale = 100.0f;
         float curliness = 2.0f;
-        float absorption = 0.0014f;
-        float scattering = 0.2f;
+        float absorption = 0.0022f;
         float eccentricity = 0.6f;
         float silverIntensity = 1.73f;
         float silverSpread = 0.887f;

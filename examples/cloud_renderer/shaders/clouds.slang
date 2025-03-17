@@ -18,7 +18,6 @@ struct PushConstants {
     float detailScale;
     float curliness;
     float absorption;
-    float scattering;
     float eccentricity;
     float silverIntensity;
     float silverSpread;
@@ -56,7 +55,7 @@ struct PushConstants {
 #define LIGHT_STEP_SIZE 400.0
 
 
-#define SCATTERING constants.scattering
+#define SCATTERING 1.0
 #define ABSORPTION constants.absorption
 
 // Cloud types height density gradients
@@ -225,8 +224,8 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     float phase = directedPhase(cosTheta, constants.eccentricity, constants.silverIntensity, constants.silverSpread);
 
     // Raymarch variables
-    float totalAttenuation = 1.0;
-    float totalDensity= 0.0;
+    float accumulatedAttenuation = 1.0;
+    float accumulatedDensity= 0.0;
     float3 inScatteredLight = 0.0;
 
     // Raymarch
@@ -239,19 +238,19 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 
         // Sample the density
         float density = sampleCloudDensity(p, expensive, i / 16);
-        totalDensity += density * stepSize;
+        accumulatedDensity += density * stepSize;
 
         // Expensive computation only for non-zero density regions
         if (density > 0.001) {
             // Update total transmittance for extinction along the ray segment
-            float attenuation = exp(-totalDensity  * ABSORPTION);
-            totalAttenuation *= attenuation;
+            float attenuation = exp(-density * stepSize  * ABSORPTION);
+            accumulatedAttenuation *= attenuation;
 
             // compute the height fraction: relative height in cloud layer <0;1>
             float heightFraction = getHeightFraction(p);
 
             // Beer-powder aprox
-            float powderTerm = powder(totalDensity);
+            float powderTerm = powder(accumulatedDensity);
 
             // extra in scattering
             float extra = constants.eccentricity * pow(saturate(cosTheta), constants.silverSpread);
@@ -272,12 +271,12 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float3 lightContribution = sunLight + ambient;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            float3 dL = totalAttenuation * SCATTERING * density * phase * lightContribution * powderTerm * stepSize;
+            float3 dL = accumulatedAttenuation * SCATTERING * density * phase * lightContribution * powderTerm *stepSize;
             inScatteredLight += dL;  
         }
 
         // Early exit if fully opaque
-        if (totalAttenuation < 0.001) {
+        if (accumulatedAttenuation < 0.001) {
             if(constants.DEBUG_earlyTermination == 1){
                 inScatteredLight = float3(1.0,0.0,0.0);
             }
@@ -290,7 +289,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 
     // Compute alpha from the accumulated optical depth,
     // Here we base it on the remaining transmittance.
-    float alpha = 1.0 - totalAttenuation;
+    float alpha = 1.0 - accumulatedAttenuation;
     return float4(inScatteredLight, alpha);
 }
 

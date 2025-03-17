@@ -512,7 +512,6 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Low frequency", &computePushConsts.baseMultiplier, 0.0f, 1.f);
                     ImGui::SliderFloat("High frequency", &computePushConsts.detailMultiplier, 0.0f, 1.f);
                     ImGui::DragFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.0f, 1.0f, "%.7f");
-                    ImGui::DragFloat("Scattering", &computePushConsts.scattering, 0.0001f, 0.0f, 1.0f, "%.7f");
 
                     ImGui::SeparatorText("Phase");
                     ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
