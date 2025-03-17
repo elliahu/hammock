@@ -30,17 +30,6 @@ float remap(float value, float inMin, float inMax, float outMin, float outMax) {
     return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
 }
 
-float remapc(float value, float original_min, float original_max, float new_min, float new_max) {
-    float t = new_min + ((value - original_min) / (original_max - original_min)) * (new_max - new_min);
-    return clamp(t, new_min, new_max);
-}
-
-float remapcc(float value, float original_min, float original_max, float new_min, float new_max) {
-    value = clamp(value, original_min, original_max);
-    float t = new_min + ((value - original_min) / (original_max - original_min)) * (new_max - new_min);
-    return clamp(t, new_min, new_max);
-}
-
 float saturate(float value) {
     return clamp(value, 0.0, 1.0);
 }
@@ -66,6 +55,21 @@ float powder(float d) {
 float3 computeClipSpaceCoord(uint2 fragCoord, int2 res) {
     float2 rayNds = 2.0 * float2(fragCoord.xy) / float2(res) - 1.0;
     return float3(rayNds, 1.0);
+}
+
+// Calculate fog factor based on distance
+float3 applyAerialPerspective(float3 pixelColor, float3 backgroundColor, float distance, float maxVisibilityDistance, float densityFactor) {
+    // This is an exponential fog model which is more realistic than linear
+    float fogFactor = 1.0 - exp(-distance * densityFactor);
+    
+    // Clamp fog factor
+    fogFactor = saturate(fogFactor);
+    
+    // Optional: Adjust fog color based on altitude if you have that information
+    float3 fogColor = backgroundColor;
+    
+    // Blend between pixel color and fog color
+    return lerp(pixelColor, fogColor, fogFactor);
 }
 
 // PHASE FUNCTIONS
