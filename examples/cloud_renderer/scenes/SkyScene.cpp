@@ -105,7 +105,7 @@ void SkyScene::init() {
     rm.releaseResource(detailNoiseStagingBuffer.getUid());
 
     // Load the cloud map
-    ScopedMemory cloudMapData(readImage(assetPath("noise/weather/weatherMap.png"), w, h, c,
+    ScopedMemory cloudMapData(readImage(assetPath("noise/weather/stratocumulus.png"), w, h, c,
                                         Filesystem::ImageFormat::R8G8B8A8_UNORM));
 
     // Create host visible staging buffer on device
@@ -304,13 +304,14 @@ void SkyScene::buildRenderGraph() {
                             {1, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {2, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {3, {"clouds-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {4, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {4, {"god-rays-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {5, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {
-                                5, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                6, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                 VK_SHADER_STAGE_COMPUTE_BIT
                             },
-                            {6, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {7, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {7, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {8, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "clouds-image",
@@ -345,6 +346,11 @@ void SkyScene::buildRenderGraph() {
     renderGraph->addPass<CommandQueueFamily::Graphics, RelativeViewPortSize::SwapChainRelative>("composition-pass")
             .read(ResourceAccess{
                 .resourceName = "clouds-image",
+                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
+            })
+            .read(ResourceAccess{
+                .resourceName = "god-rays-image",
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
             })

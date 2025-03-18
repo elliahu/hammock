@@ -35,15 +35,17 @@ struct PushConstants {
 [vk::binding(1)] ConstantBuffer<TimeBuffer> timeBuffer;
 [vk::binding(2)] ConstantBuffer<SunAndSkyBuffer> sunAndSkyBuffer ;
 
-// Storage image
-[vk::binding(3)] RWTexture2D storageImage;
+// Storage images
+[vk::binding(3)] RWTexture2D cloudsStorageImage;
+[vk::binding(4)] RWTexture2D godRaysStorageImage;
 
 // Images and samplers
-[vk::binding(4)] Sampler3D lowFreqNoiseTexture;
-[vk::binding(5)] Sampler3D highFreqNoiseTexture;
-[vk::binding(6)] Sampler2D cloudMapTexture;
-[vk::binding(7)] Sampler2D skyTexture;
+[vk::binding(5)] Sampler3D lowFreqNoiseTexture;
+[vk::binding(6)] Sampler3D highFreqNoiseTexture;
+[vk::binding(7)] Sampler2D cloudMapTexture;
+[vk::binding(8)] Sampler2D skyTexture;
 
+// Push constants
 [vk::push_constant] PushConstants constants;
 
 // Camera
@@ -97,6 +99,8 @@ static const float bayerFilter[16u] = float[]
 3.0 * BAYER_FACTOR, 11.0 * BAYER_FACTOR, 1.0 * BAYER_FACTOR, 9.0 * BAYER_FACTOR,
 15.0 * BAYER_FACTOR, 7.0 * BAYER_FACTOR, 13.0 * BAYER_FACTOR, 5.0 * BAYER_FACTOR
 );
+
+#define MASK_THRESHOLD 0.1
 
 
 // Returns a relative hight in cloud layer 0 to 1
@@ -155,10 +159,10 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
         // Calculate distance from camera
         float distanceFromCamera = length(p - EYE);
         // Define the distance threshold near the max view distance
-        float transitionStartDistance = FOG_DISTANCE * 0.8; // Start at 80% of max distance
+        float transitiondstToStartance = FOG_DISTANCE * 0.8; // Start at 80% of max distance
         float transitionWidth = FOG_DISTANCE * 0.1; // Transition over 10% of max distance
         // Create a sharp transition that happens only near the horizon
-        float distanceFactor = saturate((distanceFromCamera - transitionStartDistance) / transitionWidth);
+        float distanceFactor = saturate((distanceFromCamera - transitiondstToStartance) / transitionWidth);
         // Use a power function to make the transition even sharper
         distanceFactor = pow(distanceFactor, 4.0);
         // Apply the transition to cloud type
@@ -414,69 +418,45 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float2 planetIntersect = intersectRaySphere(CENTER, EARTH_RADIUS, rayOrigin, rayDirection);
     float2 innerCloudIntersect = intersectRaySphere(CENTER, CLOUDS_BOTTOM_RADIUS, rayOrigin, rayDirection);
     float2 outerCloudIntersect = intersectRaySphere(CENTER, CLOUDS_TOP_RADIUS, rayOrigin, rayDirection);
-    float outerCloudExit = outerCloudIntersect.x + outerCloudIntersect.y; // actual exit distance
 
-    float startDist, endDist;
-
-    // Case 1: Camera is inside inner cloud sphere.
-    if (insideInnerSphere) {
-        startDist = 0.0; // Start at camera.
-        if (planetIntersect.x > 0.0 && planetIntersect.x < outerCloudExit) {
-            endDist = planetIntersect.x; // Stop if planet is hit.
-        } else {
-            endDist = outerCloudExit;
-        }
-    }
-    // Case 2: Camera is between inner and outer cloud spheres.
-    else if (insideOuterSphere) {
-        startDist = max(0.0, innerCloudIntersect.x); // Start at camera or inner sphere entry.
-        if (planetIntersect.x > 0.0 && planetIntersect.x < outerCloudExit) {
-            endDist = planetIntersect.x; // Clip clouds by the planet.
-        } else {
-            endDist = outerCloudExit;
-        }
-    }
-    // Case 3: Camera is above the outer cloud sphere.
-    else if (aboveOuterSphere) {
-        // Allow clouds even if the entry is exactly 0.
-        if (outerCloudIntersect.x < 0.0) {
-            storageImage[threadId.xy] = float4(0.0);
-            return;
-        }
-        startDist = outerCloudIntersect.x; // Enter at outer sphere.
-        if (innerCloudIntersect.x > 0.0) {
-            // If ray goes through clouds and then enters the inner sphere...
-            if (planetIntersect.x > 0.0 && planetIntersect.x < innerCloudIntersect.x) {
-                endDist = planetIntersect.x;
-            } else {
-                endDist = innerCloudIntersect.x;
-            }
-        } else {
-            // Ray enters outer sphere but doesn't hit inner cloud sphere.
-            if (planetIntersect.x > 0.0 && planetIntersect.x < outerCloudExit) {
-                endDist = planetIntersect.x;
-            } else {
-                endDist = outerCloudExit;
-            }
-        }
-    }
-
-    // Validate segment.
-    if (endDist <= startDist || startDist < 0.0) {
-        storageImage[threadId.xy] = float4(0.0);
+    // if we intersected a planet, we exit as there are no clouds under ground
+    if (planetIntersect.y > 0.0) {
+        cloudsStorageImage[threadId.xy] = float4(0.0);
+        godRaysStorageImage[threadId.xy] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
-    float3 start = rayOrigin + rayDirection * startDist;
-    float3 end = rayOrigin + rayDirection * endDist;
+    // We only account for situation where we are between the planet and clouds
+    float dstToStart = innerCloudIntersect.y;
+    float dstToEnd = outerCloudIntersect.y;
+
+
+    // Validate segment
+    if (dstToEnd <= dstToStart || dstToStart < 0.0) {
+        cloudsStorageImage[threadId.xy] = float4(1.0,0.0,0.0,1.0);
+        godRaysStorageImage[threadId.xy] = float4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
+    // Start and end points
+    float3 start = rayOrigin + rayDirection * dstToStart;
+    float3 end = rayOrigin + rayDirection * dstToEnd;
     float distanceToPixel = length(end - rayOrigin);
 
     // Perform raymarching for clouds.
     float4 color = raymarch(threadId,start, end, skyColor.rgb);
 
+    // If the alpha is high enough, write it to the mask, else write the color of the light
+    if (color.a > MASK_THRESHOLD) {
+        godRaysStorageImage[threadId.xy] = float4(0.0, 0.0, 0.0, 1.0);
+    }
+    else {
+        godRaysStorageImage[threadId.xy] = float4(SUN_COLOR, 1.0);
+    }
+
     // Apply areal perspective
     color.rgb = applyAerialPerspective(color.rgb, skyColor.rgb, distanceToPixel, 70000.0, 0.000008);
 
     // Store the final value
-    storageImage[threadId.xy] = color;
+    cloudsStorageImage[threadId.xy] = color;
 }
