@@ -60,6 +60,7 @@ class SkyScene final : public IScene {
         int DEBUG_expensiveSampling = 0;
         int DEBUG_earlyTermination = 0;
         int DEBUG_lateTermination = 0;
+        int DEBUG_longStepMulti = 10;
     } computePushConsts, backUpComputePushConsts;
 
     float32_t timeOfDay = 0.5f;

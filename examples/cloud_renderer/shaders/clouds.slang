@@ -29,6 +29,7 @@ struct PushConstants {
     int DEBUG_expensiveSampling;
     int DEBUG_earlyTermination;
     int DEBUG_lateTermination;
+    int DEBUG_longStepMulti;
 };
 
 
@@ -81,7 +82,8 @@ struct PushConstants {
 
 // Sun
 #define SUN_DIR normalize(sunAndSkyBuffer.lightDirection.xyz)
-#define SUN_COLOR sunAndSkyBuffer.lightColor.rgb * 1.5
+#define SUN_COLOR sunAndSkyBuffer.lightColor.rgb
+#define SUN_STRENGTH sunAndSkyBuffer.lightColor.a
 
 // Noise sampling
 #define BASE_SCALE constants.baseScale
@@ -246,49 +248,80 @@ float lightRayAttenuation(float3 p) {
 }
 
 // Marches along a ray from the start to the end position
+// Uses adaptive stepping: longer steps until cloud is detected, then short steps
 float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     // Create the ray to march along
     float3 ray = end - start;
-    float rayLenght = length(ray);
+    float rayLength = length(ray);
     float3 rayDirection = normalize(ray);
 
-    // Compute the number of steps to take
+    // Compute the base number of steps to take
     // Cosine of angle between ray and vertical (Y axis)
     float angleFactor = abs(dot(rayDirection, float3(0.0, 1.0, 0.0))); // 1 when looking up, 0 when horizontal
-    float numOfSteps = lerp(NUM_STEPS, NUM_STEPS * 0.5, angleFactor); // fewer steps when looking up
-    float stepSize = rayLenght / numOfSteps;
+    float numOfSteps = lerp(NUM_STEPS, NUM_STEPS * 0.5, angleFactor);  // fewer steps when looking up
+    float baseStepSize = rayLength / numOfSteps;
+
+    // Step size multipliers
+    float largeStepMultiplier = float(constants.DEBUG_longStepMulti); // For empty space
+    float smallStepMultiplier = 1.0; // For detailed sampling inside clouds
 
     // Dither the ray start position to combat banding
     int a = int(threadId.x) % 4;
     int b = int(threadId.y) % 4;
-    float3 p = start + rayDirection * stepSize * bayerFilter[a * 4 + b]* 1.87;
+    float3 p = start + rayDirection * baseStepSize * bayerFilter[a * 4 + b] * 1.87;
 
     // Phase function
     float3 L = normalize(SUN_DIR);
     float3 V = normalize(rayDirection);
     float cosTheta = dot(L, V);
-    float phase = dualLobePhase(cosTheta, constants.eccentricity); //directedPhase(cosTheta, constants.eccentricity, constants.silverIntensity, constants.silverSpread);
+    float phase = dualLobePhase(cosTheta, constants.eccentricity);
 
     // Raymarch variables
     float transmittance = 1.0;
-    float accumulatedDensity= 0.0;
+    float accumulatedDensity = 0.0;
     float3 inScatteredLight = 0.0;
+    float currentStepSize = baseStepSize * largeStepMultiplier;
+    bool insideCloud = false;
+    bool everInCloud = false;
+    int emptyStepsCount = 0;
 
-    // Raymarch
-    // TODO optimization: march with big steps until dense region, then backstep one step and sample small steps. if multiple small steps return 0 density, do large steps again
-    for (int i = 0; i < numOfSteps; i++) {
+    // Maximum distance we can travel
+    float remainingDistance = rayLength;
 
+    // Raymarch with adaptive step sizes
+    while (remainingDistance > 0.0) {
         // Calculate the distance from the camera
         float distanceFromCamera = length(p - EYE);
         bool expensive = distanceFromCamera < constants.DEBUG_cheapSampleDistance;
         float lod = expensive ? 0.0 : 2.0;
 
-        // Sample the density
-        float density = sampleCloudDensity(p, expensive, lod);
-        accumulatedDensity += density;
+        // Sample the density (use cheap sampling for large steps)
+        float density = sampleCloudDensity(p, expensive && insideCloud, lod);
 
-        // Expensive computation only for non-zero density regions
+        // Adaptive stepping logic
         if (density > 0.001) {
+            // We hit a cloud - if we were taking large steps, we need to back up and switch to small steps
+            if (!insideCloud) {
+                // Back up one large step and switch to small steps
+                if (currentStepSize > baseStepSize) {
+                    p -= rayDirection * currentStepSize;
+                    remainingDistance += currentStepSize;
+                    currentStepSize = baseStepSize * smallStepMultiplier;
+                    insideCloud = true;
+                    everInCloud = true;
+                    emptyStepsCount = 0;
+                    continue; // Skip this step and restart with small steps
+                } else {
+                    // Already using small steps, just mark that we're in a cloud
+                    insideCloud = true;
+                    everInCloud = true;
+                    emptyStepsCount = 0;
+                }
+            }
+
+            // Process the cloud sample
+            accumulatedDensity += density;
+
             // compute the height fraction: relative height in cloud layer <0;1>
             float heightFraction = getHeightFraction(p);
 
@@ -303,32 +336,51 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float transmittanceAlongLightRay = lightRayAttenuation(p);
 
             // Ambient light from sky
-            float3 ambient = skyColor * heightFraction * density * constants.ambientStrength; 
+            float3 ambient = skyColor * heightFraction * density * constants.ambientStrength;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            inScatteredLight += density * stepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase + ambient; 
+            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase + ambient;
 
-             // Update total transmittance for extinction along the ray segment
-            transmittance *= exp(-density * stepSize  * ABSORPTION);
+            // Update total transmittance for extinction along the ray segment
+            transmittance *= exp(-density * currentStepSize * ABSORPTION);
 
-        }
-
-        // Early exit if fully opaque
-        if (transmittance < 0.001) {
-            if(constants.DEBUG_earlyTermination == 1){
-                inScatteredLight = float3(1.0,0.0,0.0);
+            // Early exit if fully opaque
+            if (transmittance < 0.001) {
+                if (constants.DEBUG_earlyTermination == 1) {
+                    inScatteredLight = float3(1.0, 0.0, 0.0);
+                }
+                break;
             }
-            break;
+        } else {
+            // No cloud here
+            emptyStepsCount++;
+
+            // If we've taken several empty steps while using small steps, switch back to large steps
+            if (insideCloud && emptyStepsCount > 3) {
+                insideCloud = false;
+                currentStepSize = baseStepSize * largeStepMultiplier;
+            }
         }
 
         // Move one step
-        p += rayDirection * stepSize;
+        p += rayDirection * currentStepSize;
+        remainingDistance -= currentStepSize;
+
+        // Safety check to prevent infinite loops
+        if (remainingDistance < 0.0 || currentStepSize <= 0.0) {
+            break;
+        }
+    }
+
+    if (constants.DEBUG_lateTermination == 1 && !everInCloud) {
+        transmittance = 0.0;
+        inScatteredLight =  float3(1.0, 0.0, 0.0);
     }
 
     // Compute alpha from the accumulated optical depth,
     // Here we base it on the remaining transmittance.
     float alpha = 1.0 - transmittance;
-    return float4(inScatteredLight * SUN_COLOR, alpha);
+    return float4(inScatteredLight * SUN_COLOR * SUN_STRENGTH, alpha);
 }
 
 [shader("compute")]

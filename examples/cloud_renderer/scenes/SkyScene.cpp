@@ -449,6 +449,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
                     ImGui::ColorEdit3("Zenith sky color", &sunAndSkyUbo.skyColorZenith.Elements[0]);
                     ImGui::ColorEdit3("Horizon sky color", &sunAndSkyUbo.skyColorHorizon.Elements[0]);
+                    ImGui::SliderFloat("Sun light strength", &sunAndSkyUbo.lightColor.A, 0.0f, 5.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
 
 
@@ -560,6 +561,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Rendering");
                     ImGui::DragInt("Max samples", &computePushConsts.DEBUG_maxSamples, 0.1f, 2, 2048);
                     ImGui::DragInt("Max light samples", &computePushConsts.DEBUG_maxLightSamples, 0.1f, 2, 64);
+                    ImGui::DragInt("Large step multiplier", &computePushConsts.DEBUG_longStepMulti, 1, 1, 100);
                     ImGui::DragInt("Cheap sample distance", &computePushConsts.DEBUG_cheapSampleDistance, 10, 0, 1000000);
                     ImGui::Checkbox("Enable epic view", (bool*)&computePushConsts.DEBUG_epicView);
 
