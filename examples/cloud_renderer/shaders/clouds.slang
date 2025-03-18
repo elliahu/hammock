@@ -196,7 +196,7 @@ float lightRayAttenuation(float3 p) {
     float stepSize = 0.5 * (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS) / NUM_LIGHT_STEPS;
 
     // Cone parameters (as described by Schneider)
-    float lastStepDistanceMultiplier = 2.0; // Last step reaches 2x further
+    float lastStepDistanceMultiplier = 5.0; // Last step reaches 2x further
 
     // Lightmarch - exactly NUM_LIGHT_STEPS total samples
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
