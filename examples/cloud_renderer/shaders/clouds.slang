@@ -187,22 +187,61 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     return saturate(baseCloudWithCoverage);
 }
 
-
-// Compute level of attenuation along a light ray
-// TODO: cone sampling
+// Compute level of attenuation along a light ray using Schneider's cone sampling
 float lightRayAttenuation(float3 p) {
     float3 dirToLight = normalize(sunAndSkyBuffer.lightDirection.xyz);
     float attenuationAlongLightRay = 1.0;
     float totalDensity = 0.0;
     float stepSize = 0.5 * (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS) / NUM_LIGHT_STEPS;
 
-    // Lightmarch
+    // Cone sampling parameters
+    float coneSpreadAngle = 0.1; // Angle in radians
+    float coneInitialRadius = 0.0;
+    float coneFinalRadius = tan(coneSpreadAngle) * NUM_LIGHT_STEPS * stepSize;
+
+    // Lightmarch with cone sampling
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
-        float3 pos = p + dirToLight * l * stepSize;
-        float cloudDensity = sampleCloudDensity(pos, constants.DEBUG_expensiveSampling == 1, l * 0.5);
-        totalDensity += sampleCloudDensity(pos, false, l * 0.5) * stepSize;
+        // Calculate position along the light ray
+        float stepDistance = l * stepSize;
+        float3 pos = p + dirToLight * stepDistance;
+
+        // Calculate cone radius at this step
+        float coneRadius = lerp(coneInitialRadius, coneFinalRadius, stepDistance / (NUM_LIGHT_STEPS * stepSize));
+
+        // Sample count for this step (can be adjusted based on performance needs)
+        int sampleCount = 1 + (int)(3.0 * l / NUM_LIGHT_STEPS);
+        float sampleWeight = 1.0 / sampleCount;
+
+        // Sample within the cone
+        float stepDensity = 0.0;
+        for (int s = 0; s < sampleCount; s++) {
+            // Generate offset direction (perpendicular to light direction)
+            // Use a Fibonacci spiral for better distribution
+            float phi = s * 2.618033988749895; // Golden ratio * 2*PI
+            float r = coneRadius * sqrt((float)s / sampleCount);
+
+            // Create two perpendicular vectors to dirToLight
+            float3 u, v;
+            if (abs(dirToLight.x) < 0.99) {
+                u = normalize(cross(float3(1, 0, 0), dirToLight));
+            } else {
+                u = normalize(cross(float3(0, 1, 0), dirToLight));
+            }
+            v = cross(dirToLight, u);
+
+            // Calculate offset position
+            float3 offset = r * (cos(phi) * u + sin(phi) * v);
+            float3 samplePos = pos + offset;
+
+            // Sample cloud density at offset position
+            stepDensity += sampleCloudDensity(samplePos, false, l * 0.5) * sampleWeight;
+        }
+
+        // Accumulate density along the ray
+        totalDensity += stepDensity * stepSize;
     }
 
+    // Apply Beer's law for exponential light attenuation
     return saturate(exp(-totalDensity * ABSORPTION));
 }
 

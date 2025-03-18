@@ -38,6 +38,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     return output;
 }
 
+
 [shader("pixel")]
 PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     // Prep the output
@@ -79,10 +80,30 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
         t = pow(t, .5); // Higher power creates swifter transition
         finalColor = lerp(skyColorHorizon, skyColorNadir, t);
     }
-    
+
+    // Sun parameters
+    float sunSize = 0.0005;         // Apparent size of sun in radians
+    float sunGlowIntensity = 4.0; // Intensity of the sun glow
+    float sunGlowFalloff = 128.0;  // How quickly the glow falls off
+
+    // Calculate sun and glow factor
+    float sunFactor = sunGlowFactor(rayDirection, normalize(set.sunAndSkyBuffer.lightDirection.xyz), sunSize, sunGlowIntensity, sunGlowFalloff);
+
+    // Sun color (warm yellowish)
+    float3 sunColor = set.sunAndSkyBuffer.lightColor.rgb * 3.0; // Brightened sun color
+
+    // Blend sun with sky
+    // Add atmospheric scattering effect - sun appears more orange/red near horizon
+    float sunHeight = dot(normalize(set.sunAndSkyBuffer.lightDirection.xyz), float3(0, 1, 0));
+    float atmosphericEffect = pow(max(0.0, 1.0 - sunHeight), 2.0);
+    float3 adjustedSunColor = lerp(sunColor, sunColor * float3(1.0, 0.6, 0.2), atmosphericEffect);
+
+    // Apply sun to final color
+    finalColor = finalColor + sunFactor * adjustedSunColor;
+
     // Set the output color
     output.color = float4(finalColor, 1.0);
-    
+
     return output;
 }
 
