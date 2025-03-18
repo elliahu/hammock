@@ -433,9 +433,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::DragFloat("Absorption", &computePushConsts.absorption, 0.0001f, 0.0f, 1.0f, "%.7f");
 
                     ImGui::SeparatorText("Phase");
-                    ImGui::SliderFloat("Eccentricity", &computePushConsts.eccentricity, 0.f, 1.0f);
-                    ImGui::SliderFloat("Silver intensity", &computePushConsts.silverIntensity, 0.f, 10.0f);
-                    ImGui::SliderFloat("Silver spread", &computePushConsts.silverSpread, 0.f, 1.0f);
+                    ImGui::SliderFloat("G", &computePushConsts.phase, 0.f, 1.0f);
 
                     ImGui::SeparatorText("Weather");
                     ImGui::SliderFloat("Global coverage", &computePushConsts.globalCoverage, 0.0f, 1.f);

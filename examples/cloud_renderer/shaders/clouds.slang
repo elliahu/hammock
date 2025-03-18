@@ -18,9 +18,7 @@ struct PushConstants {
     float detailScale;
     float curliness;
     float absorption;
-    float eccentricity;
-    float silverIntensity;
-    float silverSpread;
+    float phase;
     float ambientStrength;
     int DEBUG_epicView;
     int DEBUG_cheapSampleDistance;
@@ -189,58 +187,61 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     return saturate(baseCloudWithCoverage);
 }
 
-// Compute level of attenuation along a light ray using Schneider's cone sampling
+// Compute level of attenuation along a light ray
+// Using cone sampling as described by Schneider
 float lightRayAttenuation(float3 p) {
     float3 dirToLight = normalize(sunAndSkyBuffer.lightDirection.xyz);
     float attenuationAlongLightRay = 1.0;
     float totalDensity = 0.0;
     float stepSize = 0.5 * (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS) / NUM_LIGHT_STEPS;
 
-    // Cone sampling parameters
-    float coneSpreadAngle = 0.1; // Angle in radians
-    float coneInitialRadius = 0.0;
-    float coneFinalRadius = tan(coneSpreadAngle) * NUM_LIGHT_STEPS * stepSize;
+    // Cone parameters (as described by Schneider)
+    float lastStepDistanceMultiplier = 2.0; // Last step reaches 2x further
 
-    // Lightmarch with cone sampling
+    // Lightmarch - exactly NUM_LIGHT_STEPS total samples
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
-        // Calculate position along the light ray
-        float stepDistance = l * stepSize;
-        float3 pos = p + dirToLight * stepDistance;
+        float t = (float)l / (NUM_LIGHT_STEPS - 1); // Normalized position [0,1]
 
-        // Calculate cone radius at this step
-        float coneRadius = lerp(coneInitialRadius, coneFinalRadius, stepDistance / (NUM_LIGHT_STEPS * stepSize));
-
-        // Sample count for this step (can be adjusted based on performance needs)
-        int sampleCount = 1 + (int)(3.0 * l / NUM_LIGHT_STEPS);
-        float sampleWeight = 1.0 / sampleCount;
-
-        // Sample within the cone
-        float stepDensity = 0.0;
-        for (int s = 0; s < sampleCount; s++) {
-            // Generate offset direction (perpendicular to light direction)
-            // Use a Fibonacci spiral for better distribution
-            float phi = s * 2.618033988749895; // Golden ratio * 2*PI
-            float r = coneRadius * sqrt((float)s / sampleCount);
-
-            // Create two perpendicular vectors to dirToLight
-            float3 u, v;
-            if (abs(dirToLight.x) < 0.99) {
-                u = normalize(cross(float3(1, 0, 0), dirToLight));
-            } else {
-                u = normalize(cross(float3(0, 1, 0), dirToLight));
-            }
-            v = cross(dirToLight, u);
-
-            // Calculate offset position
-            float3 offset = r * (cos(phi) * u + sin(phi) * v);
-            float3 samplePos = pos + offset;
-
-            // Sample cloud density at offset position
-            stepDensity += sampleCloudDensity(samplePos, false, l * 0.5) * sampleWeight;
+        // Modify the last step to reach further
+        float distanceFactor;
+        if (l == NUM_LIGHT_STEPS - 1) {
+            distanceFactor = (1.0 + lastStepDistanceMultiplier) / 2.0; // Average of second-to-last and extended last
+        } else {
+            // Non-uniform step distribution (denser near start, sparser far away)
+            distanceFactor = t;
         }
 
-        // Accumulate density along the ray
-        totalDensity += stepDensity * stepSize;
+        // Calculate step position - distance increases with each step
+        float stepDistance = distanceFactor * NUM_LIGHT_STEPS * stepSize;
+
+        // Calculate cone radius at this distance - widens as we move away
+        float coneRadius = stepDistance * tan(0.03); // 0.03 radians = ~1.7 degrees cone angle
+
+        // Offset direction based on step number (spiral pattern)
+        float angle = l * 2.4; // Golden angle in radians
+
+        // Create offset vectors perpendicular to light direction
+        float3 u, v;
+        if (abs(dirToLight.x) < 0.99) {
+            u = normalize(cross(float3(1, 0, 0), dirToLight));
+        } else {
+            u = normalize(cross(float3(0, 1, 0), dirToLight));
+        }
+        v = cross(dirToLight, u);
+
+        // Calculate radius factor (distance from center line of the cone)
+        // t gives distance from center, square root gives uniform disc distribution
+        float r = coneRadius * sqrt(t);
+
+        // Calculate final sample position with offset
+        float3 offset = r * (cos(angle) * u + sin(angle) * v);
+        float3 samplePos = p + dirToLight * stepDistance + offset;
+
+        // Sample cloud density
+        float density = sampleCloudDensity(samplePos, false, l * 0.5);
+
+        // Accumulate density
+        totalDensity += density * stepSize;
     }
 
     // Apply Beer's law for exponential light attenuation
@@ -274,7 +275,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     float3 L = normalize(SUN_DIR);
     float3 V = normalize(rayDirection);
     float cosTheta = dot(L, V);
-    float phase = dualLobePhase(cosTheta, constants.eccentricity);
+    float phase = dualLobePhase(cosTheta, constants.phase);
 
     // Raymarch variables
     float transmittance = 1.0;
@@ -328,9 +329,6 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             // Beer-powder aprox
             float powderTerm = powder(accumulatedDensity);
 
-            // extra in scattering
-            float extra = constants.eccentricity * pow(saturate(cosTheta), constants.silverSpread);
-            phase = max(phase, extra);
 
             // compute the light ray attenuation
             float transmittanceAlongLightRay = lightRayAttenuation(p);

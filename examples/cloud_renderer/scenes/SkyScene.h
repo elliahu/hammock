@@ -48,13 +48,11 @@ class SkyScene final : public IScene {
         float baseScale = 75.f;
         float detailScale = 100.0f;
         float curliness = 2.0f;
-        float absorption = 0.0026f;
-        float eccentricity = 0.6f;
-        float silverIntensity = 2.55f;
-        float silverSpread = 0.887f;
-        float ambientStrength = 0.1f;
+        float absorption = 0.0032f;
+        float phase = 0.22f;
+        float ambientStrength;
         int DEBUG_epicView = 0;
-        int DEBUG_cheapSampleDistance = 200000;
+        int DEBUG_cheapSampleDistance = 100000;
         int DEBUG_maxSamples = 128;
         int DEBUG_maxLightSamples = 6;
         int DEBUG_expensiveSampling = 0;
