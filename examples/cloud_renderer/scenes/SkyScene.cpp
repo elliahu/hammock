@@ -139,43 +139,6 @@ void SkyScene::init() {
     rm.getResource<Image>(compute.cloudMap)->queueCopyFromBuffer(rm.getResource<Buffer>(cloudMapStagingBuffer)->getBuffer());
     // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
 
-    // Load the sky dome
-    ScopedMemory skyDomeData(readImage(assetPath("textures/sky.jpg"), w, h, c,
-                                       Filesystem::ImageFormat::R8G8B8A8_UNORM));
-    // Create host visible staging buffer on device
-    ResourceHandle skyDomeStagingBuffer = rm.createResource<Buffer>(
-        "skydome-staging-buffer",
-        BufferDesc{
-            .instanceSize = sizeof(uchar8_t),
-            .instanceCount = static_cast<uint32_t>(w * h * c),
-            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        }
-    );
-
-    // Write the data into the staging buffer
-    rm.getResource<Buffer>(skyDomeStagingBuffer)->map();
-    rm.getResource<Buffer>(skyDomeStagingBuffer)->writeToBuffer(skyDomeData.get());
-
-    sky.skyDome = rm.createResource<Image>(
-        "skydome",
-        ImageDesc{
-            .width = static_cast<uint32_t>(w),
-            .height = static_cast<uint32_t>(h),
-            .channels = static_cast<uint32_t>(c),
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
-            .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
-        }
-    );
-
-    // Copy the data from buffer into the image
-    rm.getResource<Image>(sky.skyDome)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    rm.getResource<Image>(sky.skyDome)->queueCopyFromBuffer(rm.getResource<Buffer>(skyDomeStagingBuffer)->getBuffer());
-    // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
-
-
     // Other resource are managed by the render graph
     buildRenderGraph();
 

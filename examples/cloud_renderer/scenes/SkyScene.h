@@ -52,7 +52,7 @@ class SkyScene final : public IScene {
         float eccentricity = 0.6f;
         float silverIntensity = 2.55f;
         float silverSpread = 0.887f;
-        float ambientStrength = 0.3f;
+        float ambientStrength = 0.1f;
         int DEBUG_epicView = 0;
         int DEBUG_cheapSampleDistance = 200000;
         int DEBUG_maxSamples = 128;
@@ -114,8 +114,6 @@ class SkyScene final : public IScene {
 
     struct {
         std::unique_ptr<GraphicsPipeline> pipeline;
-
-        ResourceHandle skyDome;
     } sky;
 
     // Composition pass resources

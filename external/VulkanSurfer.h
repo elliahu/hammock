@@ -29,6 +29,7 @@
 #include <vulkan/vulkan_xlib.h>
 #endif
 
+
 namespace Surfer {
     enum class KeyCode {
         // Alphabet
@@ -681,6 +682,13 @@ namespace Surfer {
             if (key >= VK_NUMPAD0 && key <= VK_NUMPAD9) {
                 return static_cast<KeyCode>(static_cast<uint32_t>(KeyCode::Numpad0) + (key - VK_NUMPAD0));
             }
+
+            // Arrows
+            if (key == VK_UP) return KeyCode::ArrowUp;
+            if (key == VK_DOWN) return KeyCode::ArrowDown;
+            if (key == VK_LEFT) return KeyCode::ArrowLeft;
+            if (key == VK_RIGHT) return KeyCode::ArrowRight;
+
 
             return KeyCode::UnsupportedKey;
         }

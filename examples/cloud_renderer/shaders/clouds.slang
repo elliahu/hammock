@@ -263,8 +263,11 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             // compute the light ray attenuation
             float transmittanceAlongLightRay = lightRayAttenuation(p);
 
+            // Ambient light from sky
+            float3 ambient = skyColor * heightFraction * density * constants.ambientStrength; 
+
             // Compute the differential in-scattering contribution using the current transmittance
-            inScatteredLight += density * stepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase; 
+            inScatteredLight += density * stepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase + ambient; 
 
              // Update total transmittance for extinction along the ray segment
             transmittance *= exp(-density * stepSize  * ABSORPTION);
