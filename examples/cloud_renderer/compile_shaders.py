@@ -8,7 +8,17 @@ if platform.system() == 'Windows':
 elif platform.system() == 'Linux':
     compiler = 'slangc'
 else:
-    raise EnvironmentError("Unsupported OS")
+    raise EnvironmentError("Unsupported OS. Supported operating systems: Linux, Windows")
+
+# Check if vulkan env var is set
+if not os.path.exists(os.environ['VULKAN_SDK']):
+    print("VULKAN_SDK environment variable is not set. Please install Vulkan SDK, relaunch the shell for new changes to take effect and try again.")
+    exit(1)
+
+# Check if the slang compiler exits
+if not os.path.exists(compiler):
+    print("Failed to compile the shaders. Slang compiler missing! Make sure Vulkan SDK 1.3.296.0 or newer is installed or install it separately.")
+    exit(1)
 
 os.makedirs('spv', exist_ok=True)
 
