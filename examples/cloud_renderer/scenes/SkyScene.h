@@ -54,7 +54,7 @@ class SkyScene final : public IScene {
         float silverSpread = 0.887f;
         float ambientStrength = 0.3f;
         int DEBUG_epicView = 0;
-        int DEBUG_cheapSampleDistance = 100000;
+        int DEBUG_cheapSampleDistance = 200000;
         int DEBUG_maxSamples = 128;
         int DEBUG_maxLightSamples = 6;
         int DEBUG_expensiveSampling = 0;
@@ -105,9 +105,6 @@ class SkyScene final : public IScene {
 
         // Detail cloud noise
         ResourceHandle detailNoise;
-
-        // Curl cloud noise
-        ResourceHandle curlNoise;
 
         // Cloud map
         ResourceHandle cloudMap;

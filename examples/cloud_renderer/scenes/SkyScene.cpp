@@ -101,47 +101,6 @@ void SkyScene::init() {
     // Release the staging buffer
     rm.releaseResource(detailNoiseStagingBuffer.getUid());
 
-    // Load the curl noise
-    ScopedMemory curlNoiseData(readImage(assetPath("noise/curlNoise.png"), w, h, c,
-                                         Filesystem::ImageFormat::R8G8B8A8_UNORM));
-
-    // Create host visible staging buffer on device
-    ResourceHandle curlNoiseStagingBuffer = rm.createResource<Buffer>(
-        "curl-staging-buffer",
-        BufferDesc{
-            .instanceSize = sizeof(uchar8_t),
-            .instanceCount = static_cast<uint32_t>(w * h * c),
-            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        }
-    );
-
-    // Write the data into the staging buffer
-    rm.getResource<Buffer>(curlNoiseStagingBuffer)->map();
-    rm.getResource<Buffer>(curlNoiseStagingBuffer)->writeToBuffer(curlNoiseData.get());
-
-    // Create image resource
-    compute.curlNoise = rm.createResource<Image>(
-        "curl-noise",
-        ImageDesc{
-            .width = static_cast<uint32_t>(w),
-            .height = static_cast<uint32_t>(h),
-            .channels = static_cast<uint32_t>(c),
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
-            .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
-        }
-    );
-
-    // Copy the data from buffer into the image
-    rm.getResource<Image>(compute.curlNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    rm.getResource<Image>(compute.curlNoise)->queueCopyFromBuffer(rm.getResource<Buffer>(curlNoiseStagingBuffer)->getBuffer());
-    // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
-
-    // Release the staging buffer
-    rm.releaseResource(curlNoiseStagingBuffer.getUid());
-
     // Load the cloud map
     ScopedMemory cloudMapData(readImage(assetPath("noise/weather/stratocumulus.png"), w, h, c,
                                         Filesystem::ImageFormat::R8G8B8A8_UNORM));
@@ -267,12 +226,8 @@ void SkyScene::buildRenderGraph() {
     // Detail noise
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("detail-noise", compute.detailNoise);
 
-    // Curl noise
-    renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("curl-noise", compute.curlNoise);
-
     // Cloud map
     renderGraph->addStaticResource<ResourceNode::Type::SampledImage>("cloud-map", compute.cloudMap);
-
 
     // Storage images that the compute pass outputs to and that is then read in the composition pass
 
@@ -349,10 +304,6 @@ void SkyScene::buildRenderGraph() {
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             })
             .read(ResourceAccess{
-                .resourceName = "curl-noise",
-                .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            })
-            .read(ResourceAccess{
                 .resourceName = "cloud-map",
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             })
@@ -376,9 +327,8 @@ void SkyScene::buildRenderGraph() {
                             {3, {"color-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
                             {4, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {5, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {6, {"curl-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {7, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {8, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {6, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {7, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "color-image",

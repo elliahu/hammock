@@ -42,9 +42,8 @@ struct PushConstants {
 // Images and samplers
 [vk::binding(4)] Sampler3D lowFreqNoiseTexture;
 [vk::binding(5)] Sampler3D highFreqNoiseTexture;
-[vk::binding(6)] Sampler2D curlNoiseTexture;
-[vk::binding(7)] Sampler2D cloudMapTexture;
-[vk::binding(8)] Sampler2D skyTexture;
+[vk::binding(6)] Sampler2D cloudMapTexture;
+[vk::binding(7)] Sampler2D skyTexture;
 
 [vk::push_constant] PushConstants constants;
 
@@ -223,7 +222,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     // Dither the ray start position to combat banding
     int a = int(threadId.x) % 4;
     int b = int(threadId.y) % 4;
-    float3 p = start + rayDirection * stepSize * bayerFilter[a * 4 + b];
+    float3 p = start + rayDirection * stepSize * bayerFilter[a * 4 + b]* 1.87;
 
     // Phase function
     float3 L = normalize(SUN_DIR);
@@ -243,7 +242,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
         // Calculate the distance from the camera
         float distanceFromCamera = length(p - EYE);
         bool expensive = distanceFromCamera < constants.DEBUG_cheapSampleDistance;
-        float lod = expensive ? 0.0 : 1.5;
+        float lod = expensive ? 0.0 : 2.0;
 
         // Sample the density
         float density = sampleCloudDensity(p, expensive, lod);
