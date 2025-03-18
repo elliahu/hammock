@@ -176,8 +176,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 
 
     // Check if we are doing expensive sampling
-    if (expensive || (constants.DEBUG_expensiveSampling == 1))
-    {
+    if (expensive){
         // Sample high frequency noise and build the FBM
         float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(float3(staticUv * DETAIL_SCALE, heightFraction), lod).rgb * constants.detailMultiplier;
         float highFreqFBM = dot(highFrequencyNoise, float3(0.625, 0.25, 0.125));
@@ -200,7 +199,7 @@ float lightRayAttenuation(float3 p) {
     // Lightmarch
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
         float3 pos = p + dirToLight * l * stepSize;
-        float cloudDensity = sampleCloudDensity(pos, false, l * 0.5);
+        float cloudDensity = sampleCloudDensity(pos, constants.DEBUG_expensiveSampling == 1, l * 0.5);
         totalDensity += sampleCloudDensity(pos, false, l * 0.5) * stepSize;
     }
 
