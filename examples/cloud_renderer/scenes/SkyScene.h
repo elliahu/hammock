@@ -31,7 +31,7 @@ class SkyScene final : public IScene {
     bool progressTime = false;
 
     struct SunAndSkyUbo {
-        HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 1.0f};
+        HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 5.0f}; // W is strength
         HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
         HmckVec4 skyColorZenith{59.0/255.0, 110.0/255.0, 219.0/255.0};
         HmckVec4 skyColorHorizon{169.0/255.0, 175.0/255.0, 188.0/255.0};
@@ -48,9 +48,9 @@ class SkyScene final : public IScene {
         float baseScale = 75.f;
         float detailScale = 100.0f;
         float curliness = 2.0f;
-        float absorption = 0.0032f;
+        float absorption = 0.0129f;
         float phase = 0.22f;
-        float ambientStrength;
+        float ambientStrength = 0.3;
         int DEBUG_epicView = 0;
         int DEBUG_cheapSampleDistance = 100000;
         int DEBUG_maxSamples = 128;

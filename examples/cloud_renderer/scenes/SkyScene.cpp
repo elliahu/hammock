@@ -48,7 +48,8 @@ void SkyScene::init() {
 
     // Copy data from buffer to image
     rm.getResource<Image>(compute.baseNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    rm.getResource<Image>(compute.baseNoise)->queueCopyFromBuffer(rm.getResource<Buffer>(baseNoiseStagingBuffer)->getBuffer());
+    rm.getResource<Image>(compute.baseNoise)->queueCopyFromBuffer(
+        rm.getResource<Buffer>(baseNoiseStagingBuffer)->getBuffer());
     // Generate a mip map chain for the image to create multiple levels of detail
     rm.getResource<Image>(compute.baseNoise)->generateMips();
     // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
@@ -84,8 +85,9 @@ void SkyScene::init() {
             .height = static_cast<uint32_t>(h),
             .channels = static_cast<uint32_t>(c),
             .depth = static_cast<uint32_t>(d),
-            .mips = getNumberOfMipLevels(static_cast<uint32_t>(w),static_cast<uint32_t>(h)),
-            .format = VK_FORMAT_R16G16B16A16_SFLOAT, // We only use RGB channels but most devices do not support 3D RGB textures so we use RGBA
+            .mips = getNumberOfMipLevels(static_cast<uint32_t>(w), static_cast<uint32_t>(h)),
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+            // We only use RGB channels but most devices do not support 3D RGB textures so we use RGBA
             .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             .imageType = VK_IMAGE_TYPE_3D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_3D,
@@ -94,7 +96,8 @@ void SkyScene::init() {
 
     // Copy data from buffer to image
     rm.getResource<Image>(compute.detailNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    rm.getResource<Image>(compute.detailNoise)->queueCopyFromBuffer(rm.getResource<Buffer>(detailNoiseStagingBuffer)->getBuffer());
+    rm.getResource<Image>(compute.detailNoise)->queueCopyFromBuffer(
+        rm.getResource<Buffer>(detailNoiseStagingBuffer)->getBuffer());
     // Generate a mip map chain for the image to create multiple levels of detail
     rm.getResource<Image>(compute.detailNoise)->generateMips();
 
@@ -136,7 +139,8 @@ void SkyScene::init() {
 
     // Copy the data from buffer into the image
     rm.getResource<Image>(compute.cloudMap)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    rm.getResource<Image>(compute.cloudMap)->queueCopyFromBuffer(rm.getResource<Buffer>(cloudMapStagingBuffer)->getBuffer());
+    rm.getResource<Image>(compute.cloudMap)->queueCopyFromBuffer(
+        rm.getResource<Buffer>(cloudMapStagingBuffer)->getBuffer());
     // Image will be transitioned into SHADER_READ_ONLY_OPTIMAL by the render graph automatically
 
     // Other resource are managed by the render graph
@@ -152,6 +156,7 @@ void SkyScene::init() {
 void SkyScene::buildRenderGraph() {
     // First, declare the resources
     // Add the uniform buffer that holds mutable data
+    // TODO make these buffer one giant buffer
     renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
         "camera-ubo", BufferDesc{
             .instanceSize = sizeof(CameraUbo),
@@ -195,11 +200,22 @@ void SkyScene::buildRenderGraph() {
     // Storage images that the compute pass outputs to and that is then read in the composition pass
 
     renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
-        "color-image", ImageDesc{
+        "clouds-image", ImageDesc{
             .width = window.getExtent().width,
             .height = window.getExtent().height,
             .channels = 4,
-            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+        });
+
+    renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
+        "god-rays-image", ImageDesc{
+            .width = window.getExtent().width,
+            .height = window.getExtent().height,
+            .channels = 4,
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -287,14 +303,21 @@ void SkyScene::buildRenderGraph() {
                             {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {1, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {2, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {3, {"color-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {3, {"clouds-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
                             {4, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {5, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {
+                                5, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                VK_SHADER_STAGE_COMPUTE_BIT
+                            },
                             {6, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {7, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .write(ResourceAccess{
-                .resourceName = "color-image",
+                .resourceName = "clouds-image",
+                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+            })
+            .write(ResourceAccess{
+                .resourceName = "god-rays-image",
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
             })
             .execute([&](RenderPassContext context)-> void {
@@ -308,7 +331,8 @@ void SkyScene::buildRenderGraph() {
                 context.bindDescriptorSet(0, 0, compute.cloudPipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
 
-                vkCmdPushConstants(context.commandBuffer, compute.cloudPipeline->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                vkCmdPushConstants(context.commandBuffer, compute.cloudPipeline->pipelineLayout,
+                                   VK_SHADER_STAGE_COMPUTE_BIT, 0,
                                    sizeof(ComputePushConsts), &computePushConsts);
 
                 // Then we dispatch the compute shader
@@ -320,7 +344,7 @@ void SkyScene::buildRenderGraph() {
     // Composition pass reads from the storage image and writes to the swap chain image
     renderGraph->addPass<CommandQueueFamily::Graphics, RelativeViewPortSize::SwapChainRelative>("composition-pass")
             .read(ResourceAccess{
-                .resourceName = "color-image",
+                .resourceName = "clouds-image",
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
             })
@@ -333,7 +357,10 @@ void SkyScene::buildRenderGraph() {
                 .resourceName = "post-proc-ubo"
             })
             .descriptor(0, {
-                            {0, {"color-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {
+                                0, {"clouds-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                VK_SHADER_STAGE_FRAGMENT_BIT
+                            },
                             {1, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {2, {"post-proc-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
                         })
@@ -419,7 +446,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
                     ImGui::SetNextWindowPos({0, static_cast<float>(window.getExtent().height)}, 0, {0, 1});
                     ImGui::Begin("Editor options", (bool *) false,
-                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
+                                 ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
 
@@ -447,14 +475,13 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
                     ImGui::ColorEdit3("Zenith sky color", &sunAndSkyUbo.skyColorZenith.Elements[0]);
                     ImGui::ColorEdit3("Horizon sky color", &sunAndSkyUbo.skyColorHorizon.Elements[0]);
-                    ImGui::SliderFloat("Sun light strength", &sunAndSkyUbo.lightColor.A, 0.0f, 5.f);
+                    ImGui::SliderFloat("Sun light strength", &sunAndSkyUbo.lightColor.A, 0.0f, 15.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
 
 
                     ImGui::SeparatorText("Environment properties");
                     ImGui::Checkbox("Progress time", &progressTime);
                     ImGui::SliderFloat("Time of day", &timeOfDay, 0.250f, 0.750f);
-
 
 
                     ImGui::SeparatorText("Rendering");
@@ -501,7 +528,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Exposure", &postProcUbo.exposure, -5.0f, 5.0f);
                     ImGui::SliderFloat("Gamma", &postProcUbo.gamma, 0.5f, 3.0f);
                     const char *tonemapItems[] = {"Linear", "Reinhard", "ACES", "Uncharted 2"};
-                    ImGui::Combo("Tonemap Operator", &postProcUbo.tonemapOperator, tonemapItems, IM_ARRAYSIZE(tonemapItems));
+                    ImGui::Combo("Tonemap Operator", &postProcUbo.tonemapOperator, tonemapItems,
+                                 IM_ARRAYSIZE(tonemapItems));
 
                     // Color Grading parameters
                     ImGui::SeparatorText("Color Grading");
@@ -522,7 +550,8 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Grain Amount", &postProcUbo.grainAmount, 0.0f, 1.0f);
                     //ImGui::EndDisabled();
                     const char *blendModeItems[] = {"Normal", "Screen", "Soft light"};
-                    ImGui::Combo("Cloud blend mode", &postProcUbo.cloudBlendMode, blendModeItems, IM_ARRAYSIZE(blendModeItems));
+                    ImGui::Combo("Cloud blend mode", &postProcUbo.cloudBlendMode, blendModeItems,
+                                 IM_ARRAYSIZE(blendModeItems));
 
                     if (ImGui::Button("Close")) {
                         showPostProc = false;
@@ -542,31 +571,38 @@ void SkyScene::buildRenderGraph() {
 
                 if (showPerf) {
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-                    ImGui::SetNextWindowPos({static_cast<float>(window.getExtent().width), static_cast<float>(window.getExtent().height)},
+                    ImGui::SetNextWindowPos({
+                                                static_cast<float>(window.getExtent().width),
+                                                static_cast<float>(window.getExtent().height)
+                                            },
                                             0, {1, 1});
                     ImGui::Begin("Performance analysis", (bool *) false,
-                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
+                                 ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
                     ImGui::SeparatorText("Camera");
-                    ImGui::Text("Position x:%.3f y:%.3f z:%.3f", cameraUbo.cameraPosition.X, cameraUbo.cameraPosition.Y, cameraUbo.cameraPosition.Z);
+                    ImGui::Text("Position x:%.3f y:%.3f z:%.3f", cameraUbo.cameraPosition.X, cameraUbo.cameraPosition.Y,
+                                cameraUbo.cameraPosition.Z);
                     ImGui::Text("Rotation yaw:%.3f pitch:%.3f", yaw, pitch);
                     ImGui::SeparatorText("Performance");
                     ImGui::Text("%.1f FPS ", 1.0f / deltaTime);
                     ImGui::Text("Frametime: %.2f ms", deltaTime * 1000.0f);
-                    ImGui::PlotLines("Frame Times", frameTimes, FRAMETIME_BUFFER_SIZE, frameTimeFrameIndex, nullptr, 0.0f, 33.0f,
+                    ImGui::PlotLines("Frame Times", frameTimes, FRAMETIME_BUFFER_SIZE, frameTimeFrameIndex, nullptr,
+                                     0.0f, 33.0f,
                                      ImVec2(0, 80));
                     ImGui::SeparatorText("Rendering");
                     ImGui::DragInt("Max samples", &computePushConsts.DEBUG_maxSamples, 0.1f, 2, 2048);
                     ImGui::DragInt("Max light samples", &computePushConsts.DEBUG_maxLightSamples, 0.1f, 2, 64);
                     ImGui::DragInt("Large step multiplier", &computePushConsts.DEBUG_longStepMulti, 1, 1, 100);
-                    ImGui::DragInt("Cheap sample distance", &computePushConsts.DEBUG_cheapSampleDistance, 10, 0, 1000000);
-                    ImGui::Checkbox("Enable epic view", (bool*)&computePushConsts.DEBUG_epicView);
+                    ImGui::DragInt("Cheap sample distance", &computePushConsts.DEBUG_cheapSampleDistance, 10, 0,
+                                   1000000);
+                    ImGui::Checkbox("Enable epic view", (bool *) &computePushConsts.DEBUG_epicView);
 
                     ImGui::SeparatorText("Debug views");
-                    ImGui::Checkbox("Expensive light sampling", (bool*)&computePushConsts.DEBUG_expensiveSampling);
-                    ImGui::Checkbox("Early termination regions", (bool*)&computePushConsts.DEBUG_earlyTermination);
-                    ImGui::Checkbox("Late termination regions", (bool*)&computePushConsts.DEBUG_lateTermination);
+                    ImGui::Checkbox("Expensive light sampling", (bool *) &computePushConsts.DEBUG_expensiveSampling);
+                    ImGui::Checkbox("Early termination regions", (bool *) &computePushConsts.DEBUG_earlyTermination);
+                    ImGui::Checkbox("Late termination regions", (bool *) &computePushConsts.DEBUG_lateTermination);
 
                     ImGui::PopStyleVar();
                     ImGui::End();
@@ -660,7 +696,8 @@ void SkyScene::update() {
     float sunHeight = std::sin(angle); // Vertical movement
     float sunHorizontal = std::cos(angle); // Horizontal movement
 
-    sunAndSkyUbo.lightDirection = HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f}; // Assuming movement in X-Y plane
+    sunAndSkyUbo.lightDirection = HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f};
+    // Assuming movement in X-Y plane
 
     float azimuthRadians = HmckToRad(HmckAngleDeg(windDirection));
     sunAndSkyUbo.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};

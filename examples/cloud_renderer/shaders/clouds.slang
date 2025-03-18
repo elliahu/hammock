@@ -36,7 +36,7 @@ struct PushConstants {
 [vk::binding(2)] ConstantBuffer<SunAndSkyBuffer> sunAndSkyBuffer ;
 
 // Storage image
-[vk::binding(3)] RWTexture2D<float4> storageImage;
+[vk::binding(3)] RWTexture2D storageImage;
 
 // Images and samplers
 [vk::binding(4)] Sampler3D lowFreqNoiseTexture;
@@ -101,7 +101,7 @@ static const float bayerFilter[16u] = float[]
 
 // Returns a relative hight in cloud layer 0 to 1
 float getHeightFraction(float3 inPos) {
-    return (length(inPos - CENTER) - CLOUDS_BOTTOM_RADIUS) / (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS);
+    return saturate((length(inPos - CENTER) - CLOUDS_BOTTOM_RADIUS) / (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS));
 }
 
 // Returns gradient for a specific cloud type
@@ -174,6 +174,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     float baseCloudWithCoverage = remap(baseCloud , coverage, 1.0, 0.0, 1.0);
     baseCloudWithCoverage = saturate(baseCloudWithCoverage * coverage);
 
+   // return saturate(baseCloudWithCoverage);
 
     // Check if we are doing expensive sampling
     if (expensive){
@@ -245,7 +246,7 @@ float lightRayAttenuation(float3 p) {
     }
 
     // Apply Beer's law for exponential light attenuation
-    return saturate(exp(-totalDensity * ABSORPTION));
+    return saturate(max(exp(-totalDensity * ABSORPTION), (exp(-totalDensity * ABSORPTION * 0.25)) * 0.7));
 }
 
 // Marches along a ray from the start to the end position
@@ -329,9 +330,10 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             // Beer-powder aprox
             float powderTerm = powder(accumulatedDensity);
 
-
             // compute the light ray attenuation
             float transmittanceAlongLightRay = lightRayAttenuation(p);
+
+            // in-scattering
 
             // Ambient light from sky
             float3 ambient = skyColor * heightFraction * density * constants.ambientStrength;
