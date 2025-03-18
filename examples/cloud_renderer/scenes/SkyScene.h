@@ -48,9 +48,9 @@ class SkyScene final : public IScene {
         float baseScale = 75.f;
         float detailScale = 100.0f;
         float curliness = 2.0f;
-        float absorption = 0.0022f;
+        float absorption = 0.0026f;
         float eccentricity = 0.6f;
-        float silverIntensity = 1.73f;
+        float silverIntensity = 2.55f;
         float silverSpread = 0.887f;
         float ambientStrength = 0.3f;
         int DEBUG_epicView = 0;

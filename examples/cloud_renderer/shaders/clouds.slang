@@ -194,16 +194,17 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 float lightRayAttenuation(float3 p) {
     float3 dirToLight = normalize(sunAndSkyBuffer.lightDirection.xyz);
     float attenuationAlongLightRay = 1.0;
+    float totalDensity = 0.0;
     float stepSize = 0.5 * (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS) / NUM_LIGHT_STEPS;
 
     // Lightmarch
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
         float3 pos = p + dirToLight * l * stepSize;
         float cloudDensity = sampleCloudDensity(pos, false, l * 0.5);
-        attenuationAlongLightRay *= exp(-cloudDensity * stepSize * ABSORPTION);
+        totalDensity += sampleCloudDensity(pos, false, l * 0.5) * stepSize;
     }
 
-    return saturate(attenuationAlongLightRay);
+    return saturate(exp(-totalDensity * ABSORPTION));
 }
 
 // Marches along a ray from the start to the end position
@@ -228,10 +229,10 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
     float3 L = normalize(SUN_DIR);
     float3 V = normalize(rayDirection);
     float cosTheta = dot(L, V);
-    float phase = directedPhase(cosTheta, constants.eccentricity, constants.silverIntensity, constants.silverSpread);
+    float phase = dualLobePhase(cosTheta, constants.eccentricity); //directedPhase(cosTheta, constants.eccentricity, constants.silverIntensity, constants.silverSpread);
 
     // Raymarch variables
-    float accumulatedAttenuation = 1.0;
+    float transmittance = 1.0;
     float accumulatedDensity= 0.0;
     float3 inScatteredLight = 0.0;
 
@@ -246,14 +247,10 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 
         // Sample the density
         float density = sampleCloudDensity(p, expensive, lod);
-        accumulatedDensity += density * stepSize;
+        accumulatedDensity += density;
 
         // Expensive computation only for non-zero density regions
         if (density > 0.001) {
-            // Update total transmittance for extinction along the ray segment
-            float attenuation = exp(-density * stepSize  * ABSORPTION);
-            accumulatedAttenuation *= attenuation;
-
             // compute the height fraction: relative height in cloud layer <0;1>
             float heightFraction = getHeightFraction(p);
 
@@ -265,26 +262,18 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             phase = max(phase, extra);
 
             // compute the light ray attenuation
-            float attenuationAlongLightRay = lightRayAttenuation(p);
-
-            // Sunlight
-            float3 sunLight = SUN_COLOR * 1.0 * attenuationAlongLightRay;
-
-            // Ambient light
-            float3 outScatteringAmbient = skyColor * (1.0 - saturate(0.8 * pow(density,remap(heightFraction, 0.3,0.9,0.5,1.0))) * saturate(pow(remap(heightFraction,0.0,0.3,0.8,1.0), 0.8)));
-            float3 directSkyAmbient = skyColor * constants.ambientStrength * heightFraction * density;
-            float3 ambient = directSkyAmbient * outScatteringAmbient;
-
-            // Total light contribution
-            float3 lightContribution = sunLight + ambient;
+            float transmittanceAlongLightRay = lightRayAttenuation(p);
 
             // Compute the differential in-scattering contribution using the current transmittance
-            float3 dL = accumulatedAttenuation * SCATTERING * density * phase * lightContribution * powderTerm *stepSize;
-            inScatteredLight += dL;  
+            inScatteredLight += density * stepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase; 
+
+             // Update total transmittance for extinction along the ray segment
+            transmittance *= exp(-density * stepSize  * ABSORPTION);
+
         }
 
         // Early exit if fully opaque
-        if (accumulatedAttenuation < 0.001) {
+        if (transmittance < 0.001) {
             if(constants.DEBUG_earlyTermination == 1){
                 inScatteredLight = float3(1.0,0.0,0.0);
             }
@@ -297,8 +286,8 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 
     // Compute alpha from the accumulated optical depth,
     // Here we base it on the remaining transmittance.
-    float alpha = 1.0 - accumulatedAttenuation;
-    return float4(inScatteredLight, alpha);
+    float alpha = 1.0 - transmittance;
+    return float4(inScatteredLight * SUN_COLOR, alpha);
 }
 
 [shader("compute")]
