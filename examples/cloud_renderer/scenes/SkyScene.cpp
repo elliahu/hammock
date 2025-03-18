@@ -105,7 +105,7 @@ void SkyScene::init() {
     rm.releaseResource(detailNoiseStagingBuffer.getUid());
 
     // Load the cloud map
-    ScopedMemory cloudMapData(readImage(assetPath("noise/weather/stratocumulus.png"), w, h, c,
+    ScopedMemory cloudMapData(readImage(assetPath("noise/weather/weatherMap.png"), w, h, c,
                                         Filesystem::ImageFormat::R8G8B8A8_UNORM));
 
     // Create host visible staging buffer on device
