@@ -11,9 +11,7 @@ struct PixelOutput {
 };
 
 struct Set{
-    ConstantBuffer<CameraBuffer> cameraBuffer;
-    ConstantBuffer<TimeBuffer> timeBuffer;
-    ConstantBuffer<SunAndSkyBuffer> sunAndSkyBuffer;
+    ConstantBuffer<FrameDataUbo> data;
 };
 
 ParameterBlock<Set> set;
@@ -45,15 +43,15 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     PixelOutput output;
 
     // Simpler ray direction calculation for testing
-    float2 ndc = (input.position.xy / float2(set.cameraBuffer.resX, set.cameraBuffer.resY)) * 2.0 - 1.0;
+    float2 ndc = (input.position.xy / float2(set.data.resX, set.data.resY)) * 2.0 - 1.0;
     float4 rayClip = float4(ndc, 1.0, 1.0);
-    float4 rayEye = mul(set.cameraBuffer.inv_proj, rayClip);
+    float4 rayEye = mul(set.data.invProj, rayClip);
     rayEye.w = 0.0; // Direction vector
-    float3 rayDirection = normalize(mul(set.cameraBuffer.inv_view, rayEye).xyz);
+    float3 rayDirection = normalize(mul(set.data.invView, rayEye).xyz);
 
-    //Base sky color
-    float3 skyColorZenith = set.sunAndSkyBuffer.skyColorZenith.rgb;
-    float3 skyColorHorizon = set.sunAndSkyBuffer.skyColorHorizon.rgb;
+    // Base sky color
+    float3 skyColorZenith = set.data.skyColorZenith.rgb;
+    float3 skyColorHorizon = set.data.skyColorHorizon.rgb;
     float3 skyColorNadir = float3(40.0/255.0,48.0/255.0, 64.0/255.0);
 
     // Calculate the angle between the ray direction and the up vector (y-axis)
@@ -87,14 +85,14 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     float sunGlowFalloff = 128.0;  // How quickly the glow falls off
 
     // Calculate sun and glow factor
-    float sunFactor = sunGlowFactor(rayDirection, normalize(set.sunAndSkyBuffer.lightDirection.xyz), sunSize, sunGlowIntensity, sunGlowFalloff);
+    float sunFactor = sunGlowFactor(rayDirection, normalize(set.data.lightDirection.xyz), sunSize, sunGlowIntensity, sunGlowFalloff);
 
     // Sun color (warm yellowish)
-    float3 sunColor = set.sunAndSkyBuffer.lightColor.rgb * 3.0; // Brightened sun color
+    float3 sunColor = set.data.lightColor.rgb * 3.0; // Brightened sun color
 
     // Blend sun with sky
     // Add atmospheric scattering effect - sun appears more orange/red near horizon
-    float sunHeight = dot(normalize(set.sunAndSkyBuffer.lightDirection.xyz), float3(0, 1, 0));
+    float sunHeight = dot(normalize(set.data.lightDirection.xyz), float3(0, 1, 0));
     float atmosphericEffect = pow(max(0.0, 1.0 - sunHeight), 2.0);
     float3 adjustedSunColor = lerp(sunColor, sunColor * float3(1.0, 0.6, 0.2), atmosphericEffect);
 

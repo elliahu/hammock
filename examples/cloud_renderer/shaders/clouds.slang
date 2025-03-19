@@ -30,26 +30,23 @@ struct PushConstants {
     int DEBUG_longStepMulti;
 };
 
-
-[vk::binding(0)] ConstantBuffer<CameraBuffer> cameraBuffer;
-[vk::binding(1)] ConstantBuffer<TimeBuffer> timeBuffer;
-[vk::binding(2)] ConstantBuffer<SunAndSkyBuffer> sunAndSkyBuffer ;
+[vk::binding(0)] ConstantBuffer<FrameDataUbo> data;
 
 // Storage images
-[vk::binding(3)] RWTexture2D cloudsStorageImage;
-[vk::binding(4)] RWTexture2D godRaysStorageImage;
+[vk::binding(1)] RWTexture2D cloudsStorageImage;
+[vk::binding(2)] RWTexture2D godRaysStorageImage;
 
 // Images and samplers
-[vk::binding(5)] Sampler3D lowFreqNoiseTexture;
-[vk::binding(6)] Sampler3D highFreqNoiseTexture;
-[vk::binding(7)] Sampler2D cloudMapTexture;
-[vk::binding(8)] Sampler2D skyTexture;
+[vk::binding(3)] Sampler3D lowFreqNoiseTexture;
+[vk::binding(4)] Sampler3D highFreqNoiseTexture;
+[vk::binding(5)] Sampler2D cloudMapTexture;
+[vk::binding(6)] Sampler2D skyTexture;
 
 // Push constants
 [vk::push_constant] PushConstants constants;
 
 // Camera
-#define EYE cameraBuffer.cameraPosition.xyz
+#define EYE data.cameraPosition.xyz
 
 // Areal perspective
 #define FOG_DISTANCE 70000.0
@@ -69,7 +66,7 @@ struct PushConstants {
 #define CUMULUS_GRADIENT float4(0.00, 0.1625, 0.88, 0.98)
 
 // Wind
-#define WIND_DIRECTION normalize(sunAndSkyBuffer.windDirection.xyz)
+#define WIND_DIRECTION normalize(data.windDirection.xyz)
 
 // Weather map
 #define COVERAGE_REPEAT 9.0
@@ -81,9 +78,9 @@ struct PushConstants {
 #define CENTER float3(0.0, -EARTH_RADIUS, 0.0)
 
 // Sun
-#define SUN_DIR normalize(sunAndSkyBuffer.lightDirection.xyz)
-#define SUN_COLOR sunAndSkyBuffer.lightColor.rgb
-#define SUN_STRENGTH sunAndSkyBuffer.lightColor.a
+#define SUN_DIR normalize(data.lightDirection.xyz)
+#define SUN_COLOR data.lightColor.rgb
+#define SUN_STRENGTH data.lightColor.a
 
 // Noise sampling
 #define BASE_SCALE constants.baseScale
@@ -131,7 +128,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     // Init cloud sample
     // Height fraction and uv coords for sampling
     float heightFraction = getHeightFraction(p);
-    float3 animation = heightFraction * WIND_DIRECTION + WIND_DIRECTION * timeBuffer.time * WIND_SPEED;
+    float3 animation = heightFraction * WIND_DIRECTION + WIND_DIRECTION * data.time * WIND_SPEED;
     float2 staticUv = getUVProjection(p);
     float2 animatedUv = getUVProjection(p + animation);
 
@@ -195,7 +192,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 // Compute level of attenuation along a light ray
 // Using cone sampling as described by Schneider
 float lightRayAttenuation(float3 p) {
-    float3 dirToLight = normalize(sunAndSkyBuffer.lightDirection.xyz);
+    float3 dirToLight = normalize(data.lightDirection.xyz);
     float attenuationAlongLightRay = 1.0;
     float totalDensity = 0.0;
     float stepSize = 0.5 * (CLOUDS_TOP_RADIUS - CLOUDS_BOTTOM_RADIUS) / NUM_LIGHT_STEPS;
@@ -342,11 +339,8 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
             float vertProb = saturate(pow(remap(heightFraction, 0.07, 0.14, 0.1, 1.0), 0.8));
             float inScatterProb = depthProb;// * vertProb;
 
-            // Ambient light from sky
-            float3 ambient = skyColor * heightFraction * density * constants.ambientStrength;
-
             // Compute the differential in-scattering contribution using the current transmittance
-            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb + ambient;
+            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb;
 
             // Update total transmittance for extinction along the ray segment
             transmittance *= exp(-density * currentStepSize * ABSORPTION);
@@ -394,15 +388,15 @@ float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
 [numthreads(16,16,1)]
 void computeMain(uint3 threadId : SV_DispatchThreadID)
 {
-    int2 resolution = int2(cameraBuffer.resX, cameraBuffer.resY);
+    int2 resolution = int2(data.resX, data.resY);
 
     // Compute ray direction.
     float4 rayClip = float4(computeClipSpaceCoord(threadId.xy, resolution), 1.0);
-    float4 rayView = mul(cameraBuffer.inv_proj, rayClip);
+    float4 rayView = mul(data.invProj, rayClip);
     rayView = float4(rayView.xy, -1.0, 0.0);
-    float3 rayDirection = mul(cameraBuffer.inv_view, rayView).xyz;
+    float3 rayDirection = mul(data.invView, rayView).xyz;
     rayDirection = normalize(rayDirection);
-    float3 rayOrigin = cameraBuffer.cameraPosition.xyz;
+    float3 rayOrigin = data.cameraPosition.xyz;
 
     // Sample the sky color at this pixel
     float2 normCoord = float2(threadId.xy) / float2(resolution);

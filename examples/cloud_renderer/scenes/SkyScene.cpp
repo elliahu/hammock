@@ -156,30 +156,13 @@ void SkyScene::init() {
 void SkyScene::buildRenderGraph() {
     // First, declare the resources
     // Add the uniform buffer that holds mutable data
-    // TODO make these buffer one giant buffer
     renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
-        "camera-ubo", BufferDesc{
-            .instanceSize = sizeof(CameraUbo),
+        "uniform-buffer", BufferDesc{
+            .instanceSize = sizeof(FrameDataUbo),
             .instanceCount = 1,
             .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         });
-    renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
-        "time-ubo", BufferDesc{
-            .instanceSize = sizeof(TimeUbo),
-            .instanceCount = 1,
-            .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        });
-
-    renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
-        "sun-and-sky-ubo", BufferDesc{
-            .instanceSize = sizeof(SunAndSkyUbo),
-            .instanceCount = 1,
-            .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        });
-
     renderGraph->addResource<ResourceNode::Type::UniformBuffer, Buffer, BufferDesc>(
         "post-proc-ubo", BufferDesc{
             .instanceSize = sizeof(PostProcessUBO),
@@ -243,18 +226,10 @@ void SkyScene::buildRenderGraph() {
 
     renderGraph->addPass<CommandQueueFamily::Graphics, RelativeViewPortSize::SwapChainRelative>("sky-pass")
             .read(ResourceAccess{
-                .resourceName = "camera-ubo",
-            })
-            .read(ResourceAccess{
-                .resourceName = "time-ubo",
-            })
-            .read(ResourceAccess{
-                .resourceName = "sun-and-sky-ubo",
+                .resourceName = "uniform-buffer",
             })
             .descriptor(0, {
-                            {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
-                            {1, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
-                            {2, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {0, {"uniform-buffer"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "sky-image",
@@ -287,31 +262,23 @@ void SkyScene::buildRenderGraph() {
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             })
             .read(ResourceAccess{
-                .resourceName = "camera-ubo",
-            })
-            .read(ResourceAccess{
-                .resourceName = "time-ubo",
-            })
-            .read(ResourceAccess{
-                .resourceName = "sun-and-sky-ubo",
+                .resourceName = "uniform-buffer",
             })
             .read(ResourceAccess{
                 .resourceName = "sky-image",
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             })
             .descriptor(0, {
-                            {0, {"camera-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {1, {"time-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {2, {"sun-and-sky-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {3, {"clouds-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {4, {"god-rays-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {5, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {0, {"uniform-buffer"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {1, {"clouds-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {2, {"god-rays-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {3, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {
-                                6, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                4, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                 VK_SHADER_STAGE_COMPUTE_BIT
                             },
-                            {7, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {8, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {5, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {6, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "clouds-image",
@@ -325,9 +292,7 @@ void SkyScene::buildRenderGraph() {
                 // This is the execution code of the compute pass
                 compute.cloudPipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
 
-                context.get<Buffer>("camera-ubo")->writeToBuffer(&cameraUbo);
-                context.get<Buffer>("time-ubo")->writeToBuffer(&timeUbo);
-                context.get<Buffer>("sun-and-sky-ubo")->writeToBuffer(&sunAndSkyUbo);
+                context.get<Buffer>("uniform-buffer")->writeToBuffer(&frameData);
 
                 context.bindDescriptorSet(0, 0, compute.cloudPipeline->pipelineLayout,
                                           VK_PIPELINE_BIND_POINT_COMPUTE);
@@ -477,11 +442,11 @@ void SkyScene::buildRenderGraph() {
 
 
                     ImGui::SeparatorText("Light");
-                    ImGui::ColorEdit3("Light color", &sunAndSkyUbo.lightColor.Elements[0]);
-                    ImGui::SliderFloat3("Light direction", &sunAndSkyUbo.lightDirection.Elements[0], -1.0f, 1.0f);
-                    ImGui::ColorEdit3("Zenith sky color", &sunAndSkyUbo.skyColorZenith.Elements[0]);
-                    ImGui::ColorEdit3("Horizon sky color", &sunAndSkyUbo.skyColorHorizon.Elements[0]);
-                    ImGui::SliderFloat("Sun light strength", &sunAndSkyUbo.lightColor.A, 0.0f, 15.f);
+                    ImGui::ColorEdit3("Light color", &frameData.lightColor.Elements[0]);
+                    ImGui::SliderFloat3("Light direction", &frameData.lightDirection.Elements[0], -1.0f, 1.0f);
+                    ImGui::ColorEdit3("Zenith sky color", &frameData.skyColorZenith.Elements[0]);
+                    ImGui::ColorEdit3("Horizon sky color", &frameData.skyColorHorizon.Elements[0]);
+                    ImGui::SliderFloat("Sun light strength", &frameData.lightColor.A, 0.0f, 15.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
 
 
@@ -588,8 +553,8 @@ void SkyScene::buildRenderGraph() {
                                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDecoration);
                     ImGui::SeparatorText("Camera");
-                    ImGui::Text("Position x:%.3f y:%.3f z:%.3f", cameraUbo.cameraPosition.X, cameraUbo.cameraPosition.Y,
-                                cameraUbo.cameraPosition.Z);
+                    ImGui::Text("Position x:%.3f y:%.3f z:%.3f", frameData.cameraPosition.X, frameData.cameraPosition.Y,
+                                frameData.cameraPosition.Z);
                     ImGui::Text("Rotation yaw:%.3f pitch:%.3f", yaw, pitch);
                     ImGui::SeparatorText("Performance");
                     ImGui::Text("%.1f FPS ", 1.0f / deltaTime);
@@ -692,21 +657,21 @@ void SkyScene::buildPipelines() {
 void SkyScene::update() {
     // Timing
     if (progressTime) {
-        timeUbo.time += deltaTime;
+        frameData.time += deltaTime;
         postProcUbo.time += deltaTime;
         backUpPostProcUbo.time += deltaTime;
     }
     frameCount++;
-    timeUbo.timeOfDay = timeOfDay;
+    frameData.timeOfDay = timeOfDay;
     float angle = (timeOfDay - 0.25f) * 2.0f * HmckPI; // Shift so 0.25 (morning) starts at the horizon
     float sunHeight = std::sin(angle); // Vertical movement
     float sunHorizontal = std::cos(angle); // Horizontal movement
 
-    sunAndSkyUbo.lightDirection = HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f};
+    frameData.lightDirection = HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f};
     // Assuming movement in X-Y plane
 
     float azimuthRadians = HmckToRad(HmckAngleDeg(windDirection));
-    sunAndSkyUbo.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};
+    frameData.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};
 
     // Movement and rotation speeds (adjust these as needed)
     const float movementSpeed = 500.0f; // Units per frame
@@ -768,13 +733,13 @@ void SkyScene::update() {
     const HmckMat4 proj = Projection().perspective(HmckToRad(fov), fm.getAspectRatio(), 0.01, 1000, false);
 
 
-    cameraUbo.invView = HmckInvGeneral(view);
-    cameraUbo.invProj = HmckInvGeneral(proj);
-    cameraUbo.invViewProj = HmckInvGeneral(proj * view);
-    cameraUbo.cameraPosition = HmckVec4{cameraPosition, 0.0f};
-    cameraUbo.resX = static_cast<float>(window.getExtent().width);
-    cameraUbo.resY = static_cast<float>(window.getExtent().height);
-    cameraUbo.fov = fov;
+    frameData.invView = HmckInvGeneral(view);
+    frameData.invProj = HmckInvGeneral(proj);
+    frameData.invViewProj = HmckInvGeneral(proj * view);
+    frameData.cameraPosition = HmckVec4{cameraPosition, 0.0f};
+    frameData.resX = static_cast<float>(window.getExtent().width);
+    frameData.resY = static_cast<float>(window.getExtent().height);
+    frameData.fov = fov;
 }
 
 

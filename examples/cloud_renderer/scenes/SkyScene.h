@@ -11,32 +11,22 @@ class SkyScene final : public IScene {
 
     // Uniform data updated every frame
     // Lives in a GPU memory that is visible to CPU
-
-    struct CameraUbo {
+    struct FrameDataUbo{
         HmckMat4 invView;
         HmckMat4 invProj;
         HmckMat4 invViewProj;
         HmckVec4 cameraPosition;
-        float32_t resX;
-        float32_t resY;
-        float32_t fov;
-    } cameraUbo;
-
-
-    struct TimeUbo {
-        float32_t time = 0.0f;
-        float32_t timeOfDay = 0.0f;
-    } timeUbo;
-
-    bool progressTime = false;
-
-    struct SunAndSkyUbo {
         HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 5.0f}; // W is strength
         HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
         HmckVec4 skyColorZenith{59.0/255.0, 110.0/255.0, 219.0/255.0};
         HmckVec4 skyColorHorizon{169.0/255.0, 175.0/255.0, 188.0/255.0};
         HmckVec4 windDirection;
-    } sunAndSkyUbo;
+        float32_t resX;
+        float32_t resY;
+        float32_t fov;
+        float32_t time = 0.0f;
+        float32_t timeOfDay = 0.0f;
+    } frameData;
 
     struct ComputePushConsts {
         float anvilBias = 0.0f;
@@ -61,41 +51,29 @@ class SkyScene final : public IScene {
         int DEBUG_longStepMulti = 10;
     } computePushConsts, backUpComputePushConsts;
 
-    float32_t timeOfDay = 0.5f;
-    float32_t windDirection = 0.0f;
-
     struct PostProcessUBO {
-        HmckVec4 colorTint{1.0f, 1.0f, 1.0f,0.0f};        // Default: vec3(1.0, 1.0, 1.0)
-
-        // Tonemapping parameters
+        HmckVec4 colorTint{1.0f, 1.0f, 1.0f,0.0f};
         float exposure = 2.3f;        // Default: 0.0, Range: -5.0 to 5.0
         float gamma = 2.2f;           // Default: 2.2, Range: 0.5 to 3.0
         int tonemapOperator = 3;   // 0: Linear, 1: Reinhard, 2: ACES, 3: Uncharted 2
-
-        // Color grading parameters
         float contrast = 1.0;        // Default: 1.0, Range: 0.5 to 2.0
         float brightness = 0.0;      // Default: 0.0, Range: -1.0 to 1.0
         float saturation = 1.0;      // Default: 1.0, Range: 0.0 to 2.0
-
-        // Vignette
         float vignetteStrength = 2.f; // Default 2.0, Range: 0.0 to 3.0
         float vignetteSoftness = 1.0f; // Default: 0.5, Range: 0.0 to 2.0
-
-        // Color temperature
         float temperature = 0.0f;     // Default: 0.0, Range: -1.0 (cool) to 1.0 (warm)
-
-        // Film grain
         float grainAmount = 0.0f;     // Default: 0.0, Range: 0.0 to 0.1
-
-        // Cloud blending mode
-        int cloudBlendMode = 0.0;  // Default: 0.0 (Normal)
-
+        int cloudBlendMode = 0.0;  // Default: 0 Normal, 1 Screen, 2 Soft-light
         float time = 0.0f;
     } postProcUbo, backUpPostProcUbo;
 
 
+    // Sky pass draws a sky gradient
+    struct {
+        std::unique_ptr<GraphicsPipeline> pipeline;
+    } sky;
 
-    // Compute pass resources
+    // Compute pass performs the raymarching
     struct {
         // Compute pipeline to draw the clouds in parallel patches
         std::unique_ptr<ComputePipeline> cloudPipeline;
@@ -111,9 +89,10 @@ class SkyScene final : public IScene {
         // Other resources are managed on-the-fly by the rendergraph
     } compute;
 
+    // Radial blur pass for light shafts
     struct {
-        std::unique_ptr<GraphicsPipeline> pipeline;
-    } sky;
+        std::unique_ptr<GraphicsPipeline> radialBlurPipeline;
+    } blur;
 
     // Composition pass resources
     struct {
@@ -133,11 +112,13 @@ class SkyScene final : public IScene {
     HmckVec3 cameraPosition{0.f, 3.f, 0.f};
     float32_t fov = 45.f;
 
+    float32_t timeOfDay = 0.5f;
+    float32_t windDirection = 0.0f;
+    bool progressTime = false;
+
 
     // Benchmarking
-    // Constants
     static constexpr int FRAMETIME_BUFFER_SIZE = 512; // Number of frames to track
-    // Variables
     float frameTimes[FRAMETIME_BUFFER_SIZE] = {0.0f};
     int frameTimeFrameIndex = 0;
 

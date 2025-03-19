@@ -2,28 +2,22 @@ static const float PI = 3.14159265358979323846;
 
 // Types
 
-struct SunAndSkyBuffer{
-    float4 lightColor;
+struct FrameDataUbo {
+    float4x4 invView;
+    float4x4 invProj;
+    float4x4 invViewProj;
+    float4 cameraPosition;
+    float4 lightColor; // W is strength
     float4 lightDirection;
     float4 skyColorZenith;
     float4 skyColorHorizon;
     float4 windDirection;
-};
-
-struct CameraBuffer {
-    float4x4 inv_view;
-    float4x4 inv_proj;
-    float4x4 invViewProj;
-    float4 cameraPosition;
     float resX;
     float resY;
     float fov;
-};
-
-struct TimeBuffer{
-    float time;
-    float timeOfDay;
-};
+    float time = 0.0f;
+    float timeOfDay = 0.0f;
+}
 
 // TOOLBOX
 float4x4 inverse(float4x4 m) {
