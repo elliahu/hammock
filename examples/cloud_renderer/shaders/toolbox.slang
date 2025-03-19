@@ -60,15 +60,15 @@ float4x4 inverse(float4x4 m) {
 }
 
 // Helper function for sun glow
-float sunGlowFactor(float3 rayDirection, float3 sunDirection, float sunSize, float glowIntensity, float glowFalloff) {
+float sunGlowFactor(float3 rayDirection, float3 sunDirection, float sunSize, float glowAngle, float glowIntensity) {
     float cosAngle = dot(rayDirection, sunDirection);
     float sunCosRadius = cos(sunSize);
 
-    // Core sun disk
+    // Sun disk
     float sunDisk = smoothstep(sunCosRadius - 0.0015, sunCosRadius + 0.0015, cosAngle);
 
-    // Extended glow falloff
-    float glow = pow(max(0.0, cosAngle), glowFalloff) * glowIntensity;
+    // Glow using smoothstep (efficient)
+    float glow = smoothstep(cos(sunSize + glowAngle), sunCosRadius, cosAngle) * glowIntensity;
 
     return max(sunDisk, glow);
 }

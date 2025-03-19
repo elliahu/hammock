@@ -80,12 +80,12 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     }
 
     // Sun parameters
-    float sunSize = 0.0005;         // Apparent size of sun in radians
-    float sunGlowIntensity = 4.0; // Intensity of the sun glow
-    float sunGlowFalloff = 128.0;  // How quickly the glow falls off
+    float sunSize = 0.002;     // Small sun
+    float glowAngle = 0.01;    // Tight glow (~0.5 degrees)
+    float glowIntensity = 1.0; // Normal brightness
 
     // Calculate sun and glow factor
-    float sunFactor = sunGlowFactor(rayDirection, normalize(set.data.lightDirection.xyz), sunSize, sunGlowIntensity, sunGlowFalloff);
+    float sunFactor = sunGlowFactor(rayDirection, normalize(set.data.lightDirection.xyz), sunSize, glowAngle, glowIntensity);
 
     // Sun color (warm yellowish)
     float3 sunColor = set.data.lightColor.rgb * 3.0; // Brightened sun color

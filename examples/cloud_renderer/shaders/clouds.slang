@@ -34,7 +34,7 @@ struct PushConstants {
 
 // Storage images
 [vk::binding(1)] RWTexture2D cloudsStorageImage;
-[vk::binding(2)] RWTexture2D godRaysStorageImage;
+[vk::binding(2)] RWTexture2D godRaysMaskStorageImage;
 
 // Images and samplers
 [vk::binding(3)] Sampler3D lowFreqNoiseTexture;
@@ -97,7 +97,7 @@ static const float bayerFilter[16u] = float[]
 15.0 * BAYER_FACTOR, 7.0 * BAYER_FACTOR, 13.0 * BAYER_FACTOR, 5.0 * BAYER_FACTOR
 );
 
-#define MASK_THRESHOLD 0.1
+#define MASK_THRESHOLD 0.01
 
 
 // Returns a relative hight in cloud layer 0 to 1
@@ -416,7 +416,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     // if we intersected a planet, we exit as there are no clouds under ground
     if (planetIntersect.y > 0.0) {
         cloudsStorageImage[threadId.xy] = float4(0.0);
-        godRaysStorageImage[threadId.xy] = float4(0.0, 0.0, 0.0, 1.0);
+        godRaysMaskStorageImage[threadId.xy / 4] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
@@ -427,8 +427,8 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     // Validate segment
     if (dstToEnd <= dstToStart || dstToStart < 0.0) {
-        cloudsStorageImage[threadId.xy] = float4(1.0,0.0,0.0,1.0);
-        godRaysStorageImage[threadId.xy] = float4(0.0, 0.0, 0.0, 1.0);
+        cloudsStorageImage[threadId.xy] = float4(1.0, 0.0, 0.0, 1.0);
+        godRaysMaskStorageImage[threadId.xy / 4] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
@@ -441,12 +441,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float4 color = raymarch(threadId,start, end, skyColor.rgb);
 
     // If the alpha is high enough, write it to the mask, else write the color of the light
-    if (color.a > MASK_THRESHOLD) {
-        godRaysStorageImage[threadId.xy] = float4(0.0, 0.0, 0.0, 1.0);
-    }
-    else {
-        godRaysStorageImage[threadId.xy] = float4(SUN_COLOR, 1.0);
-    }
+    godRaysMaskStorageImage[threadId.xy / 4] = float4(lerp(SUN_COLOR * SUN_STRENGTH, float3(0.0), color.a), 1.0);
 
     // Apply areal perspective
     color.rgb = applyAerialPerspective(color.rgb, skyColor.rgb, distanceToPixel, 70000.0, 0.000008);

@@ -194,12 +194,23 @@ void SkyScene::buildRenderGraph() {
         });
 
     renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
-        "god-rays-image", ImageDesc{
-            .width = window.getExtent().width,
-            .height = window.getExtent().height,
+        "god-rays-mask", ImageDesc{
+            .width = static_cast<uint32_t>(window.getExtent().width * 0.25),
+            .height = static_cast<uint32_t>(window.getExtent().height * 0.25),
             .channels = 4,
             .format = VK_FORMAT_R8G8B8A8_UNORM,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+        });
+
+    renderGraph->addResource<ResourceNode::Type::ColorAttachment, Image, ImageDesc>(
+        "god-rays-image", ImageDesc{
+            .width = static_cast<uint32_t>(window.getExtent().width * 0.25),
+            .height = static_cast<uint32_t>(window.getExtent().height * 0.25),
+            .channels = 4,
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
         });
@@ -271,7 +282,7 @@ void SkyScene::buildRenderGraph() {
             .descriptor(0, {
                             {0, {"uniform-buffer"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {1, {"clouds-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {2, {"god-rays-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {2, {"god-rays-mask"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
                             {3, {"base-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {
                                 4, {"detail-noise"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -285,7 +296,7 @@ void SkyScene::buildRenderGraph() {
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
             })
             .write(ResourceAccess{
-                .resourceName = "god-rays-image",
+                .resourceName = "god-rays-mask",
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
             })
             .execute([&](RenderPassContext context)-> void {
@@ -306,6 +317,35 @@ void SkyScene::buildRenderGraph() {
                 vkCmdDispatch(context.commandBuffer, groupsX, groupsY, 1);
             });
 
+    renderGraph->addPass<CommandQueueFamily::Graphics, RelativeViewPortSize::SwapChainRelative, 0.25f, 0.25f>("blur-pass")
+            .read(ResourceAccess{
+                .resourceName = "god-rays-mask",
+                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
+            })
+            .descriptor(0, {
+                            {0, {"god-rays-mask"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                        })
+            .write(ResourceAccess{
+                .resourceName = "god-rays-image",
+                .requiredLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            })
+            .execute([&](RenderPassContext context)-> void {
+                // The composition pass is straight forward
+                blur.radialBlurPipeline->bind(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
+                context.bindDescriptorSet(0, 0, blur.radialBlurPipeline->pipelineLayout,
+                                          VK_PIPELINE_BIND_POINT_GRAPHICS);
+
+                vkCmdPushConstants(context.commandBuffer, blur.radialBlurPipeline->pipelineLayout,
+                                   VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                   sizeof(RadialBlurData), &radialBlurData);
+
+
+                // Even though there is no vertex buffer, this call is safe as it does not actually read the vertices in the shader
+                // This only triggers fullscreen effect in vert shader that runs fragment shader for each pixel of the screen
+                vkCmdDraw(context.commandBuffer, 3, 1, 0, 0);
+            });
+
 
     // Composition pass reads from the storage image and writes to the swap chain image
     renderGraph->addPass<CommandQueueFamily::Graphics, RelativeViewPortSize::SwapChainRelative>("composition-pass")
@@ -316,7 +356,7 @@ void SkyScene::buildRenderGraph() {
             })
             .read(ResourceAccess{
                 .resourceName = "god-rays-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
             })
             .read(ResourceAccess{
@@ -328,12 +368,10 @@ void SkyScene::buildRenderGraph() {
                 .resourceName = "post-proc-ubo"
             })
             .descriptor(0, {
-                            {
-                                0, {"clouds-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                VK_SHADER_STAGE_FRAGMENT_BIT
-                            },
-                            {1, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
-                            {2, {"post-proc-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {0, {"clouds-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {1, {"god-rays-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {2, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {3, {"post-proc-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "swap-color-image",
@@ -448,6 +486,12 @@ void SkyScene::buildRenderGraph() {
                     ImGui::ColorEdit3("Horizon sky color", &frameData.skyColorHorizon.Elements[0]);
                     ImGui::SliderFloat("Sun light strength", &frameData.lightColor.A, 0.0f, 15.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
+                    ImGui::SeparatorText("Light shafts");
+                    ImGui::SliderFloat("Density", &radialBlurData.density, 0.0f, 2.0f);
+                    ImGui::SliderFloat("Decay", &radialBlurData.decay, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Weight", &radialBlurData.weight, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Alpha", &radialBlurData.alpha, 0.0f, 1.0f);
+
 
 
                     ImGui::SeparatorText("Environment properties");
@@ -458,8 +502,11 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SeparatorText("Rendering");
 
 
-                    if (ImGui::Button("Reset to defaults")) {
+                    if (ImGui::Button("Reset cloud defaults")) {
                         computePushConsts = backUpComputePushConsts;
+                    }
+                    if (ImGui::Button("Reset light shafts defaults")) {
+                        radialBlurData = backUpRadialBlurData;
                     }
 
                     camWindowPos = ImGui::GetWindowPos();
@@ -563,8 +610,9 @@ void SkyScene::buildRenderGraph() {
                                      0.0f, 33.0f,
                                      ImVec2(0, 80));
                     ImGui::SeparatorText("Rendering");
-                    ImGui::DragInt("Max samples", &computePushConsts.DEBUG_maxSamples, 0.1f, 2, 2048);
-                    ImGui::DragInt("Max light samples", &computePushConsts.DEBUG_maxLightSamples, 0.1f, 2, 64);
+                    ImGui::DragInt("Max density samples", &computePushConsts.DEBUG_maxSamples, 0.1f, 2, 2048);
+                    ImGui::DragInt("Max light density samples", &computePushConsts.DEBUG_maxLightSamples, 0.1f, 2, 64);
+                    ImGui::SliderInt("Num blur samples", &radialBlurData.numSamples, 1, 512);
                     ImGui::DragInt("Large step multiplier", &computePushConsts.DEBUG_longStepMulti, 1, 1, 100);
                     ImGui::DragInt("Cheap sample distance", &computePushConsts.DEBUG_cheapSampleDistance, 10, 0,
                                    1000000);
@@ -614,6 +662,31 @@ void SkyScene::buildPipelines() {
         {.byteCode = Filesystem::readFile(compiledShaderPath("atmosphere.frag")),},
         .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("sky-pass")},
         .pushConstantRanges{},
+        .graphicsState{
+            // We disable cull so that the vkCmdDraw command is not skipped
+            .cullMode = VK_CULL_MODE_NONE,
+            .vertexBufferBindings{}
+        },
+        .dynamicRendering = {
+            // Render graph requires by default dynamic rendering
+            .enabled = true,
+            .colorAttachmentCount = 1,
+            .colorAttachmentFormats = {VK_FORMAT_R8G8B8A8_UNORM},
+        }
+    });
+
+    // Radial blurt pipeline
+    blur.radialBlurPipeline = GraphicsPipeline::create({
+        .debugName = "radial-blur-pipeline",
+        .device = device,
+        .vertexShader
+        // Fullscreen vertex shader
+        {.byteCode = Filesystem::readFile(compiledShaderPath("radial.vert")),},
+        .fragmentShader
+        // Fragment shader samples storage texture and writes it to swapchain image
+        {.byteCode = Filesystem::readFile(compiledShaderPath("radial.frag")),},
+        .descriptorSetLayouts = {renderGraph->getDescriptorSetLayouts("blur-pass")},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RadialBlurData)}},
         .graphicsState{
             // We disable cull so that the vkCmdDraw command is not skipped
             .cullMode = VK_CULL_MODE_NONE,
@@ -740,6 +813,24 @@ void SkyScene::update() {
     frameData.resX = static_cast<float>(window.getExtent().width);
     frameData.resY = static_cast<float>(window.getExtent().height);
     frameData.fov = fov;
+
+    // radial blur
+    radialBlurData.exposure = postProcUbo.exposure;
+    // compute light screen space pos
+    HmckVec3 simulatedSunPos = cameraPosition - frameData.lightDirection.XYZ * 1000.0f;
+    HmckVec4 clipSpaceSunPos = proj * view * HmckVec4{simulatedSunPos.X, simulatedSunPos.Y, simulatedSunPos.Z, 1.0f};
+    HmckVec3 ndcSunPos = {
+        clipSpaceSunPos.X / clipSpaceSunPos.W,
+        clipSpaceSunPos.Y / clipSpaceSunPos.W,
+        clipSpaceSunPos.Z / clipSpaceSunPos.W
+    };
+
+    // Convert NDC [-1,1] to screen space [0,1]
+    HmckVec2 screenSpaceSunPos = {
+        (ndcSunPos.X + 1.0f) * 0.5f,
+        (ndcSunPos.Y + 1.0f) * 0.5f
+    };
+    radialBlurData.screenSpaceLightPos = HmckVec4{screenSpaceSunPos.X, screenSpaceSunPos.Y, 0.0f,0.0f};
 }
 
 

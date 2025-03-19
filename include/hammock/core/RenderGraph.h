@@ -1140,10 +1140,18 @@ namespace hammock {
             auto depthStencilOptional = collectDepthStencilAttachmentInfo(pass);
 
             VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
-            renderingInfo.renderArea = {
-                0, 0, fm.getSwapChain()->getSwapChainExtent().width,
-                fm.getSwapChain()->getSwapChainExtent().height
-            };
+            if(pass->viewportSize == RelativeViewPortSize::SwapChainRelative) {
+                renderingInfo.renderArea = {
+                    0, 0, static_cast<uint32_t>(fm.getSwapChain()->getSwapChainExtent().width * pass->viewport.X),
+                    static_cast<uint32_t>(fm.getSwapChain()->getSwapChainExtent().height * pass->viewport.Y)
+                };
+            }
+            else {
+                renderingInfo.renderArea = {
+                    0, 0, fm.getSwapChain()->getSwapChainExtent().width,
+                    fm.getSwapChain()->getSwapChainExtent().height
+                };
+            }
             renderingInfo.layerCount = 1;
             renderingInfo.colorAttachmentCount = colorAttachments.size();
             renderingInfo.pColorAttachments = colorAttachments.data();

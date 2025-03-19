@@ -51,6 +51,16 @@ class SkyScene final : public IScene {
         int DEBUG_longStepMulti = 10;
     } computePushConsts, backUpComputePushConsts;
 
+    struct RadialBlurData {
+        HmckVec4 screenSpaceLightPos;
+        int numSamples = 128;
+        float density = 0.8;
+        float exposure; // set based on postproc settings bellow
+        float decay = 0.9;
+        float weight = 0.7;
+        float alpha = 0.3;
+    } radialBlurData, backUpRadialBlurData;
+
     struct PostProcessUBO {
         HmckVec4 colorTint{1.0f, 1.0f, 1.0f,0.0f};
         float exposure = 2.3f;        // Default: 0.0, Range: -5.0 to 5.0

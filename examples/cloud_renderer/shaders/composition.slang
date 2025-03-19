@@ -37,10 +37,10 @@ struct PostProcessingBuffer{
     float time;
 };
 
-
 [vk::binding(0)] Sampler2D cloudTexture;
-[vk::binding(1)] Sampler2D atmosphereTexture;
-[vk::binding(2)] ConstantBuffer<PostProcessingBuffer> post;
+[vk::binding(1)] Sampler2D godRaysImageTexture;
+[vk::binding(2)] Sampler2D atmosphereTexture;
+[vk::binding(3)] ConstantBuffer<PostProcessingBuffer> post;
 
 
 // Utility functions
@@ -140,12 +140,13 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID) {
 }
 
 [shader("pixel")]
-PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
-    // Sample clouds and sky
+PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
+    // Sample clouds, sky, and god rays
     float4 clouds = cloudTexture.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
     float4 sky = atmosphereTexture.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
+    float4 godRays = godRaysImageTexture.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
 
-    sky = float4(pow(sky.xyz, float3(2.2)),sky.a);
+    sky = float4(pow(sky.xyz, float3(2.2)), sky.a);
 
     // Cloud blending based on selected mode
     float3 cloudBlended;
@@ -160,8 +161,13 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
         cloudBlended = lerp(sky.rgb, blendSoftLight(sky.rgb, clouds.rgb), clouds.a);
     }
 
+    // Apply god rays using screen blending
+    // TODO
+    cloudBlended = lerp(cloudBlended.rgb, blendScreen(cloudBlended.rgb, godRays.rgb), godRays.a);
+
     // Apply exposure
-    float3 hdrColor = cloudBlended* pow(2.0, post.exposure);
+    float3 hdrColor = cloudBlended * pow(2.0, post.exposure);
+
 
     // Apply tonemapping based on selected operator
     float3 tonemapped;
