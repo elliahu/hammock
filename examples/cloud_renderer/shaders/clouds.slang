@@ -40,7 +40,6 @@ struct PushConstants {
 [vk::binding(3)] Sampler3D lowFreqNoiseTexture;
 [vk::binding(4)] Sampler3D highFreqNoiseTexture;
 [vk::binding(5)] Sampler2D cloudMapTexture;
-[vk::binding(6)] Sampler2D skyTexture;
 
 // Push constants
 [vk::push_constant] PushConstants constants;
@@ -252,7 +251,7 @@ float lightRayAttenuation(float3 p) {
 
 // Marches along a ray from the start to the end position
 // Uses adaptive stepping: longer steps until cloud is detected, then short steps
-float4 raymarch(uint3 threadId, float3 start, float3 end, float3 skyColor) {
+float4 raymarch(uint3 threadId, float3 start, float3 end) {
     // Create the ray to march along
     float3 ray = end - start;
     float rayLength = length(ray);
@@ -398,10 +397,6 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     rayDirection = normalize(rayDirection);
     float3 rayOrigin = data.cameraPosition.xyz;
 
-    // Sample the sky color at this pixel
-    float2 normCoord = float2(threadId.xy) / float2(resolution);
-    float4 skyColor = skyTexture.SampleLevel(normCoord, 0.0);
-
     // Compute distance from camera to sphere center.
     float cameraDist = length(rayOrigin - CENTER);
     bool insideInnerSphere = cameraDist < CLOUDS_BOTTOM_RADIUS;
@@ -438,13 +433,10 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float distanceToPixel = length(end - rayOrigin);
 
     // Perform raymarching for clouds.
-    float4 color = raymarch(threadId,start, end, skyColor.rgb);
+    float4 color = raymarch(threadId,start, end);
 
     // If the alpha is high enough, write it to the mask, else write the color of the light
     godRaysMaskStorageImage[threadId.xy / 4] = float4(lerp(SUN_COLOR * SUN_STRENGTH, float3(0.0), color.a), 1.0);
-
-    // Apply areal perspective
-    color.rgb = applyAerialPerspective(color.rgb, skyColor.rgb, distanceToPixel, 70000.0, 0.000008);
 
     // Store the final value
     cloudsStorageImage[threadId.xy] = color;

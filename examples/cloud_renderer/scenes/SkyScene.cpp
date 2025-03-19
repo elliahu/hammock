@@ -275,10 +275,6 @@ void SkyScene::buildRenderGraph() {
             .read(ResourceAccess{
                 .resourceName = "uniform-buffer",
             })
-            .read(ResourceAccess{
-                .resourceName = "sky-image",
-                .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            })
             .descriptor(0, {
                             {0, {"uniform-buffer"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
                             {1, {"clouds-image"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
@@ -289,7 +285,6 @@ void SkyScene::buildRenderGraph() {
                                 VK_SHADER_STAGE_COMPUTE_BIT
                             },
                             {5, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
-                            {6, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "clouds-image",
