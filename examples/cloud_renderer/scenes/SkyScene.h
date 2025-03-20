@@ -35,10 +35,10 @@ class SkyScene final : public IScene {
         float baseMultiplier = 0.8f;
         float detailMultiplier = 0.75;
         float cloudSpeed = 1000.f;
-        float baseScale = 75.f;
-        float detailScale = 100.0f;
+        float baseScale = 50.f;
+        float detailScale = 50.0f;
         float curliness = 2.0f;
-        float absorption = 0.006f;
+        float absorption = 0.0064f;
         float phase = 0.22f;
         float ambientStrength = 0.05;
         int DEBUG_epicView = 0;

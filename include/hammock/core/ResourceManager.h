@@ -14,7 +14,7 @@ namespace hammock {
 
         template<typename T, typename... Args>
         static std::unique_ptr<T> create(Device &device, uint64_t id, Args &&... args) {
-            return std::unique_ptr<T>(new T(device, id, std::forward<Args>(args)...));
+            return std::make_unique<T>(device, id, std::forward<Args>(args)...);
         }
     };
 
@@ -44,9 +44,6 @@ namespace hammock {
         // 6GB default
             : device(device), totalMemoryUsed(0), memoryBudget(memoryBudget), nextId(1) {
         }
-
-        ~ResourceManager();
-
 
         template<typename T, typename... Args>
         ResourceHandle createResource(Args &&... args) {

@@ -226,6 +226,17 @@ void SkyScene::buildRenderGraph() {
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
         });
 
+    renderGraph->addResource<ResourceNode::Type::StorageImage, Image, ImageDesc>(
+        "shadow-map", ImageDesc{
+            .width = 512,
+            .height = 512,
+            .channels = 4,
+            .format = VK_FORMAT_R16_SFLOAT,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+        });
+
 
     // Create a default sampler that will be used to sample output images (in this case storage image)
     renderGraph->createSampler("default-sampler");
@@ -285,6 +296,7 @@ void SkyScene::buildRenderGraph() {
                                 VK_SHADER_STAGE_COMPUTE_BIT
                             },
                             {5, {"cloud-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT},
+                            {6, {"shadow-map"}, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "clouds-image",
@@ -292,6 +304,10 @@ void SkyScene::buildRenderGraph() {
             })
             .write(ResourceAccess{
                 .resourceName = "god-rays-mask",
+                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+            })
+            .write(ResourceAccess{
+                .resourceName = "shadow-map",
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
             })
             .execute([&](RenderPassContext context)-> void {
@@ -350,6 +366,11 @@ void SkyScene::buildRenderGraph() {
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
             })
             .read(ResourceAccess{
+                .resourceName = "shadow-map",
+                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
+            })
+            .read(ResourceAccess{
                 .resourceName = "god-rays-image",
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD
@@ -363,7 +384,7 @@ void SkyScene::buildRenderGraph() {
                 .resourceName = "post-proc-ubo"
             })
             .descriptor(0, {
-                            {0, {"clouds-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {0, {"clouds-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {1, {"god-rays-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {2, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {3, {"post-proc-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
@@ -486,7 +507,6 @@ void SkyScene::buildRenderGraph() {
                     ImGui::SliderFloat("Decay", &radialBlurData.decay, 0.0f, 1.0f);
                     ImGui::SliderFloat("Weight", &radialBlurData.weight, 0.0f, 1.0f);
                     ImGui::SliderFloat("Alpha", &radialBlurData.alpha, 0.0f, 1.0f);
-
 
 
                     ImGui::SeparatorText("Environment properties");
@@ -825,7 +845,7 @@ void SkyScene::update() {
         (ndcSunPos.X + 1.0f) * 0.5f,
         (ndcSunPos.Y + 1.0f) * 0.5f
     };
-    radialBlurData.screenSpaceLightPos = HmckVec4{screenSpaceSunPos.X, screenSpaceSunPos.Y, 0.0f,0.0f};
+    radialBlurData.screenSpaceLightPos = HmckVec4{screenSpaceSunPos.X, screenSpaceSunPos.Y, 0.0f, 0.0f};
 }
 
 

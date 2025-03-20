@@ -130,7 +130,8 @@ namespace hammock {
         VkBufferUsageFlags usageFlags;
         VmaAllocationCreateFlags allocationFlags;
         VkDeviceSize minOffsetAlignment;
-        CommandQueueFamily queueFamily = CommandQueueFamily::Ignored;
+        CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
+        std::vector<CommandQueueFamily> queueFamilies{};
         VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     };
 
@@ -144,7 +145,8 @@ namespace hammock {
         VkImageType imageType = VK_IMAGE_TYPE_2D;
         VkImageViewType imageViewType = VK_IMAGE_VIEW_TYPE_2D;
         VkClearValue clearValue = {};
-        CommandQueueFamily queueFamily = CommandQueueFamily::Ignored;
+        CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
+        std::vector<CommandQueueFamily> queueFamilies{};
         VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         VkMemoryPropertyFlags memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;

@@ -56,8 +56,13 @@ namespace hammock {
 
             try {
                 for (const auto &entry: std::filesystem::directory_iterator(directoryPath)) {
-                    if (entry.is_regular_file()) {
-                        fileList.push_back(entry.path().string());
+                    try {
+                        if (entry.is_regular_file()) {
+                            fileList.push_back(entry.path().string());
+                        }
+                    } catch (const std::filesystem::filesystem_error &e) {
+                        Logger::log(LOG_LEVEL_ERROR, "Error on entry: %s | %s\n",
+                                    entry.path().string().c_str(), e.what());
                     }
                 }
             } catch (const std::filesystem::filesystem_error &e) {

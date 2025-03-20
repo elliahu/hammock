@@ -16,7 +16,7 @@ if not os.path.exists(os.environ['VULKAN_SDK']):
     exit(1)
 
 # Check if the slang compiler exits
-if not os.path.exists(compiler):
+if platform.system() == 'Windows' and not os.path.exists(compiler):
     print("Failed to compile the shaders. Slang compiler missing! Make sure Vulkan SDK 1.3.296.0 or newer is installed or install it separately.")
     exit(1)
 

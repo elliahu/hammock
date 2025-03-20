@@ -6,13 +6,15 @@
 #include "scenes/SkyScene.h"
 #include "scenes/ParticipatingMediumScene.h"
 
+#include "renderer/Renderer.h"
+
 using namespace hammock;
 
 int main(int argc, char * argv[]) {
     ArgParser parser;
     parser.addArgument<int32_t>("width", "Window width in pixels");
     parser.addArgument<int32_t>("height", "Window height in pixels");
-    parser.addArgument<std::string>("scene", "Scene option: [noise, clouds, medium]");
+    parser.addArgument<std::string>("scene", "Scene option: [noise, clouds, medium, renderer]");
 
     try {
         parser.parse(argc, argv);
@@ -35,6 +37,10 @@ int main(int argc, char * argv[]) {
     else if (selectedScene == "medium") {
         ParticipatingMediumScene mediumScene{"Participating medium playground", static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
         mediumScene.render();
+    }
+    else if (selectedScene == "renderer") {
+        Renderer renderer{width, height};
+        renderer.render();
     }
     else {
         Logger::log(LOG_LEVEL_ERROR, "Invalid scene option");

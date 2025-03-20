@@ -15,6 +15,8 @@ namespace hammock {
         VkDeviceSize m_instanceSize;
         VkBufferUsageFlags m_usageFlags;
         VmaAllocationCreateFlags m_memoryPropertyFlags;
+        // FIXME this gets accessed after free ??
+        std::vector<uint32_t> m_queueFamilyIndices;
 
         CommandQueueFamily m_queueFamily;
         VkSharingMode m_sharingMode;
@@ -45,13 +47,26 @@ namespace hammock {
             m_instanceSize = desc.instanceSize;
             m_usageFlags = desc.usageFlags;
             m_memoryPropertyFlags = desc.allocationFlags;
-            m_queueFamily = desc.queueFamily;
+
+            // queue family indices
+            for (auto& family : desc.queueFamilies) {
+                if (family == CommandQueueFamily::Graphics) m_queueFamilyIndices.push_back(device.getGraphicsQueueFamilyIndex());
+                if (family == CommandQueueFamily::Compute) m_queueFamilyIndices.push_back(device.getComputeQueueFamilyIndex());
+                if (family == CommandQueueFamily::Transfer) m_queueFamilyIndices.push_back(device.getTransferQueueFamilyIndex());
+            }
+
+            m_queueFamily = desc.currentQueueFamily;
             m_sharingMode = desc.sharingMode;
         }
 
         ~Buffer() override {
+            Logger::log(LOG_LEVEL_DEBUG, "Buffer %s is being destroyed ...\n", getName().c_str());
             if (isResident()) {
-                Buffer::release();
+                Logger::log(LOG_LEVEL_DEBUG, "Buffer %s is resident, releasing ..\n", getName().c_str());
+                release();
+            }
+            else {
+                Logger::log(LOG_LEVEL_DEBUG, "Buffer %s is not resident\n", getName().c_str());
             }
         }
 
@@ -59,12 +74,14 @@ namespace hammock {
          * Creates the actual resource and loads it into memory
          */
         void create() override {
-            Logger::log(LOG_LEVEL_DEBUG, "Creating buffer %s\n", getName().c_str());
+            Logger::log(LOG_LEVEL_DEBUG, "Creating buffer %s of size %d\n", getName().c_str(), m_bufferSize);
             VkBufferCreateInfo bufferInfo{};
             bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
             bufferInfo.size = m_bufferSize;
             bufferInfo.usage = m_usageFlags;
-            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            bufferInfo.sharingMode = m_sharingMode;
+            bufferInfo.queueFamilyIndexCount = m_queueFamilyIndices.size();
+            bufferInfo.pQueueFamilyIndices = m_queueFamilyIndices.data();
 
             VmaAllocationCreateInfo allocInfo = {};
             allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -80,10 +97,10 @@ namespace hammock {
          * Frees the resource
          */
         void release() override {
-            Logger::log(LOG_LEVEL_DEBUG, "Releasing buffer %s\n", getName().c_str());
             unmap();
             vmaDestroyBuffer(device.allocator(), m_buffer, m_allocation);
             resident = false;
+            Logger::log(LOG_LEVEL_DEBUG, "Buffer %s of size %d released\n", getName().c_str(), m_bufferSize);
         }
 
         [[nodiscard]] VkBuffer getBuffer() const { return m_buffer; }

@@ -24,6 +24,7 @@ namespace hammock {
         VkClearValue m_clearValue = {};
 
         CommandQueueFamily m_queueFamily;
+        std::vector<uint32_t> m_queueFamilyIndices;
         VkSharingMode m_sharingMode;
 
         VkImageTiling m_tiling;
@@ -51,7 +52,13 @@ namespace hammock {
             // attachment
             m_clearValue = desc.clearValue;
 
-            m_queueFamily = desc.queueFamily;
+            // queue family indices
+            for (auto& family : desc.queueFamilies) {
+                if (family == CommandQueueFamily::Graphics) m_queueFamilyIndices.push_back(device.getGraphicsQueueFamilyIndex());
+                if (family == CommandQueueFamily::Compute) m_queueFamilyIndices.push_back(device.getComputeQueueFamilyIndex());
+                if (family == CommandQueueFamily::Transfer) m_queueFamilyIndices.push_back(device.getTransferQueueFamilyIndex());
+            }
+
             m_sharingMode = desc.sharingMode;
 
             m_tiling = desc.tiling;
@@ -223,6 +230,8 @@ namespace hammock {
             imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
             imageCreateInfo.tiling = m_tiling;
             imageCreateInfo.sharingMode = m_sharingMode;
+            imageCreateInfo.queueFamilyIndexCount = m_queueFamilyIndices.size();
+            imageCreateInfo.pQueueFamilyIndices = m_queueFamilyIndices.data();
             imageCreateInfo.extent.width = m_width;
             imageCreateInfo.extent.height = m_height;
             imageCreateInfo.extent.depth = m_depth;

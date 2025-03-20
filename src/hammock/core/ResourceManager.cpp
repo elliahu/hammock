@@ -2,15 +2,6 @@
 
 #include <chrono>
 
-hammock::ResourceManager::~ResourceManager() {
-    for (auto& resource : resources) {
-        if (resource.second->isResident()) {
-            resource.second->release();
-        }
-    }
-    resources.clear();
-}
-
 void hammock::ResourceManager::releaseResource(uint64_t id) {
     auto it = resources.find(id);
     if (it != resources.end()) {
