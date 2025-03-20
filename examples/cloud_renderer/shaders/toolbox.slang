@@ -5,7 +5,7 @@ static const float PI = 3.14159265358979323846;
 struct FrameDataUbo {
     float4x4 invView;
     float4x4 invProj;
-    float4x4 a;
+    float4x4 invViewProj;
     float4 cameraPosition;
     float4 lightColor; // W is strength
     float4 lightDirection;

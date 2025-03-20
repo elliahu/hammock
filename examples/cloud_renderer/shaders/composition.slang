@@ -40,7 +40,8 @@ struct PostProcessingBuffer{
 [vk::binding(0)] Sampler2D cloudTexture;
 [vk::binding(1)] Sampler2D godRaysImageTexture;
 [vk::binding(2)] Sampler2D atmosphereTexture;
-[vk::binding(3)] ConstantBuffer<PostProcessingBuffer> post;
+[vk::binding(3)] Sampler2D shadowMap;
+[vk::binding(4)] ConstantBuffer<PostProcessingBuffer> post;
 
 
 // Utility functions
@@ -224,6 +225,26 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
     // Output final color
     PixelOutput output;
     output.color = float4(graded, 1.0);
+
+    // Define shadow map preview region in UV space (top-right corner)
+    float2 previewSize = float2(0.2, 0.2); // 20% of the screen
+    float2 previewPos = float2(1.0 - previewSize.x, 0.0); // Top-right corner (origin at top-left)
+
+    // Check if current UV is within the preview rectangle
+    bool inPreviewRegion = all(input.uv >= previewPos) && all(input.uv <= previewPos + previewSize);
+
+    if (inPreviewRegion) {
+        // Calculate UV within the preview region
+        float2 localUV = (input.uv - previewPos) / previewSize;
+
+        // Sample shadow map using flipped Y to match screen orientation
+        float shadowValue = shadowMap.SampleLevel(localUV, 0.0).r;
+
+        // Show it as grayscale (optional: enhance contrast)
+        float3 shadowColor = float3(shadowValue, shadowValue, shadowValue);
+
+        output.color = float4(shadowColor, 1.0);
+    }
 
     return output;
 }

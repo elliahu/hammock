@@ -232,7 +232,7 @@ void SkyScene::buildRenderGraph() {
             .height = 512,
             .channels = 4,
             .format = VK_FORMAT_R16_SFLOAT,
-            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
         });
@@ -323,6 +323,24 @@ void SkyScene::buildRenderGraph() {
                                    VK_SHADER_STAGE_COMPUTE_BIT, 0,
                                    sizeof(ComputePushConsts), &computePushConsts);
 
+
+                VkClearColorValue clearColor = context.get<Image>("shadow-map")->getRenderingAttachmentInfo().clearValue.color;
+                VkImageSubresourceRange subresourceRange = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                };
+                vkCmdClearColorImage(
+                    context.commandBuffer,
+                    context.get<Image>("shadow-map")->getImage(),
+                    VK_IMAGE_LAYOUT_GENERAL, // Must be GENERAL or TRANSFER_DST_OPTIMAL
+                    &clearColor,
+                    1,
+                    &subresourceRange
+                );
+
                 // Then we dispatch the compute shader
                 // This way we can render in parallel which makes the raymarching way quicker than doing this in frag shader
                 vkCmdDispatch(context.commandBuffer, groupsX, groupsY, 1);
@@ -387,7 +405,8 @@ void SkyScene::buildRenderGraph() {
                             {0, {"clouds-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {1, {"god-rays-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
                             {2, {"sky-image"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
-                            {3, {"post-proc-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {3, {"shadow-map"}, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+                            {4, {"post-proc-ubo"}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
                         })
             .write(ResourceAccess{
                 .resourceName = "swap-color-image",
