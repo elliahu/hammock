@@ -33,6 +33,8 @@ struct CloudsProperties {
 struct GlobalData {
     HmckMat4 invView;
     HmckMat4 invProj;
+    HmckMat4 view;
+    HmckMat4 proj;
     HmckVec4 cameraPosition;
     HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 5.0f}; // W is strength
     HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
@@ -44,4 +46,11 @@ struct GlobalData {
     float fov;
     float time = 0.0f;
     float timeOfDay = 0.0f;
+};
+
+/**
+ * Data that are passed to the terrain shader as a push constant block
+ */
+struct TerrainData {
+    HmckMat4 modelViewProjection;
 };

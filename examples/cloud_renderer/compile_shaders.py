@@ -35,3 +35,7 @@ subprocess.check_call([compiler , "shaders/composition.slang", '-o', 'spv/compos
 # Participating medium scene
 subprocess.check_call([compiler , "shaders/medium.slang", '-o', 'spv/medium.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
 subprocess.check_call([compiler , "shaders/medium.slang", '-o', 'spv/medium.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])
+
+# Main renderer
+subprocess.check_call([compiler , "shaders/terrain.slang", '-o', 'spv/terrain.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
+subprocess.check_call([compiler , "shaders/terrain.slang", '-o', 'spv/terrain.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])

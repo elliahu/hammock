@@ -16,6 +16,7 @@ struct BlurData {
     float decay;
     float weight;
     float alpha;
+    float activeDistance;
 };
 
 [vk::binding(0)] Sampler2D godRaysMaskTexture;
@@ -63,10 +64,9 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
     float3 blur = applyRadialBlur(input.position.xy, input.uv, data.numSamples, data.density, data.exposure, data.decay, data.weight, data.screenSpaceLightPos.xy);
 
     // Calculate fade factor based on how far the sun is from the center
-    float2 screenCenter = float2(0.5, 0.5);
+    float2 screenCenter = float2(0.5, 0.0);
     float dist = length(data.screenSpaceLightPos.xy - screenCenter);
-    float maxDistance = 0.5; // adjust as needed
-    float fadeFactor = saturate(1.0 - (dist / maxDistance));
+    float fadeFactor = saturate(1.0 - (dist / data.activeDistance));
 
     // Final color
     output.color = float4(blur, data.alpha * fadeFactor);

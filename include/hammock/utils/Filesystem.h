@@ -259,7 +259,7 @@ namespace hammock {
 
                 // Copy the first slice into the buffer
                 std::copy(firstSlice, firstSlice + sliceSize, volumeData);
-                stbi_image_free(const_cast<float *>(firstSlice)); // Free the first slice
+                delete[] firstSlice;// Free the first slice
 
                 // Read and copy the remaining slices
                 for (size_t i = 1; i < slices.size(); ++i) {
@@ -270,14 +270,14 @@ namespace hammock {
                     // Validate dimensions match
                     if (currentWidth != width || currentHeight != height || currentChannels != channels) {
                         delete[] volumeData;
-                        stbi_image_free(const_cast<float *>(sliceData));
+                        delete[] sliceData;
                         Logger::log(LOG_LEVEL_ERROR, "Error: Slice dimensions or channels mismatch in slice %d\n", i);
                         throw std::runtime_error("Error: Slice dimensions or channels mismatch!");
                     }
 
                     // Copy the slice into the correct position in the 3D buffer
                     std::copy(sliceData, sliceData + sliceSize, volumeData + i * sliceSize);
-                    stbi_image_free(const_cast<float *>(sliceData)); // Free the current slice
+                    delete[] sliceData; // Free the current slice
                 }
 
                 return volumeData;

@@ -24,11 +24,13 @@ namespace hammock {
         VkClearValue m_clearValue = {};
 
         CommandQueueFamily m_queueFamily;
-        std::vector<uint32_t> m_queueFamilyIndices;
+        std::vector<uint32_t> m_queueFamilyIndices{};
         VkSharingMode m_sharingMode;
 
         VkImageTiling m_tiling;
         VkMemoryPropertyFlags m_memoryFlags;
+
+        VkImageAspectFlags m_aspectFlags;
 
     public:
         Image(Device &device, uint64_t id, const std::string &name, const ImageDesc &desc) : Resource(
@@ -38,6 +40,7 @@ namespace hammock {
             m_usage = desc.usage;
             m_type = desc.imageType;
             m_viewType = desc.imageViewType;
+            m_aspectFlags = desc.aspectFlags;
 
             // Image dimensions
             m_width = desc.width;
@@ -84,7 +87,7 @@ namespace hammock {
 
         ~Image() override {
             if (isResident()) {
-                Image::release();
+                release();
             }
         }
 
@@ -251,7 +254,7 @@ namespace hammock {
             viewInfo.image = m_image;
             viewInfo.viewType = m_viewType;
             viewInfo.format = m_format;
-            viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            viewInfo.subresourceRange.aspectMask = m_aspectFlags;
             viewInfo.subresourceRange.baseMipLevel = 0;
             viewInfo.subresourceRange.levelCount = m_mips;
             viewInfo.subresourceRange.baseArrayLayer = 0;

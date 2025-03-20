@@ -10,21 +10,47 @@ void Renderer::processDeletionQueue() {
 
 void Renderer::buildPipelines() {
     // Clouds compute pipeline
-    pipelines.cloudsCompute = ComputePipeline::create({
-        .debugName = "compute-pipeline",
+    // pipelines.cloudsCompute = ComputePipeline::create({
+    //     .debugName = "compute-pipeline",
+    //     .device = device,
+    //     .computeShader{.byteCode = Filesystem::readFile(CLOUDS_COMP_SHADER_PATH),},
+    //     .descriptorSetLayouts = {
+    //         descriptorLayouts.global->getDescriptorSetLayout(),
+    //         descriptorLayouts.clouds->getDescriptorSetLayout(),
+    //     },
+    //     .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CloudsProperties)}}
+    // });
+
+    // Terrain graphics pipeline
+    pipelines.terrainGraphics = GraphicsPipeline::create({
+        .debugName = "terrain-pipeline",
         .device = device,
-        .computeShader{.byteCode = Filesystem::readFile(CLOUDS_COMP_SHADER_PATH),},
-        .descriptorSetLayouts = {
-            descriptorLayouts.global->getDescriptorSetLayout(),
-            descriptorLayouts.clouds->getDescriptorSetLayout(),
+        .vertexShader
+        // Fullscreen vertex shader
+        {.byteCode = Filesystem::readFile(TERRAIN_VERT_SHADER_PATH),},
+        .fragmentShader
+        // Fragment shader samples storage texture and writes it to swapchain image
+        {.byteCode = Filesystem::readFile(TERRAIN_FRAG_SHADER_PATH),},
+        .descriptorSetLayouts = {descriptorLayouts.global->getDescriptorSetLayout()},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TerrainData)}},
+        .graphicsState{
+            .vertexBufferBindings{
+                .vertexBindingDescriptions = Vertex::vertexInputBindingDescriptions(),
+                .vertexAttributeDescriptions = Vertex::vertexInputAttributeDescriptions(),
+            }
         },
-        .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CloudsProperties)}}
+        .dynamicRendering = {
+            .enabled = true,
+            .colorAttachmentCount = 1, // We are rendering to single color attachment
+            .colorAttachmentFormats = {VK_FORMAT_R8G8B8A8_UNORM},
+            .depthAttachmentFormat = VK_FORMAT_D16_UNORM, // guaranteed to be supported on all hardware
+        }
     });
 }
 
 void Renderer::buildDescriptorSets() {
     // Default sampler
-    Sampler *sampler = resourceManager.getResource<Sampler>(images.defaultSampler);
+    Sampler *sampler = resourceManager.getResource<Sampler>(defaultSampler);
 
     // global descriptor set
     for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
@@ -35,9 +61,9 @@ void Renderer::buildDescriptorSets() {
     }
 
     // Clouds
-    VkDescriptorImageInfo cloudsImageInfo = resourceManager.getResource<Image>(images.cloudsImage)->getDescriptorImageInfo(
+    VkDescriptorImageInfo cloudsImageInfo = resourceManager.getResource<Image>(targets.cloudsColor)->getDescriptorImageInfo(
         sampler->getSampler());
-    VkDescriptorImageInfo cloudsMaskImageInfo = resourceManager.getResource<Image>(images.cloudsMaskImage)->getDescriptorImageInfo(
+    VkDescriptorImageInfo cloudsMaskImageInfo = resourceManager.getResource<Image>(targets.cloudsMaskColor)->getDescriptorImageInfo(
         sampler->getSampler());
     VkDescriptorImageInfo lowFreqNoiseInfo = resourceManager.getResource<Image>(assets.lowFrequencyNoise)->getDescriptorImageInfo(
         sampler->getSampler());
@@ -72,67 +98,69 @@ void Renderer::buildDescriptorSetLayouts() {
 
 void Renderer::createBuffers() {
     // Create vertex buffer
-
+    ASSERT(!geometry.vertices.empty(), "No vertices loaded! Cannot create vertex buffer");
     buffers.vertexBuffer = resourceManager.createResource<Buffer>(
-           "vertex-buffer", BufferDesc{
-               .instanceSize = sizeof(Vertex),
-               .instanceCount = static_cast<uint32_t>(10),
-               .usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-           }
-       );
+        "vertex-buffer", BufferDesc{
+            .instanceSize = sizeof(Vertex),
+            .instanceCount = static_cast<uint32_t>(geometry.vertices.size()),
+            .usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .currentQueueFamily = CommandQueueFamily::Ignored,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        }
+    );
+
     // Create vertex staging buffer
-    /*ResourceHandle vertexStagingBuffer = resourceManager.createResource<Buffer>(
+    ResourceHandle vertexStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
         "vertex-staging-buffer", BufferDesc{
-            .instanceSize = sizeof(geometry.vertices[0]),
+            .instanceSize = sizeof(Vertex),
             .instanceCount = static_cast<uint32_t>(geometry.vertices.size()),
             .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        });*/
+        }
+    ));
 
-    // Copy geometry data to the staging buffer
-    //resourceManager.getResource<Buffer>(vertexStagingBuffer)->map();
-   // resourceManager.getResource<Buffer>(vertexStagingBuffer)->writeToBuffer(geometry.vertices.data());
-/*
-    VkDeviceSize vertexBufferSize = sizeof(geometry.vertices[0]) * geometry.vertices.size();
+    // Write vertex data to the buffer
+    resourceManager.getResource<Buffer>(vertexStagingBuffer)->map();
+    resourceManager.getResource<Buffer>(vertexStagingBuffer)->writeToBuffer(geometry.vertices.data());
 
-    // copy from staging buffer to the vertex buffer
+    // Copy data from staging buffer to actual vertex buffer
+    VkDeviceSize vertexBufferSize = sizeof(Vertex) * geometry.vertices.size();
     resourceManager.getResource<Buffer>(buffers.vertexBuffer)->queuCopyFromBuffer(
         resourceManager.getResource<Buffer>(vertexStagingBuffer)->getBuffer(), vertexBufferSize);
-
-    deletionQueue.push(vertexStagingBuffer);
-    */
+    resourceManager.getResource<Buffer>(vertexStagingBuffer)->unmap();
 
     // Create index buffer
-    /*buffers.indexBuffer = resourceManager.createResource<Buffer>(
+    ASSERT(!geometry.indices.empty(), "No indices loaded! Cannot create index buffer");
+    buffers.indexBuffer = resourceManager.createResource<Buffer>(
         "index-buffer", BufferDesc{
-            .instanceSize = sizeof(geometry.indices[0]),
+            .instanceSize = sizeof(uint32_t),
             .instanceCount = static_cast<uint32_t>(geometry.indices.size()),
             .usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            .allocationFlags = VMA_MEMORY_USAGE_GPU_ONLY,
+            .currentQueueFamily = CommandQueueFamily::Ignored,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         }
-    );*/
+    );
 
     // Create index staging buffer
-   /*ResourceHandle indexStagingBuffer = resourceManager.createResource<Buffer>(
+    ResourceHandle indexStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
         "index-staging-buffer", BufferDesc{
-            .instanceSize = sizeof(geometry.indices[0]),
+            .instanceSize = sizeof(uint32_t),
             .instanceCount = static_cast<uint32_t>(geometry.indices.size()),
             .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        });
-*/
-    // Copy geometry data to the staging buffer
-   // resourceManager.getResource<Buffer>(indexStagingBuffer)->map();
-   // resourceManager.getResource<Buffer>(indexStagingBuffer)->writeToBuffer(geometry.indices.data());
-/*
-    VkDeviceSize indexBufferSize = sizeof(geometry.indices[0]) * geometry.indices.size();
+        }
+    ));
 
-    // copy from staging buffer to the index buffer
+    // Write index data into the staging buffer
+    resourceManager.getResource<Buffer>(indexStagingBuffer)->map();
+    resourceManager.getResource<Buffer>(indexStagingBuffer)->writeToBuffer(geometry.indices.data());
+
+    // Copy the data from staging buffer into actual index buffer
+    VkDeviceSize indexBufferSize = sizeof(uint32_t) * geometry.indices.size();
     resourceManager.getResource<Buffer>(buffers.indexBuffer)->queuCopyFromBuffer(
         resourceManager.getResource<Buffer>(indexStagingBuffer)->getBuffer(), indexBufferSize);
+    resourceManager.getResource<Buffer>(indexStagingBuffer)->unmap();
 
-    deletionQueue.push(indexStagingBuffer);
-*/
 
     // Create global uniform buffers
     for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
@@ -143,18 +171,19 @@ void Renderer::createBuffers() {
                 .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                 .queueFamilies = {CommandQueueFamily::Compute, CommandQueueFamily::Graphics},
+                // Global buffer is enabled to be access from both queues at the same time without the need for bariers
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
             }
         );
     }
 }
 
-void Renderer::createImages() {
+void Renderer::createTargets() {
     // First, create the default sampler
-    images.defaultSampler = resourceManager.createResource<Sampler>("default-sampler", SamplerDesc{});
+    defaultSampler = resourceManager.createResource<Sampler>("default-sampler", SamplerDesc{});
     // Create all the images
     // Clouds image
-    images.cloudsImage = resourceManager.createResource<Image>(
+    targets.cloudsColor = resourceManager.createResource<Image>(
         "clouds-image", ImageDesc{
             .width = lWidth,
             .height = lHeight,
@@ -168,10 +197,10 @@ void Renderer::createImages() {
         }
     );
     // Set initial layout
-    resourceManager.getResource<Image>(images.cloudsImage)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
+    resourceManager.getResource<Image>(targets.cloudsColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
 
     // Clouds mask image
-    images.cloudsMaskImage = resourceManager.createResource<Image>(
+    targets.cloudsMaskColor = resourceManager.createResource<Image>(
         "clouds-mask-image", ImageDesc{
             .width = static_cast<uint32_t>(lWidth * CLOUD_MASK_FRAC),
             .height = static_cast<uint32_t>(lHeight * CLOUD_MASK_FRAC),
@@ -185,28 +214,64 @@ void Renderer::createImages() {
         }
     );
     // Set initial layout
-    resourceManager.getResource<Image>(images.cloudsMaskImage)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
+    resourceManager.getResource<Image>(targets.cloudsMaskColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
+
+    // Terrain image
+    targets.terrainColor = resourceManager.createResource<Image>(
+        "terrain-image", ImageDesc{
+            .width = lWidth,
+            .height = lHeight,
+            .channels = 4,
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+            .clearValue = {.color = {0.f, 0.f, 0.f, 0.f}},
+        }
+    );
+    // Set initial layout
+    resourceManager.getResource<Image>(targets.terrainColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    // Terrain depth
+    targets.terrainDepth = resourceManager.createResource<Image>(
+        "terrain-depth", ImageDesc{
+            .width = lWidth,
+            .height = lHeight,
+            .channels = 4,
+            .format = VK_FORMAT_D16_UNORM, // Guaranteed support on all devices
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+            .aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .clearValue = {.depthStencil = {1.0f, 1}},
+        }
+    );
+    // Set initial layout
+    resourceManager.getResource<Image>(targets.terrainDepth)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void Renderer::loadAssets() {
     // Load the terrain
-    //Loader(geometry, device, resourceManager).loadglTF(TERRAIN_GEOMETRY_PATH);
+    Loader(geometry, device, resourceManager).loadglTF(TERRAIN_GEOMETRY_PATH);
 
     int w, h, c, d;
     // Low frequency noise
     {
         // Read the data from disk
-        ScopedMemory lowFreqNoiseData(readVolume(Filesystem::ls(LOW_FREQ_NOISE_PATH), w, h, c, d,
-                                                 Filesystem::ImageFormat::R16G16B16A16_SFLOAT));
+        AutoDelete lowFreqNoiseData(readVolume(Filesystem::ls(LOW_FREQ_NOISE_PATH), w, h, c, d,
+                                               Filesystem::ImageFormat::R16G16B16A16_SFLOAT), [](const void *p) {
+            delete[] static_cast<const float16_t *>(p);
+        });
         // Create staging buffer
-        ResourceHandle lowFreqNoiseStagingBuffer = resourceManager.createResource<Buffer>(
+        ResourceHandle lowFreqNoiseStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
             "base-noise-staging-buffer",
             BufferDesc{
                 .instanceSize = sizeof(float16_t),
                 .instanceCount = static_cast<uint32_t>(w * h * d * c),
                 .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                 .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-            });
+            }
+        ));
         // Write data to the buffer
         resourceManager.getResource<Buffer>(lowFreqNoiseStagingBuffer)->map();
         resourceManager.getResource<Buffer>(lowFreqNoiseStagingBuffer)->writeToBuffer(lowFreqNoiseData.get());
@@ -233,17 +298,16 @@ void Renderer::loadAssets() {
             resourceManager.getResource<Buffer>(lowFreqNoiseStagingBuffer)->getBuffer());
         resourceManager.getResource<Image>(assets.lowFrequencyNoise)->generateMips();
         resourceManager.getResource<Image>(assets.lowFrequencyNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-        // Submit the staging buffer for deletion
-        deletionQueue.push(lowFreqNoiseStagingBuffer);
     }
     // High frequency noise
     {
         // Read the data from disk
-        ScopedMemory highFrequencyNoiseData(readVolume(Filesystem::ls(HIGH_FREQ_NOISE_PATH), w, h, c, d,
-                                                       Filesystem::ImageFormat::R16G16B16A16_SFLOAT));
+        AutoDelete highFrequencyNoiseData(readVolume(Filesystem::ls(HIGH_FREQ_NOISE_PATH), w, h, c, d,
+                                                     Filesystem::ImageFormat::R16G16B16A16_SFLOAT), [](const void *p) {
+            delete[] static_cast<const float16_t *>(p);
+        });
         // Create staging buffer
-        ResourceHandle highFrequencyNoiseStagingBuffer = resourceManager.createResource<Buffer>(
+        ResourceHandle highFrequencyNoiseStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
             "detail-noise-staging-buffer",
             BufferDesc{
                 .instanceSize = sizeof(float16_t),
@@ -251,7 +315,7 @@ void Renderer::loadAssets() {
                 .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                 .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
             }
-        );
+        ));
 
         // Write data to the buffer
         resourceManager.getResource<Buffer>(highFrequencyNoiseStagingBuffer)->map();
@@ -280,17 +344,16 @@ void Renderer::loadAssets() {
             resourceManager.getResource<Buffer>(highFrequencyNoiseStagingBuffer)->getBuffer());
         resourceManager.getResource<Image>(assets.highFrequencyNoise)->generateMips();
         resourceManager.getResource<Image>(assets.highFrequencyNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-        // Submit the staging buffer for deletion
-        deletionQueue.push(highFrequencyNoiseStagingBuffer);
     }
     // Weather map
     {
-        ScopedMemory weatherMapData(readImage(WEATHER_MAP_PATH, w, h, c,
-                                              Filesystem::ImageFormat::R8G8B8A8_UNORM));
+        AutoDelete weatherMapData(readImage(WEATHER_MAP_PATH, w, h, c,
+                                            Filesystem::ImageFormat::R8G8B8A8_UNORM), [](const void *p) {
+            delete[] static_cast<const uchar8_t *>(p);
+        });
 
         // Create host visible staging buffer on device
-        ResourceHandle weatherMapStagingBuffer = resourceManager.createResource<Buffer>(
+        ResourceHandle weatherMapStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
             "weather-staging-buffer",
             BufferDesc{
                 .instanceSize = sizeof(uchar8_t),
@@ -298,7 +361,7 @@ void Renderer::loadAssets() {
                 .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                 .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
             }
-        );
+        ));
 
         // Write the data into the staging buffer
         resourceManager.getResource<Buffer>(weatherMapStagingBuffer)->map();
@@ -323,9 +386,6 @@ void Renderer::loadAssets() {
         resourceManager.getResource<Image>(assets.weatherMap)->queueCopyFromBuffer(
             resourceManager.getResource<Buffer>(weatherMapStagingBuffer)->getBuffer());
         resourceManager.getResource<Image>(assets.weatherMap)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-        // Submit the staging buffer for deletion
-        deletionQueue.push(weatherMapStagingBuffer);
     }
 }
 
@@ -337,20 +397,16 @@ void Renderer::init() {
 
     // Create the rest
     createBuffers();
-    createImages();
+    createTargets();
     buildDescriptorSetLayouts();
     buildDescriptorSets();
-    //buildPipelines();
+    buildPipelines();
 
     // Wait again
     device.waitIdle();
 
     // Delete staging buffers
-    //processDeletionQueue();
-    device.waitIdle();
-}
-
-void Renderer::update() {
+    processDeletionQueue();
 }
 
 Renderer::Renderer(const int32_t width, const int32_t height)
@@ -370,5 +426,36 @@ Renderer::Renderer(const int32_t width, const int32_t height)
     init();
 }
 
+void Renderer::update() {
+}
+
+
 void Renderer::render() {
+    // Get the current time
+    auto currentTime = std::chrono::high_resolution_clock::now();
+
+    // Initialize the rendering loop
+    while (!window.shouldClose()) {
+
+        // Poll for events
+        window.pollEvents();
+
+        // Update the timing
+        auto newTime = std::chrono::high_resolution_clock::now();
+        deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+        elapsedTime += deltaTime;
+        currentTime = newTime;
+
+        // Update frame time tracking
+        frameTimes[frameTimeFrameIndex] = deltaTime * 1000.0f;
+        frameTimeFrameIndex = (frameTimeFrameIndex + 1) % FRAMETIME_BUFFER_SIZE;
+
+        // Update the data for the frame
+        update();
+
+
+    }
+
+    // Wait for queues to finish before deallocating resources
+    device.waitIdle();
 }

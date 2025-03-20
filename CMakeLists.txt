@@ -4,6 +4,8 @@ project(hammock)
 # Set global C++ standard
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Legacy parts of the code missmatch new[] and free() so comment this if sanitizer crashes
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
 
 # Add ImGui source files
 file(GLOB_RECURSE IMGUI_SRC

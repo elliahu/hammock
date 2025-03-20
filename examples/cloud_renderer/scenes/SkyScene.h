@@ -15,6 +15,8 @@ class SkyScene final : public IScene {
         HmckMat4 invView;
         HmckMat4 invProj;
         HmckMat4 invViewProj;
+        HmckMat4 view;
+        HmckMat4 proj;
         HmckVec4 cameraPosition;
         HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 5.0f}; // W is strength
         HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
@@ -58,7 +60,8 @@ class SkyScene final : public IScene {
         float exposure; // set based on postproc settings bellow
         float decay = 0.9;
         float weight = 0.7;
-        float alpha = 0.3;
+        float alpha = 0.85;
+        float activeDistance = 1.0;
     } radialBlurData, backUpRadialBlurData;
 
     struct PostProcessUBO {
@@ -73,8 +76,10 @@ class SkyScene final : public IScene {
         float vignetteSoftness = 1.0f; // Default: 0.5, Range: 0.0 to 2.0
         float temperature = 0.0f;     // Default: 0.0, Range: -1.0 (cool) to 1.0 (warm)
         float grainAmount = 0.0f;     // Default: 0.0, Range: 0.0 to 0.1
-        int cloudBlendMode = 0.0;  // Default: 0 Normal, 1 Screen, 2 Soft-light
+        int cloudBlendMode = 0;  // Default: 0 Normal, 1 Screen, 2 Soft-light
+        int rayBlendMode = 2;
         float time = 0.0f;
+        int displayShadowmap = 1;
     } postProcUbo, backUpPostProcUbo;
 
 

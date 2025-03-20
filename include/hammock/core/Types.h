@@ -89,7 +89,7 @@ namespace hammock {
         }
 
     public:
-        virtual ~Resource() = default;
+        virtual ~Resource(){}
 
         virtual void create() = 0;
 
@@ -144,6 +144,7 @@ namespace hammock {
         VkImageUsageFlags usage;
         VkImageType imageType = VK_IMAGE_TYPE_2D;
         VkImageViewType imageViewType = VK_IMAGE_VIEW_TYPE_2D;
+        VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
         VkClearValue clearValue = {};
         CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
         std::vector<CommandQueueFamily> queueFamilies{};

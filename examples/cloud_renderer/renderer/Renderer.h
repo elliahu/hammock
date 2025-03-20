@@ -15,6 +15,8 @@
 // shaders
 #define COMPILED_SHADER_PATH(shader) CWD("spv/" shader ".spv")
 #define CLOUDS_COMP_SHADER_PATH COMPILED_SHADER_PATH("clouds.comp")
+#define TERRAIN_VERT_SHADER_PATH COMPILED_SHADER_PATH("terrain.vert")
+#define TERRAIN_FRAG_SHADER_PATH COMPILED_SHADER_PATH("terrain.frag")
 
 // resolutions
 #define CLOUD_MASK_FRAC 0.25f
@@ -48,6 +50,12 @@ class Renderer final{
     // Launch dimensions
     uint32_t lWidth, lHeight;
 
+    // Benchmarking
+    float deltaTime{0.f}, elapsedTime{0.f};
+    static constexpr int FRAMETIME_BUFFER_SIZE{512}; // Number of frames to track
+    float frameTimes[FRAMETIME_BUFFER_SIZE] = {0.0f};
+    int frameTimeFrameIndex{0};
+
     // Data passed to the gpu
     struct {
         // Cloud properties data
@@ -57,6 +65,10 @@ class Renderer final{
     } data;
 
     // Resources
+
+    // Default sampler
+    ResourceHandle defaultSampler;
+
     struct {
         // Global buffers, one for each frame in flight
         std::array<ResourceHandle, SwapChain::MAX_FRAMES_IN_FLIGHT> global;
@@ -76,17 +88,24 @@ class Renderer final{
     } assets;
 
     struct {
-        // Default sampler
-        ResourceHandle defaultSampler;
         // Clouds storage image
-        ResourceHandle cloudsImage;
+        ResourceHandle cloudsColor;
         // Clouds density mask image
-        ResourceHandle cloudsMaskImage;
-    } images;
+        ResourceHandle cloudsMaskColor;
 
+        // Terrain image
+        ResourceHandle terrainColor;
+        // Terrain depth
+        ResourceHandle terrainDepth;
+    } targets;
+
+    // Here it is important to minimize the number of descriptor sets per pass as some devices may only support as little as 4
+    // There is a one global descriptor set accessible from both queues and then each pass only uses up to one other set
+    // If possible no additional sets are used and all the data passed to the render pass is passed using push block which is fast
     struct {
         // Shared descriptor set
         std::array<VkDescriptorSet, SwapChain::MAX_FRAMES_IN_FLIGHT> global;
+        // Descriptor set for clouds contains only static resources (render targets and textures) that does not require to be per-frame
         VkDescriptorSet clouds;
     } descriptors;
 
@@ -101,7 +120,21 @@ class Renderer final{
     struct {
         // Clouds compute pipeline
         std::unique_ptr<ComputePipeline> cloudsCompute;
+
+        // Terrain graphics pipeline
+        std::unique_ptr<GraphicsPipeline> terrainGraphics;
     } pipelines;
+
+
+    /**
+     * Queues resource for deletion
+     * @param resource Resource that will be deleted
+     * @return ResourceHandle
+     */
+    ResourceHandle queueForDeletion(ResourceHandle resource) {
+        deletionQueue.push(resource);
+        return resource;
+    }
 
     /**
      * Deletes all items in the queue
@@ -131,7 +164,7 @@ class Renderer final{
     /**
      * Creates all images
      */
-    void createImages();
+    void createTargets();
 
     /**
      * Loads all assets
@@ -147,6 +180,7 @@ class Renderer final{
      * Called every frame before the draw
      */
     void update();
+
 
 
 

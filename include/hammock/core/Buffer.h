@@ -15,8 +15,8 @@ namespace hammock {
         VkDeviceSize m_instanceSize;
         VkBufferUsageFlags m_usageFlags;
         VmaAllocationCreateFlags m_memoryPropertyFlags;
-        // FIXME this gets accessed after free ??
-        std::vector<uint32_t> m_queueFamilyIndices;
+
+        std::vector<uint32_t> m_queueFamilyIndices{};
 
         CommandQueueFamily m_queueFamily;
         VkSharingMode m_sharingMode;

@@ -33,8 +33,10 @@ struct PostProcessingBuffer{
 
     // Adjust cloud blending
     int cloudBlendMode; // 0: Normal, 1: Screen, 2: Soft Light
+    int rayBlendMode;
 
     float time;
+    int displayShadowmap;
 };
 
 [vk::binding(0)] Sampler2D cloudTexture;
@@ -163,8 +165,17 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
     }
 
     // Apply god rays using screen blending
-    // TODO
-    cloudBlended = lerp(cloudBlended.rgb, blendScreen(cloudBlended.rgb, godRays.rgb), godRays.a);
+    if (post.rayBlendMode < 0.5) {
+        // Normal blending
+        cloudBlended = cloudBlended.rgb * (1.0 - godRays.a) + godRays.rgb;
+    } else if (post.rayBlendMode < 1.5) {
+        // Screen blending
+        cloudBlended = lerp(cloudBlended.rgb, blendScreen(cloudBlended.rgb, godRays.rgb), godRays.a);
+    } else {
+        // Soft light blending
+        cloudBlended = lerp(cloudBlended.rgb, blendSoftLight(cloudBlended.rgb, godRays.rgb), godRays.a);
+    }
+    
 
     // Apply exposure
     float3 hdrColor = cloudBlended * pow(2.0, post.exposure);
@@ -233,7 +244,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
     // Check if current UV is within the preview rectangle
     bool inPreviewRegion = all(input.uv >= previewPos) && all(input.uv <= previewPos + previewSize);
 
-    if (inPreviewRegion) {
+    if (inPreviewRegion && post.displayShadowmap == 1) {
         // Calculate UV within the preview region
         float2 localUV = (input.uv - previewPos) / previewSize;
 

@@ -53,9 +53,9 @@ namespace hammock {
             auto resource = ResourceFactory::create<T>(device, nextId, std::forward<Args>(args)...);
             uint64_t id = nextId++;
 
-            if (totalMemoryUsed + resource->getSize() > memoryBudget) {
-                evictResources(resource->getSize());
-            }
+            // if (totalMemoryUsed + resource->getSize() > memoryBudget) {
+            //     evictResources(resource->getSize());
+            // }
 
             resource->create();
 
@@ -164,9 +164,7 @@ namespace hammock {
         }
 
         // Helper to get resource type name
-        const
-
-        char *getResourceTypeName(ResourceHandle handle) {
+        const char *getResourceTypeName(ResourceHandle handle) {
             return handle.getTypeName();
         }
 

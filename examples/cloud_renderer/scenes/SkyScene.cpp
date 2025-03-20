@@ -521,11 +521,13 @@ void SkyScene::buildRenderGraph() {
                     ImGui::ColorEdit3("Horizon sky color", &frameData.skyColorHorizon.Elements[0]);
                     ImGui::SliderFloat("Sun light strength", &frameData.lightColor.A, 0.0f, 15.f);
                     ImGui::SliderFloat("Ambient light strength", &computePushConsts.ambientStrength, 0.0f, 1.f);
+
                     ImGui::SeparatorText("Light shafts");
                     ImGui::SliderFloat("Density", &radialBlurData.density, 0.0f, 2.0f);
                     ImGui::SliderFloat("Decay", &radialBlurData.decay, 0.0f, 1.0f);
                     ImGui::SliderFloat("Weight", &radialBlurData.weight, 0.0f, 1.0f);
                     ImGui::SliderFloat("Alpha", &radialBlurData.alpha, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Active distance", &radialBlurData.activeDistance, 0.0f, 5.0f);
 
 
                     ImGui::SeparatorText("Environment properties");
@@ -604,6 +606,8 @@ void SkyScene::buildRenderGraph() {
                     const char *blendModeItems[] = {"Normal", "Screen", "Soft light"};
                     ImGui::Combo("Cloud blend mode", &postProcUbo.cloudBlendMode, blendModeItems,
                                  IM_ARRAYSIZE(blendModeItems));
+                    ImGui::Combo("Rays blend mode", &postProcUbo.rayBlendMode, blendModeItems,
+                                 IM_ARRAYSIZE(blendModeItems));
 
                     if (ImGui::Button("Close")) {
                         showPostProc = false;
@@ -656,6 +660,7 @@ void SkyScene::buildRenderGraph() {
                     ImGui::Checkbox("Expensive light sampling", (bool *) &computePushConsts.DEBUG_expensiveSampling);
                     ImGui::Checkbox("Early termination regions", (bool *) &computePushConsts.DEBUG_earlyTermination);
                     ImGui::Checkbox("Late termination regions", (bool *) &computePushConsts.DEBUG_lateTermination);
+                    ImGui::Checkbox("Shadow Map", (bool *) &postProcUbo.displayShadowmap);
 
                     ImGui::PopStyleVar();
                     ImGui::End();
@@ -839,7 +844,8 @@ void SkyScene::update() {
     const HmckMat4 view = Projection().view(cameraPosition, target, up);
     const HmckMat4 proj = Projection().perspective(HmckToRad(fov), fm.getAspectRatio(), 0.01, 1000, false);
 
-
+    frameData.view = view;
+    frameData.proj = proj;
     frameData.invView = HmckInvGeneral(view);
     frameData.invProj = HmckInvGeneral(proj);
     frameData.invViewProj = HmckInvGeneral(proj * view);

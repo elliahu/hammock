@@ -2,10 +2,11 @@ static const float PI = 3.14159265358979323846;
 
 // Types
 
-struct FrameDataUbo {
+struct GlobalData{
     float4x4 invView;
     float4x4 invProj;
-    float4x4 invViewProj;
+    float4x4 view;
+    float4x4 proj;
     float4 cameraPosition;
     float4 lightColor; // W is strength
     float4 lightDirection;
@@ -17,7 +18,27 @@ struct FrameDataUbo {
     float fov;
     float time = 0.0f;
     float timeOfDay = 0.0f;
-}
+};
+
+
+struct FrameDataUbo {
+    float4x4 invView;
+    float4x4 invProj;
+    float4x4 invViewProj;
+    float4x4 view;
+    float4x4 proj;
+    float4 cameraPosition;
+    float4 lightColor; // W is strength
+    float4 lightDirection;
+    float4 skyColorZenith;
+    float4 skyColorHorizon;
+    float4 windDirection;
+    float resX;
+    float resY;
+    float fov;
+    float time = 0.0f;
+    float timeOfDay = 0.0f;
+};
 
 // TOOLBOX
 float4x4 inverse(float4x4 m) {

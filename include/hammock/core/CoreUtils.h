@@ -10,6 +10,7 @@
 #include <hammock/utils/Initializers.h>
 #include "stb_image.h"
 #include <cassert>
+#include <functional>
 
 namespace hammock {
     enum LogLevel {
@@ -142,7 +143,8 @@ namespace hammock {
         NonCopyable &operator=(const NonCopyable &) = delete;
     };
 
-    class ScopedMemory {
+    // TODO FIXME this is total shit! it needs to know the size of the allocation and also if it should use free() for C style or delete[]
+    [[deprecated("Use AutoDele class")]] class ScopedMemory {
     public:
         // Constructor to take ownership of the pointer
         explicit ScopedMemory(const void *ptr = nullptr)
@@ -195,6 +197,47 @@ namespace hammock {
 
     private:
         const void *memory_; // Pointer to the managed memory
+    };
+
+    class AutoDelete {
+    public:
+        using Deleter = std::function<void(const void *)>;
+
+        explicit AutoDelete(const void *ptr = nullptr, Deleter deleter = nullptr)
+            : memory_(ptr), deleter_(std::move(deleter)) {}
+
+        ~AutoDelete() { clear(); }
+
+        AutoDelete(AutoDelete &&other) noexcept
+            : memory_(other.memory_), deleter_(std::move(other.deleter_)) {
+            other.memory_ = nullptr;
+        }
+
+        AutoDelete &operator=(AutoDelete &&other) noexcept {
+            if (this != &other) {
+                clear();
+                memory_ = other.memory_;
+                deleter_ = std::move(other.deleter_);
+                other.memory_ = nullptr;
+            }
+            return *this;
+        }
+
+        AutoDelete(const AutoDelete &) = delete;
+        AutoDelete &operator=(const AutoDelete &) = delete;
+
+        void clear() {
+            if (memory_) {
+                if (deleter_) deleter_(memory_);
+                memory_ = nullptr;
+            }
+        }
+
+        [[nodiscard]] const void *get() const { return memory_; }
+
+    private:
+        const void *memory_;
+        Deleter deleter_;
     };
 
     // dark magic from: https://stackoverflow.com/a/57595105

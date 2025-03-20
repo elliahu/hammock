@@ -445,7 +445,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float4 color = raymarch(threadId,start, end);
 
     // If the alpha is high enough, write it to the mask, else write the color of the light
-    godRaysMaskStorageImage[threadId.xy / 4] = float4(lerp(SUN_COLOR * SUN_STRENGTH, float3(0.0), color.a), 1.0);
+    godRaysMaskStorageImage[threadId.xy / 4] = float4(lerp(SUN_COLOR, float3(0.0), color.a), 1.0);
 
     // Store the final value
     cloudsStorageImage[threadId.xy] = color;
