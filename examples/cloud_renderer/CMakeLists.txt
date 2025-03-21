@@ -15,6 +15,7 @@ add_executable(cloud_renderer
         renderer/Renderer.h
         renderer/Renderer.cpp
         renderer/Types.h
+        renderer/Camera.h
 )
 
 # Link the engine library

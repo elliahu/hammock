@@ -148,7 +148,7 @@ namespace hammock {
          */
         void queueImageLayoutTransition(VkImageLayout newLayout) {
             if (newLayout == m_layout) {return;}
-            device.transitionImageLayout(m_image, m_layout, newLayout, m_layers, 0, m_mips, 0);
+            device.transitionImageLayout(m_image, m_layout, newLayout, m_layers, 0, m_mips, 0, getAspectMask());
             m_layout = newLayout;
         }
 

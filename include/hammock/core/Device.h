@@ -108,7 +108,8 @@ namespace hammock {
             uint32_t layerCount = 1,
             uint32_t baseLayer = 0,
             uint32_t levelCount = 1,
-            uint32_t baseLevel = 0
+            uint32_t baseLevel = 0,
+            VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT
         ) const;
 
         void copyImageToHostVisibleImage(VkImage srcImage, VkImage dstImage,

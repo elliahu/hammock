@@ -476,7 +476,8 @@ namespace hammock {
                                        uint32_t layerCount,
                                        uint32_t baseLayer,
                                        uint32_t levelCount,
-                                       uint32_t baseLevel) const {
+                                       uint32_t baseLevel,
+                                       VkImageAspectFlags aspectMask) const {
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
         VkImageMemoryBarrier barrier{};
@@ -486,7 +487,7 @@ namespace hammock {
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.image = image;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.aspectMask = aspectMask;
         barrier.subresourceRange.baseMipLevel = baseLevel;
         barrier.subresourceRange.levelCount = levelCount;
         barrier.subresourceRange.baseArrayLayer = baseLayer;

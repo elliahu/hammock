@@ -1,6 +1,7 @@
 #pragma once
 #include <hammock/hammock.h>
 #include "Types.h"
+#include "Camera.h"
 
 // working directory
 #define CWD(path) "../../../examples/cloud_renderer/" path
@@ -17,6 +18,8 @@
 #define CLOUDS_COMP_SHADER_PATH COMPILED_SHADER_PATH("clouds.comp")
 #define TERRAIN_VERT_SHADER_PATH COMPILED_SHADER_PATH("terrain.vert")
 #define TERRAIN_FRAG_SHADER_PATH COMPILED_SHADER_PATH("terrain.frag")
+#define COMPOSITION_VERT_SHADER_PATH COMPILED_SHADER_PATH("compose.vert")
+#define COMPOSITION_FRAG_SHADER_PATH COMPILED_SHADER_PATH("compose.frag")
 
 // resolutions
 #define CLOUD_MASK_FRAC 0.25f
@@ -62,7 +65,19 @@ class Renderer final{
         CloudsProperties cloudsProperties;
         // Shared date
         GlobalData globalData;
+        // Terrain data
+        TerrainData terrainData;
     } data;
+
+    // Perspective camera
+    Camera camera{
+        HmckVec3{0.f, 2.0f, 0.f},
+        static_cast<float>(lWidth) /  static_cast<float>(lHeight),
+        45.f};
+
+    // Movement
+    const float movementSpeed = 1.0f; // Units per frame
+    const float rotationSpeed = 1.0f; // Radians per frame
 
     // Resources
 
@@ -107,6 +122,8 @@ class Renderer final{
         std::array<VkDescriptorSet, SwapChain::MAX_FRAMES_IN_FLIGHT> global;
         // Descriptor set for clouds contains only static resources (render targets and textures) that does not require to be per-frame
         VkDescriptorSet clouds;
+        // Composition descriptor
+        VkDescriptorSet composition;;
     } descriptors;
 
     struct {
@@ -114,6 +131,8 @@ class Renderer final{
         std::unique_ptr<DescriptorSetLayout> global;
         // clouds descriptor set layout
         std::unique_ptr<DescriptorSetLayout> clouds;
+        // composition descriptor set layout
+        std::unique_ptr<DescriptorSetLayout> composition;
     } descriptorLayouts;
 
     // Pipelines
@@ -123,7 +142,27 @@ class Renderer final{
 
         // Terrain graphics pipeline
         std::unique_ptr<GraphicsPipeline> terrainGraphics;
+
+        // Composition graphics pipeline
+        std::unique_ptr<GraphicsPipeline> compositionGraphics;
     } pipelines;
+
+    // Command buffers
+    // There is one command buffer per group per frame,
+    // so that the cpu can record commands for next frame while gpu processes commands from current frame
+    struct {
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> clouds; // Clouds and blur
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphere;
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> terrain;
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> composition; // Composition and postprocess
+    } commandBuffers;
+
+    // Semaphores signal that the command buffer is finished so that the command buffer waiting for its result can start
+    struct {
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> cloudsReady;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphereReady;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> terrainReady;
+    } semaphores;
 
 
     /**
@@ -172,9 +211,47 @@ class Renderer final{
     void loadAssets();
 
     /**
+     * Allocates command buffer one per frame per queue
+     */
+    void allocateCommandBuffers();
+
+    /**
+     * Destroys all command buffers
+     */
+    void destroyCommandBuffers();
+
+    /**
+     * Creates synchronization primitives
+     */
+    void createSyncObjects();
+
+    /**
+     * Destroys synchronization primitives
+     */
+    void destroySyncObjects();
+
+    /**
      * Initializes the renderer
      */
     void init();
+
+    /**
+     * Records terrain commands into its command buffer
+     */
+    void recordTerrainCommandBuffer();
+
+    /**
+     * Records composition commands into its command buffer
+     */
+    void recordCompositionCommandBuffer();
+
+    /**
+     * Submits recorded command buffer to their corresponding queues
+     */
+    void submitCommandBuffers();
+
+
+    void handleInput();
 
     /**
      * Called every frame before the draw
@@ -187,6 +264,8 @@ class Renderer final{
 public:
     // Constructor
     Renderer(const int32_t width, const int32_t height);
+    // Destructor
+    ~Renderer();
 
     void render();
 

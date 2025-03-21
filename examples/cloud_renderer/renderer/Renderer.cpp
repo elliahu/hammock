@@ -26,10 +26,8 @@ void Renderer::buildPipelines() {
         .debugName = "terrain-pipeline",
         .device = device,
         .vertexShader
-        // Fullscreen vertex shader
         {.byteCode = Filesystem::readFile(TERRAIN_VERT_SHADER_PATH),},
         .fragmentShader
-        // Fragment shader samples storage texture and writes it to swapchain image
         {.byteCode = Filesystem::readFile(TERRAIN_FRAG_SHADER_PATH),},
         .descriptorSetLayouts = {descriptorLayouts.global->getDescriptorSetLayout()},
         .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TerrainData)}},
@@ -44,6 +42,26 @@ void Renderer::buildPipelines() {
             .colorAttachmentCount = 1, // We are rendering to single color attachment
             .colorAttachmentFormats = {VK_FORMAT_R8G8B8A8_UNORM},
             .depthAttachmentFormat = VK_FORMAT_D16_UNORM, // guaranteed to be supported on all hardware
+        }
+    });
+
+    pipelines.compositionGraphics = GraphicsPipeline::create({
+        .debugName = "composition-pipeline",
+        .device = device,
+        .vertexShader
+        {.byteCode = Filesystem::readFile(COMPOSITION_VERT_SHADER_PATH),},
+        .fragmentShader
+        {.byteCode = Filesystem::readFile(COMPOSITION_FRAG_SHADER_PATH),},
+        .descriptorSetLayouts = {descriptorLayouts.composition->getDescriptorSetLayout()},
+        .pushConstantRanges{},
+        .graphicsState{
+            .cullMode = VK_CULL_MODE_NONE,
+            .vertexBufferBindings{}
+        },
+        .dynamicRendering = {
+            .enabled = true,
+            .colorAttachmentCount = 1, // We are rendering to single color attachment (swap chain image)
+            .colorAttachmentFormats = {frameManager.getSwapChain()->getSwapChainImageFormat()},
         }
     });
 }
@@ -78,6 +96,16 @@ void Renderer::buildDescriptorSets() {
             .writeImage(3, &highFreqNoiseInfo)
             .writeImage(4, &weatherMapInfo)
             .build(descriptors.clouds);
+
+    // Composition
+    VkDescriptorImageInfo terrainColorImageInfo = resourceManager.getResource<Image>(targets.terrainColor)->getDescriptorImageInfo(
+        sampler->getSampler());
+    VkDescriptorImageInfo terrainDepthImageInfo = resourceManager.getResource<Image>(targets.terrainDepth)->getDescriptorImageInfo(
+        sampler->getSampler());
+    DescriptorWriter(*descriptorLayouts.composition, *descriptorPool)
+            .writeImage(0, &terrainColorImageInfo)
+            .writeImage(1, &terrainDepthImageInfo)
+            .build(descriptors.composition);
 }
 
 void Renderer::buildDescriptorSetLayouts() {
@@ -93,6 +121,12 @@ void Renderer::buildDescriptorSetLayouts() {
             .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // low freq noise
             .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // high freq noise
             .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // weather map
+            .build();
+
+    // Composition descriptor layout
+    descriptorLayouts.composition = DescriptorSetLayout::Builder(device)
+            .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain color image
+            .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain depth image
             .build();
 }
 
@@ -175,6 +209,7 @@ void Renderer::createBuffers() {
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
             }
         );
+        resourceManager.getResource<Buffer>(buffers.global[i])->map();
     }
 }
 
@@ -227,10 +262,11 @@ void Renderer::createTargets() {
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
             .clearValue = {.color = {0.f, 0.f, 0.f, 0.f}},
+
         }
     );
     // Set initial layout
-    resourceManager.getResource<Image>(targets.terrainColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    resourceManager.getResource<Image>(targets.terrainColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // Terrain depth
     targets.terrainDepth = resourceManager.createResource<Image>(
@@ -243,11 +279,11 @@ void Renderer::createTargets() {
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
             .aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
-            .clearValue = {.depthStencil = {1.0f, 1}},
+            .clearValue = {.depthStencil = {1.0f, 0}},
         }
     );
     // Set initial layout
-    resourceManager.getResource<Image>(targets.terrainDepth)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    resourceManager.getResource<Image>(targets.terrainDepth)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void Renderer::loadAssets() {
@@ -389,6 +425,77 @@ void Renderer::loadAssets() {
     }
 }
 
+void Renderer::allocateCommandBuffers() {
+    // Allocate graphics command buffers
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = device.getGraphicsCommandPool();
+    allocInfo.commandBufferCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
+
+    ASSERT(vkAllocateCommandBuffers(device.device(), &allocInfo, commandBuffers.terrain.data()) == VK_SUCCESS,
+           "Failed to allocate terrain command buffers!");
+    ASSERT(vkAllocateCommandBuffers(device.device(), &allocInfo, commandBuffers.composition.data()) == VK_SUCCESS,
+           "Failed to allocate post process command buffers!");
+
+    // Allocate compute command buffers
+    allocInfo.commandPool = device.getComputeCommandPool();
+    ASSERT(vkAllocateCommandBuffers(device.device(), &allocInfo, commandBuffers.clouds.data()) == VK_SUCCESS,
+           "Failed to allocate clouds command buffers!");
+    ASSERT(vkAllocateCommandBuffers(device.device(), &allocInfo, commandBuffers.atmosphere.data()) == VK_SUCCESS,
+           "Failed to allocate atmosphere command buffers!");
+}
+
+void Renderer::destroyCommandBuffers() {
+    // Free graphics command buffers
+    vkFreeCommandBuffers(
+        device.device(),
+        device.getGraphicsCommandPool(),
+        static_cast<uint32_t>(commandBuffers.terrain.size()),
+        commandBuffers.terrain.data());
+
+    vkFreeCommandBuffers(
+        device.device(),
+        device.getGraphicsCommandPool(),
+        static_cast<uint32_t>(commandBuffers.composition.size()),
+        commandBuffers.composition.data());
+
+    // Free compute command buffers
+    vkFreeCommandBuffers(
+        device.device(),
+        device.getComputeCommandPool(),
+        static_cast<uint32_t>(commandBuffers.clouds.size()),
+        commandBuffers.clouds.data());
+
+    vkFreeCommandBuffers(
+        device.device(),
+        device.getComputeCommandPool(),
+        static_cast<uint32_t>(commandBuffers.atmosphere.size()),
+        commandBuffers.atmosphere.data());
+}
+
+void Renderer::createSyncObjects() {
+    VkSemaphoreCreateInfo semaphoreInfo = {};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.cloudsReady[i]) == VK_SUCCESS,
+               "Failed to create clouds ready semaphore!");
+        ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.atmosphereReady[i]) == VK_SUCCESS,
+               "Failed to create atmosphere ready semaphore!");
+        ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.terrainReady[i]) == VK_SUCCESS,
+               "Failed to create terrain ready semaphore!");
+    }
+}
+
+void Renderer::destroySyncObjects() {
+    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(device.device(), semaphores.cloudsReady[i], nullptr);
+        vkDestroySemaphore(device.device(), semaphores.atmosphereReady[i], nullptr);
+        vkDestroySemaphore(device.device(), semaphores.terrainReady[i], nullptr);
+    }
+}
+
 void Renderer::init() {
     loadAssets();
 
@@ -401,12 +508,217 @@ void Renderer::init() {
     buildDescriptorSetLayouts();
     buildDescriptorSets();
     buildPipelines();
+    allocateCommandBuffers();
+    createSyncObjects();
 
     // Wait again
     device.waitIdle();
 
     // Delete staging buffers
     processDeletionQueue();
+}
+
+void Renderer::recordTerrainCommandBuffer() {
+    // Get the current command buffer
+    VkCommandBuffer commandBuffer = commandBuffers.terrain[frameManager.getFrameIndex()];
+    // Begin the command buffer recording
+    frameManager.beginCommandBuffer(commandBuffer);
+
+    // Get render target pointers
+    Image *terrainColorTarget = resourceManager.getResource<Image>(targets.terrainColor);
+    Image *terrainDepthTarget = resourceManager.getResource<Image>(targets.terrainDepth);
+    VkExtent3D renderingExtent = terrainColorTarget->getExtent();
+
+    // Pipeline barriers
+    if (terrainColorTarget->getLayout() != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        // Record the transition to required layout
+        terrainColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    }
+
+    if (terrainDepthTarget->getLayout() != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        // Record the transition to required layout
+        terrainDepthTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    }
+
+    // Begin rendering
+    VkRenderingAttachmentInfo colorTarget = terrainColorTarget->getRenderingAttachmentInfo();
+    colorTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorTarget.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    VkRenderingAttachmentInfo depthTarget = terrainDepthTarget->getRenderingAttachmentInfo();
+    depthTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthTarget.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
+    renderingInfo.renderArea = {0, 0, renderingExtent.width, renderingExtent.height};
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorTarget;
+    renderingInfo.pDepthAttachment = &depthTarget;
+
+    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+    // Viewport
+    VkViewport viewport{0.0f, 0.0f, static_cast<float>(renderingExtent.width), static_cast<float>(renderingExtent.height), 0.0f, 1.0f};
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    // Scissors
+    VkRect2D scissor{0, 0, renderingExtent.width, renderingExtent.height};
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // Bind global descriptor set
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.terrainGraphics->pipelineLayout, 0, 1,
+                            &descriptors.global[frameManager.getFrameIndex()], 0, nullptr);
+
+    // Bind terrain pipeline
+    pipelines.terrainGraphics->bind(commandBuffer);
+
+    // Bind triangle vertex buffer (contains position and colors)
+    VkDeviceSize offsets[1]{0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &resourceManager.getResource<Buffer>(buffers.vertexBuffer)->m_buffer, offsets);
+    // Bind triangle index buffer
+    vkCmdBindIndexBuffer(commandBuffer, resourceManager.getResource<Buffer>(buffers.indexBuffer)->m_buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    // Draw indexed
+    for (int i = 0; i < geometry.renderMeshes.size(); i++) {
+        Geometry::MeshInstance &mesh = geometry.renderMeshes[i];
+        data.terrainData.modelViewProjection = data.globalData.proj * data.globalData.view * mesh.transform * HmckRotate_RH(HmckAngleDeg(90.f), {1.0f, 0.0f, 0.0f});
+
+        // Push block
+        vkCmdPushConstants(commandBuffer, pipelines.terrainGraphics->pipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           0, sizeof(TerrainData), &data.terrainData);
+
+        vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.firstIndex, 0,
+                         0);
+    }
+
+    // Finish the rendering
+    vkCmdEndRendering(commandBuffer);
+}
+
+void Renderer::recordCompositionCommandBuffer() {
+    // Get the current command buffer
+    VkCommandBuffer commandBuffer = commandBuffers.composition[frameManager.getFrameIndex()];
+    // Begin the command buffer recording
+    frameManager.beginCommandBuffer(commandBuffer);
+
+    // Get attachment pointers
+    Image *terrainColorTarget = resourceManager.getResource<Image>(targets.terrainColor);
+    Image *terrainDepthTarget = resourceManager.getResource<Image>(targets.terrainDepth);
+    VkImage swapChainImage = frameManager.getSwapChain()->getImage(frameManager.getSwapChainImageIndex());
+    VkImageView swapChainImageView = frameManager.getSwapChain()->getImageView(frameManager.getSwapChainImageIndex());
+    VkExtent2D renderingExtent = frameManager.getSwapChain()->getSwapChainExtent();
+
+    // Transition attachments into required layouts
+    if (terrainColorTarget->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        terrainColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    if (terrainDepthTarget->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        terrainDepthTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.baseArrayLayer = 0;
+    subresourceRange.layerCount = 1;
+
+    transitionImageLayout(commandBuffer, swapChainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          subresourceRange);
+
+    // Begin rendering
+    VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    colorAttachment.imageView = swapChainImageView;
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.clearValue.color = {0.0f, 0.0f, 0.2f, 0.0f};
+
+    VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
+    renderingInfo.renderArea = {0, 0, renderingExtent.width, renderingExtent.height};
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+
+    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+    // Viewport
+    VkViewport viewport{0.0f, 0.0f, static_cast<float>(renderingExtent.width), static_cast<float>(renderingExtent.height), 0.0f, 1.0f};
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    // Scissors
+    VkRect2D scissor{0, 0, renderingExtent.width, renderingExtent.height};
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // Bind composition descriptor set
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.compositionGraphics->pipelineLayout, 0, 1,
+                            &descriptors.composition, 0, nullptr);
+
+    // Bind composition pipeline
+    pipelines.compositionGraphics->bind(commandBuffer);
+
+    // Draw
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+    // Finish the rendering
+    vkCmdEndRendering(commandBuffer);
+
+    // Transition the swap chain image into present layout
+    transitionImageLayout(commandBuffer, swapChainImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                          subresourceRange);
+}
+
+void Renderer::submitCommandBuffers() {
+    // Get current frame index
+    uint32_t frameIndex = frameManager.getFrameIndex();
+
+    // Submit terrain command buffer
+    frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
+        commandBuffers.terrain[frameIndex], {}, {semaphores.terrainReady[frameIndex]}, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    // Submit composition command buffer
+    // This one is submitted for presentation
+    frameManager.submitPresentCommandBuffer(commandBuffers.composition[frameIndex], semaphores.terrainReady[frameIndex]);
+}
+
+void Renderer::handleInput() {
+    // Process rotation input using arrow keys.
+    // Rotate left/right (yaw)
+    if (window.isKeyDown(Surfer::KeyCode::ArrowLeft))
+        camera.yaw -= rotationSpeed * deltaTime;
+    if (window.isKeyDown(Surfer::KeyCode::ArrowRight))
+        camera.yaw += rotationSpeed * deltaTime;
+
+    // Rotate up/down (pitch)
+    if (window.isKeyDown(Surfer::KeyCode::ArrowUp))
+        camera.pitch += rotationSpeed * deltaTime;
+    if (window.isKeyDown(Surfer::KeyCode::ArrowDown))
+        camera.pitch -= rotationSpeed * deltaTime;
+
+    // Clamp pitch to avoid excessive rotation
+    const float pitchLimit = 1.55334f; // ~89 degrees in radians
+    if (camera.pitch > pitchLimit)
+        camera.pitch = pitchLimit;
+    if (camera.pitch < -pitchLimit)
+        camera.pitch = -pitchLimit;
+
+    // Process translation input (WASD keys)
+    if (window.isKeyDown(Surfer::KeyCode::KeyW))
+        camera.position += camera.forwardDirection() * movementSpeed * deltaTime;
+    if (window.isKeyDown(Surfer::KeyCode::KeyS))
+         camera.position  -= camera.forwardDirection() * movementSpeed * deltaTime;
+    if (window.isKeyDown(Surfer::KeyCode::KeyA))
+         camera.position  += camera.rightDirection() * movementSpeed * deltaTime;
+    if (window.isKeyDown(Surfer::KeyCode::KeyD))
+         camera.position  -= camera.rightDirection() * movementSpeed * deltaTime;
+
+    if (window.isKeyDown(Surfer::KeyCode::Space))
+         camera.position  += camera.upDirection() * movementSpeed * deltaTime;
+    if (window.isKeyDown(Surfer::KeyCode::LeftShift))
+         camera.position  -= camera.upDirection() * movementSpeed * deltaTime;
 }
 
 Renderer::Renderer(const int32_t width, const int32_t height)
@@ -426,7 +738,26 @@ Renderer::Renderer(const int32_t width, const int32_t height)
     init();
 }
 
+Renderer::~Renderer() {
+    destroyCommandBuffers();
+    destroySyncObjects();
+}
+
 void Renderer::update() {
+    // Update camera
+    camera.aspect = frameManager.getAspectRatio();
+
+    // update global data
+    data.globalData.fov = camera.fov;
+    data.globalData.proj = camera.getProjection();
+    data.globalData.view = camera.getView();
+    data.globalData.invProj = HmckInvGeneral(data.globalData.proj);
+    data.globalData.invView = HmckInvGeneral(data.globalData.view);
+    data.globalData.cameraPosition = HmckVec4{camera.position, 0.0f};
+    data.globalData.resX = window.getExtent().width;
+    data.globalData.resY = window.getExtent().height;
+    data.globalData.time = elapsedTime;
+    resourceManager.getResource<Buffer>(buffers.global[frameManager.getFrameIndex()])->writeToBuffer(&data.globalData);
 }
 
 
@@ -436,9 +767,11 @@ void Renderer::render() {
 
     // Initialize the rendering loop
     while (!window.shouldClose()) {
-
         // Poll for events
         window.pollEvents();
+
+        // Handle input
+        handleInput();
 
         // Update the timing
         auto newTime = std::chrono::high_resolution_clock::now();
@@ -450,10 +783,21 @@ void Renderer::render() {
         frameTimes[frameTimeFrameIndex] = deltaTime * 1000.0f;
         frameTimeFrameIndex = (frameTimeFrameIndex + 1) % FRAMETIME_BUFFER_SIZE;
 
-        // Update the data for the frame
-        update();
+        // Record and submit frame
+        if (frameManager.beginFrame()) {
+            // Update the data for the frame
+            update();
 
+            // Records command buffers
+            recordTerrainCommandBuffer();
+            recordCompositionCommandBuffer();
 
+            // Submit command buffers
+            submitCommandBuffers();
+
+            // Submit frame
+            frameManager.endFrame();
+        }
     }
 
     // Wait for queues to finish before deallocating resources

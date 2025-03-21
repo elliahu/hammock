@@ -6,7 +6,6 @@ namespace hammock {
     class Buffer : public Resource {
     protected:
         void *m_mapped = nullptr;
-        VkBuffer m_buffer = VK_NULL_HANDLE;
         VmaAllocation m_allocation = VK_NULL_HANDLE;
 
         VkDeviceSize m_alignmentSize;
@@ -39,6 +38,9 @@ namespace hammock {
         }
 
     public:
+
+        VkBuffer m_buffer = VK_NULL_HANDLE;
+
         Buffer(Device &device, uint64_t id, const std::string &name, const BufferDesc &desc) : Resource(
             device, id, name) {
             m_alignmentSize = getAlignment(desc.instanceSize, desc.minOffsetAlignment);
