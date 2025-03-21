@@ -77,8 +77,5 @@ struct PostProcessingData {
     float vignetteSoftness = 1.0f; // Default: 0.5, Range: 0.0 to 2.0
     float temperature = 0.0f;     // Default: 0.0, Range: -1.0 (cool) to 1.0 (warm)
     float grainAmount = 0.0f;     // Default: 0.0, Range: 0.0 to 0.1
-    int cloudBlendMode = 0;  // Default: 0 Normal, 1 Screen, 2 Soft-light
-    int rayBlendMode = 2;
     float time = 0.0f;
-    int displayShadowmap = 1;
 };
