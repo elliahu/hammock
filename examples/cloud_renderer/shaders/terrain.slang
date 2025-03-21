@@ -78,8 +78,8 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
     float3 lightDir = normalize(globalData.lightDirection.xyz);
     float NdotL = max(dot(input.worldNormal, lightDir), 0.0);
 
-    float3 lightColor = globalData.lightColor.rgb * globalData.lightColor.a;
-    float3 brownColor = float3(0.59, 0.29, 0.0); // Brown base color
+    float3 lightColor = globalData.lightColor.rgb;
+    float3 brownColor = float3(72.0/255.0, 72.0/255.0, 58.0/255.0); 
 
     float3 diffuse = brownColor * lightColor * NdotL;
 

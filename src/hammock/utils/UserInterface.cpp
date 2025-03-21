@@ -86,7 +86,7 @@ hammock::UserInterface::UserInterface(Device &device, VkRenderPass renderPass, V
     window.listenKeyRelease([this](Surfer::KeyCode key) {
         if (ImGui::GetCurrentContext()) {
             auto &io = ImGui::GetIO();
-           switch (key) {
+            switch (key) {
                 case Surfer::KeyCode::Num0: {
                     io.AddKeyEvent(ImGuiKey_0, false);
                 }
@@ -241,7 +241,7 @@ void hammock::UserInterface::setupStyle() {
 
     // Rounding
     style.Alpha = .9f;
-    float globalRounding = 9.0f;
+    float globalRounding = 6.0f;
     style.FrameRounding = globalRounding;
     style.WindowRounding = globalRounding;
     style.ChildRounding = globalRounding;
@@ -252,12 +252,12 @@ void hammock::UserInterface::setupStyle() {
     style.TabRounding = globalRounding;
 
     // padding
-    style.WindowPadding = {10.0f, 10.0f};
+    style.WindowPadding = {8.0f, 8.0f};
     style.FramePadding = {3.0f, 5.0f};
-    style.ItemSpacing = {6.0f, 6.0f};
-    style.ItemInnerSpacing = {6.0f, 6.0f};
-    style.GrabMinSize = 10.0f;
-    style.ScrollbarSize = 10.f;
+    style.ItemSpacing = {4.0f, 4.0f};
+    style.ItemInnerSpacing = {4.0f, 4.0f};
+    style.GrabMinSize = 8.0f;
+    style.ScrollbarSize = 8.f;
 
     // align
     style.WindowTitleAlign = {.5f, .5f};

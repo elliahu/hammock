@@ -41,7 +41,7 @@ void Renderer::buildPipelines() {
             .enabled = true,
             .colorAttachmentCount = 1, // We are rendering to single color attachment
             .colorAttachmentFormats = {VK_FORMAT_R8G8B8A8_UNORM},
-            .depthAttachmentFormat = VK_FORMAT_D16_UNORM, // guaranteed to be supported on all hardware
+            .depthAttachmentFormat = VK_FORMAT_D32_SFLOAT, // guaranteed to be supported on all hardware
         }
     });
 
@@ -273,8 +273,8 @@ void Renderer::createTargets() {
         "terrain-depth", ImageDesc{
             .width = lWidth,
             .height = lHeight,
-            .channels = 4,
-            .format = VK_FORMAT_D16_UNORM, // Guaranteed support on all devices
+            .channels = 1,
+            .format = VK_FORMAT_D32_SFLOAT, // Guaranteed support on all devices
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -691,9 +691,9 @@ void Renderer::handleInput() {
     // Process rotation input using arrow keys.
     // Rotate left/right (yaw)
     if (window.isKeyDown(Surfer::KeyCode::ArrowLeft))
-        camera.yaw -= rotationSpeed * deltaTime;
-    if (window.isKeyDown(Surfer::KeyCode::ArrowRight))
         camera.yaw += rotationSpeed * deltaTime;
+    if (window.isKeyDown(Surfer::KeyCode::ArrowRight))
+        camera.yaw -= rotationSpeed * deltaTime;
 
     // Rotate up/down (pitch)
     if (window.isKeyDown(Surfer::KeyCode::ArrowUp))
@@ -719,9 +719,9 @@ void Renderer::handleInput() {
         camera.position -= camera.rightDirection() * movementSpeed * deltaTime;
 
     if (window.isKeyDown(Surfer::KeyCode::Space))
-        camera.position += camera.upDirection() * movementSpeed * deltaTime;
-    if (window.isKeyDown(Surfer::KeyCode::LeftShift))
         camera.position -= camera.upDirection() * movementSpeed * deltaTime;
+    if (window.isKeyDown(Surfer::KeyCode::LeftShift))
+        camera.position += camera.upDirection() * movementSpeed * deltaTime;
 }
 
 Renderer::Renderer(const int32_t width, const int32_t height)
@@ -738,7 +738,17 @@ Renderer::Renderer(const int32_t width, const int32_t height)
             .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10000)
             .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000)
             .build();
-    userInterface = std::make_unique<::UserInterface>(device, frameManager, descriptorPool->descriptorPool, window);
+    userInterface = std::make_unique<::UserInterface>(
+        device,
+        frameManager,
+        descriptorPool->descriptorPool,
+        window,
+        camera,
+        data.globalData,
+        deltaTime,
+        frameTimes,
+        FRAMETIME_BUFFER_SIZE,
+        frameTimeFrameIndex);
     init();
 }
 

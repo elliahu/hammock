@@ -20,7 +20,7 @@ public:
     HmckMat4 getView() {
         // First, compute the camera's orientation vectors
         // Start with default vectors
-        HmckVec3 worldUp = {0.0f, 1.0f, 0.0f};
+        HmckVec3 worldUp = {0.0f, -1.0f, 0.0f};
 
         // Calculate forward direction based on yaw and pitch (ignoring roll for now)
         // This uses spherical coordinates to calculate the direction
@@ -57,7 +57,9 @@ public:
     }
 
     HmckMat4 getProjection() const {
-        return HmckPerspective_RH_ZO(fov, aspect, near, far);
+        HmckMat4 proj = HmckPerspective_RH_ZO(fov, aspect, near, far);
+        proj[1][1] *= -1;
+        return proj;
     }
 
     HmckVec3 forwardDirection() const {return HmckNorm(forward);}

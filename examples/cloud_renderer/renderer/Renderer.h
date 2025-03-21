@@ -76,7 +76,7 @@ class Renderer final{
     Camera camera{
         HmckVec3{0.f, 2.0f, 0.f},
         static_cast<float>(lWidth) /  static_cast<float>(lHeight),
-        45.f};
+        45.f, 0.01f, 1000.f};
 
     // Movement
     const float movementSpeed = 1.0f; // Units per frame
