@@ -582,7 +582,7 @@ void Renderer::recordTerrainCommandBuffer() {
     // Draw indexed
     for (int i = 0; i < geometry.renderMeshes.size(); i++) {
         Geometry::MeshInstance &mesh = geometry.renderMeshes[i];
-        data.terrainData.modelViewProjection = data.globalData.proj * data.globalData.view * mesh.transform * HmckRotate_RH(HmckAngleDeg(90.f), {1.0f, 0.0f, 0.0f});
+        data.terrainData.modelViewProjection = data.globalData.proj * data.globalData.view * mesh.transform;
 
         // Push block
         vkCmdPushConstants(commandBuffer, pipelines.terrainGraphics->pipelineLayout,
@@ -666,6 +666,9 @@ void Renderer::recordCompositionCommandBuffer() {
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
 
+    // Records user interface into the same command buffer
+    userInterface->recordUserInterface(commandBuffer);
+
     // Transition the swap chain image into present layout
     transitionImageLayout(commandBuffer, swapChainImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                           subresourceRange);
@@ -709,16 +712,16 @@ void Renderer::handleInput() {
     if (window.isKeyDown(Surfer::KeyCode::KeyW))
         camera.position += camera.forwardDirection() * movementSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::KeyS))
-         camera.position  -= camera.forwardDirection() * movementSpeed * deltaTime;
+        camera.position -= camera.forwardDirection() * movementSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::KeyA))
-         camera.position  += camera.rightDirection() * movementSpeed * deltaTime;
+        camera.position += camera.rightDirection() * movementSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::KeyD))
-         camera.position  -= camera.rightDirection() * movementSpeed * deltaTime;
+        camera.position -= camera.rightDirection() * movementSpeed * deltaTime;
 
     if (window.isKeyDown(Surfer::KeyCode::Space))
-         camera.position  += camera.upDirection() * movementSpeed * deltaTime;
+        camera.position += camera.upDirection() * movementSpeed * deltaTime;
     if (window.isKeyDown(Surfer::KeyCode::LeftShift))
-         camera.position  -= camera.upDirection() * movementSpeed * deltaTime;
+        camera.position -= camera.upDirection() * movementSpeed * deltaTime;
 }
 
 Renderer::Renderer(const int32_t width, const int32_t height)
@@ -735,6 +738,7 @@ Renderer::Renderer(const int32_t width, const int32_t height)
             .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10000)
             .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000)
             .build();
+    userInterface = std::make_unique<::UserInterface>(device, frameManager, descriptorPool->descriptorPool, window);
     init();
 }
 

@@ -2,6 +2,7 @@
 #include <hammock/hammock.h>
 #include "Types.h"
 #include "Camera.h"
+#include "UserInterface.h"
 
 // working directory
 #define CWD(path) "../../../examples/cloud_renderer/" path
@@ -43,6 +44,8 @@ class Renderer final{
     FrameManager frameManager;
     // Descriptor pool is used to allocate descriptor sets and layouts
     std::unique_ptr<DescriptorPool> descriptorPool;
+    // User interface
+    std::unique_ptr<::UserInterface> userInterface;
 
     // Deletion queue is used to queue resources that should be deleted
     std::queue<ResourceHandle> deletionQueue;
