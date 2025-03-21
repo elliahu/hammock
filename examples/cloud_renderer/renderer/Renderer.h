@@ -21,6 +21,8 @@
 #define TERRAIN_FRAG_SHADER_PATH COMPILED_SHADER_PATH("terrain.frag")
 #define COMPOSITION_VERT_SHADER_PATH COMPILED_SHADER_PATH("compose.vert")
 #define COMPOSITION_FRAG_SHADER_PATH COMPILED_SHADER_PATH("compose.frag")
+#define POSTPROC_VERT_SHADER_PATH COMPILED_SHADER_PATH("postprocess.vert")
+#define POSTPROC_FRAG_SHADER_PATH COMPILED_SHADER_PATH("postprocess.frag")
 
 // resolutions
 #define CLOUD_MASK_FRAC 0.25f
@@ -70,6 +72,8 @@ class Renderer final{
         GlobalData globalData;
         // Terrain data
         TerrainData terrainData;
+        // Postprocessing data
+        PostProcessingData postProcessingData;
     } data;
 
     // Perspective camera
@@ -106,6 +110,9 @@ class Renderer final{
     } assets;
 
     struct {
+        // Composited image
+        ResourceHandle compositedColor;
+
         // Clouds storage image
         ResourceHandle cloudsColor;
         // Clouds density mask image
@@ -127,6 +134,8 @@ class Renderer final{
         VkDescriptorSet clouds;
         // Composition descriptor
         VkDescriptorSet composition;;
+        // Post process descriptor
+        VkDescriptorSet postprocess;
     } descriptors;
 
     struct {
@@ -136,6 +145,8 @@ class Renderer final{
         std::unique_ptr<DescriptorSetLayout> clouds;
         // composition descriptor set layout
         std::unique_ptr<DescriptorSetLayout> composition;
+        // post process descriptor set layout
+        std::unique_ptr<DescriptorSetLayout> postprocess;
     } descriptorLayouts;
 
     // Pipelines
@@ -148,6 +159,9 @@ class Renderer final{
 
         // Composition graphics pipeline
         std::unique_ptr<GraphicsPipeline> compositionGraphics;
+
+        // Post process pipeline
+        std::unique_ptr<GraphicsPipeline> postprocessGraphics;
     } pipelines;
 
     // Command buffers

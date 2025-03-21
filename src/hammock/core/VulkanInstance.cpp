@@ -70,7 +70,8 @@ void hammock::VulkanInstance::setupDebugMessenger() {
 
 void hammock::VulkanInstance::createInstance() {
     if (enableValidationLayers && !checkValidationLayerSupport()) {
-        throw std::runtime_error("validation layers requested, but not available!");
+        Logger::log(LOG_LEVEL_WARN, "Validation layers requested, but not available. Validation layers not used!\n");
+        enableValidationLayers = false;
     }
 
     VkApplicationInfo appInfo = {};

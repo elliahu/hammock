@@ -40,8 +40,9 @@ void Renderer::buildPipelines() {
         .dynamicRendering = {
             .enabled = true,
             .colorAttachmentCount = 1, // We are rendering to single color attachment
-            .colorAttachmentFormats = {VK_FORMAT_R8G8B8A8_UNORM},
-            .depthAttachmentFormat = VK_FORMAT_D32_SFLOAT, // guaranteed to be supported on all hardware
+            .colorAttachmentFormats = {resourceManager.getResource<Image>(targets.terrainColor)->getFormat()},
+            .depthAttachmentFormat = resourceManager.getResource<Image>(targets.terrainDepth)->getFormat(),
+            // guaranteed to be supported on all hardware
         }
     });
 
@@ -54,6 +55,26 @@ void Renderer::buildPipelines() {
         {.byteCode = Filesystem::readFile(COMPOSITION_FRAG_SHADER_PATH),},
         .descriptorSetLayouts = {descriptorLayouts.composition->getDescriptorSetLayout()},
         .pushConstantRanges{},
+        .graphicsState{
+            .cullMode = VK_CULL_MODE_NONE,
+            .vertexBufferBindings{}
+        },
+        .dynamicRendering = {
+            .enabled = true,
+            .colorAttachmentCount = 1, // We are rendering to single color attachment
+            .colorAttachmentFormats = {resourceManager.getResource<Image>(targets.compositedColor)->getFormat()},
+        }
+    });
+
+    pipelines.postprocessGraphics = GraphicsPipeline::create({
+        .debugName = "postprocess-pipeline",
+        .device = device,
+        .vertexShader
+        {.byteCode = Filesystem::readFile(POSTPROC_VERT_SHADER_PATH),},
+        .fragmentShader
+        {.byteCode = Filesystem::readFile(POSTPROC_FRAG_SHADER_PATH),},
+        .descriptorSetLayouts = {descriptorLayouts.postprocess->getDescriptorSetLayout()},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PostProcessingData)}},
         .graphicsState{
             .cullMode = VK_CULL_MODE_NONE,
             .vertexBufferBindings{}
@@ -106,6 +127,13 @@ void Renderer::buildDescriptorSets() {
             .writeImage(0, &terrainColorImageInfo)
             .writeImage(1, &terrainDepthImageInfo)
             .build(descriptors.composition);
+
+    // Postprocess
+    VkDescriptorImageInfo compositedColorInfo = resourceManager.getResource<Image>(targets.compositedColor)->getDescriptorImageInfo(
+        sampler->getSampler());
+    DescriptorWriter(*descriptorLayouts.postprocess, *descriptorPool)
+            .writeImage(0, &compositedColorInfo)
+            .build(descriptors.postprocess);
 }
 
 void Renderer::buildDescriptorSetLayouts() {
@@ -127,6 +155,11 @@ void Renderer::buildDescriptorSetLayouts() {
     descriptorLayouts.composition = DescriptorSetLayout::Builder(device)
             .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain color image
             .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain depth image
+            .build();
+
+    // Postprocess descriptor layout
+    descriptorLayouts.postprocess = DescriptorSetLayout::Builder(device)
+            .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .build();
 }
 
@@ -217,6 +250,21 @@ void Renderer::createTargets() {
     // First, create the default sampler
     defaultSampler = resourceManager.createResource<Sampler>("default-sampler", SamplerDesc{});
     // Create all the images
+    targets.compositedColor = resourceManager.createResource<Image>(
+        "composited-color-image", ImageDesc{
+            .width = lWidth,
+            .height = lHeight,
+            .channels = 4,
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+            .clearValue = {.color = {0.f, 0.f, 0.f, 0.f}},
+        }
+    );
+    // Set initial layout
+    resourceManager.getResource<Image>(targets.compositedColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
     // Clouds image
     targets.cloudsColor = resourceManager.createResource<Image>(
         "clouds-image", ImageDesc{
@@ -606,9 +654,10 @@ void Renderer::recordCompositionCommandBuffer() {
     // Get attachment pointers
     Image *terrainColorTarget = resourceManager.getResource<Image>(targets.terrainColor);
     Image *terrainDepthTarget = resourceManager.getResource<Image>(targets.terrainDepth);
+    Image *compositedColorTarget = resourceManager.getResource<Image>(targets.compositedColor);
     VkImage swapChainImage = frameManager.getSwapChain()->getImage(frameManager.getSwapChainImageIndex());
     VkImageView swapChainImageView = frameManager.getSwapChain()->getImageView(frameManager.getSwapChainImageIndex());
-    VkExtent2D renderingExtent = frameManager.getSwapChain()->getSwapChainExtent();
+    VkExtent2D compositionRenderingExtent = {terrainColorTarget->getExtent().width, terrainDepthTarget->getExtent().height};
 
     // Transition attachments into required layouts
     if (terrainColorTarget->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
@@ -617,6 +666,10 @@ void Renderer::recordCompositionCommandBuffer() {
 
     if (terrainDepthTarget->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         terrainDepthTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    if (compositedColorTarget->getLayout() != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        compositedColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     }
 
     VkImageSubresourceRange subresourceRange = {};
@@ -629,29 +682,29 @@ void Renderer::recordCompositionCommandBuffer() {
     transitionImageLayout(commandBuffer, swapChainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                           subresourceRange);
 
-    // Begin rendering
-    VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    colorAttachment.imageView = swapChainImageView;
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue.color = {0.0f, 0.0f, 0.2f, 0.0f};
+    // Begin rendering into intermediate composition image
+    VkRenderingAttachmentInfo colorTarget = compositedColorTarget->getRenderingAttachmentInfo();
+    colorTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorTarget.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-    VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
-    renderingInfo.renderArea = {0, 0, renderingExtent.width, renderingExtent.height};
-    renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 1;
-    renderingInfo.pColorAttachments = &colorAttachment;
+    VkRenderingInfo compositionRenderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
+    compositionRenderingInfo.renderArea = {0, 0, compositionRenderingExtent.width, compositionRenderingExtent.height};
+    compositionRenderingInfo.layerCount = 1;
+    compositionRenderingInfo.colorAttachmentCount = 1;
+    compositionRenderingInfo.pColorAttachments = &colorTarget;
 
-    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+    // Composition
+    vkCmdBeginRendering(commandBuffer, &compositionRenderingInfo);
 
     // Viewport
-    VkViewport viewport{0.0f, 0.0f, static_cast<float>(renderingExtent.width), static_cast<float>(renderingExtent.height), 0.0f, 1.0f};
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    VkViewport compositionViewport{
+        0.0f, 0.0f, static_cast<float>(compositionRenderingExtent.width), static_cast<float>(compositionRenderingExtent.height), 0.0f, 1.0f
+    };
+    vkCmdSetViewport(commandBuffer, 0, 1, &compositionViewport);
 
     // Scissors
-    VkRect2D scissor{0, 0, renderingExtent.width, renderingExtent.height};
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    VkRect2D compositionScissors{0, 0, compositionRenderingExtent.width, compositionRenderingExtent.height};
+    vkCmdSetScissor(commandBuffer, 0, 1, &compositionScissors);
 
     // Bind composition descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.compositionGraphics->pipelineLayout, 0, 1,
@@ -664,6 +717,58 @@ void Renderer::recordCompositionCommandBuffer() {
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
     // Finish the rendering
+    vkCmdEndRendering(commandBuffer);
+
+    // Transition intermediate image
+    if (compositedColorTarget->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        compositedColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    // We are now rendering into swap chain image
+    VkExtent2D renderingExtent = frameManager.getSwapChain()->getSwapChainExtent();
+
+    VkRenderingAttachmentInfo swapChainImageAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    swapChainImageAttachment.imageView = swapChainImageView;
+    swapChainImageAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    swapChainImageAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    swapChainImageAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    swapChainImageAttachment.clearValue.color = {0.0f, 0.0f, 0.2f, 0.0f};
+
+    VkRenderingInfo postProcRenderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
+    postProcRenderingInfo.renderArea = {0, 0, renderingExtent.width, renderingExtent.height};
+    postProcRenderingInfo.layerCount = 1;
+    postProcRenderingInfo.colorAttachmentCount = 1;
+    postProcRenderingInfo.pColorAttachments = &swapChainImageAttachment;
+
+    // Begin rendering into swap chain image
+    vkCmdBeginRendering(commandBuffer, &postProcRenderingInfo);
+
+    // Viewport
+    VkViewport postprocessViewport{
+        0.0f, 0.0f, static_cast<float>(renderingExtent.width), static_cast<float>(renderingExtent.height), 0.0f, 1.0f
+    };
+    vkCmdSetViewport(commandBuffer, 0, 1, &postprocessViewport);
+
+    // Scissors
+    VkRect2D postprocessScissors{0, 0, renderingExtent.width, renderingExtent.height};
+    vkCmdSetScissor(commandBuffer, 0, 1, &postprocessScissors);
+
+    // Bind postprocess descriptor set
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.postprocessGraphics->pipelineLayout, 0, 1,
+                            &descriptors.postprocess, 0, nullptr);
+
+    // Push postprocess data
+    vkCmdPushConstants(commandBuffer, pipelines.postprocessGraphics->pipelineLayout,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       0, sizeof(PostProcessingData), &data.postProcessingData);
+
+    // Bind postprocessing pipeline
+    pipelines.postprocessGraphics->bind(commandBuffer);
+
+    // Draw
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+    // End rendering
     vkCmdEndRendering(commandBuffer);
 
     // Records user interface into the same command buffer

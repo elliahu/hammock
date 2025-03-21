@@ -23,25 +23,6 @@ struct TerrainData{
     float4x4 modelViewProj;
 };
 
-/*
-struct GlobalData{
-    float4x4 invView;
-    float4x4 invProj;
-    float4x4 view;
-    float4x4 proj;
-    float4 cameraPosition;
-    float4 lightColor; // W is strength
-    float4 lightDirection;
-    float4 skyColorZenith;
-    float4 skyColorHorizon;
-    float4 windDirection;
-    float resX;
-    float resY;
-    float fov;
-    float time = 0.0f;
-    float timeOfDay = 0.0f;
-};
-*/
 
 [vk::binding(0,0)] ConstantBuffer<GlobalData> globalData;
 [vk::push_constant] TerrainData terrainData;
@@ -79,7 +60,10 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
     float NdotL = max(dot(input.worldNormal, lightDir), 0.0);
 
     float3 lightColor = globalData.lightColor.rgb;
+    float3 greenColor = float3(109.0/255.0, 159.0/255.0, 113.0/255.0);
     float3 brownColor = float3(72.0/255.0, 72.0/255.0, 58.0/255.0); 
+    float3 grayColor = float3(76.0/255.0, 84.0/255.0, 84.0/255.0);
+    float3 white = float3(1.0);
 
     float3 diffuse = brownColor * lightColor * NdotL;
 

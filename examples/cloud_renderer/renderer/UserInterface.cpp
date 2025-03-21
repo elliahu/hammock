@@ -1,5 +1,36 @@
 #include "UserInterface.h"
 
+void ::UserInterface::showCameraWindow() {
+    hideAll = true;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    // Center the window on the screen
+    ImGui::SetNextWindowPos(
+        ImVec2(window.getExtent().width / 2.0f, window.getExtent().height / 2.0f),
+        ImGuiCond_Always,
+        ImVec2(0.5f, 0.5f)
+    );
+    ImGui::Begin("Camera", nullptr,
+                 ImGuiWindowFlags_AlwaysAutoResize |
+                 ImGuiWindowFlags_NoTitleBar |
+                 ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoSavedSettings |
+                 ImGuiWindowFlags_NoFocusOnAppearing |
+                 ImGuiWindowFlags_NoNav |
+                 ImGuiWindowFlags_NoDecoration);
+
+    // Color Tint
+    ImGui::SeparatorText("Camera settings");
+
+    ImGui::DragFloat3("World space position", &camera.position.Elements[0]);
+
+    if (ImGui::Button("Close")) {
+        showCamera = false;
+        hideAll = false;
+    }
+    ImGui::PopStyleVar();
+    ImGui::End();
+}
+
 void ::UserInterface::showDebugWindow() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::SetNextWindowPos({
@@ -132,9 +163,14 @@ void ::UserInterface::recordUserInterface(VkCommandBuffer commandBuffer) {
         showCloudsWindow();
     }
 
-    if (showDebug) {
+    if (showDebug && !hideAll) {
         showDebugWindow();
     }
+
+    if (showCamera) {
+        showCameraWindow();
+    }
+
 
 
     ui.endUserInterface(commandBuffer);

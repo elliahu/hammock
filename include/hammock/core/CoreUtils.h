@@ -22,13 +22,30 @@ namespace hammock {
     class Logger {
     public:
 #ifdef NDEBUG
-        static inline LogLevel hmckMinLogLevel = LOG_LEVEL_ERROR;
+        static inline LogLevel hmckMinLogLevel = LOG_LEVEL_WARN;
 #else
         static inline LogLevel hmckMinLogLevel = LOG_LEVEL_DEBUG;
 #endif
 
         static void log(const LogLevel level, const char *format, ...) {
             if (level >= hmckMinLogLevel) {
+                const char* prefix = "";
+                switch (level) {
+                    case LOG_LEVEL_DEBUG:
+                        prefix = "DEBUG: ";
+                    break;
+                    case LOG_LEVEL_WARN:
+                        prefix = "WARNING: ";
+                    break;
+                    case LOG_LEVEL_ERROR:
+                        prefix = "ERROR: ";
+                    break;
+                }
+
+                // Print the prefix first
+                printf("%s", prefix);
+
+                // Print the formatted message
                 va_list args;
                 va_start(args, format);
                 vprintf(format, args);
