@@ -87,6 +87,11 @@ namespace hammock {
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
         std::vector<VkSemaphore> waitSemaphores = {imageAvailableSemaphores[currentFrame]};
+        std::vector<VkPipelineStageFlags> waitStage = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+        for(auto &w: waitStages) {
+            waitStage.push_back(w);
+        }
 
         for (auto& waitSemaphore: wait) {
             waitSemaphores.push_back(waitSemaphore);
@@ -94,7 +99,7 @@ namespace hammock {
 
         submitInfo.waitSemaphoreCount = waitSemaphores.size();
         submitInfo.pWaitSemaphores = waitSemaphores.data();
-        submitInfo.pWaitDstStageMask = waitStages.data();
+        submitInfo.pWaitDstStageMask = waitStage.data();
 
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = buffers;

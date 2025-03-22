@@ -8,12 +8,12 @@ using namespace hammock;
  */
 class Camera final {
 public:
-    Camera(HmckVec3 position,float aspect, float32_t fov, float32_t near = 0.01f, float32_t far = 100000.f, float yaw = 0.f, float pitch = 0.f, float roll = 0.f): position(position), fov(fov), near(near), yaw(yaw), pitch(pitch), roll(roll),
-        far(far), aspect(aspect) {
+    Camera(HmckVec3 position,float aspect, float32_t fov, float32_t znear = 0.01f, float32_t zfar = 100000.f, float yaw = 0.f, float pitch = 0.f, float roll = 0.f): position(position), fov(fov), znear(znear), yaw(yaw), pitch(pitch), roll(roll),
+        zfar(zfar), aspect(aspect) {
     }
 
     HmckVec3 position;
-    float32_t fov, near, far, aspect;
+    float32_t fov, znear, zfar, aspect;
     float32_t yaw{0.f}, pitch{0.f}, roll{0.f};
 
 
@@ -57,7 +57,7 @@ public:
     }
 
     HmckMat4 getProjection() const {
-        HmckMat4 proj = HmckPerspective_RH_ZO(fov, aspect, near, far);
+        HmckMat4 proj = HmckPerspective_RH_ZO(fov, aspect, znear, zfar);
         proj[1][1] *= -1;
         return proj;
     }

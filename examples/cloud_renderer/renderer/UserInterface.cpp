@@ -16,7 +16,7 @@ void ::UserInterface::showCameraWindow() {
     ImGui::SliderFloat("Pitch", &camera.pitch, HmckPI, -HmckPI);
     ImGui::SliderFloat("Roll", &camera.roll, HmckPI, -HmckPI);
     ImGui::SliderFloat("Field of view", &camera.fov, HmckToRad(HmckAngleDeg(0.1f)), HmckToRad(HmckAngleDeg(110.0f)));
-    ImGui::DragFloat("Draw distance", &camera.far, 1.f, 0.f);
+    ImGui::DragFloat("Draw distance", &camera.zfar, 1.f, 0.f);
 
     ImGui::Separator();
     if (ImGui::Button("Close")) {
