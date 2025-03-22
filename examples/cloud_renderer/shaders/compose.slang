@@ -24,6 +24,11 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     return output;
 }
 
+
+float3 blendScreen(float3 base, float3 blend) {
+    return 1.0 - (1.0 - base) * (1.0 - blend);
+}
+
 float3 blendSoftLight(float3 base, float3 blend) {
     return (max(blend.x,max(blend.y, blend.z)) < 0.5) ?
     base - (1.0 - 2.0 * blend) * base * (1.0 - base) :
@@ -34,6 +39,8 @@ float3 blendSoftLight(float3 base, float3 blend) {
 [shader("pixel")]
 PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
     PixelOutput output;
+
+    float3 skyColor = pow(float3(59.0/255.0, 110.0/255.0, 219.0/255.0), 2.0);
     
     // Sample values from the textures
     float4 terrainColor = terrainColorImage.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
@@ -41,7 +48,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
     if(terrainColor.a < 1.0){
         float4 cloudColor = cloudsColorImage.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
         float4 godRays = godRaysColorImage.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
-        output.color = cloudColor;
+        output.color = float4(skyColor * (1.0 - cloudColor.a) + cloudColor.rgb, 1.0);
 
         output.color = float4(lerp(output.color.rgb, blendSoftLight(output.color.rgb, godRays.rgb), godRays.a), 1.0);
 

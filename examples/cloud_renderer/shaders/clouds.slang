@@ -11,7 +11,9 @@ struct PushConstants {
     float detailScale;
     float curliness;
     float absorption;
-    float phase;
+    float eccentricity;
+    float intensity;
+    float spread;
     float ambientStrength;
     int DEBUG_epicView;
     int DEBUG_cheapSampleDistance;
@@ -65,7 +67,7 @@ struct PushConstants {
 
 // Earth
 #define EARTH_RADIUS 637800
-#define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + 4000)
+#define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + 6000)
 #define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 10500)
 #define CENTER float3(0.0, -EARTH_RADIUS, 0.0)
 
@@ -269,7 +271,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
     float3 L = normalize(SUN_DIR);
     float3 V = normalize(rayDirection);
     float cosTheta = dot(L, V);
-    float phase = dualLobePhase(cosTheta, constants.phase);
+    float phase = directedPhase(cosTheta, constants.eccentricity, constants.intensity, constants.spread);
 
     // Raymarch variables
     float transmittance = 1.0;
@@ -328,13 +330,12 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
 
             // in-scattering
             float depthProb = 0.05 * pow(density, remap(heightFraction, 0.3, 0.85, 0.5, 2.0));
-            float vertProb = saturate(pow(remap(heightFraction, 0.07, 0.14, 0.1, 1.0), 0.8));
-            float inScatterProb = depthProb;// * vertProb;
+            float vertProb =  saturate(pow(remap(heightFraction + 0.01, 0.07, 0.14, 0.1, 1.0), 0.8));
+            float inScatterProb =depthProb;// * vertProb;
 
-            float ambient = density * heightFraction * constants.ambientStrength;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb + ambient;
+            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb;
 
             // Update total transmittance for extinction along the ray segment
             float currentTransmittance = exp(-density * currentStepSize * ABSORPTION);

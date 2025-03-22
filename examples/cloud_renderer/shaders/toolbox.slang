@@ -157,7 +157,7 @@ float henyeyGreensteinModified(float sundotrd, float ecc) {
 }
 
 float directedPhase(float sundotrd, float eccentricity, float silverIntensity, float silverSpread) {
-    return max(henyeyGreensteinModified(sundotrd, eccentricity), silverIntensity * henyeyGreensteinModified(sundotrd, 0.99 - silverSpread));
+    return max(henyeyGreensteinModified(sundotrd, eccentricity), silverIntensity * henyeyGreensteinModified(sundotrd, 0.999 - silverSpread));
 }
 
 float isophase() {

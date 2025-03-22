@@ -37,10 +37,12 @@ struct CloudsProperties {
     float baseScale = 50.f;
     float detailScale = 50.0f;
     float curliness = 2.0f;
-    float absorption = 0.0095f;
-    float phase = 0.22f;
+    float absorption = 0.0074f;
+    float eccentricity = 0.22f;
+    float intensity = 6.1f;
+    float spread = 1.0f;
     float ambientStrength = 0.05;
-    int DEBUG_epicView = 1;
+    int DEBUG_epicView = 0;
     int DEBUG_cheapSampleDistance = 100000;
     int DEBUG_maxSamples = 128;
     int DEBUG_maxLightSamples = 6;

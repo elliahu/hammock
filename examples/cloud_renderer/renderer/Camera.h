@@ -8,7 +8,7 @@ using namespace hammock;
  */
 class Camera final {
 public:
-    Camera(HmckVec3 position,float aspect, float32_t fov, float32_t near = 0.01f, float32_t far = 100000.f): position(position), fov(fov), near(near),
+    Camera(HmckVec3 position,float aspect, float32_t fov, float32_t near = 0.01f, float32_t far = 100000.f, float yaw = 0.f, float pitch = 0.f, float roll = 0.f): position(position), fov(fov), near(near), yaw(yaw), pitch(pitch), roll(roll),
         far(far), aspect(aspect) {
     }
 
