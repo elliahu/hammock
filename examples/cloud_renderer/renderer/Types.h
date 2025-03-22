@@ -33,7 +33,7 @@ struct CloudsProperties {
     float globalCoverage = 0.0;
     float baseMultiplier = 0.8f;
     float detailMultiplier = 0.75;
-    float cloudSpeed = 1000.f;
+    float cloudSpeed = 0.f;
     float baseScale = 50.f;
     float detailScale = 50.0f;
     float curliness = 2.0f;

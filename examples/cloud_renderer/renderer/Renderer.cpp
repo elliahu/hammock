@@ -1021,7 +1021,9 @@ void Renderer::update() {
     data.globalData.resY = window.getExtent().height;
     data.globalData.lowResX = CLOUDS_OCCLUSION_MASK_SIZE_X(data.globalData.resX);
     data.globalData.lowResY = CLOUDS_OCCLUSION_MASK_SIZE_Y(data.globalData.resY);
-    data.globalData.time = elapsedTime;
+    if (progressTime) {
+        data.globalData.time = elapsedTime;
+    }
     resourceManager.getResource<Buffer>(buffers.global[frameManager.getFrameIndex()])->writeToBuffer(&data.globalData);
 
     float angle = (data.globalData.timeOfDay - 0.25f) * 2.0f * HmckPI; // Shift so 0.25 (morning) starts at the horizon

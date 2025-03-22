@@ -122,7 +122,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     float heightFraction = getHeightFraction(p);
     float3 animation = heightFraction * WIND_DIRECTION + WIND_DIRECTION * data.time * WIND_SPEED;
     float2 staticUv = getUVProjection(p);
-    float2 animatedUv = getUVProjection(p);
+    float2 animatedUv = getUVProjection(p + animation);
 
     // Early exit if out of the cloud layer
     if (heightFraction < 0.0 || heightFraction > 1.0) {

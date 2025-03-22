@@ -76,6 +76,7 @@ class Renderer final{
     static constexpr int FRAMETIME_BUFFER_SIZE{512}; // Number of frames to track
     float frameTimes[FRAMETIME_BUFFER_SIZE] = {0.0f};
     int frameTimeFrameIndex{0};
+    bool progressTime{true};
 
     // Data passed to the gpu
     struct {
