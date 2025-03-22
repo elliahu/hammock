@@ -334,6 +334,13 @@ namespace hammock {
                 std::cout << "Present mode: Immediate" << std::endl;
                 return availablePresentMode;
             }
+
+            // V-sync that may produce tearing if frame is submitted late
+            if (availablePresentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
+                std::cout << "Present mode: V-Sync Relaxed" << std::endl;
+                return availablePresentMode;
+            }
+
         }
 
         // V-sync on as fallback

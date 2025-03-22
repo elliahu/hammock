@@ -247,8 +247,9 @@ void Renderer::createBuffers() {
 }
 
 void Renderer::createTargets() {
-    // First, create the default sampler
+    // Create the default sampler
     defaultSampler = resourceManager.createResource<Sampler>("default-sampler", SamplerDesc{});
+
     // Create all the images
     targets.compositedColor = resourceManager.createResource<Image>(
         "composited-color-image", ImageDesc{
@@ -780,6 +781,10 @@ void Renderer::recordCompositionCommandBuffer() {
 }
 
 void Renderer::submitCommandBuffers() {
+    // Recreate targets if window was resized
+    // Note this is quite heavy operation
+    // TODO
+
     // Get current frame index
     uint32_t frameIndex = frameManager.getFrameIndex();
 
@@ -850,6 +855,7 @@ Renderer::Renderer(const int32_t width, const int32_t height)
         window,
         camera,
         data.globalData,
+        data.postProcessingData,
         deltaTime,
         frameTimes,
         FRAMETIME_BUFFER_SIZE,
@@ -877,6 +883,9 @@ void Renderer::update() {
     data.globalData.resY = window.getExtent().height;
     data.globalData.time = elapsedTime;
     resourceManager.getResource<Buffer>(buffers.global[frameManager.getFrameIndex()])->writeToBuffer(&data.globalData);
+
+    // Update post processing data
+    data.postProcessingData.time = elapsedTime;
 }
 
 

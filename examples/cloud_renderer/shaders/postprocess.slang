@@ -151,7 +151,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
 
     // Apply film grain
     if (post.grainAmount > 0.0) {
-        float grain = hash((input.uv * float2(1920,1080)) + post.time * 10.0);
+        float grain = hash((input.uv * float2(1920,1080)) + post.time * 100.0);
         graded += (grain - 0.5) * post.grainAmount;
     }
 

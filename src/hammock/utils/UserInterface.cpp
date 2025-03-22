@@ -239,53 +239,65 @@ void hammock::UserInterface::setupStyle() {
     ImGuiStyle &style = ImGui::GetStyle();
     // Setup ImGUI style
 
-    // Rounding
-    style.Alpha = .9f;
-    float globalRounding = 6.0f;
-    style.FrameRounding = globalRounding;
-    style.WindowRounding = globalRounding;
-    style.ChildRounding = globalRounding;
-    style.PopupRounding = globalRounding;
-    style.ScrollbarRounding = globalRounding;
-    style.GrabRounding = globalRounding;
-    style.LogSliderDeadzone = globalRounding;
-    style.TabRounding = globalRounding;
+    style.Colors[ImGuiCol_TitleBg] = ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 1.0f); // Light blue
+    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 0.8f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(252 / 255.0f, 252 / 255.0f, 252 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(235 / 255.0f, 235 / 255.0f, 235 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(220 / 255.0f, 220 / 255.0f, 220 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_MenuBarBg] = ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_CheckMark] = ImVec4(156 / 255.0f, 183 / 255.0f, 205 / 255.0f, 1.0f); // Pastel blue
+    style.Colors[ImGuiCol_SliderGrab] = ImVec4(156 / 255.0f, 183 / 255.0f, 205 / 255.0f, 0.8f); // Pastel blue
+    style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(137 / 255.0f, 175 / 255.0f, 201 / 255.0f, 1.0f); // Slightly darker pastel blue
+    style.Colors[ImGuiCol_Header] = ImVec4(235 / 255.0f, 235 / 255.0f, 235 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(173 / 255.0f, 216 / 255.0f, 230 / 255.0f, 0.8f); // Light blue
+    style.Colors[ImGuiCol_HeaderActive] = ImVec4(173 / 255.0f, 216 / 255.0f, 230 / 255.0f, 1.0f); // Light blue
+    style.Colors[ImGuiCol_Separator] = ImVec4(220 / 255.0f, 220 / 255.0f, 220 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(200 / 255.0f, 200 / 255.0f, 200 / 255.0f, 0.6f);
+    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(173 / 255.0f, 216 / 255.0f, 230 / 255.0f, 0.8f); // Light blue
+    style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(173 / 255.0f, 216 / 255.0f, 230 / 255.0f, 1.0f); // Light blue
+    style.Colors[ImGuiCol_Tab] = ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 0.8f);
+    style.Colors[ImGuiCol_TabHovered] = ImVec4(235 / 255.0f, 235 / 255.0f, 235 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_TabActive] = ImVec4(173 / 255.0f, 216 / 255.0f, 230 / 255.0f, 1.0f); // Light blue
+    style.Colors[ImGuiCol_Button] = ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(173 / 255.0f, 216 / 255.0f, 230 / 255.0f, 0.8f); // Light blue
+    style.Colors[ImGuiCol_ButtonActive] = ImVec4(173 / 255.0f, 216 / 255.0f, 230 / 255.0f, 1.0f); // Light blue
 
-    // padding
-    style.WindowPadding = {8.0f, 8.0f};
-    style.FramePadding = {3.0f, 5.0f};
-    style.ItemSpacing = {4.0f, 4.0f};
-    style.ItemInnerSpacing = {4.0f, 4.0f};
-    style.GrabMinSize = 8.0f;
-    style.ScrollbarSize = 8.f;
+    // Additional Windows pastel light theme elements
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(252 / 255.0f, 252 / 255.0f, 252 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_PopupBg] = ImVec4(252 / 255.0f, 252 / 255.0f, 252 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_Border] = ImVec4(220 / 255.0f, 220 / 255.0f, 220 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0.0f);
+    style.Colors[ImGuiCol_Text] = ImVec4(70 / 255.0f, 70 / 255.0f, 70 / 255.0f, 1.0f); // Softer than black
+    style.Colors[ImGuiCol_TextDisabled] = ImVec4(170 / 255.0f, 170 / 255.0f, 170 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(220 / 255.0f, 220 / 255.0f, 220 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(200 / 255.0f, 200 / 255.0f, 200 / 255.0f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(180 / 255.0f, 180 / 255.0f, 180 / 255.0f, 1.0f);
 
-    // align
-    style.WindowTitleAlign = {.5f, .5f};
-
-    // colors
-    style.Colors[ImGuiCol_TitleBg] = ImVec4(241 / 255.0f, 135 / 255.0f, 1 / 255.0f, 170 / 255.0f);
-    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(241 / 255.0f, 135 / 255.0f, 1 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(241 / 255.0f, 135 / 255.0f, 1 / 255.0f, 170 / 255.0f);
-    style.Colors[ImGuiCol_FrameBg] = ImVec4(48 / 255.0f, 48 / 255.0f, 54 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(48 / 255.0f, 48 / 255.0f, 54 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(48 / 255.0f, 48 / 255.0f, 54 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_MenuBarBg] = ImVec4(33 / 255.0f, 33 / 255.0f, 33 / 255.0f, 50 / 255.0f);
-    style.Colors[ImGuiCol_CheckMark] = ImVec4(200 / 255.0f, 200 / 255.0f, 200 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_SliderGrab] = ImVec4(200 / 255.0f, 200 / 255.0f, 200 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(255 / 255.0f, 255 / 255.0f, 255 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_Header] = ImVec4(60 / 255.0f, 60 / 255.0f, 60 / 255.0f, 170 / 255.0f);
-    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(241 / 255.0f, 135 / 255.0f, 1 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_HeaderActive] = ImVec4(241 / 255.0f, 135 / 255.0f, 1 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_Separator] = ImVec4(60 / 255.0f, 60 / 255.0f, 60 / 255.0f, 170 / 255.0f);
-    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(60 / 255.0f, 60 / 255.0f, 60 / 255.0f, 79 / 255.0f);
-    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(60 / 255.0f, 60 / 255.0f, 60 / 255.0f, 170 / 255.0f);
-    style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(60 / 255.0f, 60 / 255.0f, 60 / 255.0f, 170 / 255.0f);
-    style.Colors[ImGuiCol_Tab] = ImVec4(60 / 255.0f, 60 / 255.0f, 60 / 255.0f, 79 / 255.0f);
-    style.Colors[ImGuiCol_TabHovered] = ImVec4(60 / 255.0f, 60 / 255.0f, 60 / 255.0f, 170 / 255.0f);
-    style.Colors[ImGuiCol_TabActive] = ImVec4(241 / 255.0f, 135 / 255.0f, 1 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_Button] = ImVec4(80 / 255.0f, 80 / 255.0f, 80 / 255.0f, 170 / 255.0f);
-    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(241 / 255.0f, 135 / 255.0f, 1 / 255.0f, 255 / 255.0f);
-    style.Colors[ImGuiCol_ButtonActive] = ImVec4(241 / 255.0f, 135 / 255.0f, 1 / 255.0f, 255 / 255.0f);
+    // Style adjustments for a more Windows-like appearance
+    style.WindowPadding = ImVec2(10, 10);
+    style.FramePadding = ImVec2(4, 3);
+    style.CellPadding = ImVec2(4, 3);
+    style.ItemSpacing = ImVec2(8, 4);
+    style.ItemInnerSpacing = ImVec2(3, 3);
+    style.TouchExtraPadding = ImVec2(0, 0);
+    style.IndentSpacing = 21;
+    style.ScrollbarSize = 14;
+    style.GrabMinSize = 8;
+    style.WindowBorderSize = 0;
+    style.ChildBorderSize = 0;
+    style.PopupBorderSize = 0;
+    style.FrameBorderSize = 1;
+    style.TabBorderSize = 0;
+    style.WindowRounding = 8;
+    style.ChildRounding = 8;
+    style.FrameRounding = 4;
+    style.PopupRounding = 4;
+    style.ScrollbarRounding = 6;
+    style.GrabRounding = 6;
+    style.LogSliderDeadzone = 4;
+    style.TabRounding = 6;
 }
 
 VkCommandBuffer hammock::UserInterface::beginSingleTimeCommands() const {

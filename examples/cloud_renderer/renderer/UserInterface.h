@@ -15,27 +15,26 @@ class UserInterface final {
 
     Camera& camera;
     GlobalData& globalData;
+    PostProcessingData& postProcessingData;
+
     float& deltaTime;
     float* frameTimes;
     int FRAMETIME_BUFFER_SIZE;
     int& frameTimeFrameIndex;
 
-    bool showClouds = true;
+    bool showEditor = true;
     bool showDebug = true;
-    bool showAtmosphere = true;
     bool showPostProc = false;
     bool showCamera = false;
     bool hideAll = false;
 
     void showCameraWindow();
 
-    void showPostProcsSettinsWindow();
+    void showPostProcsSettingsWindow();
 
     void showDebugWindow();
 
-    void showAtmosphereWindow();
-
-    void showCloudsWindow();
+    void showEditorWindow();
 
 public:
     UserInterface(
@@ -45,6 +44,7 @@ public:
         hmck::Window &window,
         Camera& camera,
         GlobalData& globalData,
+        PostProcessingData& postProcessingData,
         float& deltaTime,
         float* frameTimes,
         int FRAMETIME_BUFFER_SIZE,
@@ -57,6 +57,7 @@ public:
     ui(device, frameManager.getSwapChain()->getRenderPass(), descriptorPool, window),
     camera(camera),
     globalData(globalData),
+    postProcessingData(postProcessingData),
     deltaTime(deltaTime),
     frameTimes(frameTimes),
     FRAMETIME_BUFFER_SIZE(FRAMETIME_BUFFER_SIZE),
