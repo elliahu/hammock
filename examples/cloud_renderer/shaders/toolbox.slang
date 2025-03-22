@@ -15,6 +15,8 @@ struct GlobalData{
     float4 windDirection;
     float resX;
     float resY;
+    float lowResX;
+    float lowResY;
     float fov;
     float time = 0.0f;
     float timeOfDay = 0.0f;

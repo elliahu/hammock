@@ -1260,7 +1260,7 @@ namespace hammock {
                         if (group->globalStartIndex != 0) {
                             waitSemaphore = allGroups[group->globalStartIndex - 1].group->signalSemaphores[frameIdx];
                         }
-                        fm.submitPresentCommandBuffer(commandBuffer, waitSemaphore);
+                        fm.submitPresentCommandBuffer(commandBuffer, {waitSemaphore}, {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT});
                     } else {
                         // Other groups - handle inter-group sync
                         std::vector<VkSemaphore> waitSemaphores{};
@@ -1287,17 +1287,17 @@ namespace hammock {
                             case CommandQueueFamily::Graphics:
                                 fm.submitCommandBuffer<CommandQueueFamily::Graphics>(
                                     commandBuffer, waitSemaphores, signalSemaphores,
-                                    group->waitStage);
+                                    {group->waitStage});
                                 break;
                             case CommandQueueFamily::Compute:
                                 fm.submitCommandBuffer<CommandQueueFamily::Compute>(
                                     commandBuffer, waitSemaphores, signalSemaphores,
-                                    group->waitStage);
+                                    {group->waitStage});
                                 break;
                             case CommandQueueFamily::Transfer:
                                 fm.submitCommandBuffer<CommandQueueFamily::Transfer>(
                                     commandBuffer, waitSemaphores, signalSemaphores,
-                                    group->waitStage);
+                                    {group->waitStage});
                                 break;
                         }
                     }

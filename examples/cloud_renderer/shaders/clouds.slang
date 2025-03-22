@@ -1,12 +1,5 @@
 import toolbox;
 
-struct CloudSample {
-    float density = 0.0;
-    float coverage = 0.0;
-    float type = 0.0;
-};
-
-
 struct PushConstants {
     float anvilBias;
     float globalDensity;
@@ -30,19 +23,16 @@ struct PushConstants {
     int DEBUG_longStepMulti;
 };
 
-[vk::binding(0)] ConstantBuffer<FrameDataUbo> data;
+[vk::binding(0,0)] ConstantBuffer<GlobalData> data;
 
 // Storage images
-[vk::binding(1)] RWTexture2D cloudsStorageImage;
-[vk::binding(2)] RWTexture2D godRaysMaskStorageImage;
+[vk::binding(0,1)] RWTexture2D cloudsStorageImage;
+[vk::binding(1,1)] RWTexture2D godRaysMaskStorageImage;
 
 // Images and samplers
-[vk::binding(3)] Sampler3D lowFreqNoiseTexture;
-[vk::binding(4)] Sampler3D highFreqNoiseTexture;
-[vk::binding(5)] Sampler2D cloudMapTexture;
-
-// Shadow map
-[vk::binding(6)] RWTexture2D<float> shadowMap;
+[vk::binding(2,1)] Sampler3D lowFreqNoiseTexture;
+[vk::binding(3,1)] Sampler3D highFreqNoiseTexture;
+[vk::binding(4,1)] Sampler2D weatherMap;
 
 // Push constants
 [vk::push_constant] PushConstants constants;
@@ -132,7 +122,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     float heightFraction = getHeightFraction(p);
     float3 animation = heightFraction * WIND_DIRECTION + WIND_DIRECTION * data.time * WIND_SPEED;
     float2 staticUv = getUVProjection(p);
-    float2 animatedUv = getUVProjection(p + animation);
+    float2 animatedUv = getUVProjection(p);
 
     // Early exit if out of the cloud layer
     if (heightFraction < 0.0 || heightFraction > 1.0) {
@@ -146,7 +136,7 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     float baseCloud = remap(lowFrequencyNoise.r, lowFreqFBM - 1.0, 1.0, 0.0, 1.0) * constants.globalDensity;
 
     // Sample the cloud map
-    float3 cloudMap = cloudMapTexture.SampleLevel(animatedUv * COVERAGE_REPEAT, 0.0).rgb * constants.baseMultiplier;
+    float3 cloudMap = weatherMap.SampleLevel(animatedUv * COVERAGE_REPEAT, 0.0).rgb * constants.baseMultiplier;
     // Coverage is in red and green channels
     float coverage = max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2);
     coverage = pow(coverage, remap(heightFraction, 0.7, 0.8, 1.0, lerp(1.0, 0.5, constants.anvilBias)));
@@ -301,10 +291,10 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
         float lod = expensive ? 0.0 : 2.0;
 
         // Sample the density (use cheap sampling for large steps)
-        float density = sampleCloudDensity(p, expensive && insideCloud, lod);
+        float density = sampleCloudDensity(p, expensive, lod);
 
         // Adaptive stepping logic
-        if (density > 0.001) {
+        if (density > 0.01) {
             // We hit a cloud - if we were taking large steps, we need to back up and switch to small steps
             if (!insideCloud) {
                 // Back up one large step and switch to small steps
@@ -348,8 +338,8 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
             float currentTransmittance = exp(-density * currentStepSize * ABSORPTION);
             transmittance *= currentTransmittance;
 
-            uint2 shadowIndex = clamp(uint2(frac(getUVProjection(p) * COVERAGE_REPEAT) * 512.0), uint2(0, 0), uint2(511, 511));
-            shadowMap[shadowIndex] += (1.0 - currentTransmittance);
+            //uint2 shadowIndex = clamp(uint2(frac(getUVProjection(p) * COVERAGE_REPEAT) * 512.0), uint2(0, 0), uint2(511, 511));
+            //shadowMap[shadowIndex] += (1.0 - currentTransmittance);
 
 
             // Early exit if fully opaque
@@ -406,24 +396,20 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     rayDirection = normalize(rayDirection);
     float3 rayOrigin = data.cameraPosition.xyz;
 
-    // Compute distance from camera to sphere center.
-    float cameraDist = length(rayOrigin - CENTER);
-    bool insideInnerSphere = cameraDist < CLOUDS_BOTTOM_RADIUS;
-    bool insideOuterSphere = cameraDist < CLOUDS_TOP_RADIUS;
-    bool aboveOuterSphere = cameraDist > CLOUDS_TOP_RADIUS;
-
     // Get intersections.
     float2 planetIntersect = intersectRaySphere(CENTER, EARTH_RADIUS, rayOrigin, rayDirection);
     float2 innerCloudIntersect = intersectRaySphere(CENTER, CLOUDS_BOTTOM_RADIUS, rayOrigin, rayDirection);
     float2 outerCloudIntersect = intersectRaySphere(CENTER, CLOUDS_TOP_RADIUS, rayOrigin, rayDirection);
 
+    // Compute low res scale for mask
+    float2 scale = float2(data.resX, data.resY) / float2(data.lowResX, data.lowResY);
+
     // if we intersected a planet, we exit as there are no clouds under ground
     if (planetIntersect.y > 0.0) {
         cloudsStorageImage[threadId.xy] = float4(0.0);
-        godRaysMaskStorageImage[threadId.xy / 4] = float4(0.0, 0.0, 0.0, 1.0);
+        godRaysMaskStorageImage[threadId.xy * scale] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
-
     // We only account for situation where we are between the planet and clouds
     float dstToStart = innerCloudIntersect.y;
     float dstToEnd = outerCloudIntersect.y;
@@ -445,7 +431,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float4 color = raymarch(threadId,start, end);
 
     // If the alpha is high enough, write it to the mask, else write the color of the light
-    godRaysMaskStorageImage[threadId.xy / 4] = float4(lerp(SUN_COLOR, float3(0.0), color.a), 1.0);
+    godRaysMaskStorageImage[threadId.xy * scale] = float4(lerp(SUN_COLOR, float3(0.0), color.a), 1.0);
 
     // Store the final value
     cloudsStorageImage[threadId.xy] = color;

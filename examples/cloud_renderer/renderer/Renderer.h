@@ -10,13 +10,14 @@
 // assets
 #define ASSET_PATH(asset) CWD("assets/" asset)
 #define TERRAIN_GEOMETRY_PATH ASSET_PATH("terrain.glb")
-#define HIGH_FREQ_NOISE_PATH ASSET_PATH("base")
-#define LOW_FREQ_NOISE_PATH ASSET_PATH("detail")
+#define HIGH_FREQ_NOISE_PATH ASSET_PATH("detail")
+#define LOW_FREQ_NOISE_PATH ASSET_PATH("base")
 #define WEATHER_MAP_PATH ASSET_PATH("weather/stratocumulus.png")
 
 // shaders
 #define COMPILED_SHADER_PATH(shader) CWD("spv/" shader ".spv")
 #define CLOUDS_COMP_SHADER_PATH COMPILED_SHADER_PATH("clouds.comp")
+#define GOD_RAYS_COMP_SHADER_PATH COMPILED_SHADER_PATH("occlusion.comp")
 #define TERRAIN_VERT_SHADER_PATH COMPILED_SHADER_PATH("terrain.vert")
 #define TERRAIN_FRAG_SHADER_PATH COMPILED_SHADER_PATH("terrain.frag")
 #define COMPOSITION_VERT_SHADER_PATH COMPILED_SHADER_PATH("compose.vert")
@@ -25,7 +26,19 @@
 #define POSTPROC_FRAG_SHADER_PATH COMPILED_SHADER_PATH("postprocess.frag")
 
 // resolutions
-#define CLOUD_MASK_FRAC 0.25f
+#define CLOUDS_OCCLUSION_MASK_RELATIVE_SIZE 1.0f
+#define CLOUDS_OCCLUSION_MASK_SIZE_X(w) (w * CLOUDS_OCCLUSION_MASK_RELATIVE_SIZE)
+#define CLOUDS_OCCLUSION_MASK_SIZE_Y(y) (y * CLOUDS_OCCLUSION_MASK_RELATIVE_SIZE)
+
+// Work groups
+#define CLOUDS_WORK_GROUP_SIZE_X 16
+#define CLOUDS_WORK_GROUP_SIZE_Y 16
+#define GOD_RAYS_WORK_GROUP_SIZE_X 16
+#define GOD_RAYS_WORK_GROUP_SIZE_Y 16
+#define CLOUDS_GROUPS_X(w) ((w + CLOUDS_WORK_GROUP_SIZE_X - 1) / CLOUDS_WORK_GROUP_SIZE_X)
+#define CLOUDS_GROUPS_Y(h) ((h + CLOUDS_WORK_GROUP_SIZE_Y - 1) / CLOUDS_WORK_GROUP_SIZE_Y)
+#define GOD_RAYS_GROUPS_X(w) ((w + GOD_RAYS_WORK_GROUP_SIZE_X - 1) / GOD_RAYS_WORK_GROUP_SIZE_X)
+#define GOD_RAYS_GROUPS_Y(h) ((h + GOD_RAYS_WORK_GROUP_SIZE_Y - 1) / GOD_RAYS_WORK_GROUP_SIZE_Y)
 
 using namespace hammock;
 
@@ -68,6 +81,8 @@ class Renderer final{
     struct {
         // Cloud properties data
         CloudsProperties cloudsProperties;
+        // Blur properties data
+        BlurProperties blurProperties;
         // Shared date
         GlobalData globalData;
         // Terrain data
@@ -78,7 +93,7 @@ class Renderer final{
 
     // Perspective camera
     Camera camera{
-        HmckVec3{0.f, 2.0f, 0.f},
+        HmckVec3{0.f, 3.0f, 0.f},
         static_cast<float>(lWidth) /  static_cast<float>(lHeight),
         HmckToRad(HmckAngleDeg(45.f)), 0.01f, 1000.f};
 
@@ -116,7 +131,9 @@ class Renderer final{
         // Clouds storage image
         ResourceHandle cloudsColor;
         // Clouds density mask image
-        ResourceHandle cloudsMaskColor;
+        ResourceHandle cloudsOcclusionColor;
+        // Clouds god rays color image
+        ResourceHandle godRaysColor;
 
         // Terrain image
         ResourceHandle terrainColor;
@@ -132,8 +149,10 @@ class Renderer final{
         std::array<VkDescriptorSet, SwapChain::MAX_FRAMES_IN_FLIGHT> global;
         // Descriptor set for clouds contains only static resources (render targets and textures) that does not require to be per-frame
         VkDescriptorSet clouds;
+        // Occlusion mask blur descriptor
+        VkDescriptorSet godRays;
         // Composition descriptor
-        VkDescriptorSet composition;;
+        VkDescriptorSet composition;
         // Post process descriptor
         VkDescriptorSet postprocess;
     } descriptors;
@@ -143,6 +162,8 @@ class Renderer final{
         std::unique_ptr<DescriptorSetLayout> global;
         // clouds descriptor set layout
         std::unique_ptr<DescriptorSetLayout> clouds;
+        // god rays descriptor set layout
+        std::unique_ptr<DescriptorSetLayout> godRays;
         // composition descriptor set layout
         std::unique_ptr<DescriptorSetLayout> composition;
         // post process descriptor set layout
@@ -153,6 +174,9 @@ class Renderer final{
     struct {
         // Clouds compute pipeline
         std::unique_ptr<ComputePipeline> cloudsCompute;
+
+        // God rays compute pipeline
+        std::unique_ptr<ComputePipeline> godRaysCompute;
 
         // Terrain graphics pipeline
         std::unique_ptr<GraphicsPipeline> terrainGraphics;
@@ -263,15 +287,23 @@ class Renderer final{
     void recordCompositionCommandBuffer();
 
     /**
+     * Records clouds and blur dispatches into its command buffer
+     */
+    void recordCloudsCommandBuffer();
+
+    /**
      * Submits recorded command buffer to their corresponding queues
      */
     void submitCommandBuffers();
 
-
+    /**
+     * All input related code is in here
+     */
     void handleInput();
 
     /**
      * Called every frame before the draw
+     * this is used to update the buffers etc.
      */
     void update();
 
@@ -284,6 +316,9 @@ public:
     // Destructor
     ~Renderer();
 
+    /**
+     * Initiates the rendering loop
+     */
     void render();
 
 };

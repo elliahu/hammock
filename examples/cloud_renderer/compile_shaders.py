@@ -8,7 +8,7 @@ if platform.system() == 'Windows':
 elif platform.system() == 'Linux':
     compiler = 'slangc'
 else:
-    raise EnvironmentError("Unsupported OS. Supported operating systems: Linux, Windows")
+    raise EnvironmentError("Unsupported OS. Supported operating systems are: Linux, Windows")
 
 # Check if vulkan env var is set
 if not os.path.exists(os.environ['VULKAN_SDK']):
@@ -26,17 +26,15 @@ os.makedirs('spv', exist_ok=True)
 # Sky scene
 subprocess.check_call([compiler , "shaders/atmosphere.slang", '-o', 'spv/atmosphere.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
 subprocess.check_call([compiler , "shaders/atmosphere.slang", '-o', 'spv/atmosphere.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])
-subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'spv/clouds.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
-subprocess.check_call([compiler , "shaders/blur.slang", '-o', 'spv/radial.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
-subprocess.check_call([compiler , "shaders/blur.slang", '-o', 'spv/radial.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])
-subprocess.check_call([compiler , "shaders/composition.slang", '-o', 'spv/composition.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
-subprocess.check_call([compiler , "shaders/composition.slang", '-o', 'spv/composition.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])
+
 
 # Participating medium scene
 subprocess.check_call([compiler , "shaders/medium.slang", '-o', 'spv/medium.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
 subprocess.check_call([compiler , "shaders/medium.slang", '-o', 'spv/medium.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])
 
 # Main renderer
+subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'spv/clouds.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
+subprocess.check_call([compiler , "shaders/occlusion.slang", '-o', 'spv/occlusion.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/terrain.slang", '-o', 'spv/terrain.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
 subprocess.check_call([compiler , "shaders/terrain.slang", '-o', 'spv/terrain.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])
 subprocess.check_call([compiler , "shaders/compose.slang", '-o', 'spv/compose.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])

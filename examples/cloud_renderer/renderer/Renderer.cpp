@@ -10,16 +10,27 @@ void Renderer::processDeletionQueue() {
 
 void Renderer::buildPipelines() {
     // Clouds compute pipeline
-    // pipelines.cloudsCompute = ComputePipeline::create({
-    //     .debugName = "compute-pipeline",
-    //     .device = device,
-    //     .computeShader{.byteCode = Filesystem::readFile(CLOUDS_COMP_SHADER_PATH),},
-    //     .descriptorSetLayouts = {
-    //         descriptorLayouts.global->getDescriptorSetLayout(),
-    //         descriptorLayouts.clouds->getDescriptorSetLayout(),
-    //     },
-    //     .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CloudsProperties)}}
-    // });
+    pipelines.cloudsCompute = ComputePipeline::create({
+        .debugName = "clouds-compute-pipeline",
+        .device = device,
+        .computeShader{.byteCode = Filesystem::readFile(CLOUDS_COMP_SHADER_PATH),},
+        .descriptorSetLayouts = {
+            descriptorLayouts.global->getDescriptorSetLayout(),
+            descriptorLayouts.clouds->getDescriptorSetLayout(),
+        },
+        .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CloudsProperties)}}
+    });
+
+    // God rays pipeline
+    pipelines.godRaysCompute = ComputePipeline::create({
+        .debugName = "god-rays-compute-pipeline",
+        .device = device,
+        .computeShader{.byteCode = Filesystem::readFile(GOD_RAYS_COMP_SHADER_PATH),},
+        .descriptorSetLayouts = {
+            descriptorLayouts.godRays->getDescriptorSetLayout(),
+        },
+        .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(BlurProperties)}}
+    });
 
     // Terrain graphics pipeline
     pipelines.terrainGraphics = GraphicsPipeline::create({
@@ -102,7 +113,7 @@ void Renderer::buildDescriptorSets() {
     // Clouds
     VkDescriptorImageInfo cloudsImageInfo = resourceManager.getResource<Image>(targets.cloudsColor)->getDescriptorImageInfo(
         sampler->getSampler());
-    VkDescriptorImageInfo cloudsMaskImageInfo = resourceManager.getResource<Image>(targets.cloudsMaskColor)->getDescriptorImageInfo(
+    VkDescriptorImageInfo cloudsMaskImageInfo = resourceManager.getResource<Image>(targets.cloudsOcclusionColor)->getDescriptorImageInfo(
         sampler->getSampler());
     VkDescriptorImageInfo lowFreqNoiseInfo = resourceManager.getResource<Image>(assets.lowFrequencyNoise)->getDescriptorImageInfo(
         sampler->getSampler());
@@ -117,6 +128,14 @@ void Renderer::buildDescriptorSets() {
             .writeImage(3, &highFreqNoiseInfo)
             .writeImage(4, &weatherMapInfo)
             .build(descriptors.clouds);
+
+    // God rays
+    VkDescriptorImageInfo godRaysColorInfo = resourceManager.getResource<Image>(targets.godRaysColor)->getDescriptorImageInfo(
+        sampler->getSampler());
+    DescriptorWriter(*descriptorLayouts.godRays, *descriptorPool)
+            .writeImage(0, &cloudsMaskImageInfo)
+            .writeImage(1, &godRaysColorInfo)
+            .build(descriptors.godRays);
 
     // Composition
     VkDescriptorImageInfo terrainColorImageInfo = resourceManager.getResource<Image>(targets.terrainColor)->getDescriptorImageInfo(
@@ -139,7 +158,8 @@ void Renderer::buildDescriptorSets() {
 void Renderer::buildDescriptorSetLayouts() {
     // Global descriptor layout
     descriptorLayouts.global = DescriptorSetLayout::Builder(device)
-            .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT) // global buffer
+            .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT) // global buffer
             .build();
 
     // Clouds descriptor layout
@@ -149,6 +169,12 @@ void Renderer::buildDescriptorSetLayouts() {
             .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // low freq noise
             .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // high freq noise
             .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // weather map
+            .build();
+
+    // God rays descriptor layout
+    descriptorLayouts.godRays = DescriptorSetLayout::Builder(device)
+            .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // input occlusion mask
+            .addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // output god rays image
             .build();
 
     // Composition descriptor layout
@@ -276,7 +302,7 @@ void Renderer::createTargets() {
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
-            .queueFamilies = {CommandQueueFamily::Compute, CommandQueueFamily::Graphics},
+            .queueFamilies = {CommandQueueFamily::Compute},
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         }
     );
@@ -284,10 +310,27 @@ void Renderer::createTargets() {
     resourceManager.getResource<Image>(targets.cloudsColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
 
     // Clouds mask image
-    targets.cloudsMaskColor = resourceManager.createResource<Image>(
+    targets.cloudsOcclusionColor = resourceManager.createResource<Image>(
         "clouds-mask-image", ImageDesc{
-            .width = static_cast<uint32_t>(lWidth * CLOUD_MASK_FRAC),
-            .height = static_cast<uint32_t>(lHeight * CLOUD_MASK_FRAC),
+            .width = static_cast<uint32_t>(CLOUDS_OCCLUSION_MASK_SIZE_X(lWidth)),
+            .height = static_cast<uint32_t>(CLOUDS_OCCLUSION_MASK_SIZE_Y(lHeight)),
+            .channels = 4,
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+            .queueFamilies = {CommandQueueFamily::Compute},
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        }
+    );
+    // Set initial layout
+    resourceManager.getResource<Image>(targets.cloudsOcclusionColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
+
+    // God rays image
+    targets.godRaysColor = resourceManager.createResource<Image>(
+        "god-rays-image", ImageDesc{
+            .width = static_cast<uint32_t>(CLOUDS_OCCLUSION_MASK_SIZE_X(lWidth)),
+            .height = static_cast<uint32_t>(CLOUDS_OCCLUSION_MASK_SIZE_Y(lHeight)),
             .channels = 4,
             .format = VK_FORMAT_R8G8B8A8_UNORM,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
@@ -298,7 +341,7 @@ void Renderer::createTargets() {
         }
     );
     // Set initial layout
-    resourceManager.getResource<Image>(targets.cloudsMaskColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
+    resourceManager.getResource<Image>(targets.godRaysColor)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
 
     // Terrain image
     targets.terrainColor = resourceManager.createResource<Image>(
@@ -780,6 +823,73 @@ void Renderer::recordCompositionCommandBuffer() {
                           subresourceRange);
 }
 
+void Renderer::recordCloudsCommandBuffer() {
+    // Get the current command buffer
+    VkCommandBuffer commandBuffer = commandBuffers.clouds[frameManager.getFrameIndex()];
+    // Begin the command buffer recording
+    frameManager.beginCommandBuffer(commandBuffer);
+
+    // Get target pointers
+    // Wea re drawing into two storage images
+    Image *cloudsColorTarget = resourceManager.getResource<Image>(targets.cloudsColor);
+    Image *cloudsOcclusionTarget = resourceManager.getResource<Image>(targets.cloudsOcclusionColor);
+    VkExtent3D cloudsDispatchSize = cloudsColorTarget->getExtent();
+    VkExtent3D blurDispatchSize = cloudsOcclusionTarget->getExtent();
+
+    // Storage images do not change layout from VK_IMAGE_LAYOUT_GENERAL the entire frame so no need for layout transition
+
+    // Bind global descriptor set
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.cloudsCompute->pipelineLayout, 0, 1,
+                            &descriptors.global[frameManager.getFrameIndex()], 0, nullptr);
+
+    // Bind clouds descriptor set
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.cloudsCompute->pipelineLayout, 1, 1,
+                            &descriptors.clouds, 0, nullptr);
+
+    // Bind the cloud pipeline
+    pipelines.cloudsCompute->bind(commandBuffer);
+
+    // Push data
+    vkCmdPushConstants(commandBuffer, pipelines.cloudsCompute->pipelineLayout,
+                       VK_SHADER_STAGE_COMPUTE_BIT,
+                       0, sizeof(CloudsProperties), &data.cloudsProperties);
+
+    // Record the first dispatch that performs the raymarching and writes clouds and occlusion mask
+    vkCmdDispatch(commandBuffer, CLOUDS_GROUPS_X(cloudsDispatchSize.width), CLOUDS_GROUPS_Y(cloudsDispatchSize.height), 1);
+
+    // Apply memory barrier so that the previous dispatch finishes writes before next dispatch reads from the image
+    VkMemoryBarrier memoryBarrier{};
+    memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // srcStage
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // dstStage
+        0,
+        1, &memoryBarrier,
+        0, nullptr,
+        0, nullptr
+    );
+
+    // Bind blur descriptor set
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.godRaysCompute->pipelineLayout, 0, 1,
+                            &descriptors.godRays, 0, nullptr);
+
+
+    // Bind the blur pipeline
+    pipelines.godRaysCompute->bind(commandBuffer);
+
+    // Push data
+    vkCmdPushConstants(commandBuffer, pipelines.godRaysCompute->pipelineLayout,
+                       VK_SHADER_STAGE_COMPUTE_BIT,
+                       0, sizeof(BlurProperties), &data.blurProperties);
+
+    // Blur (god rays generation from occlusion mask) dispatch
+    vkCmdDispatch(commandBuffer, GOD_RAYS_GROUPS_X(blurDispatchSize.width), GOD_RAYS_GROUPS_Y(blurDispatchSize.height), 1);
+}
+
 void Renderer::submitCommandBuffers() {
     // Recreate targets if window was resized
     // Note this is quite heavy operation
@@ -788,13 +898,20 @@ void Renderer::submitCommandBuffers() {
     // Get current frame index
     uint32_t frameIndex = frameManager.getFrameIndex();
 
+    // Submit clouds command buffer
+    frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
+        commandBuffers.clouds[frameIndex], {}, {semaphores.cloudsReady[frameIndex]}, {});
+
     // Submit terrain command buffer
     frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
-        commandBuffers.terrain[frameIndex], {}, {semaphores.terrainReady[frameIndex]}, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+        commandBuffers.terrain[frameIndex], {}, {semaphores.terrainReady[frameIndex]}, {});
 
     // Submit composition command buffer
     // This one is submitted for presentation
-    frameManager.submitPresentCommandBuffer(commandBuffers.composition[frameIndex], semaphores.terrainReady[frameIndex]);
+    // Waits at fragment shader stage on semaphores to be signaled
+    frameManager.submitPresentCommandBuffer(commandBuffers.composition[frameIndex],
+                                            {semaphores.terrainReady[frameIndex], semaphores.cloudsReady[frameIndex]},
+                                            {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT});
 }
 
 void Renderer::handleInput() {
@@ -873,7 +990,7 @@ void Renderer::update() {
     camera.aspect = frameManager.getAspectRatio();
 
     // update global data
-    data.globalData.fov = camera.fov;
+    data.globalData.fov = HmckToDeg(HmckAngleRad(camera.fov));
     data.globalData.proj = camera.getProjection();
     data.globalData.view = camera.getView();
     data.globalData.invProj = HmckInvGeneral(data.globalData.proj);
@@ -881,8 +998,18 @@ void Renderer::update() {
     data.globalData.cameraPosition = HmckVec4{camera.position, 0.0f};
     data.globalData.resX = window.getExtent().width;
     data.globalData.resY = window.getExtent().height;
+    data.globalData.lowResX = CLOUDS_OCCLUSION_MASK_SIZE_X(data.globalData.resX);
+    data.globalData.lowResY = CLOUDS_OCCLUSION_MASK_SIZE_Y(data.globalData.resY);
     data.globalData.time = elapsedTime;
     resourceManager.getResource<Buffer>(buffers.global[frameManager.getFrameIndex()])->writeToBuffer(&data.globalData);
+
+    float angle = (data.globalData.timeOfDay - 0.25f) * 2.0f * HmckPI; // Shift so 0.25 (morning) starts at the horizon
+    float sunHeight = std::sin(angle); // Vertical movement
+    float sunHorizontal = std::cos(angle); // Horizontal movement
+    data.globalData.lightDirection = HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f};
+
+    float azimuthRadians = HmckToRad(HmckAngleDeg(45.0f));
+    data.globalData.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};
 
     // Update post processing data
     data.postProcessingData.time = elapsedTime;
@@ -917,6 +1044,7 @@ void Renderer::render() {
             update();
 
             // Records command buffers
+            recordCloudsCommandBuffer();
             recordTerrainCommandBuffer();
             recordCompositionCommandBuffer();
 
