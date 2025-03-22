@@ -330,12 +330,12 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
 
             // in-scattering
             float depthProb = 0.05 * pow(density, remap(heightFraction, 0.3, 0.85, 0.5, 2.0));
-            float vertProb =  saturate(pow(remap(heightFraction + 0.01, 0.07, 0.14, 0.1, 1.0), 0.8));
-            float inScatterProb =depthProb;// * vertProb;
+            float inScatterProb = depthProb;
 
+            float ambient = density * (1.0 - heightFraction) * transmittance * 0.01;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb;
+            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb+ ambient;
 
             // Update total transmittance for extinction along the ray segment
             float currentTransmittance = exp(-density * currentStepSize * ABSORPTION);
