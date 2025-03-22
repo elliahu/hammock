@@ -291,7 +291,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
         float lod = expensive ? 0.0 : 2.0;
 
         // Sample the density (use cheap sampling for large steps)
-        float density = sampleCloudDensity(p, expensive, lod);
+        float density = sampleCloudDensity(p, expensive && insideCloud, lod);
 
         // Adaptive stepping logic
         if (density > 0.01) {
@@ -328,11 +328,13 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
 
             // in-scattering
             float depthProb = 0.05 * pow(density, remap(heightFraction, 0.3, 0.85, 0.5, 2.0));
-            float vertProb = saturate(pow(remap(heightFraction, 0.07, 0.14, 0.1, 1.0), 1.5));
-            float inScatterProb = depthProb;//* vertProb;
+            float vertProb = saturate(pow(remap(heightFraction, 0.07, 0.14, 0.1, 1.0), 0.8));
+            float inScatterProb = depthProb;// * vertProb;
+
+            float ambient = density * heightFraction * constants.ambientStrength;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb;
+            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb + ambient;
 
             // Update total transmittance for extinction along the ray segment
             float currentTransmittance = exp(-density * currentStepSize * ABSORPTION);

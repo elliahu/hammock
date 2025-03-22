@@ -16,6 +16,8 @@ class UserInterface final {
     Camera& camera;
     GlobalData& globalData;
     PostProcessingData& postProcessingData;
+    CloudsProperties& cloudsProperties;
+    BlurProperties& blurProperties;
 
     float& deltaTime;
     float* frameTimes;
@@ -45,6 +47,8 @@ public:
         Camera& camera,
         GlobalData& globalData,
         PostProcessingData& postProcessingData,
+        CloudsProperties& cloudsProperties,
+        BlurProperties& blurProperties,
         float& deltaTime,
         float* frameTimes,
         int FRAMETIME_BUFFER_SIZE,
@@ -58,6 +62,8 @@ public:
     camera(camera),
     globalData(globalData),
     postProcessingData(postProcessingData),
+    cloudsProperties(cloudsProperties),
+    blurProperties(blurProperties),
     deltaTime(deltaTime),
     frameTimes(frameTimes),
     FRAMETIME_BUFFER_SIZE(FRAMETIME_BUFFER_SIZE),

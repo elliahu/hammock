@@ -37,7 +37,7 @@ struct CloudsProperties {
     float baseScale = 50.f;
     float detailScale = 50.0f;
     float curliness = 2.0f;
-    float absorption = 0.006f;
+    float absorption = 0.0095f;
     float phase = 0.22f;
     float ambientStrength = 0.05;
     int DEBUG_epicView = 1;
@@ -52,13 +52,13 @@ struct CloudsProperties {
 
 struct BlurProperties {
     HmckVec4 screenSpaceLightPos;
-    int numSamples;
-    float density;
+    int numSamples = 128;
+    float density = 0.8;
     float exposure;
-    float decay;
-    float weight;
-    float alpha;
-    float activeDistance;
+    float decay = 0.9;
+    float weight = 0.7;
+    float alpha = 0.85;
+    float activeDistance = 1.0f;
 };
 
 /**

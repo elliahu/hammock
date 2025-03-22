@@ -145,6 +145,8 @@ void Renderer::buildDescriptorSets() {
     DescriptorWriter(*descriptorLayouts.composition, *descriptorPool)
             .writeImage(0, &terrainColorImageInfo)
             .writeImage(1, &terrainDepthImageInfo)
+            .writeImage(2, &cloudsImageInfo)
+            .writeImage(3, &godRaysColorInfo)
             .build(descriptors.composition);
 
     // Postprocess
@@ -181,6 +183,8 @@ void Renderer::buildDescriptorSetLayouts() {
     descriptorLayouts.composition = DescriptorSetLayout::Builder(device)
             .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain color image
             .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain depth image
+            .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Clouds color image
+            .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // God rays color image
             .build();
 
     // Postprocess descriptor layout
@@ -302,7 +306,8 @@ void Renderer::createTargets() {
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
-            .queueFamilies = {CommandQueueFamily::Compute},
+            .currentQueueFamily = CommandQueueFamily::Compute,
+            .queueFamilies = {CommandQueueFamily::Compute, CommandQueueFamily::Graphics},
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         }
     );
@@ -336,6 +341,7 @@ void Renderer::createTargets() {
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+            .currentQueueFamily = CommandQueueFamily::Compute,
             .queueFamilies = {CommandQueueFamily::Compute, CommandQueueFamily::Graphics},
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         }
@@ -698,6 +704,8 @@ void Renderer::recordCompositionCommandBuffer() {
     // Get attachment pointers
     Image *terrainColorTarget = resourceManager.getResource<Image>(targets.terrainColor);
     Image *terrainDepthTarget = resourceManager.getResource<Image>(targets.terrainDepth);
+    Image *cloudsColorTarget = resourceManager.getResource<Image>(targets.cloudsColor);
+    Image *godRaysColorTarget = resourceManager.getResource<Image>(targets.godRaysColor);
     Image *compositedColorTarget = resourceManager.getResource<Image>(targets.compositedColor);
     VkImage swapChainImage = frameManager.getSwapChain()->getImage(frameManager.getSwapChainImageIndex());
     VkImageView swapChainImageView = frameManager.getSwapChain()->getImageView(frameManager.getSwapChainImageIndex());
@@ -715,6 +723,11 @@ void Renderer::recordCompositionCommandBuffer() {
     if (compositedColorTarget->getLayout() != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
         compositedColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     }
+
+    // Acquire ownership from compute queue
+    cloudsColorTarget->transition(commandBuffer, cloudsColorTarget->getLayout(), CommandQueueFamily::Graphics);
+    godRaysColorTarget->transition(commandBuffer, godRaysColorTarget->getLayout(), CommandQueueFamily::Graphics);
+
 
     VkImageSubresourceRange subresourceRange = {};
     subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -762,6 +775,7 @@ void Renderer::recordCompositionCommandBuffer() {
 
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
+
 
     // Transition intermediate image
     if (compositedColorTarget->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
@@ -833,6 +847,7 @@ void Renderer::recordCloudsCommandBuffer() {
     // Wea re drawing into two storage images
     Image *cloudsColorTarget = resourceManager.getResource<Image>(targets.cloudsColor);
     Image *cloudsOcclusionTarget = resourceManager.getResource<Image>(targets.cloudsOcclusionColor);
+    Image *godRaysColorTarget = resourceManager.getResource<Image>(targets.godRaysColor);
     VkExtent3D cloudsDispatchSize = cloudsColorTarget->getExtent();
     VkExtent3D blurDispatchSize = cloudsOcclusionTarget->getExtent();
 
@@ -888,6 +903,10 @@ void Renderer::recordCloudsCommandBuffer() {
 
     // Blur (god rays generation from occlusion mask) dispatch
     vkCmdDispatch(commandBuffer, GOD_RAYS_GROUPS_X(blurDispatchSize.width), GOD_RAYS_GROUPS_Y(blurDispatchSize.height), 1);
+
+    // Release ownership of cloud images to the graphics queue
+    cloudsColorTarget->transition(commandBuffer, cloudsColorTarget->getLayout(), CommandQueueFamily::Graphics);
+    godRaysColorTarget->transition(commandBuffer, godRaysColorTarget->getLayout(), CommandQueueFamily::Graphics);
 }
 
 void Renderer::submitCommandBuffers() {
@@ -973,6 +992,8 @@ Renderer::Renderer(const int32_t width, const int32_t height)
         camera,
         data.globalData,
         data.postProcessingData,
+        data.cloudsProperties,
+        data.blurProperties,
         deltaTime,
         frameTimes,
         FRAMETIME_BUFFER_SIZE,
@@ -1013,6 +1034,25 @@ void Renderer::update() {
 
     // Update post processing data
     data.postProcessingData.time = elapsedTime;
+
+    // update god rays data
+    data.blurProperties.exposure = data.postProcessingData.exposure;
+    HmckVec3 simulatedSunPos = data.globalData.cameraPosition.XYZ - data.globalData.lightDirection.XYZ * 1000.0f;
+    HmckVec4 clipSpaceSunPos = data.globalData.proj * data.globalData.view * HmckVec4{
+                                   simulatedSunPos.X, simulatedSunPos.Y, simulatedSunPos.Z, 1.0f
+                               };
+    HmckVec3 ndcSunPos = {
+        clipSpaceSunPos.X / clipSpaceSunPos.W,
+        clipSpaceSunPos.Y / clipSpaceSunPos.W,
+        clipSpaceSunPos.Z / clipSpaceSunPos.W
+    };
+
+    // Convert NDC [-1,1] to screen space [0,1]
+    HmckVec2 screenSpaceSunPos = {
+        (ndcSunPos.X + 1.0f) * 0.5f,
+        (ndcSunPos.Y + 1.0f) * 0.5f
+    };
+    data.blurProperties.screenSpaceLightPos = HmckVec4{screenSpaceSunPos.X, screenSpaceSunPos.Y, 0.0f, 0.0f};
 }
 
 
