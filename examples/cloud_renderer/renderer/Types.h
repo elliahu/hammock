@@ -20,6 +20,8 @@ struct GlobalData {
     float lowResX;
     float lowResY;
     float fov;
+    float znear;
+    float zfar;
     float time = 0.0f;
     float timeOfDay = 0.45f;
 };
@@ -43,13 +45,13 @@ struct CloudsProperties {
     float spread = 1.0f;
     float ambientStrength = 0.05;
     int DEBUG_epicView = 0;
-    int DEBUG_cheapSampleDistance = 100000;
-    int DEBUG_maxSamples = 128;
+    int DEBUG_cheapSampleDistance = 60000;
+    int DEBUG_maxSamples = 96;
     int DEBUG_maxLightSamples = 6;
     int DEBUG_expensiveSampling = 0;
     int DEBUG_earlyTermination = 0;
     int DEBUG_lateTermination = 0;
-    int DEBUG_longStepMulti = 10;
+    int DEBUG_longStepMulti = 3;
 };
 
 struct BlurProperties {

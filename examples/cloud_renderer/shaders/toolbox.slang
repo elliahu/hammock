@@ -18,6 +18,8 @@ struct GlobalData{
     float lowResX;
     float lowResY;
     float fov;
+    float near;
+    float far;
     float time = 0.0f;
     float timeOfDay = 0.0f;
 };
@@ -80,6 +82,11 @@ float4x4 inverse(float4x4 m) {
     ret[3][3] = (n12 * n23 * n31 - n13 * n22 * n31 + n13 * n21 * n32 - n11 * n23 * n32 - n12 * n21 * n33 + n11 * n22 * n33) * idet;
 
     return ret;
+}
+
+float encodeDepth(float z_eye, float near, float far) {
+    // Reproduce the same projection used by Vulkan's depth buffer
+    return (far / (far - near)) - ((far * near) / ((far - near) * z_eye));
 }
 
 // Helper function for sun glow

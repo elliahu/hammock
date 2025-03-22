@@ -234,7 +234,7 @@ float lightRayAttenuation(float3 p) {
         float3 samplePos = p + dirToLight * stepDistance + offset;
 
         // Sample cloud density
-        float density = sampleCloudDensity(samplePos, false, l * 0.5);
+        float density = sampleCloudDensity(samplePos, constants.DEBUG_expensiveSampling == 1, l * 0.5);
 
         // Accumulate density
         totalDensity += density * stepSize;
@@ -293,10 +293,10 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
         float lod = expensive ? 0.0 : 2.0;
 
         // Sample the density (use cheap sampling for large steps)
-        float density = sampleCloudDensity(p, expensive && insideCloud, lod);
+        float density = sampleCloudDensity(p, expensive, lod);
 
         // Adaptive stepping logic
-        if (density > 0.01) {
+        if (density > 0.05) {
             // We hit a cloud - if we were taking large steps, we need to back up and switch to small steps
             if (!insideCloud) {
                 // Back up one large step and switch to small steps
@@ -431,11 +431,19 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float distanceToPixel = length(end - rayOrigin);
 
     // Perform raymarching for clouds.
-    float4 color = raymarch(threadId,start, end);
+    float4 clouds = raymarch(threadId, start, end);
+
+    // Encode depth into the result
+    float3 pixelWorldPos = start;
+    // Transform to view space
+    float4 pixelViewPos = mul(data.view, float4(pixelWorldPos, 1.0));
+    // Extract view-space z (should be negative in front of camera)
+    float z_eye = remap(pixelViewPos.z, 0, -CLOUDS_TOP_RADIUS, data.near, -data.far);
+    clouds.g = encodeDepth(z_eye, data.near, data.far );
 
     // If the alpha is high enough, write it to the mask, else write the color of the light
-    godRaysMaskStorageImage[threadId.xy * scale] = float4(lerp(SUN_COLOR, float3(0.0), color.a), 1.0);
+    godRaysMaskStorageImage[threadId.xy * scale] = float4(lerp(SUN_COLOR, float3(0.0), clouds.a), 1.0);
 
     // Store the final value
-    cloudsStorageImage[threadId.xy] = color;
+    cloudsStorageImage[threadId.xy] = clouds;
 }

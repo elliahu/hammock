@@ -48,7 +48,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
     if(terrainColor.a < 1.0){
         float4 cloudColor = cloudsColorImage.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
         float4 godRays = godRaysColorImage.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
-        output.color = float4(skyColor * (1.0 - cloudColor.a) + cloudColor.rgb, 1.0);
+        output.color = float4(skyColor * (1.0 - cloudColor.a) + cloudColor.rrr, 1.0);
 
         output.color = float4(lerp(output.color.rgb, blendSoftLight(output.color.rgb, godRays.rgb), godRays.a), 1.0);
 

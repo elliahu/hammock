@@ -1021,6 +1021,8 @@ void Renderer::update() {
     data.globalData.resY = window.getExtent().height;
     data.globalData.lowResX = CLOUDS_OCCLUSION_MASK_SIZE_X(data.globalData.resX);
     data.globalData.lowResY = CLOUDS_OCCLUSION_MASK_SIZE_Y(data.globalData.resY);
+    data.globalData.znear = camera.znear;
+    data.globalData.zfar = camera.zfar;
     if (progressTime) {
         data.globalData.time = elapsedTime;
     }

@@ -45,6 +45,8 @@ using namespace hammock;
 /**
  * This is the main renderer class
  * It uses hammock engine under the hood, which is my custom Vulkan abstraction layer
+ * TODO do a depth prepass so that we can perform depth culling in cloud compute
+ * TODO store non-linear cloud depth so we can then blend them using areal perspective
  */
 class Renderer final{
     // Vulkan instance
