@@ -1023,6 +1023,7 @@ void Renderer::update() {
     data.globalData.lowResY = CLOUDS_OCCLUSION_MASK_SIZE_Y(data.globalData.resY);
     data.globalData.znear = camera.znear;
     data.globalData.zfar = camera.zfar;
+    data.globalData.frameIndexMod16 = frameIndex % 16;
     if (progressTime) {
         data.globalData.time = elapsedTime;
     }
@@ -1081,6 +1082,7 @@ void Renderer::render() {
         // Update frame time tracking
         frameTimes[frameTimeFrameIndex] = deltaTime * 1000.0f;
         frameTimeFrameIndex = (frameTimeFrameIndex + 1) % FRAMETIME_BUFFER_SIZE;
+        frameIndex++;
 
         // Record and submit frame
         if (frameManager.beginFrame()) {

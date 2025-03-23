@@ -35,8 +35,13 @@
 #define CLOUDS_WORK_GROUP_SIZE_Y 16
 #define GOD_RAYS_WORK_GROUP_SIZE_X 16
 #define GOD_RAYS_WORK_GROUP_SIZE_Y 16
+#ifndef REPROJECTION
 #define CLOUDS_GROUPS_X(w) ((w + CLOUDS_WORK_GROUP_SIZE_X - 1) / CLOUDS_WORK_GROUP_SIZE_X)
 #define CLOUDS_GROUPS_Y(h) ((h + CLOUDS_WORK_GROUP_SIZE_Y - 1) / CLOUDS_WORK_GROUP_SIZE_Y)
+#else
+#define CLOUDS_GROUPS_X(w) (ceil(w/4/8))
+#define CLOUDS_GROUPS_Y(h) (ceil(h/4/8))
+#endif
 #define GOD_RAYS_GROUPS_X(w) ((w + GOD_RAYS_WORK_GROUP_SIZE_X - 1) / GOD_RAYS_WORK_GROUP_SIZE_X)
 #define GOD_RAYS_GROUPS_Y(h) ((h + GOD_RAYS_WORK_GROUP_SIZE_Y - 1) / GOD_RAYS_WORK_GROUP_SIZE_Y)
 
@@ -47,6 +52,7 @@ using namespace hammock;
  * It uses hammock engine under the hood, which is my custom Vulkan abstraction layer
  * TODO do a depth prepass so that we can perform depth culling in cloud compute
  * TODO store non-linear cloud depth so we can then blend them using areal perspective
+ * TODO light shafts should be performed after the composition by blending clouds mask, and terrain depth
  */
 class Renderer final{
     // Vulkan instance
@@ -79,6 +85,7 @@ class Renderer final{
     float frameTimes[FRAMETIME_BUFFER_SIZE] = {0.0f};
     int frameTimeFrameIndex{0};
     bool progressTime{true};
+    int frameIndex{0};
 
     // Data passed to the gpu
     struct {

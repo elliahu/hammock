@@ -8,6 +8,8 @@
 
 #include "renderer/Renderer.h"
 
+#define REPROJECTION
+
 using namespace hammock;
 
 int main(int argc, char * argv[]) {

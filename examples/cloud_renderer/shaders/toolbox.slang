@@ -22,6 +22,7 @@ struct GlobalData{
     float far;
     float time = 0.0f;
     float timeOfDay = 0.0f;
+    int frameIndexMod16;
 };
 
 

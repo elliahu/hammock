@@ -1,3 +1,5 @@
+#define REPROJECTION
+
 import toolbox;
 
 struct PushConstants {
@@ -246,7 +248,7 @@ float lightRayAttenuation(float3 p) {
 
 // Marches along a ray from the start to the end position
 // Uses adaptive stepping: longer steps until cloud is detected, then short steps
-float4 raymarch(uint3 threadId, float3 start, float3 end) {
+float4 raymarch(uint2 threadId, float3 start, float3 end) {
     // Create the ray to march along
     float3 ray = end - start;
     float rayLength = length(ray);
@@ -386,13 +388,46 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
 }
 
 [shader("compute")]
+#ifdef REPROJECTION
+[numthreads(8, 8, 1)]
+void computeMain(uint3 groupId: SV_GroupID, uint3 groupThreadId: SV_GroupThreadID)
+#else
 [numthreads(16,16,1)]
 void computeMain(uint3 threadId : SV_DispatchThreadID)
+#endif
 {
+
+#ifdef REPROJECTION
+    // Array of 16 positions in a cross pattern.
+    static const int2 crossOffsets[16] = {
+        int2(0,0),int2(2,2),int2(2,0),int2(0,2),
+        int2(1,1),int2(3,3),int2(3,1),int2(1,3),
+        int2(1,0),int2(3,2),int2(3,0),int2(1,2),
+        int2(0,1),int2(2,3),int2(2,1),int2(0,3)
+    };
+
+    // Calculate block position (each thread handles one 4x4 block)
+    int2 blockPos = int2(groupId.xy) * 8 + int2(groupThreadId.xy);
+
+   // Selected pixel within 4x4 block for this frame
+    int2 selectedPixel = crossOffsets[data.frameIndexMod16];
+
+    // Calculate actual pixel coordinate
+    int2 pixelCoord = blockPos * 4 + selectedPixel;
+
+    // Check bounds
     int2 resolution = int2(data.resX, data.resY);
+    if (any(pixelCoord >= resolution)) {
+        return;
+    }
+
+#else
+    int2 resolution = int2(data.resX, data.resY);
+    int2 pixelCoord = threadId.xy;
+#endif
 
     // Compute ray direction.
-    float4 rayClip = float4(computeClipSpaceCoord(threadId.xy, resolution), 1.0);
+    float4 rayClip = float4(computeClipSpaceCoord(pixelCoord, resolution), 1.0);
     float4 rayView = mul(data.invProj, rayClip);
     rayView = float4(rayView.xy, -1.0, 0.0);
     float3 rayDirection = mul(data.invView, rayView).xyz;
@@ -409,8 +444,8 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     // if we intersected a planet, we exit as there are no clouds under ground
     if (planetIntersect.y > 0.0) {
-        cloudsStorageImage[threadId.xy] = float4(0.0);
-        godRaysMaskStorageImage[threadId.xy * scale] = float4(0.0, 0.0, 0.0, 1.0);
+        cloudsStorageImage[pixelCoord.xy] = float4(0.0);
+        godRaysMaskStorageImage[pixelCoord.xy * scale] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
     // We only account for situation where we are between the planet and clouds
@@ -420,8 +455,8 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     // Validate segment
     if (dstToEnd <= dstToStart || dstToStart < 0.0) {
-        cloudsStorageImage[threadId.xy] = float4(1.0, 0.0, 0.0, 1.0);
-        godRaysMaskStorageImage[threadId.xy / 4] = float4(0.0, 0.0, 0.0, 1.0);
+        cloudsStorageImage[pixelCoord.xy] = float4(1.0, 0.0, 0.0, 1.0);
+        godRaysMaskStorageImage[pixelCoord.xy / 4] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
@@ -431,7 +466,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float distanceToPixel = length(end - rayOrigin);
 
     // Perform raymarching for clouds.
-    float4 clouds = raymarch(threadId, start, end);
+    float4 clouds = raymarch(pixelCoord, start, end);
 
     // Encode depth into the result
     float3 pixelWorldPos = start;
@@ -442,8 +477,8 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     clouds.g = encodeDepth(z_eye, data.near, data.far );
 
     // If the alpha is high enough, write it to the mask, else write the color of the light
-    godRaysMaskStorageImage[threadId.xy * scale] = float4(lerp(SUN_COLOR, float3(0.0), clouds.a), 1.0);
+    godRaysMaskStorageImage[pixelCoord.xy * scale] = float4(lerp(SUN_COLOR, float3(0.0), clouds.a), 1.0);
 
     // Store the final value
-    cloudsStorageImage[threadId.xy] = clouds;
+    cloudsStorageImage[pixelCoord.xy] = clouds;
 }

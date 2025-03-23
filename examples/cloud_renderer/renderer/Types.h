@@ -24,6 +24,7 @@ struct GlobalData {
     float zfar;
     float time = 0.0f;
     float timeOfDay = 0.45f;
+    int frameIndexMod16;
 };
 
 /**
@@ -45,7 +46,7 @@ struct CloudsProperties {
     float spread = 1.0f;
     float ambientStrength = 0.05;
     int DEBUG_epicView = 0;
-    int DEBUG_cheapSampleDistance = 60000;
+    int DEBUG_cheapSampleDistance = 80000;
     int DEBUG_maxSamples = 96;
     int DEBUG_maxLightSamples = 6;
     int DEBUG_expensiveSampling = 0;
