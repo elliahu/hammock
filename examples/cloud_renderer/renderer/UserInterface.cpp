@@ -113,12 +113,12 @@ void ::UserInterface::showEditorWindow() {
 
     ImGui::SeparatorText("Phase");
     ImGui::SliderFloat("Eccentricity", &cloudsProperties.eccentricity, 0.f, 1.0f);
-    ImGui::SliderFloat("Intensity", &cloudsProperties.intensity, 0.f, 10.0f);
+    ImGui::SliderFloat("Intensity", &cloudsProperties.intensity, 0.f, 20.0f);
     ImGui::SliderFloat("Spread", &cloudsProperties.spread, 0.f, 1.0f);
 
     ImGui::SeparatorText("Weather");
     ImGui::SliderFloat("Global coverage", &cloudsProperties.globalCoverage, 0.0f, 1.f);
-    ImGui::SliderFloat("Global density", &cloudsProperties.globalDensity, 0.0f, 10.f);
+    ImGui::SliderFloat("Global density", &cloudsProperties.globalDensity, 0.0f, 1.f);
     ImGui::SliderFloat("Wind speed", &cloudsProperties.cloudSpeed, 0.0f, 5000.f);
 
     ImGui::SeparatorText("Light");

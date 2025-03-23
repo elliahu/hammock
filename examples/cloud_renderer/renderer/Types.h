@@ -42,17 +42,17 @@ struct CloudsProperties {
     float curliness = 2.0f;
     float absorption = 0.0074f;
     float eccentricity = 0.22f;
-    float intensity = 6.1f;
+    float intensity = 10.0f;
     float spread = 1.0f;
     float ambientStrength = 0.05;
     int DEBUG_epicView = 0;
     int DEBUG_cheapSampleDistance = 80000;
     int DEBUG_maxSamples = 96;
-    int DEBUG_maxLightSamples = 6;
+    int DEBUG_maxLightSamples = 4;
     int DEBUG_expensiveSampling = 0;
     int DEBUG_earlyTermination = 0;
     int DEBUG_lateTermination = 0;
-    int DEBUG_longStepMulti = 3;
+    int DEBUG_longStepMulti = 2;
 };
 
 struct BlurProperties {

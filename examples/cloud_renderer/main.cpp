@@ -8,7 +8,7 @@
 
 #include "renderer/Renderer.h"
 
-#define REPROJECTION
+//#define REPROJECTION
 
 using namespace hammock;
 

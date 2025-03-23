@@ -1,4 +1,4 @@
-#define REPROJECTION
+//#define REPROJECTION
 
 import toolbox;
 
@@ -360,7 +360,7 @@ float4 raymarch(uint2 threadId, float3 start, float3 end) {
             emptyStepsCount++;
 
             // If we've taken several empty steps while using small steps, switch back to large steps
-            if (insideCloud && emptyStepsCount > 3) {
+            if (insideCloud && emptyStepsCount > 5) {
                 insideCloud = false;
                 currentStepSize = baseStepSize * largeStepMultiplier;
             }
