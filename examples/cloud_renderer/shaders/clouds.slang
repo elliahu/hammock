@@ -21,7 +21,6 @@ struct PushConstants {
     int DEBUG_cheapSampleDistance;
     int DEBUG_maxSamples;
     int DEBUG_maxLightSamples;
-    int DEBUG_expensiveSampling;
     int DEBUG_earlyTermination;
     int DEBUG_lateTermination;
     int DEBUG_longStepMulti;
@@ -235,7 +234,7 @@ float lightRayAttenuation(float3 p) {
         float3 samplePos = p + dirToLight * stepDistance + offset;
 
         // Sample cloud density
-        float density = sampleCloudDensity(samplePos, constants.DEBUG_expensiveSampling == 1, l * 0.5);
+        float density = sampleCloudDensity(samplePos, false, l * 0.5);
 
         // Accumulate density
         totalDensity += density * stepSize;

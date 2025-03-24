@@ -130,7 +130,7 @@ class Renderer final{
      */
     void init();
 
-    void recordSwapChainImageTransition(VkImageLayout from, VkImageLayout to);
+    void recordSwapChainImageTransition(VkImageLayout from, VkImageLayout to, uint32_t frameIndex, uint32_t imageIndex);
 
     /**
      * All input related code is in here

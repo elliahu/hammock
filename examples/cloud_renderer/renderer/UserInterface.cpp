@@ -91,7 +91,6 @@ void ::UserInterface::showDebugWindow() {
     ImGui::Checkbox("Enable epic view", (bool *)  &cloudsPushConstant->DEBUG_epicView);
 
     ImGui::SeparatorText("Debug views");
-    ImGui::Checkbox("Expensive light sampling", (bool *)  &cloudsPushConstant->DEBUG_expensiveSampling);
     ImGui::Checkbox("Early termination regions", (bool *)  &cloudsPushConstant->DEBUG_earlyTermination);
     ImGui::Checkbox("Late termination regions", (bool *)  &cloudsPushConstant->DEBUG_lateTermination);
     ImGui::End();

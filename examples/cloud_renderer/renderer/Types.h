@@ -53,7 +53,6 @@ struct CloudsPushConstantData {
     int DEBUG_cheapSampleDistance = 80000;
     int DEBUG_maxSamples = 96;
     int DEBUG_maxLightSamples = 4;
-    int DEBUG_expensiveSampling = 0;
     int DEBUG_earlyTermination = 0;
     int DEBUG_lateTermination = 0;
     int DEBUG_longStepMulti = 2;
