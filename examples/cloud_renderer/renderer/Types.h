@@ -59,23 +59,21 @@ struct CloudsPushConstantData {
 };
 
 // Atmospheric pass data
-struct AtmosphereData {
+struct AtmosphereUniformBufferData {
     HmckVec4 ScatterRayleigh{5.802f, 13.558f, 33.1f, 0.f};;
+    HmckVec4 AbsorbOzone{0.65f, 1.881f, 0.085f, 0.f};
     float HDensityRayleigh = 8.f;
     float ScatterMie = 3.996f;
     float AsymmetryMie = 0.8f;
     float AbsorbMie = 4.4f;
     float HDensityMie = 1.2f;
-
-    HmckVec4 AbsorbOzone{0.65f, 1.881f, 0.085f, 0.f};
     float OzoneCenterHeight = 25.f;
-
     float OzoneThickness = 30;
     float PlanetRadius = 6360;
     float AtmosphereRadius = 6460;
 
-    AtmosphereData toStdUnit() const {
-        AtmosphereData ret = *this;
+    [[nodiscard]] AtmosphereUniformBufferData toStdUnit() const {
+        AtmosphereUniformBufferData ret = *this;
         ret.ScatterRayleigh = 1e-6f * ret.ScatterRayleigh;
         ret.HDensityRayleigh = 1e3f * ret.HDensityRayleigh;
         ret.ScatterMie = 1e-6f * ret.ScatterMie;

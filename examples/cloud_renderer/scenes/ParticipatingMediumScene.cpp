@@ -122,7 +122,7 @@ void ParticipatingMediumScene::init() {
     // Release the staging buffer
     rm.releaseResource(curlNoiseStagingBuffer.getUid());
 
-    ScopedMemory blueNoiseData(readImage(assetPath("noise/blue_noise.jpg"), w, h, c,
+    ScopedMemory blueNoiseData(readImage(assetPath("noise/blue_noise.png"), w, h, c,
                                          Filesystem::ImageFormat::R8G8B8A8_UNORM));
 
     // Create host visible staging buffer on device

@@ -1,7 +1,7 @@
 #pragma once
 #include <hammock/hammock.h>
-#include "Types.h"
-#include "Camera.h"
+#include "../Types.h"
+#include "../Camera.h"
 
 namespace hmck = hammock;
 

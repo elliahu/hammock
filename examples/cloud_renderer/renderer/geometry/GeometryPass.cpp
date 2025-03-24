@@ -1,7 +1,5 @@
 #include "GeometryPass.h"
 
-#include "Types.h"
-
 void GeometryPass::initialize(HmckVec2 resolution) {
     prepareGeometry();
     prepareTargets(static_cast<uint32_t>(resolution.X), static_cast<uint32_t>(resolution.Y));

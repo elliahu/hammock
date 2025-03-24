@@ -1,7 +1,5 @@
 #include "CloudsPass.h"
 
-#include "Types.h"
-
 void CloudsPass::initialize(HmckVec2 resolution) {
     prepareResources();
     prepareTargets(static_cast<uint32_t>(resolution.X), static_cast<uint32_t>(resolution.Y));

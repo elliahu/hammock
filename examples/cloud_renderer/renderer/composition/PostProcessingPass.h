@@ -1,6 +1,6 @@
 #pragma once
-#include "IRenderGroup.h"
-#include "Types.h"
+#include "../IRenderGroup.h"
+#include "../Types.h"
 
 
 class PostProcessingPass final : public IRenderGroup {

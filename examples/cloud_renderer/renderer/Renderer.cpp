@@ -68,7 +68,7 @@ void Renderer::createSyncObjects() {
                "Failed to create clouds ready semaphore!");
         ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.atmosphereReady[i]) == VK_SUCCESS,
                "Failed to create atmosphere ready semaphore!");
-        ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.terrainReady[i]) == VK_SUCCESS,
+        ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.terrainColorReady[i]) == VK_SUCCESS,
                "Failed to create terrain ready semaphore!");
     }
 }
@@ -77,7 +77,7 @@ void Renderer::destroySyncObjects() {
     for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device.device(), semaphores.cloudsReady[i], nullptr);
         vkDestroySemaphore(device.device(), semaphores.atmosphereReady[i], nullptr);
-        vkDestroySemaphore(device.device(), semaphores.terrainReady[i], nullptr);
+        vkDestroySemaphore(device.device(), semaphores.terrainColorReady[i], nullptr);
     }
 }
 
@@ -309,7 +309,7 @@ void Renderer::render() {
 
             // Submit terrain command buffer
             frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
-                commandBuffers.terrain[frame], {}, {semaphores.terrainReady[frame]}, {});
+                commandBuffers.terrain[frame], {}, {semaphores.terrainColorReady[frame]}, {});
 
             // Submit clouds command buffer
             frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
@@ -319,8 +319,8 @@ void Renderer::render() {
             // This one is submitted for presentation
             // Waits at fragment shader stage on semaphores to be signaled
             frameManager.submitPresentCommandBuffer(commandBuffers.composition[frame],
-                                                    {semaphores.terrainReady[frame], semaphores.cloudsReady[frame]},
-                                                    {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT});
+                                                    {semaphores.terrainColorReady[frame], semaphores.cloudsReady[frame]},
+                                                    {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT});
 
             // Submit frame
             frameManager.endFrame();

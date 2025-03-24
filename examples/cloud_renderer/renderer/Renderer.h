@@ -1,11 +1,11 @@
 #pragma once
 #include <hammock/hammock.h>
 #include "Camera.h"
-#include "GeometryPass.h"
-#include "CloudsPass.h"
-#include "CompositionPass.h"
-#include "PostProcessingPass.h"
-#include "UserInterface.h"
+#include "geometry/GeometryPass.h"
+#include "clouds/CloudsPass.h"
+#include "composition/CompositionPass.h"
+#include "composition/PostProcessingPass.h"
+#include "ui/UserInterface.h"
 
 
 using namespace hammock;
@@ -77,7 +77,7 @@ class Renderer final{
     struct {
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> cloudsReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphereReady;
-        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> terrainReady;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> terrainColorReady;
     } semaphores;
 
     // Synchronization of the frames in flight (waiting until framesInFlight + 1 frame is acquired) is handled internally by the swap chain object

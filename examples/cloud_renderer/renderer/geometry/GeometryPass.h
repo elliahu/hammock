@@ -1,6 +1,6 @@
 #pragma once
-#include "IRenderGroup.h"
-#include "Types.h"
+#include "../IRenderGroup.h"
+#include "../Types.h"
 
 /**
  * GeometryPass is responsible to draw a geometry into its color and depth buffer

@@ -1,7 +1,6 @@
 #pragma once
-#include "IRenderGroup.h"
-#include "Types.h"
-
+#include "../IRenderGroup.h"
+#include "../Types.h"
 
 class CompositionPass final : public IRenderGroup {
 public:

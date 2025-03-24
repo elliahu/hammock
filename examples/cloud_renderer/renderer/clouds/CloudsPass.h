@@ -1,6 +1,6 @@
 #pragma once
-#include "IRenderGroup.h"
-#include "Types.h"
+#include "../IRenderGroup.h"
+#include "../Types.h"
 
 #define CLOUDS_WORK_GROUP_SIZE_X 16
 #define CLOUDS_WORK_GROUP_SIZE_Y 16

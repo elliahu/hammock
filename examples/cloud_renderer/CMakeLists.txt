@@ -16,18 +16,23 @@ add_executable(cloud_renderer
         renderer/Renderer.cpp
         renderer/Types.h
         renderer/Camera.h
-        renderer/UserInterface.h
-        renderer/UserInterface.cpp
+        renderer/ui/UserInterface.h
+        renderer/ui/UserInterface.cpp
         renderer/IRenderGroup.h
-        renderer/GeometryPass.h
-        renderer/GeometryPass.cpp
-        renderer/CloudsPass.cpp
-        renderer/CloudsPass.h
-        renderer/CompositionPass.cpp
-        renderer/CompositionPass.cpp
-        renderer/CompositionPass.h
-        renderer/PostProcessingPass.cpp
-        renderer/PostProcessingPass.h
+        renderer/geometry/GeometryPass.h
+        renderer/geometry/GeometryPass.cpp
+        renderer/clouds/CloudsPass.cpp
+        renderer/clouds/CloudsPass.h
+        renderer/composition/CompositionPass.cpp
+        renderer/composition/CompositionPass.cpp
+        renderer/composition/CompositionPass.h
+        renderer/composition/PostProcessingPass.cpp
+        renderer/composition/PostProcessingPass.h
+        #renderer/atmosphere/AtmospherePass.cpp
+        #renderer/atmosphere/AtmospherePass.h
+        #renderer/atmosphere/ILookUpTable.h
+        #renderer/atmosphere/Transmittance.cpp
+        #renderer/atmosphere/Transmittance.h
 
 )
 
