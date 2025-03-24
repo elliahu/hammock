@@ -32,7 +32,7 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
 
     // Push data
     vkCmdPushConstants(commandBuffer, pipeline->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
-                       0, sizeof(PushConstantData), &properties);
+                       0, sizeof(CloudsPushConstantData), &properties);
 
     // Record the first dispatch that performs the raymarching and writes clouds and occlusion mask
     vkCmdDispatch(commandBuffer, CLOUDS_GROUPS_X(cloudsDispatchSize.width), CLOUDS_GROUPS_Y(cloudsDispatchSize.height), 1);
@@ -47,7 +47,7 @@ void CloudsPass::prepareBuffers() {
     for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
         uniformBuffers[i] = resourceManager.createResource<Buffer>(
             "clouds-uniform-buffer-" + std::to_string(i), BufferDesc{
-                .instanceSize = sizeof(UniformBufferData),
+                .instanceSize = sizeof(CloudsUniformBufferData),
                 .instanceCount = 1,
                 .usageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
@@ -260,6 +260,6 @@ void CloudsPass::preparePipelines() {
         .descriptorSetLayouts = {
             layout->getDescriptorSetLayout()
         },
-        .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstantData)}}
+        .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CloudsPushConstantData)}}
     });
 }

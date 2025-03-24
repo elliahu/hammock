@@ -57,7 +57,7 @@ void PostProcessingPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t 
     // Push postprocess data
     vkCmdPushConstants(commandBuffer,pipeline->pipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       0, sizeof(PostProcData), &data);
+                       0, sizeof(PostProcessingPushConstantData), &data);
 
     // Bind postprocessing pipeline
     pipeline->bind(commandBuffer);
@@ -90,7 +90,7 @@ void PostProcessingPass::preparePipelines() {
         .fragmentShader
         {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("postprocess.frag")),},
         .descriptorSetLayouts = {layout->getDescriptorSetLayout()},
-        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PostProcData)}},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PostProcessingPushConstantData)}},
         .graphicsState{
             .cullMode = VK_CULL_MODE_NONE,
             .vertexBufferBindings{}

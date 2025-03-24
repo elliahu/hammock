@@ -12,62 +12,12 @@ class UserInterface final {
     hmck::Window &window;
     hmck::UserInterface ui;
 
-    struct CameraRef {
-        float *position;
-        float *yaw;
-        float *pitch;
-        float *roll;
-        float *fov;
-        float *zfar;
-    } cameraRef;
+    Camera * camera;
+    CloudsUniformBufferData * cloudsUniformBuffer;
+    CloudsPushConstantData * cloudsPushConstant;
+    PostProcessingPushConstantData * postProcessingPushConstant;
 
-    struct GlobalRef {
-        float *lightColor;
-        float *lightDirection;
-        float *skyColorZenith;
-        float *skyColorHorizon;
-        float *sunLightStrength;
-        float *timeOfDay;
-    } globalRef;
 
-    struct PostProcessRef {
-        float *tint;
-        float *exposure;
-        float *gamma;
-        int *tonemapOperator;
-        float *contrast;
-        float *brightness;
-        float *saturation;
-        float *vignetteStrength;
-        float *vignetteSoftness;
-        float *temperature;
-        float *grainAmount;
-    } postRef;
-
-    struct CloudsRef {
-        float *anvilBias;
-        float *globalDensity;
-        float *globalCoverage;
-        float *baseMultiplier;
-        float *detailMultiplier;
-        float *cloudSpeed;
-        float *baseScale;
-        float *detailScale;
-        float *curliness;
-        float *absorption;
-        float *eccentricity;
-        float *intensity;
-        float *spread;
-        float *ambientStrength;
-        int *DEBUG_epicView;
-        int *DEBUG_cheapSampleDistance;
-        int *DEBUG_maxSamples;
-        int *DEBUG_maxLightSamples;
-        int *DEBUG_expensiveSampling;
-        int *DEBUG_earlyTermination;
-        int *DEBUG_lateTermination;
-        int *DEBUG_longStepMulti;
-    } cloudsRef;
 
 
     float &deltaTime;
@@ -110,10 +60,10 @@ public:
        frameTimeFrameIndex(frameTimeFrameIndex) {
     }
 
-    void setCameraRef(CameraRef ref) { cameraRef = ref; }
-    void setGlobalRef(GlobalRef ref) { globalRef = ref; }
-    void setPostProcRef(PostProcessRef pref) { postRef = pref; }
-    void setCloudsRef(CloudsRef ref) { cloudsRef = ref; }
+    void setCamera(Camera * c) { camera = c; }
+    void setCloudsUniformData(CloudsUniformBufferData * data) { cloudsUniformBuffer = data; }
+    void setPostProccessingData(PostProcessingPushConstantData * data) { postProcessingPushConstant = data; }
+    void setCloudsPushData(CloudsPushConstantData * data) { cloudsPushConstant = data; }
 
     void recordUserInterface(VkCommandBuffer commandBuffer);
 };

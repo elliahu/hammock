@@ -75,11 +75,11 @@ void GeometryPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameI
 
         if (type == Type::DepthOnly) {
             vkCmdPushConstants(commandBuffer, depthOnlyPipeline->pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                           0, sizeof(ShaderData), &shaderData);
+                           0, sizeof(GeometryPushConstantData), &shaderData);
         }
         else if (type == Type::ColorAndDepth) {
             vkCmdPushConstants(commandBuffer, colorAndDepthPipeline->pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                          0, sizeof(ShaderData), &shaderData);
+                          0, sizeof(GeometryPushConstantData), &shaderData);
         }
 
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.firstIndex, 0,
@@ -202,7 +202,7 @@ void GeometryPass::preparePipelines() {
         .fragmentShader
         {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("terrain-depth.frag")),},
         .descriptorSetLayouts = {},
-        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShaderData)}},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GeometryPushConstantData)}},
         .graphicsState{
             .vertexBufferBindings{
                 .vertexBindingDescriptions = Vertex::vertexInputBindingDescriptions(),
@@ -226,7 +226,7 @@ void GeometryPass::preparePipelines() {
         .fragmentShader
         {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("terrain.frag")),},
         .descriptorSetLayouts = {},
-        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShaderData)}},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GeometryPushConstantData)}},
         .graphicsState{
             .vertexBufferBindings{
                 .vertexBindingDescriptions = Vertex::vertexInputBindingDescriptions(),

@@ -103,56 +103,10 @@ void Renderer::init() {
     postProcessingPass.setSwapChainImageFormat(frameManager.getSwapChain()->getSwapChainImageFormat());
     postProcessingPass.initialize();
 
-    ui->setCameraRef({
-        .position = &camera.position.Elements[0], .yaw = &camera.yaw, .pitch = &camera.pitch, .roll = &camera.roll, .fov = &camera.fov,
-        .zfar = &camera.zfar
-    });
-
-    ui->setGlobalRef({
-        .lightColor = &lightColor.Elements[0], .lightDirection = &lightDirection.Elements[0],
-        .skyColorZenith = &cloudsPass.uniform.skyColorZenith.Elements[0],
-        .skyColorHorizon = &cloudsPass.uniform.skyColorHorizon.Elements[0],
-        .sunLightStrength = &cloudsPass.properties.ambientStrength, .timeOfDay = &cloudsPass.uniform.timeOfDay,
-    });
-
-    ui->setCloudsRef({
-        .anvilBias = &cloudsPass.properties.anvilBias,
-        .globalDensity = &cloudsPass.properties.globalDensity,
-        .globalCoverage = &cloudsPass.properties.globalCoverage,
-        .baseMultiplier = &cloudsPass.properties.baseMultiplier,
-        .detailMultiplier = &cloudsPass.properties.detailMultiplier,
-        .cloudSpeed = &cloudsPass.properties.cloudSpeed,
-        .baseScale = &cloudsPass.properties.baseScale,
-        .detailScale = &cloudsPass.properties.detailScale,
-        .curliness = &cloudsPass.properties.curliness,
-        .absorption = &cloudsPass.properties.absorption,
-        .eccentricity = &cloudsPass.properties.eccentricity,
-        .intensity = &cloudsPass.properties.intensity,
-        .spread = &cloudsPass.properties.spread,
-        .ambientStrength = &cloudsPass.properties.ambientStrength,
-        .DEBUG_epicView = &cloudsPass.properties.DEBUG_epicView,
-        .DEBUG_cheapSampleDistance = &cloudsPass.properties.DEBUG_cheapSampleDistance,
-        .DEBUG_maxSamples = &cloudsPass.properties.DEBUG_maxSamples,
-        .DEBUG_maxLightSamples = &cloudsPass.properties.DEBUG_maxLightSamples,
-        .DEBUG_expensiveSampling = &cloudsPass.properties.DEBUG_expensiveSampling,
-        .DEBUG_earlyTermination = &cloudsPass.properties.DEBUG_earlyTermination,
-        .DEBUG_lateTermination = &cloudsPass.properties.DEBUG_lateTermination,
-        .DEBUG_longStepMulti = &cloudsPass.properties.DEBUG_longStepMulti,
-    });
-
-    ui->setPostProcRef({
-        .tint = &postProcessingPass.data.colorTint.Elements[0],
-        .exposure = &postProcessingPass.data.exposure,
-        .gamma = &postProcessingPass.data.gamma,
-        .tonemapOperator = &postProcessingPass.data.tonemapOperator,
-        .contrast = &postProcessingPass.data.contrast,
-        .brightness = &postProcessingPass.data.brightness,
-        .saturation = &postProcessingPass.data.saturation,
-        .vignetteStrength = &postProcessingPass.data.vignetteStrength,
-        .vignetteSoftness = &postProcessingPass.data.vignetteSoftness,
-        .temperature = &postProcessingPass.data.temperature,
-        .grainAmount = &postProcessingPass.data.grainAmount,
-    });
+    ui->setCamera(&camera);
+    ui->setCloudsPushData(&cloudsPass.properties);
+    ui->setCloudsUniformData(&cloudsPass.uniform);
+    ui->setPostProccessingData(&postProcessingPass.data);
 }
 
 void Renderer::beginCommandBuffers() {

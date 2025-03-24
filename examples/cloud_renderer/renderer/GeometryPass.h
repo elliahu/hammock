@@ -1,5 +1,6 @@
 #pragma once
 #include "IRenderGroup.h"
+#include "Types.h"
 
 /**
  * GeometryPass is responsible to draw a geometry into its color and depth buffer
@@ -28,11 +29,7 @@ public:
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
 
 private:
-    struct ShaderData {
-        HmckMat4 modelViewProjection;
-        HmckVec4 lightDirection;
-        HmckVec4 lightColor;
-    } shaderData;
+    GeometryPushConstantData shaderData;
 
     HmckMat4 view, projection;
 
