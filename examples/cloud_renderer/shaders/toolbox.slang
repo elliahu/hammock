@@ -15,8 +15,6 @@ struct GlobalData{
     float4 windDirection;
     float resX;
     float resY;
-    float lowResX;
-    float lowResY;
     float fov;
     float near;
     float far;
@@ -25,24 +23,21 @@ struct GlobalData{
     int frameIndexMod16;
 };
 
+struct AtmosphereParams{
+    float4 ScatterRayleigh;
+    float  HDensityRayleigh;
 
-struct FrameDataUbo {
-    float4x4 invView;
-    float4x4 invProj;
-    float4x4 invViewProj;
-    float4x4 view;
-    float4x4 proj;
-    float4 cameraPosition;
-    float4 lightColor; // W is strength
-    float4 lightDirection;
-    float4 skyColorZenith;
-    float4 skyColorHorizon;
-    float4 windDirection;
-    float resX;
-    float resY;
-    float fov;
-    float time = 0.0f;
-    float timeOfDay = 0.0f;
+    float ScatterMie;
+    float AsymmetryMie;
+    float AbsorbMie;
+    float HDensityMie;
+
+    float4 AbsorbOzone;
+    float  OzoneCenterHeight;
+
+    float OzoneThickness;
+    float PlanetRadius;
+    float AtmosphereRadius;
 };
 
 // TOOLBOX
@@ -203,3 +198,49 @@ float2 intersectRaySphere(float3 center, float radius, float3 origin, float3 dir
     }
     return float2(0.0, 0.0);
 }
+
+
+bool hasIntersectionWithCiecle(float2 o, float2 d, float R)
+{
+    float A = dot(d, d);
+    float B = 2 * dot(o, d);
+    float C = dot(o, o) - R * R;
+    float delta = B * B - 4 * A * C;
+    return (delta >= 0) && ((C <= 0) | (B <= 0));
+}
+
+bool hasIntersectionWithSphere(float3 o, float3 d, float R)
+{
+    float A = dot(d, d);
+    float B = 2 * dot(o, d);
+    float C = dot(o, o) - R * R;
+    float delta = B * B - 4 * A * C;
+    return (delta >= 0) && ((C <= 0) | (B <= 0));
+}
+
+bool findClosestIntersectionWithCircle(
+    float2 o, float2 d, float R, out float t)
+{
+    float A = dot(d, d);
+    float B = 2 * dot(o, d);
+    float C = dot(o, o) - R * R;
+    float delta = B * B - 4 * A * C;
+    if(delta < 0)
+        return false;
+    t = (-B + (C <= 0 ? sqrt(delta) : -sqrt(delta))) / (2 * A);
+    return (C <= 0) | (B <= 0);
+}
+
+bool findClosestIntersectionWithSphere(
+    float3 o, float3 d, float R, out float t)
+{
+    float A = dot(d, d);
+    float B = 2 * dot(o, d);
+    float C = dot(o, o) - R * R;
+    float delta = B * B - 4 * A * C;
+    if(delta < 0)
+        return false;
+    t = (-B + (C <= 0 ? sqrt(delta) : -sqrt(delta))) / (2 * A);
+    return (C <= 0) | (B <= 0);
+}
+

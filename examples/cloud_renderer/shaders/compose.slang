@@ -12,7 +12,6 @@ struct PixelOutput {
 [vk::binding(0)] Sampler2D<float4> terrainColorImage;
 [vk::binding(1)] Sampler2D<float> terrainDepthImage;
 [vk::binding(2)] Sampler2D<float4> cloudsColorImage;
-[vk::binding(3)] Sampler2D<float4> godRaysColorImage;
 
 
 // Fullscreen vertex shader: Outputs a unit square (quad) in normalized device coordinates
@@ -47,11 +46,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
     output.color = terrainColor;
     if(terrainColor.a < 1.0){
         float4 cloudColor = cloudsColorImage.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
-        float4 godRays = godRaysColorImage.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0);
         output.color = float4(skyColor * (1.0 - cloudColor.a) + cloudColor.rrr, 1.0);
-
-        output.color = float4(lerp(output.color.rgb, blendSoftLight(output.color.rgb, godRays.rgb), godRays.a), 1.0);
-
     }
     
     return output;

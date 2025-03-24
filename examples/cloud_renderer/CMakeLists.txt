@@ -18,6 +18,16 @@ add_executable(cloud_renderer
         renderer/Camera.h
         renderer/UserInterface.h
         renderer/UserInterface.cpp
+        renderer/IRenderGroup.h
+        renderer/GeometryPass.h
+        renderer/GeometryPass.cpp
+        renderer/CloudsPass.cpp
+        renderer/CloudsPass.h
+        renderer/CompositionPass.cpp
+        renderer/CompositionPass.cpp
+        renderer/CompositionPass.h
+        renderer/PostProcessingPass.cpp
+        renderer/PostProcessingPass.h
 
 )
 

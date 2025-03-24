@@ -27,16 +27,15 @@ struct PushConstants {
     int DEBUG_longStepMulti;
 };
 
-[vk::binding(0,0)] ConstantBuffer<GlobalData> data;
+[vk::binding(0)] ConstantBuffer<GlobalData> data;
 
 // Storage images
-[vk::binding(0,1)] RWTexture2D cloudsStorageImage;
-[vk::binding(1,1)] RWTexture2D godRaysMaskStorageImage;
+[vk::binding(1)] RWTexture2D cloudsStorageImage;
 
 // Images and samplers
-[vk::binding(2,1)] Sampler3D lowFreqNoiseTexture;
-[vk::binding(3,1)] Sampler3D highFreqNoiseTexture;
-[vk::binding(4,1)] Sampler2D weatherMap;
+[vk::binding(2)] Sampler3D lowFreqNoiseTexture;
+[vk::binding(3)] Sampler3D highFreqNoiseTexture;
+[vk::binding(4)] Sampler2D weatherMap;
 
 // Push constants
 [vk::push_constant] PushConstants constants;
@@ -439,13 +438,10 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float2 innerCloudIntersect = intersectRaySphere(CENTER, CLOUDS_BOTTOM_RADIUS, rayOrigin, rayDirection);
     float2 outerCloudIntersect = intersectRaySphere(CENTER, CLOUDS_TOP_RADIUS, rayOrigin, rayDirection);
 
-    // Compute low res scale for mask
-    float2 scale = float2(data.resX, data.resY) / float2(data.lowResX, data.lowResY);
 
     // if we intersected a planet, we exit as there are no clouds under ground
     if (planetIntersect.y > 0.0) {
         cloudsStorageImage[pixelCoord.xy] = float4(0.0);
-        godRaysMaskStorageImage[pixelCoord.xy * scale] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
     // We only account for situation where we are between the planet and clouds
@@ -456,7 +452,6 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     // Validate segment
     if (dstToEnd <= dstToStart || dstToStart < 0.0) {
         cloudsStorageImage[pixelCoord.xy] = float4(1.0, 0.0, 0.0, 1.0);
-        godRaysMaskStorageImage[pixelCoord.xy / 4] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
@@ -475,9 +470,6 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     // Extract view-space z (should be negative in front of camera)
     float z_eye = remap(pixelViewPos.z, 0, -CLOUDS_TOP_RADIUS, data.near, -data.far);
     clouds.g = encodeDepth(z_eye, data.near, data.far );
-
-    // If the alpha is high enough, write it to the mask, else write the color of the light
-    godRaysMaskStorageImage[pixelCoord.xy * scale] = float4(lerp(SUN_COLOR, float3(0.0), clouds.a), 1.0);
 
     // Store the final value
     cloudsStorageImage[pixelCoord.xy] = clouds;
