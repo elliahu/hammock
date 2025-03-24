@@ -31,6 +31,9 @@ class Renderer final{
     FrameManager frameManager;
     // Descriptor pool is used to allocate descriptor sets and layouts
     std::unique_ptr<DescriptorPool> descriptorPool;
+    // CPU Thread pool
+    ThreadPool threadPool{};
+    uint32_t processorCount{0};
 
     // Deletion queue is used to queue resources that should be deleted
     std::queue<ResourceHandle> deletionQueue;
@@ -127,13 +130,7 @@ class Renderer final{
      */
     void init();
 
-    void beginCommandBuffers();
     void recordSwapChainImageTransition(VkImageLayout from, VkImageLayout to);
-
-    /**
-     * Submits recorded command buffer to their corresponding queues
-     */
-    void submitCommandBuffers();
 
     /**
      * All input related code is in here

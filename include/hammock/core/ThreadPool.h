@@ -6,85 +6,101 @@
 #include <functional>
 #include <memory>
 
-// base on implementation by Sascha Willems
-
 namespace hammock {
 
-    class Thread {
-    private:
-        bool destroying = false;
-        std::thread worker;
-        std::queue<std::function<void()> > jobQueue;
-        std::mutex queueMutex;
-        std::condition_variable condition;
+    class ThreadPool {
+public:
+    ThreadPool()
+        : stop(false), activeCount(0) {}
 
-        // Loop through all remaining jobs
-        void queueLoop() {
-            while (true) {
-                std::function<void()> job; {
-                    std::unique_lock<std::mutex> lock(queueMutex);
-                    condition.wait(lock, [this] { return !jobQueue.empty() || destroying; });
-                    if (destroying) {
-                        break;
-                    }
-                    job = jobQueue.front();
-                }
-
-                job(); {
-                    std::lock_guard<std::mutex> lock(queueMutex);
-                    jobQueue.pop();
-                    condition.notify_one();
-                }
-            }
+    // Sets (or resets) the number of worker threads.
+    // If threads already exist, waits for current work, stops them, and spawns new threads.
+    void setThreadCount(uint32_t threadCount) {
+        // Stop any existing worker threads.
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            stop = true;
         }
-
-    public:
-        Thread() {
-            worker = std::thread(&Thread::queueLoop, this);
-        }
-
-        ~Thread() {
+        condition.notify_all();
+        for (std::thread &worker : threads) {
             if (worker.joinable()) {
-                wait();
-                queueMutex.lock();
-                destroying = true;
-                condition.notify_one();
-                queueMutex.unlock();
                 worker.join();
             }
         }
+        threads.clear();
 
-        // Add a new job to the thread's queue
-        void addJob(std::function<void()> function) {
+        // Reset stop flag.
+        {
             std::lock_guard<std::mutex> lock(queueMutex);
-            jobQueue.push(std::move(function));
-            condition.notify_one();
+            stop = false;
         }
 
-        // Wait until all work items have been finished
-        void wait() {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            condition.wait(lock, [this]() { return jobQueue.empty(); });
+        // Spawn new worker threads.
+        for (uint32_t i = 0; i < threadCount; ++i) {
+            threads.emplace_back([this] {
+                while (true) {
+                    std::function<void()> job;
+                    {
+                        std::unique_lock<std::mutex> lock(queueMutex);
+                        condition.wait(lock, [this] { return stop || !jobQueue.empty(); });
+                        // If stopping and no jobs remain, exit the thread loop.
+                        if (stop && jobQueue.empty())
+                            return;
+                        job = std::move(jobQueue.front());
+                        jobQueue.pop();
+                        ++activeCount; // mark job as in progress
+                    }
+                    // Execute job outside the lock.
+                    job();
+                    {
+                        std::lock_guard<std::mutex> lock(queueMutex);
+                        --activeCount;
+                        // Notify waiters if there are no queued or active jobs.
+                        if (jobQueue.empty() && activeCount == 0)
+                            finishedCondition.notify_all();
+                    }
+                }
+            });
         }
-    };
+    }
 
-    class ThreadPool {
-    public:
-        std::vector<std::unique_ptr<Thread> > threads;
-
-        // Sets the number of threads to be allocated in this pool
-        void setThreadCount(uint32_t count) {
-            threads.clear();
-            for (uint32_t i = 0; i < count; i++) {
-                threads.push_back(std::make_unique<Thread>());
-            }
+    // Submit a new job to the pool.
+    void submit(std::function<void()> job) {
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            jobQueue.push(std::move(job));
         }
+        condition.notify_one();
+    }
 
-        // Wait until all threads have finished their work items
-        void wait() {
-            for (auto &thread: threads) {
-                thread->wait();
-            }
+    // Wait until all jobs have been processed.
+    void wait() {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        finishedCondition.wait(lock, [this] {
+            return jobQueue.empty() && (activeCount == 0);
+        });
+    }
+
+    // Destructor: stop all threads and join them.
+    ~ThreadPool() {
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            stop = true;
         }
-    };
+        condition.notify_all();
+        for (std::thread &worker : threads) {
+            if (worker.joinable())
+                worker.join();
+        }
+    }
+
+private:
+    std::vector<std::thread> threads;
+    std::queue<std::function<void()>> jobQueue;
+    std::mutex queueMutex;
+    std::condition_variable condition;
+    std::condition_variable finishedCondition;
+    std::atomic<int> activeCount;
+    bool stop;
+};
 }

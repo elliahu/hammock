@@ -83,6 +83,12 @@ void Renderer::init() {
     allocateCommandBuffers();
     createSyncObjects();
 
+    // Initialize threadpool
+    processorCount = std::thread::hardware_concurrency();
+    ASSERT(processorCount > 0, "Failed to detect number of processors!");
+    Logger::log(LOG_LEVEL_DEBUG, "Using %d threads\n", processorCount);
+    threadPool.setThreadCount(processorCount);
+
     // Wait again
     device.waitIdle();
 
@@ -109,12 +115,6 @@ void Renderer::init() {
     ui->setPostProccessingData(&postProcessingPass.data);
 }
 
-void Renderer::beginCommandBuffers() {
-    // Begin geometry command buffer
-    frameManager.beginCommandBuffer(commandBuffers.terrain[frameManager.getFrameIndex()]);
-    frameManager.beginCommandBuffer(commandBuffers.composition[frameManager.getFrameIndex()]);
-    frameManager.beginCommandBuffer(commandBuffers.clouds[frameManager.getFrameIndex()]);
-}
 
 void Renderer::recordSwapChainImageTransition(VkImageLayout from, VkImageLayout to) {
     VkImageSubresourceRange subresourceRange = {};
@@ -131,30 +131,6 @@ void Renderer::recordSwapChainImageTransition(VkImageLayout from, VkImageLayout 
                           from, to, subresourceRange);
 }
 
-
-void Renderer::submitCommandBuffers() {
-    // Recreate targets if window was resized
-    // Note this is quite heavy operation
-    // TODO
-
-    // Get current frame index
-    uint32_t frameIndex = frameManager.getFrameIndex();
-
-    // Submit clouds command buffer
-    frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
-        commandBuffers.clouds[frameIndex], {}, {semaphores.cloudsReady[frameIndex]}, {});
-
-    // Submit terrain command buffer
-    frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
-        commandBuffers.terrain[frameIndex], {}, {semaphores.terrainReady[frameIndex]}, {});
-
-    // Submit composition command buffer
-    // This one is submitted for presentation
-    // Waits at fragment shader stage on semaphores to be signaled
-    frameManager.submitPresentCommandBuffer(commandBuffers.composition[frameIndex],
-                                            {semaphores.terrainReady[frameIndex], semaphores.cloudsReady[frameIndex]},
-                                            {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT});
-}
 
 void Renderer::handleInput() {
     // Process rotation input using arrow keys.
@@ -290,23 +266,49 @@ void Renderer::render() {
             // Update the data for the frame
             update();
 
-            //Begin command buffers
-            beginCommandBuffers();
-
             // Record render passes
             uint32_t frame = frameManager.getFrameIndex();
-            geometryPass.setType(GeometryPass::Type::ColorAndDepth);
-            geometryPass.recordCommands(commandBuffers.terrain[frame], frame);
-            cloudsPass.recordCommands(commandBuffers.clouds[frame], frame);
-            compositionPass.recordCommands(commandBuffers.composition[frame], frame);
 
-            recordSwapChainImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            postProcessingPass.recordCommands(commandBuffers.composition[frame], frame);
-            ui->recordUserInterface(commandBuffers.composition[frame]);
-            recordSwapChainImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            // Graphics thread
+            threadPool.submit([this, frame]() {
+                // Geometry pass
+                frameManager.beginCommandBuffer(commandBuffers.terrain[frame]);
+                geometryPass.setType(GeometryPass::Type::ColorAndDepth);
+                geometryPass.recordCommands(commandBuffers.terrain[frame], frame);
 
-            // Submit command buffers
-            submitCommandBuffers();
+                // Composition pass & post process & ui
+                frameManager.beginCommandBuffer(commandBuffers.composition[frame]);
+                compositionPass.recordCommands(commandBuffers.composition[frame], frame);
+                recordSwapChainImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                postProcessingPass.recordCommands(commandBuffers.composition[frame], frame);
+                ui->recordUserInterface(commandBuffers.composition[frame]);
+                recordSwapChainImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+                // Submit terrain command buffer
+                frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
+                    commandBuffers.terrain[frame], {}, {semaphores.terrainReady[frame]}, {});
+
+                // Submit composition command buffer
+                // This one is submitted for presentation
+                // Waits at fragment shader stage on semaphores to be signaled
+                frameManager.submitPresentCommandBuffer(commandBuffers.composition[frame],
+                                                        {semaphores.terrainReady[frame], semaphores.cloudsReady[frame]},
+                                                        {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT});
+            });
+
+            // Compute thread
+            threadPool.submit([this, frame]() {
+                // Clouds pass
+                frameManager.beginCommandBuffer(commandBuffers.clouds[frame]);
+                cloudsPass.recordCommands(commandBuffers.clouds[frame], frame);
+
+                // Submit clouds command buffer
+                frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
+                    commandBuffers.clouds[frame], {}, {semaphores.cloudsReady[frame]}, {});
+            });
+
+            // Wait for recording
+            threadPool.wait();
 
             // Submit frame
             frameManager.endFrame();
