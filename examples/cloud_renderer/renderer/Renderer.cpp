@@ -272,6 +272,12 @@ void Renderer::render() {
             uint32_t frame = frameManager.getFrameIndex();
             uint32_t image = frameManager.getSwapChainImageIndex();
 
+            // Command buffers are recorded in parallel
+            // Following the specification, only one thread can access command buffers from single command pool
+            // in this case, there are two command pools that the command buffers were generated from -> compute and graphics
+            // That means two threads max, yet with the amount of dispatches, it really helps
+            // Allocation of more command pools to parallelize this even further would not bring any benefit
+
             // Graphics thread
             threadPool.submit([this, frame, image]() {
                 // Geometry pass
@@ -299,7 +305,7 @@ void Renderer::render() {
             // Wait for recording
             threadPool.wait();
 
-            // Submission cant be done in threads as the command buffers has to be submitted in order
+            // Submission can't be done in threads as the command buffers has to be submitted in order
 
             // Submit terrain command buffer
             frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(

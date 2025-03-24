@@ -8,7 +8,6 @@
 #include "UserInterface.h"
 
 
-
 using namespace hammock;
 
 /**
@@ -66,7 +65,7 @@ class Renderer final{
 
     // Command buffers
     // There is one command buffer per group per frame,
-    // so that the cpu can record commands for next frame while gpu processes commands from current frame
+    // so that the CPU can record commands for next frame while gpu processes commands from current frame (2 frames in flight)
     struct {
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> clouds; // Clouds and blur
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphere;
@@ -74,12 +73,14 @@ class Renderer final{
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> composition; // Composition and postprocess
     } commandBuffers;
 
-    // Semaphores signal that the command buffer is finished so that the command buffer waiting for its result can start
+    // Semaphores signal that the command buffer is finished so that different command buffer waiting for its result can start
     struct {
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> cloudsReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphereReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> terrainReady;
     } semaphores;
+
+    // Synchronization of the frames in flight (waiting until framesInFlight + 1 frame is acquired) is handled internally by the swap chain object
 
     // Render passes
     GeometryPass geometryPass;
@@ -130,6 +131,13 @@ class Renderer final{
      */
     void init();
 
+    /**
+     * Helper method that queues a transition of given swap chain image on the composition queue
+     * @param from original layout
+     * @param to new layout
+     * @param frameIndex index of the current frame the image corresponds to
+     * @param imageIndex index of the current swap image (there is more images then frames in flight)
+     */
     void recordSwapChainImageTransition(VkImageLayout from, VkImageLayout to, uint32_t frameIndex, uint32_t imageIndex);
 
     /**
