@@ -1,6 +1,6 @@
 import toolbox;
 
-#define STEP_COUNT 1000
+#define STEP_COUNT 1024
 
 [vk::binding(0,0)] ConstantBuffer<AtmosphereParams> params;
 [vk::binding(0,1)] RWTexture2D<float4> Transmittance;

@@ -7,6 +7,8 @@ void AtmospherePass::initialize() {
     processDeletionQueue();
 
     transmittance.initialize(layout->getDescriptorSetLayout());
+    multipleScattering.getTransmittance(transmittance.getLut());
+    multipleScattering.initialize(layout->getDescriptorSetLayout());
 }
 
 void AtmospherePass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
@@ -20,6 +22,7 @@ void AtmospherePass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fram
 
     // Record transmittance
     transmittance.recordCommands(commandBuffer, frameIndex);
+    multipleScattering.recordCommands(commandBuffer, frameIndex);
 }
 
 void AtmospherePass::prepareBuffers() {

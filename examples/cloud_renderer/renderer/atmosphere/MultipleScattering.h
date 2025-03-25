@@ -1,27 +1,29 @@
 #pragma once
 #include "ILookUpTable.h"
 
-#define TRANSMITTANCE_LUT_SIZE_X 256
-#define TRANSMITTANCE_LUT_SIZE_Y 256
-
+#define MULTI_SCATTER_LUT_SIZE_X 256
+#define MULTI_SCATTER_LUT_SIZE_Y 256
 /**
- * Responsible for creating transmittance LUT
+ * Responsible for creating multiscatter LUT
  */
-class Transmittance : public ILookUpTable {
+class MultipleScattering final : public ILookUpTable {
 public:
-    Transmittance(Device &device, ResourceManager &resourceManager)
+    MultipleScattering(Device &device, ResourceManager &resourceManager)
         : ILookUpTable(device, resourceManager) {
     }
 
     void initialize(VkDescriptorSetLayout descriptorSetLayout) override;
 
+    void getTransmittance(Image * image) {transmittance = image;};
+
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
 
 protected:
+    Image * transmittance;
+
     void prepareDescriptors() override;
 
     void prepareLut() override;
 
     void preparePipeline(VkDescriptorSetLayout descriptorSetLayout) override;
-
 };

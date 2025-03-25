@@ -1,5 +1,6 @@
 #pragma once
 #include "Transmittance.h"
+#include "MultipleScattering.h"ů
 #include "../IRenderGroup.h"
 #include "../Types.h"
 
@@ -7,8 +8,7 @@
 class AtmospherePass final : public IRenderGroup {
 public:
     AtmospherePass(Device &device, ResourceManager &resourceManager)
-        : IRenderGroup(device, resourceManager), transmittance(device, resourceManager) {
-
+        : IRenderGroup(device, resourceManager), transmittance(device, resourceManager), multipleScattering(device, resourceManager) {
     }
 
     void initialize();
@@ -20,6 +20,7 @@ public:
 private:
     // Luts
     Transmittance transmittance;
+    MultipleScattering multipleScattering;
 
     // Buffers
     // There is one common buffer for all luts bound once at the start of the pass
@@ -31,5 +32,6 @@ private:
     VkDescriptorSet descriptor;
 
     void prepareBuffers();
+
     void prepareDescriptors();
 };

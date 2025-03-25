@@ -33,6 +33,8 @@ add_executable(cloud_renderer
         renderer/atmosphere/ILookUpTable.h
         renderer/atmosphere/Transmittance.cpp
         renderer/atmosphere/Transmittance.h
+        renderer/atmosphere/MultipleScattering.cpp
+        renderer/atmosphere/MultipleScattering.h
 
 )
 

@@ -1,15 +1,15 @@
-#include "Transmittance.h"
+#include "MultipleScattering.h"
 
-void Transmittance::initialize(VkDescriptorSetLayout descriptorSetLayout) {
-    Transmittance::prepareLut();
-    Transmittance::prepareDescriptors();
-    Transmittance::preparePipeline(descriptorSetLayout);
+void MultipleScattering::initialize(VkDescriptorSetLayout descriptorSetLayout) {
+    MultipleScattering::prepareLut();
+    MultipleScattering::prepareDescriptors();
+    MultipleScattering::preparePipeline(descriptorSetLayout);
 
     device.waitIdle();
     processDeletionQueue();
 }
 
-void Transmittance::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
+void MultipleScattering::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
     // Bind the descriptor set
     // Bind the common descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 1, 1,
@@ -19,26 +19,29 @@ void Transmittance::recordCommands(VkCommandBuffer commandBuffer, uint32_t frame
     pipeline->bind(commandBuffer);
 
     // Dispatch
-    vkCmdDispatch(commandBuffer, GROUPS_COUNT(TRANSMITTANCE_LUT_SIZE_X,16), GROUPS_COUNT(TRANSMITTANCE_LUT_SIZE_Y,16), 1);
+    vkCmdDispatch(commandBuffer, GROUPS_COUNT(MULTI_SCATTER_LUT_SIZE_X, 16), GROUPS_COUNT(MULTI_SCATTER_LUT_SIZE_Y, 16), 1);
 }
 
-void Transmittance::prepareDescriptors() {
+void MultipleScattering::prepareDescriptors() {
     layout = DescriptorSetLayout::Builder(device)
-            .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+            .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // Transmittance
+            .addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // Multiple scattering
             .build();
 
     Sampler *s = resourceManager.getResource<Sampler>(sampler);
     VkDescriptorImageInfo lutInfo = resourceManager.getResource<Image>(lut)->getDescriptorImageInfo(s->getSampler());
+    VkDescriptorImageInfo transmittanceInfo = transmittance->getDescriptorImageInfo(s->getSampler());
     DescriptorWriter(*layout, *descriptorPool)
-            .writeImage(0, &lutInfo)
+            .writeImage(0, &transmittanceInfo)
+            .writeImage(1, &lutInfo)
             .build(descriptor);
 }
 
-void Transmittance::prepareLut() {
+void MultipleScattering::prepareLut() {
     lut = resourceManager.createResource<Image>(
-        "transmittance-lut", ImageDesc{
-            .width = TRANSMITTANCE_LUT_SIZE_X,
-            .height = TRANSMITTANCE_LUT_SIZE_Y,
+        "multiple-scattering-lut", ImageDesc{
+            .width = MULTI_SCATTER_LUT_SIZE_X,
+            .height = MULTI_SCATTER_LUT_SIZE_Y,
             .channels = 4,
             .format = VK_FORMAT_R16G16B16A16_SFLOAT,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
@@ -52,16 +55,14 @@ void Transmittance::prepareLut() {
     // transition
     resourceManager.getResource<Image>(lut)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
 
-    sampler = resourceManager.createResource<Sampler>("transmittance-sampler", SamplerDesc{});
+    sampler = resourceManager.createResource<Sampler>("multiple-scattering-sampler", SamplerDesc{});
 }
 
-
-
-void Transmittance::preparePipeline(VkDescriptorSetLayout descriptorSetLayout) {
+void MultipleScattering::preparePipeline(VkDescriptorSetLayout descriptorSetLayout) {
     pipeline = ComputePipeline::create({
-        .debugName = "transmittance-compute-pipeline",
+        .debugName = "multiple-scattering-compute-pipeline",
         .device = device,
-        .computeShader{.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("transmittance.comp")),},
+        .computeShader{.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("multiplescattering.comp")),},
         .descriptorSetLayouts = {
             descriptorSetLayout,
             layout->getDescriptorSetLayout()

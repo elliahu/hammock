@@ -31,6 +31,7 @@ subprocess.check_call([compiler , "shaders/medium.slang", '-o', 'spv/medium.frag
 # Main renderer
 subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'spv/clouds.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/transmittance.slang", '-o', 'spv/transmittance.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
+subprocess.check_call([compiler , "shaders/multiplescattering.slang", '-o', 'spv/multiplescattering.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/occlusion.slang", '-o', 'spv/occlusion.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/terrain.slang", '-o', 'spv/terrain.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
 subprocess.check_call([compiler , "shaders/terrain.slang", '-o', 'spv/terrain.frag.spv', '-target', 'spirv', '-entry', 'pixelMainColorAndDepth'])
