@@ -23,8 +23,8 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID){
     if(threadIdx.x >= width || threadIdx.y >= height)
         return;
 
-    float theta = asin(lerp(-1.0, 1.0, float(threadIdx.y) / float(height)));
-    float h = lerp(0.0, params.AtmosphereRadius - params.PlanetRadius, float(threadIdx.x) / float(width));
+    float theta = asin(lerp(-1.0, 1.0, float(threadIdx.y + .5) / float(height)));
+    float h = lerp(0.0, params.AtmosphereRadius - params.PlanetRadius, float(threadIdx.x + .5) / float(width));
 
     float2 o = float2(0, params.PlanetRadius + h);
     float2 d = float2(cos(theta), sin(theta));
