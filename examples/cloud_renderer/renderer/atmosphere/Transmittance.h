@@ -8,13 +8,9 @@ class Transmittance : public ILookUpTable {
 public:
     Transmittance(Device &device, ResourceManager &resourceManager)
         : ILookUpTable(device, resourceManager) {
-        Transmittance::prepareLut();
-        Transmittance::prepareDescriptors();
-        Transmittance::preparePipeline();
-
-        device.waitIdle();
-        processDeletionQueue();
     }
+
+    void initialize(VkDescriptorSetLayout descriptorSetLayout) override;
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
 
@@ -23,5 +19,6 @@ protected:
 
     void prepareLut() override;
 
-    void preparePipeline() override;
+    void preparePipeline(VkDescriptorSetLayout descriptorSetLayout) override;
+
 };

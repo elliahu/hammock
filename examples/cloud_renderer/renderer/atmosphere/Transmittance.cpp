@@ -1,5 +1,27 @@
 #include "Transmittance.h"
 
+void Transmittance::initialize(VkDescriptorSetLayout descriptorSetLayout) {
+    Transmittance::prepareLut();
+    Transmittance::prepareDescriptors();
+    Transmittance::preparePipeline(descriptorSetLayout);
+
+    device.waitIdle();
+    processDeletionQueue();
+}
+
+void Transmittance::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
+    // Bind the descriptor set
+    // Bind the common descriptor set
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 1, 1,
+                            &descriptor, 0, nullptr);
+
+    // Bind the pipeline
+    pipeline->bind(commandBuffer);
+
+    // Dispatch
+    vkCmdDispatch(commandBuffer, GROUPS_COUNT(256,16), GROUPS_COUNT(256,16), 1);
+}
+
 void Transmittance::prepareDescriptors() {
     layout = DescriptorSetLayout::Builder(device)
             .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -31,4 +53,19 @@ void Transmittance::prepareLut() {
     resourceManager.getResource<Image>(lut)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
 
     sampler = resourceManager.createResource<Sampler>("transmittance-sampler", SamplerDesc{});
+}
+
+
+
+void Transmittance::preparePipeline(VkDescriptorSetLayout descriptorSetLayout) {
+    pipeline = ComputePipeline::create({
+        .debugName = "transmittance-compute-pipeline",
+        .device = device,
+        .computeShader{.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("transmittance.comp")),},
+        .descriptorSetLayouts = {
+            descriptorSetLayout,
+            layout->getDescriptorSetLayout()
+        },
+        .pushConstantRanges{}
+    });
 }

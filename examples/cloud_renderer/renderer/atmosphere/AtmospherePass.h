@@ -8,6 +8,7 @@ class AtmospherePass final : public IRenderGroup {
 public:
     AtmospherePass(Device &device, ResourceManager &resourceManager)
         : IRenderGroup(device, resourceManager), transmittance(device, resourceManager) {
+
     }
 
     void initialize();

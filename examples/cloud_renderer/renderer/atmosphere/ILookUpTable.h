@@ -12,6 +12,8 @@ public:
         : IRenderGroup(device, resourceManager) {
     }
 
+    virtual void initialize(VkDescriptorSetLayout descriptorSetLayout) = 0;
+
     Image *getLut() const { return resourceManager.getResource<Image>(lut); }
     VkPipelineLayout getPipelineLayout() const { return pipeline->pipelineLayout; }
 
@@ -24,5 +26,5 @@ protected:
 
     virtual void prepareLut() = 0;
     virtual void prepareDescriptors() = 0;
-    virtual void preparePipeline() = 0;
+    virtual void preparePipeline(VkDescriptorSetLayout descriptorSetLayout) = 0;
 };

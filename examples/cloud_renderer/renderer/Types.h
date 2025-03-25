@@ -4,6 +4,7 @@
 #define CWD(path) "../../../examples/cloud_renderer/" path
 #define ASSET_PATH(asset) CWD("assets/" asset)
 #define COMPILED_SHADER_PATH(shader) CWD("spv/" shader ".spv")
+#define GROUPS_COUNT(res,size) ((res+size-1)/size)
 
 struct GeometryPushConstantData {
     HmckMat4 modelViewProjection;
@@ -69,7 +70,7 @@ struct AtmosphereUniformBufferData {
     float HDensityMie = 1.2f;
     float OzoneCenterHeight = 25.f;
     float OzoneThickness = 30;
-    float PlanetRadius = 6360;
+    float PlanetRadius = 6378;
     float AtmosphereRadius = 6460;
 
     [[nodiscard]] AtmosphereUniformBufferData toStdUnit() const {

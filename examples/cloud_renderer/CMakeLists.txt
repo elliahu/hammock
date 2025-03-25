@@ -28,11 +28,11 @@ add_executable(cloud_renderer
         renderer/composition/CompositionPass.h
         renderer/composition/PostProcessingPass.cpp
         renderer/composition/PostProcessingPass.h
-        #renderer/atmosphere/AtmospherePass.cpp
-        #renderer/atmosphere/AtmospherePass.h
-        #renderer/atmosphere/ILookUpTable.h
-        #renderer/atmosphere/Transmittance.cpp
-        #renderer/atmosphere/Transmittance.h
+        renderer/atmosphere/AtmospherePass.cpp
+        renderer/atmosphere/AtmospherePass.h
+        renderer/atmosphere/ILookUpTable.h
+        renderer/atmosphere/Transmittance.cpp
+        renderer/atmosphere/Transmittance.h
 
 )
 

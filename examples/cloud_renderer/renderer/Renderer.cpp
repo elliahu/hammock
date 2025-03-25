@@ -111,6 +111,8 @@ void Renderer::init() {
     postProcessingPass.setSwapChainImageFormat(frameManager.getSwapChain()->getSwapChainImageFormat());
     postProcessingPass.initialize();
 
+    atmospherePass.initialize();
+
     ui->setCamera(&camera);
     ui->setCloudsPushData(&cloudsPass.properties);
     ui->setCloudsUniformData(&cloudsPass.uniform);
@@ -173,12 +175,10 @@ void Renderer::handleInput() {
 
 Renderer::Renderer(const int32_t width, const int32_t height)
     : window{instance, "Vulkan atmospheric renderer", static_cast<int>(width), static_cast<int>(height)},
-      device{instance, window.getSurface()},
-      resourceManager{device},
-      frameManager{window, device},
+      device{instance, window.getSurface()}, resourceManager{device}, frameManager{window, device},
       lWidth{static_cast<uint32_t>(width)}, lHeight{static_cast<uint32_t>(height)},
-      geometryPass(device, resourceManager), cloudsPass(device, resourceManager), compositionPass(device, resourceManager),
-      postProcessingPass(device, resourceManager) {
+      geometryPass(device, resourceManager), cloudsPass(device, resourceManager), atmospherePass(device, resourceManager),
+      compositionPass(device, resourceManager), postProcessingPass(device, resourceManager) {
     // Initialize the descriptor pool object from which descriptors will be allocated
     descriptorPool = DescriptorPool::Builder(device)
             .setMaxSets(20000)
@@ -300,6 +300,9 @@ void Renderer::render() {
                 frameManager.beginCommandBuffer(commandBuffers.clouds[frame]);
                 cloudsPass.recordCommands(commandBuffers.clouds[frame], frame);
 
+                // Atmosphere pass
+                frameManager.beginCommandBuffer(commandBuffers.atmosphere[frame]);
+                atmospherePass.recordCommands(commandBuffers.atmosphere[frame], frame);
             });
 
             // Wait for recording
@@ -315,12 +318,16 @@ void Renderer::render() {
             frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
                 commandBuffers.clouds[frame], {}, {semaphores.cloudsReady[frame]}, {});
 
+            // Submit atmosphere command buffers
+            frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
+                commandBuffers.atmosphere[frame], {}, {semaphores.atmosphereReady[frame]}, {});
+
             // Submit composition command buffer
             // This one is submitted for presentation
             // Waits at fragment shader stage on semaphores to be signaled
             frameManager.submitPresentCommandBuffer(commandBuffers.composition[frame],
-                                                    {semaphores.terrainColorReady[frame], semaphores.cloudsReady[frame]},
-                                                    {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT});
+                                                    {semaphores.terrainColorReady[frame], semaphores.cloudsReady[frame], semaphores.atmosphereReady[frame]},
+                                                    {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT});
 
             // Submit frame
             frameManager.endFrame();

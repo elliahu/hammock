@@ -1,11 +1,9 @@
 import toolbox;
 
 #define STEP_COUNT 1000
-#define EARTH_RADIUS 637800
-#define ATMOSPHERE_RADIUS EARTH_RADIUS + 16500
 
-[vk::push_constant] AtmosphereParams params;
-[vk::binding(0,0)] RWTexture2D<float4> Transmittance;
+[vk::binding(0,0)] ConstantBuffer<AtmosphereParams> params;
+[vk::binding(0,1)] RWTexture2D<float4> Transmittance;
 
 
 float3 getSigmaT(float h){
@@ -25,28 +23,27 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID){
     if(threadIdx.x >= width || threadIdx.y >= height)
         return;
 
-    float theta = asin(lerp(-1.0, 1.0, (threadIdx.y + 0.5) / height));
-    float h = lerp(
-        0.0, ATMOSPHERE_RADIUS - EARTH_RADIUS, (threadIdx.x + 0.5) / width);
+    float theta = asin(lerp(-1.0, 1.0, float(threadIdx.y) / float(height)));
+    float h = lerp(0.0, params.AtmosphereRadius - params.PlanetRadius, float(threadIdx.x) / float(width));
 
-    float2 o = float2(0, EARTH_RADIUS + h);
+    float2 o = float2(0, params.PlanetRadius + h);
     float2 d = float2(cos(theta), sin(theta));
 
     float t = 0;
-    if(!findClosestIntersectionWithCircle(o, d, EARTH_RADIUS, t))
-        findClosestIntersectionWithCircle(o, d, ATMOSPHERE_RADIUS, t);
+    if(!findClosestIntersectionWithCircle(o, d, params.PlanetRadius, t))
+        findClosestIntersectionWithCircle(o, d, params.AtmosphereRadius, t);
 
     float2 end = o + t * d;
 
-    float3 sum;
+    float3 sum = 0.;
     for(int i = 0; i < STEP_COUNT; ++i)
     {
-        float2 pi = lerp(o, end, (i + 0.5) / STEP_COUNT);
-        float hi = length(pi) - EARTH_RADIUS;
+        float2 pi = lerp(o, end, float(i) / float(STEP_COUNT));
+        float hi = length(pi) - params.PlanetRadius;
         float3 sigma = getSigmaT(hi);
         sum += sigma;
     }
 
-    float3 result = exp(-sum * (t / STEP_COUNT));
+    float3 result = exp(-sum * (t / float(STEP_COUNT)));
     Transmittance[threadIdx.xy] = float4(result, 1);
 }

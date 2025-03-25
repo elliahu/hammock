@@ -1,6 +1,7 @@
 #pragma once
 #include <hammock/hammock.h>
 #include "Camera.h"
+#include "atmosphere/AtmospherePass.h"
 #include "geometry/GeometryPass.h"
 #include "clouds/CloudsPass.h"
 #include "composition/CompositionPass.h"
@@ -85,6 +86,7 @@ class Renderer final{
     // Render passes
     GeometryPass geometryPass;
     CloudsPass cloudsPass;
+    AtmospherePass atmospherePass;
     CompositionPass compositionPass;
     PostProcessingPass postProcessingPass;
 

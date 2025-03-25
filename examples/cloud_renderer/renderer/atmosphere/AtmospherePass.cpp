@@ -5,11 +5,14 @@ void AtmospherePass::initialize() {
     prepareDescriptors();
     device.waitIdle();
     processDeletionQueue();
+
+    transmittance.initialize(layout->getDescriptorSetLayout());
 }
 
 void AtmospherePass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
     // Update the buffer
-    resourceManager.getResource<Buffer>(atmosphereBuffer)->writeToBuffer(&atmosphere);
+    auto scaledAtmosphere = atmosphere.toStdUnit();
+    resourceManager.getResource<Buffer>(atmosphereBuffer)->writeToBuffer(&scaledAtmosphere);
 
     // Bind the common descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, transmittance.getPipelineLayout(), 0, 1,
