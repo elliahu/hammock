@@ -26,6 +26,8 @@ struct GlobalData{
 struct AtmosphereParams{
     float4 ScatterRayleigh;
     float4 AbsorbOzone;
+    float4 Eye;
+    float4 SunDirection;
     float  HDensityRayleigh;
     float ScatterMie;
     float AsymmetryMie;

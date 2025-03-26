@@ -237,6 +237,10 @@ void Renderer::update() {
     postProcessingPass.setSwapChainImageView(frameManager.getSwapChain()->getImageView(frameManager.getSwapChainImageIndex()));
     postProcessingPass.setSwapChainRenderingExtent(frameManager.getSwapChain()->getSwapChainExtent());
     postProcessingPass.data.time = elapsedTime;
+
+    // Update atmosphere
+    atmospherePass.setEye(camera.position);
+    atmospherePass.setSunDirection(lightDirection.XYZ);
 }
 
 

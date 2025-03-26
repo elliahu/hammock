@@ -37,7 +37,7 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
 
 
     // Release ownership of cloud image to the graphics queue
-    cloudsColorTarget->transition(commandBuffer, cloudsColorTarget->getLayout(), CommandQueueFamily::Graphics);
+    cloudsColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CommandQueueFamily::Graphics);
 }
 
 void CloudsPass::prepareBuffers() {

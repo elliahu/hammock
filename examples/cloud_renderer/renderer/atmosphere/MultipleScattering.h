@@ -14,7 +14,7 @@ public:
 
     void initialize(VkDescriptorSetLayout descriptorSetLayout) override;
 
-    void getTransmittance(Image * image) {transmittance = image;};
+    void setTransmittance(Image * image) {transmittance = image;};
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
 

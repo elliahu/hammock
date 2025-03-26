@@ -73,15 +73,12 @@ float3 evalPhaseFunction(float h, float u)
     return result;
 }
 
-
-float3 getTransmittance(
-    Sampler2D T, float h, float theta)
+float3 getTransmittance(Sampler2D T, float h, float theta)
 {
-    float u = h / ( params.AtmosphereRadius -  params.PlanetRadius);
+    float u = h / (params.AtmosphereRadius - params.PlanetRadius);
     float v = 0.5 + 0.5 * sin(theta);
-    return T.SampleLevel(float2(u,v), 0.0).xyz;
+    return T.SampleLevel(float2(u, v), 0.0).xyz;
 }
-
 
 void integrate(
     float3 worldOri, float3 worldDir, float sunTheta, float3 toSunDir,
@@ -156,8 +153,6 @@ float3 computeM(float h, float sunTheta)
 
         float3 innerL2, innerF;
         integrate(worldOri, worldDir, sunTheta, toSunDir, innerL2, innerF);
-
-        // phase function is canceled by pdf
 
         sumL2 += innerL2;
         sumF  += innerF;

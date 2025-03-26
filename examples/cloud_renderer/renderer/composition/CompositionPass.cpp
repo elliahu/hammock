@@ -26,7 +26,7 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
     }
 
     // Acquire ownership from compute queue
-    cloudsColor->transition(commandBuffer, cloudsColor->getLayout(), CommandQueueFamily::Graphics);
+    cloudsColor->transition(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CommandQueueFamily::Graphics);
 
 
     // Begin rendering into intermediate composition image

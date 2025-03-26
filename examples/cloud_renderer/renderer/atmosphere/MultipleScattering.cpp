@@ -11,7 +11,6 @@ void MultipleScattering::initialize(VkDescriptorSetLayout descriptorSetLayout) {
 
 void MultipleScattering::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
     // Bind the descriptor set
-    // Bind the common descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 1, 1,
                             &descriptor, 0, nullptr);
 

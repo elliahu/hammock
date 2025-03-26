@@ -34,7 +34,7 @@ struct CloudsUniformBufferData {
     int frameIndexMod16;
 };
 
-// Data for cloud pass passed as push contant block
+// Data for cloud pass passed as push constant block
 struct CloudsPushConstantData {
     float anvilBias = 0.0f;
     float globalDensity = 0.3f;
@@ -63,6 +63,8 @@ struct CloudsPushConstantData {
 struct AtmosphereUniformBufferData {
     HmckVec4 ScatterRayleigh{5.802f, 13.558f, 33.1f, 0.f};;
     HmckVec4 AbsorbOzone{0.65f, 1.881f, 0.085f, 0.f};
+    HmckVec4 eye;
+    HmckVec4 sunDirection;
     float HDensityRayleigh = 8.f;
     float ScatterMie = 3.996f;
     float AsymmetryMie = 0.8f;

@@ -35,6 +35,8 @@ add_executable(cloud_renderer
         renderer/atmosphere/Transmittance.h
         renderer/atmosphere/MultipleScattering.cpp
         renderer/atmosphere/MultipleScattering.h
+        renderer/atmosphere/SkyView.cpp
+        renderer/atmosphere/SkyView.h
 
 )
 
