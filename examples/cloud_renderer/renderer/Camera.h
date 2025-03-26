@@ -16,6 +16,14 @@ public:
     float32_t fov, znear, zfar, aspect;
     float32_t yaw{0.f}, pitch{0.f}, roll{0.f};
 
+    struct FrustumDirections
+    {
+        HmckVec3 frustumA; // top-left dir
+        HmckVec3 frustumB; // top-right dir
+        HmckVec3 frustumC; // bottom-left dir
+        HmckVec3 frustumD; // bottom-right dir
+    };
+
 
     HmckMat4 getView() {
         // First, compute the camera's orientation vectors
@@ -67,6 +75,29 @@ public:
     HmckVec3 forwardDirection() const {return HmckNorm(forward);}
     HmckVec3 upDirection() const {return HmckNorm(up);}
     HmckVec3 rightDirection() const {return HmckCross(upDirection(), forwardDirection());}
+
+    FrustumDirections getFrustumDirections() {
+        HmckMat4 invViewProj = HmckInvGeneral(getView());
+
+        HmckVec4 A0 = HmckMulM4V4(invViewProj, HmckVec4{-1, 1, 0.2f, 1});
+        HmckVec4 A1 = HmckMulM4V4(invViewProj, HmckVec4{-1, 1, 0.5f, 1});
+
+        HmckVec4 B0 = HmckMulM4V4(invViewProj, HmckVec4{1, 1, 0.2f, 1});
+        HmckVec4 B1 = HmckMulM4V4(invViewProj, HmckVec4{1, 1, 0.5f, 1});
+
+        HmckVec4 C0 = HmckMulM4V4(invViewProj, HmckVec4{-1, -1, 0.2f, 1});
+        HmckVec4 C1 = HmckMulM4V4(invViewProj, HmckVec4{-1, -1, 0.5f, 1});
+
+        HmckVec4 D0 = HmckMulM4V4(invViewProj, HmckVec4{1, -1, 0.2f, 1});
+        HmckVec4 D1 = HmckMulM4V4(invViewProj, HmckVec4{1, -1, 0.5f, 1});
+
+        FrustumDirections result;
+        result.frustumA = HmckNorm(A1.XYZ / A1.W - A0.XYZ / A0.W);
+        result.frustumB = HmckNorm(B1.XYZ / B1.W - B0.XYZ / B0.W);
+        result.frustumC = HmckNorm(C1.XYZ / C1.W - C0.XYZ / C0.W);
+        result.frustumD = HmckNorm(D1.XYZ / D1.W - D0.XYZ / D0.W);
+        return result;
+    }
 
 private:
     HmckVec3 forward;

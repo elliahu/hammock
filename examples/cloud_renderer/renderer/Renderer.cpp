@@ -179,7 +179,7 @@ void Renderer::init() {
     // Initialize passes
     depthPass.setVertexBuffer(resourceManager.getResource<Buffer>(vertexBuffer));
     depthPass.setIndexBuffer(resourceManager.getResource<Buffer>(indexBuffer));
-    depthPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
+    depthPass.initialize(HmckVec2{512.f, 512.f});
 
 
     geometryPass.setVertexBuffer(resourceManager.getResource<Buffer>(vertexBuffer));
@@ -197,6 +197,7 @@ void Renderer::init() {
     postProcessingPass.setSwapChainImageFormat(frameManager.getSwapChain()->getSwapChainImageFormat());
     postProcessingPass.initialize();
 
+    atmospherePass.setShadowMap(depthPass.getSunDepth());
     atmospherePass.initialize();
 
     ui->setCamera(&camera);
@@ -328,15 +329,24 @@ void Renderer::update() {
     atmospherePass.setEye(camera.position);
     atmospherePass.setSunDirection(lightDirection.XYZ);
 
+    HmckMat4 shadowProjection = Projection().orthographic(-120.0, 120.0, -120.0, 120.0, camera.znear, camera.zfar, true);
+    HmckMat4 shadowView = HmckLookAt_RH(lightDirection.XYZ * 20.0, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+
+    atmospherePass.setShadowViewProjection(shadowProjection * shadowView);
+    Camera::FrustumDirections frustum = camera.getFrustumDirections();
+    atmospherePass.setCameraFrustum(
+        HmckVec4{frustum.frustumA, 0.0f},
+        HmckVec4{frustum.frustumB, 0.0f},
+        HmckVec4{frustum.frustumC, 0.0f},
+        HmckVec4{frustum.frustumD, 0.0f}
+    );
+
     // Update depth pass
     depthPass.setCameraProjection(camera.getProjection());
     depthPass.setCameraView(camera.getView());
 
-   // depthPass.setSunProjection(Projection().orthographic(-50.0, 50.0, -50.0, 50.0, 0.01, 1000.0, false));
-    //depthPass.setSunView(Projection().view({0.f, 20.f, 0.f}, {0.0f, 0.0f, 0.0f}, Projection().upPosY()));
-
-    depthPass.setSunProjection(Projection().orthographic(-10.0, 10.0, -10.0, 10.0, camera.znear, camera.zfar, false));
-    depthPass.setSunView(camera.getView());
+    depthPass.setSunProjection(shadowProjection);
+    depthPass.setSunView(shadowView);
 }
 
 

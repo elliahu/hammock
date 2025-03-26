@@ -12,6 +12,9 @@ void AtmospherePass::initialize() {
     skyView.setTransmittance(transmittance.getLut());
     skyView.setMultipleScattering(multipleScattering.getLut());
     skyView.initialize(layout->getDescriptorSetLayout());
+    aerialPerspective.setTransmittance(transmittance.getLut());
+    aerialPerspective.setMultipleScattering(multipleScattering.getLut());
+    aerialPerspective.initialize(layout->getDescriptorSetLayout());
 }
 
 void AtmospherePass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
@@ -27,6 +30,12 @@ void AtmospherePass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fram
     transmittance.recordCommands(commandBuffer, frameIndex);
     multipleScattering.recordCommands(commandBuffer, frameIndex);
     skyView.recordCommands(commandBuffer, frameIndex);
+
+    // Bind the common descriptor set again as there is a compatibility break between passes for some reason ??
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, aerialPerspective.getPipelineLayout(), 0, 1,
+                            &descriptor, 0, nullptr);
+
+    aerialPerspective.recordCommands(commandBuffer, frameIndex);
 }
 
 void AtmospherePass::prepareBuffers() {

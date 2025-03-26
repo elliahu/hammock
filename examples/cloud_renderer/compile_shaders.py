@@ -22,7 +22,7 @@ if platform.system() == 'Windows' and not os.path.exists(compiler):
 
 os.makedirs('spv', exist_ok=True)
 
-# Compile the shaders
+# Compile the shaders 
 
 # Participating medium scene
 subprocess.check_call([compiler , "shaders/medium.slang", '-o', 'spv/medium.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
@@ -33,6 +33,7 @@ subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'spv/clouds.comp
 subprocess.check_call([compiler , "shaders/transmittance.slang", '-o', 'spv/transmittance.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/multiplescattering.slang", '-o', 'spv/multiplescattering.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/skyview.slang", '-o', 'spv/skyview.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
+subprocess.check_call([compiler , "shaders/aerialperspective.slang", '-o', 'spv/aerialperspective.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/occlusion.slang", '-o', 'spv/occlusion.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/depth.slang", '-o', 'spv/depth.vert.spv', '-target', 'spirv', '-entry', 'vertexMain'])
 subprocess.check_call([compiler , "shaders/depth.slang", '-o', 'spv/depth.frag.spv', '-target', 'spirv', '-entry', 'pixelMain'])
