@@ -2,7 +2,7 @@ import toolbox;
 
 
 #define PLANET_ALBEDO float3(0.3)
-#define DIR_SAMPLE_COUNT 16
+#define DIR_SAMPLE_COUNT 64
 #define SUN_INTENSITY float3(1.0)
 #define RAYMARCH_STEP_COUNT 20
 
@@ -172,7 +172,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
     if(threadIdx.x >= width || threadIdx.y >= height)
         return;
 
-    float sinSunTheta = lerp(1, -1,float(threadIdx.x + 0.5) / float(width));
+    float sinSunTheta = lerp(-1, 1,float(threadIdx.x + 0.5) / float(width));
     float sunTheta = asin(sinSunTheta);
 
     float h = lerp(

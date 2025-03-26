@@ -57,6 +57,8 @@ public:
     }
 
     HmckMat4 getProjection() const {
+        //return Projection().orthographic(-50.0, 50.0, -50.0, 50.0, znear, zfar, false);
+
         HmckMat4 proj = HmckPerspective_RH_ZO(fov, aspect, znear, zfar);
         proj[1][1] *= -1;
         return proj;

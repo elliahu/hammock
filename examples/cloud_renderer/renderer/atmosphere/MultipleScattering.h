@@ -1,8 +1,8 @@
 #pragma once
 #include "ILookUpTable.h"
 
-#define MULTI_SCATTER_LUT_SIZE_X 256
-#define MULTI_SCATTER_LUT_SIZE_Y 256
+#define MULTI_SCATTER_LUT_SIZE_X 32
+#define MULTI_SCATTER_LUT_SIZE_Y 32
 /**
  * Responsible for creating multiscatter LUT
  */

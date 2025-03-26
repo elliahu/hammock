@@ -6,7 +6,7 @@ import toolbox;
 [vk::binding(2,1)] RWTexture2D<float4> SkyView;
 
 #define NUM_SAMPLES 30
-#define SUN_INTENSITY float3(15.0)
+#define SUN_INTENSITY float3(10.0)
 
 void getSigmaST(float h, out float3 sigmaS, out float3 sigmaT)
 {
@@ -56,16 +56,12 @@ void marchStep(
     float3 deltaSumSigmaT = (nextT - thisT) * sigmaT;
     float3 eyeTrans = exp(-sumSigmaT - 0.5 * deltaSumSigmaT);
     
-    float sunTheta = PI / 2 - acos(dot(-params.SunDirection.xyz, normalize(posR)));
+    float sunTheta = acos(dot(-params.SunDirection.xyz, normalize(posR))) - PI / 2;
     
-    if(!hasIntersectionWithSphere(posR, -params.SunDirection.xyz, params.PlanetRadius))
-    {
-        float3 rho = evalPhaseFunction(h, phaseU);
-        float3 sunTrans = getTransmittance(Transmittance, h, sunTheta);
-        inScattering += (nextT - thisT) * eyeTrans * sigmaS * rho * sunTrans;
-    }
+    float3 rho = evalPhaseFunction(h, phaseU);
+    float3 sunTrans = getTransmittance(Transmittance, h, sunTheta);
+    inScattering += (nextT - thisT) * eyeTrans * sigmaS * rho * sunTrans;
     
-    // Corrected multiple scattering LUT sampling:
     float v_ms = 0.5 + 0.5 * sin(sunTheta);
     float u_ms = h / (params.AtmosphereRadius - params.PlanetRadius);
     float3 ms = MultipleScattering.SampleLevel(float2(u_ms, v_ms), 0).rgb;

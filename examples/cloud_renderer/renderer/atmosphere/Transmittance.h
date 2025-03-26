@@ -2,7 +2,7 @@
 #include "ILookUpTable.h"
 
 #define TRANSMITTANCE_LUT_SIZE_X 256
-#define TRANSMITTANCE_LUT_SIZE_Y 256
+#define TRANSMITTANCE_LUT_SIZE_Y 64
 
 /**
  * Responsible for creating transmittance LUT

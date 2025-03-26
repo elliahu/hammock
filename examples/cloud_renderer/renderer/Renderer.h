@@ -6,6 +6,7 @@
 #include "clouds/CloudsPass.h"
 #include "composition/CompositionPass.h"
 #include "composition/PostProcessingPass.h"
+#include "depth/DepthPass.h"
 #include "ui/UserInterface.h"
 
 
@@ -63,6 +64,13 @@ class Renderer final{
     HmckVec4 lightColor{1.f, 1.f, 1.f, 5.f};
     HmckVec4 lightDirection{0.f, 1.f, 0.f, 1.f};
 
+    // Geometry buffers
+    ResourceHandle vertexBuffer;
+    ResourceHandle indexBuffer;
+
+    // Actual geometry
+    Geometry geometry;
+
 
     // Command buffers
     // There is one command buffer per group per frame,
@@ -70,12 +78,14 @@ class Renderer final{
     struct {
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> clouds; // Clouds and blur
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphere;
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> depth;
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> terrain;
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> composition; // Composition and postprocess
     } commandBuffers;
 
     // Semaphores signal that the command buffer is finished so that different command buffer waiting for its result can start
     struct {
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> depthReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> cloudsReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphereReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> terrainColorReady;
@@ -84,6 +94,7 @@ class Renderer final{
     // Synchronization of the frames in flight (waiting until framesInFlight + 1 frame is acquired) is handled internally by the swap chain object
 
     // Render passes
+    DepthPass depthPass;
     GeometryPass geometryPass;
     CloudsPass cloudsPass;
     AtmospherePass atmospherePass;
@@ -127,6 +138,8 @@ class Renderer final{
      * Destroys synchronization primitives
      */
     void destroySyncObjects();
+
+    void prepareGeometry();
 
     /**
      * Initializes the renderer

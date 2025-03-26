@@ -20,6 +20,8 @@ void Renderer::allocateCommandBuffers() {
 
     ASSERT(vkAllocateCommandBuffers(device.device(), &allocInfo, commandBuffers.terrain.data()) == VK_SUCCESS,
            "Failed to allocate terrain command buffers!");
+    ASSERT(vkAllocateCommandBuffers(device.device(), &allocInfo, commandBuffers.depth.data()) == VK_SUCCESS,
+           "Failed to allocate depth command buffers!");
     ASSERT(vkAllocateCommandBuffers(device.device(), &allocInfo, commandBuffers.composition.data()) == VK_SUCCESS,
            "Failed to allocate post process command buffers!");
 
@@ -45,6 +47,12 @@ void Renderer::destroyCommandBuffers() {
         static_cast<uint32_t>(commandBuffers.composition.size()),
         commandBuffers.composition.data());
 
+    vkFreeCommandBuffers(
+        device.device(),
+        device.getGraphicsCommandPool(),
+        static_cast<uint32_t>(commandBuffers.depth.size()),
+        commandBuffers.depth.data());
+
     // Free compute command buffers
     vkFreeCommandBuffers(
         device.device(),
@@ -64,6 +72,8 @@ void Renderer::createSyncObjects() {
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.depthReady[i]) == VK_SUCCESS,
+               "Failed to create depth ready semaphore!");
         ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.cloudsReady[i]) == VK_SUCCESS,
                "Failed to create clouds ready semaphore!");
         ASSERT(vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &semaphores.atmosphereReady[i]) == VK_SUCCESS,
@@ -75,15 +85,84 @@ void Renderer::createSyncObjects() {
 
 void Renderer::destroySyncObjects() {
     for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(device.device(), semaphores.depthReady[i], nullptr);
         vkDestroySemaphore(device.device(), semaphores.cloudsReady[i], nullptr);
         vkDestroySemaphore(device.device(), semaphores.atmosphereReady[i], nullptr);
         vkDestroySemaphore(device.device(), semaphores.terrainColorReady[i], nullptr);
     }
 }
 
+void Renderer::prepareGeometry() {
+    Loader(geometry, device, resourceManager).loadglTF(ASSET_PATH("terrain.glb"));
+
+    ASSERT(!geometry.vertices.empty(), "No vertices loaded!");
+
+    vertexBuffer = resourceManager.createResource<Buffer>(
+        "vertex-buffer", BufferDesc{
+            .instanceSize = sizeof(Vertex),
+            .instanceCount = static_cast<uint32_t>(geometry.vertices.size()),
+            .usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .currentQueueFamily = CommandQueueFamily::Ignored,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        }
+    );
+
+    // Create vertex staging buffer
+    ResourceHandle vertexStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
+        "vertex-staging-buffer", BufferDesc{
+            .instanceSize = sizeof(Vertex),
+            .instanceCount = static_cast<uint32_t>(geometry.vertices.size()),
+            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        }
+    ));
+
+    // Write vertex data to the buffer
+    resourceManager.getResource<Buffer>(vertexStagingBuffer)->map();
+    resourceManager.getResource<Buffer>(vertexStagingBuffer)->writeToBuffer(geometry.vertices.data());
+
+    // Copy data from staging buffer to actual vertex buffer
+    VkDeviceSize vertexBufferSize = sizeof(Vertex) * geometry.vertices.size();
+    resourceManager.getResource<Buffer>(vertexBuffer)->queuCopyFromBuffer(
+        resourceManager.getResource<Buffer>(vertexStagingBuffer)->getBuffer(), vertexBufferSize);
+    resourceManager.getResource<Buffer>(vertexStagingBuffer)->unmap();
+
+    // Create index buffer
+    indexBuffer = resourceManager.createResource<Buffer>(
+        "index-buffer", BufferDesc{
+            .instanceSize = sizeof(uint32_t),
+            .instanceCount = static_cast<uint32_t>(geometry.indices.size()),
+            .usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .currentQueueFamily = CommandQueueFamily::Ignored,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        }
+    );
+
+    // Create index staging buffer
+    ResourceHandle indexStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
+        "index-staging-buffer", BufferDesc{
+            .instanceSize = sizeof(uint32_t),
+            .instanceCount = static_cast<uint32_t>(geometry.indices.size()),
+            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        }
+    ));
+
+    // Write index data into the staging buffer
+    resourceManager.getResource<Buffer>(indexStagingBuffer)->map();
+    resourceManager.getResource<Buffer>(indexStagingBuffer)->writeToBuffer(geometry.indices.data());
+
+    // Copy the data from staging buffer into actual index buffer
+    VkDeviceSize indexBufferSize = sizeof(uint32_t) * geometry.indices.size();
+    resourceManager.getResource<Buffer>(indexBuffer)->queuCopyFromBuffer(
+        resourceManager.getResource<Buffer>(indexStagingBuffer)->getBuffer(), indexBufferSize);
+    resourceManager.getResource<Buffer>(indexStagingBuffer)->unmap();
+}
+
 void Renderer::init() {
     allocateCommandBuffers();
     createSyncObjects();
+    prepareGeometry();
 
     // Initialize threadpool
     processorCount = std::thread::hardware_concurrency();
@@ -98,6 +177,13 @@ void Renderer::init() {
     processDeletionQueue();
 
     // Initialize passes
+    depthPass.setVertexBuffer(resourceManager.getResource<Buffer>(vertexBuffer));
+    depthPass.setIndexBuffer(resourceManager.getResource<Buffer>(indexBuffer));
+    depthPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
+
+
+    geometryPass.setVertexBuffer(resourceManager.getResource<Buffer>(vertexBuffer));
+    geometryPass.setIndexBuffer(resourceManager.getResource<Buffer>(indexBuffer));
     geometryPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
 
     cloudsPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
@@ -176,8 +262,8 @@ void Renderer::handleInput() {
 Renderer::Renderer(const int32_t width, const int32_t height)
     : window{instance, "Vulkan atmospheric renderer", static_cast<int>(width), static_cast<int>(height)},
       device{instance, window.getSurface()}, resourceManager{device}, frameManager{window, device},
-      lWidth{static_cast<uint32_t>(width)}, lHeight{static_cast<uint32_t>(height)},
-      geometryPass(device, resourceManager), cloudsPass(device, resourceManager), atmospherePass(device, resourceManager),
+      lWidth{static_cast<uint32_t>(width)}, lHeight{static_cast<uint32_t>(height)}, depthPass(device, resourceManager, geometry),
+      geometryPass(device, resourceManager, geometry), cloudsPass(device, resourceManager), atmospherePass(device, resourceManager),
       compositionPass(device, resourceManager), postProcessingPass(device, resourceManager) {
     // Initialize the descriptor pool object from which descriptors will be allocated
     descriptorPool = DescriptorPool::Builder(device)
@@ -241,6 +327,16 @@ void Renderer::update() {
     // Update atmosphere
     atmospherePass.setEye(camera.position);
     atmospherePass.setSunDirection(lightDirection.XYZ);
+
+    // Update depth pass
+    depthPass.setCameraProjection(camera.getProjection());
+    depthPass.setCameraView(camera.getView());
+
+   // depthPass.setSunProjection(Projection().orthographic(-50.0, 50.0, -50.0, 50.0, 0.01, 1000.0, false));
+    //depthPass.setSunView(Projection().view({0.f, 20.f, 0.f}, {0.0f, 0.0f, 0.0f}, Projection().upPosY()));
+
+    depthPass.setSunProjection(Projection().orthographic(-10.0, 10.0, -10.0, 10.0, camera.znear, camera.zfar, false));
+    depthPass.setSunView(camera.getView());
 }
 
 
@@ -284,9 +380,12 @@ void Renderer::render() {
 
             // Graphics thread
             threadPool.submit([this, frame, image]() {
+                // Depth pass
+                frameManager.beginCommandBuffer(commandBuffers.depth[frame]);
+                depthPass.recordCommands(commandBuffers.depth[frame], frame);
+
                 // Geometry pass
                 frameManager.beginCommandBuffer(commandBuffers.terrain[frame]);
-                geometryPass.setType(GeometryPass::Type::ColorAndDepth);
                 geometryPass.recordCommands(commandBuffers.terrain[frame], frame);
 
                 // Composition pass & post process & ui
@@ -314,13 +413,18 @@ void Renderer::render() {
 
             // Submission can't be done in threads as the command buffers has to be submitted in order
 
+            // Submit depth command buffer
+            frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
+                commandBuffers.depth[frame], {}, {semaphores.depthReady[frame]}, {});
+
             // Submit terrain command buffer
             frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
                 commandBuffers.terrain[frame], {}, {semaphores.terrainColorReady[frame]}, {});
 
             // Submit clouds command buffer
             frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
-                commandBuffers.clouds[frame], {}, {semaphores.cloudsReady[frame]}, {});
+                commandBuffers.clouds[frame], {semaphores.depthReady[frame]}, {semaphores.cloudsReady[frame]},
+                {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT});
 
             // Submit atmosphere command buffers
             frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
@@ -330,8 +434,15 @@ void Renderer::render() {
             // This one is submitted for presentation
             // Waits at fragment shader stage on semaphores to be signaled
             frameManager.submitPresentCommandBuffer(commandBuffers.composition[frame],
-                                                    {semaphores.terrainColorReady[frame], semaphores.cloudsReady[frame], semaphores.atmosphereReady[frame]},
-                                                    {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT});
+                                                    {
+                                                        semaphores.terrainColorReady[frame],
+                                                        semaphores.cloudsReady[frame],
+                                                        semaphores.atmosphereReady[frame]
+                                                    },
+                                                    {
+                                                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                                                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+                                                    });
 
             // Submit frame
             frameManager.endFrame();

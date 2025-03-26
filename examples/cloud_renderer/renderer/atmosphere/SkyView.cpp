@@ -27,7 +27,7 @@ void SkyView::prepareLut() {
             .width = SKY_VIEW_LUT_SIZE_X,
             .height = SKY_VIEW_LUT_SIZE_Y,
             .channels = 4,
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,

@@ -51,14 +51,8 @@ VertexOutput vertexMain(VertexInput input) {
     return output;
 }
 
-// Pixel Shader
 [shader("pixel")]
-PixelOutput pixelMainDepthOnly(VertexOutput input, float4 fragCoord : SV_Position) {
-    return PixelOutput();
-}
-
-[shader("pixel")]
-PixelOutput pixelMainColorAndDepth(VertexOutput input, float4 fragCoord : SV_Position) {
+PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
     PixelOutput output;
 
     // Lambert shading

@@ -1,8 +1,8 @@
 #pragma once
 #include "ILookUpTable.h"
 
-#define SKY_VIEW_LUT_SIZE_X 64
-#define SKY_VIEW_LUT_SIZE_Y 64
+#define SKY_VIEW_LUT_SIZE_X 200
+#define SKY_VIEW_LUT_SIZE_Y 100
 
 class SkyView final : public ILookUpTable {
 public:

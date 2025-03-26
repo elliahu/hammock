@@ -1,7 +1,6 @@
 #include "GeometryPass.h"
 
 void GeometryPass::initialize(HmckVec2 resolution) {
-    prepareGeometry();
     prepareTargets(static_cast<uint32_t>(resolution.X), static_cast<uint32_t>(resolution.Y));
     preparePipelines();
     device.waitIdle();
@@ -51,19 +50,14 @@ void GeometryPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameI
     VkRect2D scissor{0, 0, renderingExtent.width, renderingExtent.height};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    if (type == Type::DepthOnly) {
-        depthOnlyPipeline->bind(commandBuffer);
-    }
-    else if (type == Type::ColorAndDepth) {
-        colorAndDepthPipeline->bind(commandBuffer);
-    }
+    colorAndDepthPipeline->bind(commandBuffer);
 
 
     // Bind triangle vertex buffer (contains position and colors)
     VkDeviceSize offsets[1]{0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &resourceManager.getResource<Buffer>(vertexBuffer)->m_buffer, offsets);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer->m_buffer, offsets);
     // Bind triangle index buffer
-    vkCmdBindIndexBuffer(commandBuffer, resourceManager.getResource<Buffer>(indexBuffer)->m_buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer->m_buffer, 0, VK_INDEX_TYPE_UINT32);
 
     // Draw indexed
     for (int i = 0; i < geometry.renderMeshes.size(); i++) {
@@ -71,14 +65,10 @@ void GeometryPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameI
 
         shaderData.modelViewProjection = projection * view * mesh.transform;
 
-        if (type == Type::DepthOnly) {
-            vkCmdPushConstants(commandBuffer, depthOnlyPipeline->pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+
+        vkCmdPushConstants(commandBuffer, colorAndDepthPipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0, sizeof(GeometryPushConstantData), &shaderData);
-        }
-        else if (type == Type::ColorAndDepth) {
-            vkCmdPushConstants(commandBuffer, colorAndDepthPipeline->pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                          0, sizeof(GeometryPushConstantData), &shaderData);
-        }
+
 
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.firstIndex, 0,
                          0);
@@ -88,72 +78,6 @@ void GeometryPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameI
     vkCmdEndRendering(commandBuffer);
 }
 
-void GeometryPass::prepareGeometry() {
-    Loader(geometry, device, resourceManager).loadglTF(ASSET_PATH("terrain.glb"));
-
-    ASSERT(!geometry.vertices.empty(), "No vertices loaded!");
-
-    vertexBuffer = resourceManager.createResource<Buffer>(
-        "vertex-buffer", BufferDesc{
-            .instanceSize = sizeof(Vertex),
-            .instanceCount = static_cast<uint32_t>(geometry.vertices.size()),
-            .usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            .currentQueueFamily = CommandQueueFamily::Ignored,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        }
-    );
-
-    // Create vertex staging buffer
-    ResourceHandle vertexStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
-        "vertex-staging-buffer", BufferDesc{
-            .instanceSize = sizeof(Vertex),
-            .instanceCount = static_cast<uint32_t>(geometry.vertices.size()),
-            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        }
-    ));
-
-    // Write vertex data to the buffer
-    resourceManager.getResource<Buffer>(vertexStagingBuffer)->map();
-    resourceManager.getResource<Buffer>(vertexStagingBuffer)->writeToBuffer(geometry.vertices.data());
-
-    // Copy data from staging buffer to actual vertex buffer
-    VkDeviceSize vertexBufferSize = sizeof(Vertex) * geometry.vertices.size();
-    resourceManager.getResource<Buffer>(vertexBuffer)->queuCopyFromBuffer(
-        resourceManager.getResource<Buffer>(vertexStagingBuffer)->getBuffer(), vertexBufferSize);
-    resourceManager.getResource<Buffer>(vertexStagingBuffer)->unmap();
-
-    // Create index buffer
-    indexBuffer = resourceManager.createResource<Buffer>(
-        "index-buffer", BufferDesc{
-            .instanceSize = sizeof(uint32_t),
-            .instanceCount = static_cast<uint32_t>(geometry.indices.size()),
-            .usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            .currentQueueFamily = CommandQueueFamily::Ignored,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        }
-    );
-
-    // Create index staging buffer
-    ResourceHandle indexStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
-        "index-staging-buffer", BufferDesc{
-            .instanceSize = sizeof(uint32_t),
-            .instanceCount = static_cast<uint32_t>(geometry.indices.size()),
-            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        }
-    ));
-
-    // Write index data into the staging buffer
-    resourceManager.getResource<Buffer>(indexStagingBuffer)->map();
-    resourceManager.getResource<Buffer>(indexStagingBuffer)->writeToBuffer(geometry.indices.data());
-
-    // Copy the data from staging buffer into actual index buffer
-    VkDeviceSize indexBufferSize = sizeof(uint32_t) * geometry.indices.size();
-    resourceManager.getResource<Buffer>(indexBuffer)->queuCopyFromBuffer(
-        resourceManager.getResource<Buffer>(indexStagingBuffer)->getBuffer(), indexBufferSize);
-    resourceManager.getResource<Buffer>(indexStagingBuffer)->unmap();
-}
 
 void GeometryPass::prepareTargets(uint32_t width, uint32_t height) {
     // Terrain image
@@ -192,31 +116,7 @@ void GeometryPass::prepareTargets(uint32_t width, uint32_t height) {
 }
 
 void GeometryPass::preparePipelines() {
-    depthOnlyPipeline = GraphicsPipeline::create({
-        .debugName = "terrain-depth-pipeline",
-        .device = device,
-        .vertexShader
-        {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("terrain.vert")),},
-        .fragmentShader
-        {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("terrain-depth.frag")),},
-        .descriptorSetLayouts = {},
-        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GeometryPushConstantData)}},
-        .graphicsState{
-            .vertexBufferBindings{
-                .vertexBindingDescriptions = Vertex::vertexInputBindingDescriptions(),
-                .vertexAttributeDescriptions = Vertex::vertexInputAttributeDescriptions(),
-            }
-        },
-        .dynamicRendering = {
-            .enabled = true,
-            .colorAttachmentCount = 1, // We are rendering to single color attachment
-            .colorAttachmentFormats = {resourceManager.getResource<Image>(color)->getFormat()},
-            .depthAttachmentFormat = resourceManager.getResource<Image>(depth)->getFormat(),
-            // guaranteed to be supported on all hardware
-        }
-    });
-
-    colorAndDepthPipeline = GraphicsPipeline::create({
+   colorAndDepthPipeline = GraphicsPipeline::create({
         .debugName = "terrain-color-and-depth-pipeline",
         .device = device,
         .vertexShader
