@@ -13,12 +13,16 @@ struct VSOutput {
     float4 tangent;
 };
 
-[vk::push_constant] float4x4 ViewProjectionMatrix;
+struct DepthData {
+    float4x4 ViewProjectionMatrix;
+};
+
+[vk::push_constant] DepthData data ;
 
 [shader("vertex")]
 VSOutput vertexMain(VSInput input) {
     VSOutput output;
-    output.position = mul(ViewProjectionMatrix, float4(input.position, 1.0));
+    output.position = mul(data.ViewProjectionMatrix, float4(input.position, 1.0));
     output.normal = input.normal;
     output.uv = input.uv;
     output.tangent = input.tangent;
