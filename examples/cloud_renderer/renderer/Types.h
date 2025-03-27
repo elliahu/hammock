@@ -51,7 +51,7 @@ struct CloudsPushConstantData {
     float spread = 1.0f;
     float ambientStrength = 0.05;
     int DEBUG_epicView = 0;
-    int DEBUG_cheapSampleDistance = 80000;
+    int DEBUG_cheapSampleDistance = 100000;
     int DEBUG_maxSamples = 96;
     int DEBUG_maxLightSamples = 4;
     int DEBUG_earlyTermination = 0;
