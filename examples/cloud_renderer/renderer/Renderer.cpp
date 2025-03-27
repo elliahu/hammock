@@ -181,6 +181,9 @@ void Renderer::init() {
     depthPass.setIndexBuffer(resourceManager.getResource<Buffer>(indexBuffer));
     depthPass.initialize(HmckVec2{512.f, 512.f});
 
+    atmospherePass.setShadowMap(depthPass.getSunDepth());
+    atmospherePass.initialize();
+
 
     geometryPass.setVertexBuffer(resourceManager.getResource<Buffer>(vertexBuffer));
     geometryPass.setIndexBuffer(resourceManager.getResource<Buffer>(indexBuffer));
@@ -191,14 +194,14 @@ void Renderer::init() {
     compositionPass.setCloudsColor(cloudsPass.getColorTarget());
     compositionPass.setTerrainColor(geometryPass.getColorTarget());
     compositionPass.setTerrainDepth(geometryPass.getDepthTarget());
+    compositionPass.setSkyView(atmospherePass.skyView.getLut());
     compositionPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
 
     postProcessingPass.setIinput(compositionPass.getColorTarget());
     postProcessingPass.setSwapChainImageFormat(frameManager.getSwapChain()->getSwapChainImageFormat());
     postProcessingPass.initialize();
 
-    atmospherePass.setShadowMap(depthPass.getSunDepth());
-    atmospherePass.initialize();
+
 
     ui->setCamera(&camera);
     ui->setCloudsPushData(&cloudsPass.properties);
@@ -288,9 +291,12 @@ void Renderer::update() {
     // Update camera
     camera.aspect = frameManager.getAspectRatio();
 
+    HmckMat4 projection = camera.getProjection();
+    HmckMat4 view = camera.getView();
+
     // Update cloud pass
-    cloudsPass.setProjection(camera.getProjection());
-    cloudsPass.setView(camera.getView());
+    cloudsPass.setProjection(projection);
+    cloudsPass.setView(view);
     cloudsPass.uniform.fov = HmckToDeg(HmckAngleRad(camera.fov));
     cloudsPass.uniform.cameraPosition = HmckVec4{camera.position, 0.0f};
     cloudsPass.uniform.resX = lWidth;
@@ -313,7 +319,7 @@ void Renderer::update() {
 
 
     // Update geometry pass
-    geometryPass.setProjection(camera.getProjection());
+    geometryPass.setProjection(projection);
     geometryPass.setView(camera.getView());
     geometryPass.setLightColor(lightColor.XYZ);
     geometryPass.setLightDirection(lightDirection.XYZ);
@@ -342,11 +348,14 @@ void Renderer::update() {
     );
 
     // Update depth pass
-    depthPass.setCameraProjection(camera.getProjection());
-    depthPass.setCameraView(camera.getView());
+    depthPass.setCameraProjection(projection);
+    depthPass.setCameraView(view);
 
     depthPass.setSunProjection(shadowProjection);
     depthPass.setSunView(shadowView);
+
+    compositionPass.setInvView(HmckInvGeneral(view));
+    compositionPass.setInvProjection(HmckInvGeneral(projection));
 }
 
 

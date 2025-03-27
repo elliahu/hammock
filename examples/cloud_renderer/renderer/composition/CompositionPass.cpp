@@ -9,7 +9,7 @@ void CompositionPass::initialize(HmckVec2 resolution) {
 }
 
 void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
-    Image * compositedColor = resourceManager.getResource<Image>(color);
+    Image *compositedColor = resourceManager.getResource<Image>(color);
     VkExtent2D extent = {compositedColor->getExtent().width, compositedColor->getExtent().height};
 
     // Transition attachments into required layouts
@@ -60,6 +60,11 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
     // Bind composition pipeline
     pipeline->bind(commandBuffer);
 
+
+    vkCmdPushConstants(commandBuffer, pipeline->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                           0, sizeof(CompositionData), &data);
+
+
     // Draw
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
@@ -91,16 +96,19 @@ void CompositionPass::prepareDescriptors() {
             .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain color image
             .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain depth image
             .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Clouds color image
+            .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Sky view
             .build();
 
     Sampler *s = resourceManager.getResource<Sampler>(sampler);
     VkDescriptorImageInfo terrainColorImageInfo = terrainColor->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo terrainDepthImageInfo = terrainDepth->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo cloudsColorTarget = cloudsColor->getDescriptorImageInfo(s->getSampler());
+    VkDescriptorImageInfo skyViewInfo = skyView->getDescriptorImageInfo(s->getSampler());
     DescriptorWriter(*layout, *descriptorPool)
             .writeImage(0, &terrainColorImageInfo)
             .writeImage(1, &terrainDepthImageInfo)
             .writeImage(2, &cloudsColorTarget)
+            .writeImage(3, &skyViewInfo)
             .build(descriptor);
 }
 
@@ -113,7 +121,7 @@ void CompositionPass::preparePipelines() {
         .fragmentShader
         {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("compose.frag")),},
         .descriptorSetLayouts = {layout->getDescriptorSetLayout()},
-        .pushConstantRanges{},
+        .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(CompositionData)}},
         .graphicsState{
             .cullMode = VK_CULL_MODE_NONE,
             .vertexBufferBindings{}
