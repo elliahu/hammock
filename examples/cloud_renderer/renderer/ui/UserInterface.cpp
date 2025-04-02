@@ -36,21 +36,12 @@ void ::UserInterface::showPostProcsSettingsWindow() {
     ImGui::Begin("Post processing settings", nullptr,
                  ImGuiWindowFlags_AlwaysAutoResize |
                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse );
-    ImGui::ColorEdit4("Tint", reinterpret_cast<float *>(&postProcessingPushConstant->colorTint.Elements[0]));
-
-    // Tone Mapping parameters
-    ImGui::SeparatorText("Tone Mapping");
-    ImGui::SliderFloat("Exposure", &postProcessingPushConstant->exposure, -5.0f, 5.0f);
-    ImGui::SliderFloat("Gamma", &postProcessingPushConstant->gamma, 0.5f, 3.0f);
-    const char *tonemapItems[] = {"Linear", "Reinhard", "ACES", "Uncharted 2"};
-    ImGui::Combo("Tonemap Operator", &postProcessingPushConstant->tonemapOperator, tonemapItems,
-                 IM_ARRAYSIZE(tonemapItems));
 
     // Color Grading parameters
     ImGui::SeparatorText("Color Grading");
+
     ImGui::SliderFloat("Contrast", &postProcessingPushConstant->contrast, 0.5f, 2.0f);
     ImGui::SliderFloat("Brightness", &postProcessingPushConstant->brightness, -0.5f, 0.5f);
-    ImGui::SliderFloat("Saturation", &postProcessingPushConstant->saturation, 0.0f, 2.0f);
 
     // Vignette parameters
     ImGui::SeparatorText("Vignette");
@@ -59,8 +50,7 @@ void ::UserInterface::showPostProcsSettingsWindow() {
 
     // Effects parameters
     ImGui::SeparatorText("Effects");
-
-    ImGui::SliderFloat("Temperature", &postProcessingPushConstant->temperature, -1.0f, 1.0f);
+    ImGui::ColorEdit4("Tint", reinterpret_cast<float *>(&postProcessingPushConstant->colorTint.Elements[0]));
     //ImGui::BeginDisabled(true);
     ImGui::SliderFloat("Grain Amount", &postProcessingPushConstant->grainAmount, 0.0f, 1.0f);
 
@@ -111,7 +101,7 @@ void ::UserInterface::showEditorWindow() {
 
     ImGui::SeparatorText("Phase");
     ImGui::SliderFloat("Eccentricity",  &cloudsPushConstant->eccentricity, 0.f, 1.0f);
-    ImGui::SliderFloat("Intensity",  &cloudsPushConstant->intensity, 0.f, 20.0f);
+    ImGui::SliderFloat("Intensity",  &cloudsPushConstant->intensity, 0.f, 5.0f);
     ImGui::SliderFloat("Spread",  &cloudsPushConstant->spread, 0.f, 1.0f);
 
     ImGui::SeparatorText("Weather");

@@ -62,13 +62,10 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
 
     float3 lightColor = terrainData.lightColor.rgb;
     float3 ambientLightColor = terrainData.ambientLightColor.rgb;
-    float3 greenColor = float3(109.0/255.0, 159.0/255.0, 113.0/255.0);
-    float3 brownColor = float3(72.0/255.0, 72.0/255.0, 58.0/255.0); 
-    float3 grayColor = float3(76.0/255.0, 84.0/255.0, 84.0/255.0);
-    float3 white = float3(1.0);
+    float3 brownColor = float3(41.0/255.0, 36.0/255.0, 34.0/255.0); 
 
     float3 diffuse = brownColor * lightColor * NdotL;
-    float3 ambient = brownColor * ambientLightColor * 0.05;
+    float3 ambient = brownColor * ambientLightColor;
 
     output.color = float4(saturate(diffuse + ambient), 1.0);
 

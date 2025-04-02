@@ -13,7 +13,7 @@ public:
     void setTerrainColor(Image *image) { terrainColor = image; }
     void setTerrainDepth(Image *image) { terrainDepth = image; }
     void setCloudsColor(Image *image) { cloudsColor = image; }
-    void setSkyView(Image * image) {skyView = image; }
+    void setSkyView(Image * image) {skyViewLUT = image; }
     void setInvView(HmckMat4 mat) {data.inverseView = mat; }
     void setInvProjection(HmckMat4 mat) {data.inverseProjection = mat; }
     void setCameraFrustum(HmckVec4 a,HmckVec4 b,HmckVec4 c,HmckVec4 d) {
@@ -51,7 +51,10 @@ private:
     Image *terrainColor;
     Image *terrainDepth;
     Image *cloudsColor;
-    Image *skyView;
+    Image *skyViewLUT;
+    Image *aerialPerspectiveLUT;
+    Image *sunShadow;
+    ResourceHandle blueNoise;
 
     // Descriptors
     std::unique_ptr<DescriptorSetLayout> compositionLayout;
@@ -63,6 +66,7 @@ private:
     std::unique_ptr<GraphicsPipeline> compositionPipeline;
     std::unique_ptr<GraphicsPipeline> skyPipeline;
 
+    void prepareBlueNoise();
     void prepareBuffer();
     void prepareTargets(uint32_t width, uint32_t height);
     void prepareDescriptors();

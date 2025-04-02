@@ -1,6 +1,7 @@
 #include "CompositionPass.h"
 
 void CompositionPass::initialize(HmckVec2 resolution) {
+    prepareBlueNoise();
     prepareBuffer();
     prepareTargets(static_cast<uint32_t>(resolution.X), static_cast<uint32_t>(resolution.Y));
     prepareDescriptors();
@@ -106,8 +107,49 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
 
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
+}
 
+void CompositionPass::prepareBlueNoise() {
+    int w, h, c, d;
+    AutoDelete blueNoiseData(readImage(ASSET_PATH("blue_noise.png"), w, h, c,
+                                        Filesystem::ImageFormat::R16G16B16A16_SFLOAT), [](const void *p) {
+        delete[] static_cast<const float16_t *>(p);
+    });
 
+    // Create host visible staging buffer on device
+    ResourceHandle blueNoiseStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
+        "blue-noise-staging-buffer",
+        BufferDesc{
+            .instanceSize = sizeof(float16_t),
+            .instanceCount = static_cast<uint32_t>(w * h * c),
+            .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        }
+    ));
+
+    // Write the data into the staging buffer
+    resourceManager.getResource<Buffer>(blueNoiseStagingBuffer)->map();
+    resourceManager.getResource<Buffer>(blueNoiseStagingBuffer)->writeToBuffer(blueNoiseData.get());
+
+    // Create the image resource
+    blueNoise = resourceManager.createResource<Image>(
+        "blue-noise",
+        ImageDesc{
+            .width = static_cast<uint32_t>(w),
+            .height = static_cast<uint32_t>(h),
+            .channels = static_cast<uint32_t>(c),
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+        }
+    );
+
+    // Copy the data from buffer into the image
+    resourceManager.getResource<Image>(blueNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    resourceManager.getResource<Image>(blueNoise)->queueCopyFromBuffer(
+        resourceManager.getResource<Buffer>(blueNoiseStagingBuffer)->getBuffer());
+    resourceManager.getResource<Image>(blueNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void CompositionPass::prepareBuffer() {
@@ -170,15 +212,15 @@ void CompositionPass::prepareDescriptors() {
             .build();
 
     skyLayout = DescriptorSetLayout::Builder(device)
-           .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Sky view LUT
-           .build();
+            .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Sky view LUT
+            .build();
 
     Sampler *s = resourceManager.getResource<Sampler>(sampler);
     VkDescriptorBufferInfo bufferInfo = resourceManager.getResource<Buffer>(buffer)->descriptorInfo();
     VkDescriptorImageInfo terrainColorImageInfo = terrainColor->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo terrainDepthImageInfo = terrainDepth->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo cloudsColorTarget = cloudsColor->getDescriptorImageInfo(s->getSampler());
-    VkDescriptorImageInfo skyViewLUTInfo = skyView->getDescriptorImageInfo(s->getSampler());
+    VkDescriptorImageInfo skyViewLUTInfo = skyViewLUT->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo skyColorInfo = resourceManager.getResource<Image>(skyColor)->getDescriptorImageInfo(s->getSampler());
     DescriptorWriter(*compositionLayout, *descriptorPool)
             .writeBuffer(0, &bufferInfo)
@@ -236,5 +278,4 @@ void CompositionPass::preparePipelines() {
             .colorAttachmentFormats = {resourceManager.getResource<Image>(skyColor)->getFormat()},
         }
     });
-
 }
