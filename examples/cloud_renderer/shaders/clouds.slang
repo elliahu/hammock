@@ -293,7 +293,7 @@ float4 raymarch(uint2 threadId, float3 start, float3 end) {
         float lod = expensive ? 0.0 : 2.0;
 
         // Sample the density (use cheap sampling for large steps)
-        float density = sampleCloudDensity(p, expensive, lod);
+        float density = sampleCloudDensity(p, true, lod);
 
         // Adaptive stepping logic
         if (density > 0.05) {

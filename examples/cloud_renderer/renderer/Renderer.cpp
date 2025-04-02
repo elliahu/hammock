@@ -347,6 +347,13 @@ void Renderer::update() {
         HmckVec4{frustum.frustumD, 0.0f}
     );
 
+    compositionPass.setCameraFrustum(
+        HmckVec4{frustum.frustumA, 0.0f},
+        HmckVec4{frustum.frustumB, 0.0f},
+        HmckVec4{frustum.frustumC, 0.0f},
+        HmckVec4{frustum.frustumD, 0.0f}
+    );
+
     // Update depth pass
     depthPass.setCameraProjection(projection);
     depthPass.setCameraView(view);

@@ -172,11 +172,11 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
     if(threadIdx.x >= width || threadIdx.y >= height)
         return;
 
-    float sinSunTheta = lerp(-1, 1,float(threadIdx.x + 0.5) / float(width));
+    float sinSunTheta = lerp(-1, 1, (threadIdx.y + 0.5) / height);
     float sunTheta = asin(sinSunTheta);
 
     float h = lerp(
-        0.0, params.AtmosphereRadius - params.PlanetRadius, float(threadIdx.y +0.5) / float(height) );
+        0.0, params.AtmosphereRadius - params.PlanetRadius, (threadIdx.x + 0.5) / width);
 
     MultiScattering[threadIdx.xy] = float4(computeM(h, sunTheta), 1);
 }

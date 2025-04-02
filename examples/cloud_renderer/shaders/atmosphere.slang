@@ -42,7 +42,6 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     // Prep the output
     PixelOutput output;
 
-    // Simpler ray direction calculation for testing
     float2 ndc = (input.position.xy / float2(set.data.resX, set.data.resY)) * 2.0 - 1.0;
     float4 rayClip = float4(ndc, 1.0, 1.0);
     float4 rayEye = mul(set.data.invProj, rayClip);

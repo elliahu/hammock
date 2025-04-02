@@ -128,7 +128,7 @@ void ::UserInterface::showEditorWindow() {
     ImGui::SliderFloat("Ambient light strength",  &cloudsPushConstant->ambientStrength, 0.0f, 1.f);
 
     ImGui::SeparatorText("Environment properties");
-    ImGui::SliderFloat("Time of day", &cloudsUniformBuffer->timeOfDay, 0.250f, 0.750f);
+    ImGui::SliderFloat("Time of day", &cloudsUniformBuffer->timeOfDay, 0.25f, 0.75f);
 
 
     ImGui::End();

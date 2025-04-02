@@ -10,6 +10,7 @@ struct GeometryPushConstantData {
     HmckMat4 modelViewProjection;
     HmckVec4 lightDirection;
     HmckVec4 lightColor;
+    HmckVec4 ambientLightColor = {0.05f, 0.05f,0.05f,0.0f};
 };
 
 // Data for cloud pass passed as uniform buffer
