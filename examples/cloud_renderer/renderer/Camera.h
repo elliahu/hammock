@@ -77,26 +77,35 @@ public:
     HmckVec3 rightDirection() const {return HmckCross(upDirection(), forwardDirection());}
 
     FrustumDirections getFrustumDirections() {
-        HmckMat4 invViewProj = HmckInvGeneral(getView());
+        // Ensure the camera's basis vectors (forward, up) are computed.
+        // Calling getView() here updates forward, up, and target.
+        getView();
 
-        HmckVec4 A0 = HmckMulM4V4(invViewProj, HmckVec4{-1, 1, 0.2f, 1});
-        HmckVec4 A1 = HmckMulM4V4(invViewProj, HmckVec4{-1, 1, 0.5f, 1});
+        // Compute right vector from current up and forward directions.
+        HmckVec3 right = rightDirection();
 
-        HmckVec4 B0 = HmckMulM4V4(invViewProj, HmckVec4{1, 1, 0.2f, 1});
-        HmckVec4 B1 = HmckMulM4V4(invViewProj, HmckVec4{1, 1, 0.5f, 1});
+        // Compute half-height of the near plane based on fov.
+        float halfHeight = tanf(fov * 0.5f) * znear;
+        // Compute half-width using the aspect ratio.
+        float halfWidth = halfHeight * aspect;
 
-        HmckVec4 C0 = HmckMulM4V4(invViewProj, HmckVec4{-1, -1, 0.2f, 1});
-        HmckVec4 C1 = HmckMulM4V4(invViewProj, HmckVec4{-1, -1, 0.5f, 1});
+        // Compute the center of the near plane.
+        HmckVec3 nearCenter = HmckAdd(position, HmckMul(forward, znear));
 
-        HmckVec4 D0 = HmckMulM4V4(invViewProj, HmckVec4{1, -1, 0.2f, 1});
-        HmckVec4 D1 = HmckMulM4V4(invViewProj, HmckVec4{1, -1, 0.5f, 1});
+        // Calculate direction vectors from the camera position to each corner of the near plane.
+        HmckVec3 topLeftDir = HmckSub(HmckAdd(nearCenter, HmckSub(HmckMul(up, halfHeight), HmckMul(right, halfWidth))), position);
+        HmckVec3 topRightDir = HmckSub(HmckAdd(nearCenter, HmckAdd(HmckMul(up, halfHeight), HmckMul(right, halfWidth))), position);
+        HmckVec3 bottomLeftDir = HmckSub(HmckAdd(nearCenter, HmckSub(HmckMul(up, -halfHeight), HmckMul(right, halfWidth))), position);
+        HmckVec3 bottomRightDir = HmckSub(HmckAdd(nearCenter, HmckAdd(HmckMul(up, -halfHeight), HmckMul(right, halfWidth))), position);
 
-        FrustumDirections result;
-        result.frustumA = HmckNorm(A1.XYZ / A1.W - A0.XYZ / A0.W);
-        result.frustumB = HmckNorm(B1.XYZ / B1.W - B0.XYZ / B0.W);
-        result.frustumC = HmckNorm(C1.XYZ / C1.W - C0.XYZ / C0.W);
-        result.frustumD = HmckNorm(D1.XYZ / D1.W - D0.XYZ / D0.W);
-        return result;
+        // Normalize the corner directions.
+        FrustumDirections frustum;
+        frustum.frustumA = HmckNorm(topLeftDir);    // top-left direction
+        frustum.frustumB = HmckNorm(topRightDir);   // top-right direction
+        frustum.frustumC = HmckNorm(bottomLeftDir); // bottom-left direction
+        frustum.frustumD = HmckNorm(bottomRightDir); // bottom-right direction
+
+        return frustum;
     }
 
 private:

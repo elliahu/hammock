@@ -112,7 +112,7 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
 void CompositionPass::prepareBlueNoise() {
     int w, h, c, d;
     AutoDelete blueNoiseData(readImage(ASSET_PATH("blue_noise.png"), w, h, c,
-                                        Filesystem::ImageFormat::R16G16B16A16_SFLOAT), [](const void *p) {
+                                       Filesystem::ImageFormat::R16G16B16A16_SFLOAT), [](const void *p) {
         delete[] static_cast<const float16_t *>(p);
     });
 
@@ -208,7 +208,11 @@ void CompositionPass::prepareDescriptors() {
             .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain color image
             .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Terrain depth image
             .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Clouds color image
-            .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Sky color
+            .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // transmittance LUT
+            .addBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // aeriel LUT
+            .addBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // sun shadow
+            .addBinding(7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // blue noise
+            .addBinding(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Sky color
             .build();
 
     skyLayout = DescriptorSetLayout::Builder(device)
@@ -220,14 +224,22 @@ void CompositionPass::prepareDescriptors() {
     VkDescriptorImageInfo terrainColorImageInfo = terrainColor->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo terrainDepthImageInfo = terrainDepth->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo cloudsColorTarget = cloudsColor->getDescriptorImageInfo(s->getSampler());
+    VkDescriptorImageInfo transmittanceLUTInfo = transmittanceLUT->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo skyViewLUTInfo = skyViewLUT->getDescriptorImageInfo(s->getSampler());
+    VkDescriptorImageInfo aerialPerspectiveLUTInfo = aerialPerspectiveLUT->getDescriptorImageInfo(s->getSampler());
+    VkDescriptorImageInfo sunShadowInfo = sunShadow->getDescriptorImageInfo(s->getSampler());
+    VkDescriptorImageInfo blueNoiseInfo = resourceManager.getResource<Image>(blueNoise)->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo skyColorInfo = resourceManager.getResource<Image>(skyColor)->getDescriptorImageInfo(s->getSampler());
     DescriptorWriter(*compositionLayout, *descriptorPool)
             .writeBuffer(0, &bufferInfo)
             .writeImage(1, &terrainColorImageInfo)
             .writeImage(2, &terrainDepthImageInfo)
             .writeImage(3, &cloudsColorTarget)
-            .writeImage(4, &skyColorInfo)
+            .writeImage(4, &transmittanceLUTInfo)
+            .writeImage(5, &aerialPerspectiveLUTInfo)
+            .writeImage(6, &sunShadowInfo)
+            .writeImage(7, &blueNoiseInfo)
+            .writeImage(8, &skyColorInfo)
             .build(compositionDescriptor);
 
     DescriptorWriter(*skyLayout, *descriptorPool)

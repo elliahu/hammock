@@ -189,12 +189,16 @@ void Renderer::init() {
     geometryPass.setIndexBuffer(resourceManager.getResource<Buffer>(indexBuffer));
     geometryPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
 
+    cloudsPass.setCameraDepth(depthPass.getCameraDepth());
     cloudsPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
 
     compositionPass.setCloudsColor(cloudsPass.getColorTarget());
     compositionPass.setTerrainColor(geometryPass.getColorTarget());
     compositionPass.setTerrainDepth(geometryPass.getDepthTarget());
-    compositionPass.setSkyView(atmospherePass.skyView.getLut());
+    compositionPass.setTransmittanceLUT(atmospherePass.transmittance.getLut());
+    compositionPass.setSkyViewLUT(atmospherePass.skyView.getLut());
+    compositionPass.setAerialPerspectiveLUT(atmospherePass.aerialPerspective.getLut());
+    compositionPass.setSunShadow(depthPass.getSunDepth());
     compositionPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
 
     postProcessingPass.setIinput(compositionPass.getColorTarget());
@@ -347,13 +351,6 @@ void Renderer::update() {
         HmckVec4{frustum.frustumD, 0.0f}
     );
 
-    compositionPass.setCameraFrustum(
-        HmckVec4{frustum.frustumA, 0.0f},
-        HmckVec4{frustum.frustumB, 0.0f},
-        HmckVec4{frustum.frustumC, 0.0f},
-        HmckVec4{frustum.frustumD, 0.0f}
-    );
-
     // Update depth pass
     depthPass.setCameraProjection(projection);
     depthPass.setCameraView(view);
@@ -363,6 +360,10 @@ void Renderer::update() {
 
     compositionPass.setInvView(HmckInvGeneral(view));
     compositionPass.setInvProjection(HmckInvGeneral(projection));
+    compositionPass.setShadowViewProj(shadowProjection * shadowView);
+    compositionPass.setSunDirection(lightDirection);
+    compositionPass.setSunColor(cloudsPass.uniform.lightColor);
+    compositionPass.setAmbientColor(cloudsPass.uniform.skyColorZenith);
 }
 
 
@@ -398,64 +399,44 @@ void Renderer::render() {
             uint32_t frame = frameManager.getFrameIndex();
             uint32_t image = frameManager.getSwapChainImageIndex();
 
-            // Command buffers are recorded in parallel
-            // Following the specification, only one thread can access command buffers from single command pool
-            // in this case, there are two command pools that the command buffers were generated from -> compute and graphics
-            // That means two threads max, yet with the amount of dispatches, it really helps
-            // Allocation of more command pools to parallelize this even further would not bring any benefit
 
-            // Graphics thread
-            threadPool.submit([this, frame, image]() {
-                // Depth pass
-                frameManager.beginCommandBuffer(commandBuffers.depth[frame]);
-                depthPass.recordCommands(commandBuffers.depth[frame], frame);
-
-                // Geometry pass
-                frameManager.beginCommandBuffer(commandBuffers.terrain[frame]);
-                geometryPass.recordCommands(commandBuffers.terrain[frame], frame);
-
-                // Composition pass & post process & ui
-                frameManager.beginCommandBuffer(commandBuffers.composition[frame]);
-                compositionPass.recordCommands(commandBuffers.composition[frame], frame);
-                recordSwapChainImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, frame, image);
-                postProcessingPass.recordCommands(commandBuffers.composition[frame], frame);
-                ui->recordUserInterface(commandBuffers.composition[frame]);
-                recordSwapChainImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, frame, image);
-            });
-
-            // Compute thread
-            threadPool.submit([this, frame]() {
-                // Clouds pass
-                frameManager.beginCommandBuffer(commandBuffers.clouds[frame]);
-                cloudsPass.recordCommands(commandBuffers.clouds[frame], frame);
-
-                // Atmosphere pass
-                frameManager.beginCommandBuffer(commandBuffers.atmosphere[frame]);
-                atmospherePass.recordCommands(commandBuffers.atmosphere[frame], frame);
-            });
-
-            // Wait for recording
-            threadPool.wait();
-
-            // Submission can't be done in threads as the command buffers has to be submitted in order
-
+            // Depth pass
+            frameManager.beginCommandBuffer(commandBuffers.depth[frame]);
+            depthPass.recordCommands(commandBuffers.depth[frame], frame);
             // Submit depth command buffer
             frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
                 commandBuffers.depth[frame], {}, {semaphores.depthReady[frame]}, {});
 
-            // Submit terrain command buffer
-            frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
-                commandBuffers.terrain[frame], {}, {semaphores.terrainColorReady[frame]}, {});
 
+            // Clouds pass
+            frameManager.beginCommandBuffer(commandBuffers.clouds[frame]);
+            cloudsPass.recordCommands(commandBuffers.clouds[frame], frame);
             // Submit clouds command buffer
             frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
                 commandBuffers.clouds[frame], {semaphores.depthReady[frame]}, {semaphores.cloudsReady[frame]},
                 {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT});
 
+            // Atmosphere pass
+            frameManager.beginCommandBuffer(commandBuffers.atmosphere[frame]);
+            atmospherePass.recordCommands(commandBuffers.atmosphere[frame], frame);
             // Submit atmosphere command buffers
             frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
                 commandBuffers.atmosphere[frame], {}, {semaphores.atmosphereReady[frame]}, {});
 
+            // Geometry pass
+            frameManager.beginCommandBuffer(commandBuffers.terrain[frame]);
+            geometryPass.recordCommands(commandBuffers.terrain[frame], frame);
+            // Submit terrain command buffer
+            frameManager.submitCommandBuffer<CommandQueueFamily::Graphics>(
+                commandBuffers.terrain[frame], {}, {semaphores.terrainColorReady[frame]}, {});
+
+            // Composition pass & post process & ui
+            frameManager.beginCommandBuffer(commandBuffers.composition[frame]);
+            compositionPass.recordCommands(commandBuffers.composition[frame], frame);
+            recordSwapChainImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, frame, image);
+            postProcessingPass.recordCommands(commandBuffers.composition[frame], frame);
+            ui->recordUserInterface(commandBuffers.composition[frame]);
+            recordSwapChainImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, frame, image);
             // Submit composition command buffer
             // This one is submitted for presentation
             // Waits at fragment shader stage on semaphores to be signaled

@@ -13,10 +13,9 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     Image *sunDepthImage = resourceManager.getResource<Image>(sunDepth);
     VkExtent3D renderingExtent = cameraDepthImage->getExtent();
 
-    if (cameraDepthImage->getLayout() != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-        cameraDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-    if (sunDepthImage->getLayout() != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-        sunDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    // Transition layouts
+    cameraDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    sunDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     VkRenderingAttachmentInfo cameraDepthTarget = cameraDepthImage->getRenderingAttachmentInfo();
     cameraDepthTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -100,9 +99,11 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
 
-    // Release camera depth to the compute queue
-    // cameraDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    //                              CommandQueueFamily::Compute);
+    // Release ownership
+    cameraDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, CommandQueueFamily::Compute);
+    sunDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                              VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, CommandQueueFamily::Compute);
 }
 
 void DepthPass::prepareTargets(uint32_t width, uint32_t height) {

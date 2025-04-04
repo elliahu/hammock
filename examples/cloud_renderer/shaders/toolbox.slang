@@ -1,7 +1,21 @@
+// General constants
 static const float PI = 3.14159265358979323846;
 
-// Types
+// Atmosphere parameters
+static const float PlanetRadius = 6378000.0; // 6378 km
+static const float AtmosphereRadius = 6460000.0; // 6460 km
+static const float OzoneThickness = 30000.0; // 30 km
+static const float OzoneCenterHeight = 25000.0; // 25 km
+static const float HDensityMie = 1200.0;
+static const float AbsorbMie = 4.4 * 1e-6;
+static const float AsymmetryMie = 0.8;
+static const float ScatterMie = 3.996 * 1e-6;
+static const float HDensityRayleigh = 8000.0;
+static const float3 AbsorbOzone = float3(0.65, 1.881, 0.085) * 1e-6;
+static const float3 ScatterRayleigh = float3(5.802, 13.558, 33.1) * 1e-6;
 
+
+// Types
 struct GlobalData{
     float4x4 invView;
     float4x4 invProj;
@@ -11,7 +25,6 @@ struct GlobalData{
     float4 lightColor; // W is strength
     float4 lightDirection;
     float4 skyColorZenith;
-    float4 skyColorHorizon;
     float4 windDirection;
     float resX;
     float resY;
@@ -24,20 +37,67 @@ struct GlobalData{
 };
 
 struct AtmosphereParams{
-    float4 ScatterRayleigh;
-    float4 AbsorbOzone;
     float4 Eye;
     float4 SunDirection;
-    float  HDensityRayleigh;
-    float ScatterMie;
-    float AsymmetryMie;
-    float AbsorbMie;
-    float HDensityMie;
-    float  OzoneCenterHeight;
-    float OzoneThickness;
-    float PlanetRadius;
-    float AtmosphereRadius;
 };
+
+struct CompositionBuffer{
+    float4x4 inverseView;
+    float4x4 inverseProjection;
+    float4x4 shadowViewProj;
+    float4 sunDirection;
+    float4 sunColor;
+    float4 ambientColor;
+    float resX;
+    float resY;
+}
+
+// Atmosphere functions
+
+float3 getTransmittance(Sampler2D T, float h, float theta){
+    float u = h / (AtmosphereRadius - PlanetRadius);
+    float v = 0.5 + 0.5 * sin(theta);
+    return T.SampleLevel(float2(u, v), 0.0).xyz;
+}
+
+void getSigmaST(float h, out float3 sigmaS, out float3 sigmaT){
+    float3 rayleigh = ScatterRayleigh.xyz * exp(-h / HDensityRayleigh);
+    float mieDensity = exp(-h / HDensityMie);
+    float mieS = ScatterMie * mieDensity;
+    float mieT = (ScatterMie + AbsorbMie) * mieDensity;
+    float3 ozone = AbsorbOzone.xyz * max(0.0f, 1 - 0.5 * abs(h - OzoneCenterHeight) / OzoneThickness);
+    sigmaS = rayleigh + mieS;
+    sigmaT = rayleigh + mieT + ozone;
+}
+
+float3 getSigmaT(float h){
+    float3 rayleigh = ScatterRayleigh.xyz * exp(-h / HDensityRayleigh);
+    float mie = (ScatterMie + AbsorbMie) * exp(-h / HDensityMie);
+    float3 ozone = AbsorbOzone.xyz * max(
+        0.0f, 1 - 0.5 * abs(h - OzoneCenterHeight) / OzoneThickness);
+    return rayleigh + mie + ozone;
+}
+
+float3 evalPhaseFunction(float h, float u){
+    float3 sRayleigh = ScatterRayleigh.xyz * exp(-h / HDensityRayleigh);
+    float sMie = ScatterMie * exp(-h / HDensityMie);
+    float3 s = sRayleigh + sMie;
+    float g = AsymmetryMie, g2 = g * g, u2 = u * u;
+    float pRayleigh = 3 / (16 * PI) * (1 + u2);
+    float m = 1 + g2 - 2 * g * u;
+    float pMie = 3 / (8 * PI) * (1 - g2) * (1 + u2) / ((2 + g2) * m * sqrt(m));
+    float3 result;
+    result.x = s.x > 0 ? (pRayleigh * sRayleigh.x + pMie * sMie) / s.x : 0;
+    result.y = s.y > 0 ? (pRayleigh * sRayleigh.y + pMie * sMie) / s.y : 0;
+    result.z = s.z > 0 ? (pRayleigh * sRayleigh.z + pMie * sMie) / s.z : 0;
+    return result;
+}
+
+float relativeLuminance(float3 c){
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+}
+
+
 
 // TOOLBOX
 float4x4 inverse(float4x4 m) {
@@ -199,8 +259,7 @@ float2 intersectRaySphere(float3 center, float radius, float3 origin, float3 dir
 }
 
 
-bool hasIntersectionWithCiecle(float2 o, float2 d, float R)
-{
+bool hasIntersectionWithCiecle(float2 o, float2 d, float R){
     float A = dot(d, d);
     float B = 2 * dot(o, d);
     float C = dot(o, o) - R * R;
@@ -208,8 +267,7 @@ bool hasIntersectionWithCiecle(float2 o, float2 d, float R)
     return (delta >= 0) && ((C <= 0) | (B <= 0));
 }
 
-bool hasIntersectionWithSphere(float3 o, float3 d, float R)
-{
+bool hasIntersectionWithSphere(float3 o, float3 d, float R){
     float A = dot(d, d);
     float B = 2 * dot(o, d);
     float C = dot(o, o) - R * R;
@@ -217,9 +275,7 @@ bool hasIntersectionWithSphere(float3 o, float3 d, float R)
     return (delta >= 0) && ((C <= 0) | (B <= 0));
 }
 
-bool findClosestIntersectionWithCircle(
-    float2 o, float2 d, float R, out float t)
-{
+bool findClosestIntersectionWithCircle(float2 o, float2 d, float R, out float t){
     float A = dot(d, d);
     float B = 2 * dot(o, d);
     float C = dot(o, o) - R * R;
@@ -230,9 +286,7 @@ bool findClosestIntersectionWithCircle(
     return (C <= 0) | (B <= 0);
 }
 
-bool findClosestIntersectionWithSphere(
-    float3 o, float3 d, float R, out float t)
-{
+bool findClosestIntersectionWithSphere(float3 o, float3 d, float R, out float t){
     float A = dot(d, d);
     float B = 2 * dot(o, d);
     float C = dot(o, o) - R * R;
@@ -243,3 +297,18 @@ bool findClosestIntersectionWithSphere(
     return (C <= 0) | (B <= 0);
 }
 
+
+// color blend
+float3 blendScreen(float3 base, float3 blend) {
+    return 1.0 - (1.0 - base) * (1.0 - blend);
+}
+
+float3 blendSoftLight(float3 base, float3 blend) {
+    return (max(blend.x,max(blend.y, blend.z)) < 0.5) ?
+    base - (1.0 - 2.0 * blend) * base * (1.0 - base) :
+    base + (2.0 * blend - 1.0) * (sqrt(base) - base);
+}
+
+float3 blend(float3 base, float3 blend, float alpha){
+    return base * (1.0 - alpha) + blend;
+}

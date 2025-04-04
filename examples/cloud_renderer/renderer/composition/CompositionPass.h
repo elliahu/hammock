@@ -13,16 +13,16 @@ public:
     void setTerrainColor(Image *image) { terrainColor = image; }
     void setTerrainDepth(Image *image) { terrainDepth = image; }
     void setCloudsColor(Image *image) { cloudsColor = image; }
-    void setSkyView(Image * image) {skyViewLUT = image; }
+    void setTransmittanceLUT(Image * image) {transmittanceLUT = image; }
+    void setSkyViewLUT(Image * image) {skyViewLUT = image; }
+    void setAerialPerspectiveLUT(Image * image) {aerialPerspectiveLUT = image; }
+    void setSunShadow(Image *image) { sunShadow = image; }
     void setInvView(HmckMat4 mat) {data.inverseView = mat; }
     void setInvProjection(HmckMat4 mat) {data.inverseProjection = mat; }
-    void setCameraFrustum(HmckVec4 a,HmckVec4 b,HmckVec4 c,HmckVec4 d) {
-        data.frustumA = a;
-        data.frustumB = b;
-        data.frustumC = c;
-        data.frustumD = d;
-    }
-
+    void setShadowViewProj(HmckMat4 mat) {data.shadowViewProj = mat; }
+    void setSunDirection(HmckVec4 dir) {data.sunDirection = dir; }
+    void setSunColor(HmckVec4 color) {data.sunColor = color; }
+    void setAmbientColor(HmckVec4 color) {data.ambientColor = color; }
     Image* getColorTarget() { return resourceManager.getResource<Image>(compositedImage); }
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
@@ -32,10 +32,10 @@ private:
     struct CompositionData {
         HmckMat4 inverseView;
         HmckMat4 inverseProjection;
-        HmckVec4 frustumA;
-        HmckVec4 frustumB;
-        HmckVec4 frustumC;
-        HmckVec4 frustumD;
+        HmckMat4 shadowViewProj;
+        HmckVec4 sunDirection;
+        HmckVec4 sunColor;
+        HmckVec4 ambientColor;
         float resX;
         float resY;
     } data;
@@ -51,6 +51,7 @@ private:
     Image *terrainColor;
     Image *terrainDepth;
     Image *cloudsColor;
+    Image *transmittanceLUT;
     Image *skyViewLUT;
     Image *aerialPerspectiveLUT;
     Image *sunShadow;

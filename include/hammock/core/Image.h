@@ -193,15 +193,15 @@ namespace hammock {
                 newFamily = device.getTransferQueueFamilyIndex();
             }
 
-            if (m_queueFamily == CommandQueueFamily::Graphics) {
+            if (m_queueFamily == CommandQueueFamily::Graphics && newFamily != VK_QUEUE_FAMILY_IGNORED) {
                 oldFamily = device.getGraphicsQueueFamilyIndex();
             }
 
-            if (m_queueFamily == CommandQueueFamily::Compute) {
+            if (m_queueFamily == CommandQueueFamily::Compute && newFamily != VK_QUEUE_FAMILY_IGNORED) {
                 oldFamily = device.getComputeQueueFamilyIndex();
             }
 
-            if (m_queueFamily == CommandQueueFamily::Transfer) {
+            if (m_queueFamily == CommandQueueFamily::Transfer && newFamily != VK_QUEUE_FAMILY_IGNORED) {
                 oldFamily = device.getTransferQueueFamilyIndex();
             }
 
@@ -214,6 +214,21 @@ namespace hammock {
             }
 
             m_layout = newLayout;
+        }
+
+        void unsafeTransition(VkCommandBuffer cmd,VkImageLayout oldLayout, VkImageLayout newLayout,
+                      uint32_t oldFamily = VK_QUEUE_FAMILY_IGNORED, uint32_t newFamily = VK_QUEUE_FAMILY_IGNORED) {
+            VkImageSubresourceRange subresourceRange = {};
+            subresourceRange.aspectMask = getAspectMask();
+            subresourceRange.baseMipLevel = 0;
+            subresourceRange.levelCount = m_mips;
+            subresourceRange.baseArrayLayer = 0;
+            subresourceRange.layerCount = m_layers;
+
+
+            transitionImageLayout(cmd, m_image, oldLayout, newLayout, subresourceRange,
+                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, oldFamily,
+                                  newFamily);
         }
 
         /**

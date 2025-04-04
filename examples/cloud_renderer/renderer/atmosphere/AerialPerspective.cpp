@@ -6,6 +6,8 @@ void AerialPerspective::recordCommands(VkCommandBuffer commandBuffer, uint32_t f
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 1, 1,
                             &descriptor, 0, nullptr);
 
+    shadowMap->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, CommandQueueFamily::Compute);
+
     // Bind the pipeline
     pipeline->bind(commandBuffer);
 

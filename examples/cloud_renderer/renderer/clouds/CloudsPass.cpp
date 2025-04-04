@@ -21,6 +21,9 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
 
     // Storage image do not change layout from VK_IMAGE_LAYOUT_GENERAL the entire frame so no need for layout transition
 
+    // Acquire ownership of camera depth image and transition layout
+    cameraDepth->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, CommandQueueFamily::Compute);
+
     // Bind descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 0, 1,
                             &descriptors[frameIndex], 0, nullptr);
@@ -193,6 +196,48 @@ void CloudsPass::prepareResources() {
             resourceManager.getResource<Buffer>(weatherMapStagingBuffer)->getBuffer());
         resourceManager.getResource<Image>(weatherMap)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
+    // Curl noise
+    {
+        AutoDelete curlNoiseData(readImage(ASSET_PATH("curlNoise.png"), w, h, c,
+                                           Filesystem::ImageFormat::R8G8B8A8_UNORM), [](const void *p) {
+            delete[] static_cast<const uchar8_t *>(p);
+        });
+
+        // Create host visible staging buffer on device
+        ResourceHandle curlNoiseStagingBuffer = queueForDeletion(resourceManager.createResource<Buffer>(
+            "curl-noise-staging-buffer",
+            BufferDesc{
+                .instanceSize = sizeof(uchar8_t),
+                .instanceCount = static_cast<uint32_t>(w * h * c),
+                .usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                .allocationFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+            }
+        ));
+
+        // Write the data into the staging buffer
+        resourceManager.getResource<Buffer>(curlNoiseStagingBuffer)->map();
+        resourceManager.getResource<Buffer>(curlNoiseStagingBuffer)->writeToBuffer(curlNoiseData.get());
+
+        // Create the image resource
+        curlNoise = resourceManager.createResource<Image>(
+            "curl-noise",
+            ImageDesc{
+                .width = static_cast<uint32_t>(w),
+                .height = static_cast<uint32_t>(h),
+                .channels = static_cast<uint32_t>(c),
+                .format = VK_FORMAT_R8G8B8A8_UNORM,
+                .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                .imageType = VK_IMAGE_TYPE_2D,
+                .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+            }
+        );
+
+        // Copy the data from buffer into the image
+        resourceManager.getResource<Image>(curlNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        resourceManager.getResource<Image>(curlNoise)->queueCopyFromBuffer(
+            resourceManager.getResource<Buffer>(curlNoiseStagingBuffer)->getBuffer());
+        resourceManager.getResource<Image>(curlNoise)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
 }
 
 void CloudsPass::prepareTargets(uint32_t width, uint32_t height) {
@@ -224,6 +269,8 @@ void CloudsPass::prepareDescriptors() {
             .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // low freq noise
             .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // high freq noise
             .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // weather map
+            .addBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // Curl
+            .addBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT) // Camera depth
             .build();
 
     // Default sampler
@@ -236,6 +283,9 @@ void CloudsPass::prepareDescriptors() {
         s->getSampler());
     VkDescriptorImageInfo weatherMapInfo = resourceManager.getResource<Image>(weatherMap)->getDescriptorImageInfo(
         s->getSampler());
+    VkDescriptorImageInfo curlNoiseInfo = resourceManager.getResource<Image>(curlNoise)->getDescriptorImageInfo(
+        s->getSampler());
+    VkDescriptorImageInfo cameraDepthInfo = cameraDepth->getDescriptorImageInfo(s->getSampler());
 
     // global descriptor set
     for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
@@ -246,6 +296,8 @@ void CloudsPass::prepareDescriptors() {
                 .writeImage(2, &lowFreqNoiseInfo)
                 .writeImage(3, &highFreqNoiseInfo)
                 .writeImage(4, &weatherMapInfo)
+                .writeImage(5, &curlNoiseInfo)
+                .writeImage(6, &cameraDepthInfo)
                 .build(descriptors[i]);
     }
 }

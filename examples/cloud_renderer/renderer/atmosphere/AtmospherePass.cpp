@@ -19,8 +19,7 @@ void AtmospherePass::initialize() {
 
 void AtmospherePass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
     // Update the buffer
-    auto scaledAtmosphere = atmosphere.toStdUnit();
-    resourceManager.getResource<Buffer>(atmosphereBuffer)->writeToBuffer(&scaledAtmosphere);
+    resourceManager.getResource<Buffer>(atmosphereBuffer)->writeToBuffer(&atmosphere);
 
     // Bind the common descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, transmittance.getPipelineLayout(), 0, 1,

@@ -108,12 +108,14 @@ void ::UserInterface::showEditorWindow() {
     ImGui::SliderFloat("Global coverage",  &cloudsPushConstant->globalCoverage, 0.0f, 1.f);
     ImGui::SliderFloat("Global density",  &cloudsPushConstant->globalDensity, 0.0f, 1.f);
     ImGui::SliderFloat("Wind speed",  &cloudsPushConstant->cloudSpeed, 0.0f, 5000.f);
+    static float angle = 0.f;
+    ImGui::SliderAngle("Wind direction", &angle, 0.f, 360.f);
+    cloudsUniformBuffer->windDirection = HmckNorm(HmckVec4{sin(HmckToRad(HmckAngleDeg(angle))), 0.0f,cos(HmckToRad(HmckAngleDeg(angle))),  0.0f});
 
     ImGui::SeparatorText("Light");
     ImGui::ColorEdit3("Light color", &cloudsUniformBuffer->lightColor.Elements[0]);
     ImGui::SliderFloat3("Light direction",&cloudsUniformBuffer->lightDirection.Elements[0], -1.0f, 1.0f);
     ImGui::ColorEdit3("Zenith sky color", &cloudsUniformBuffer->skyColorZenith.Elements[0]);
-    ImGui::ColorEdit3("Horizon sky color", &cloudsUniformBuffer->skyColorHorizon.Elements[0]);
     ImGui::SliderFloat("Sun light strength", &cloudsUniformBuffer->lightColor.Elements[0], 0.0f, 15.f);
     ImGui::SliderFloat("Ambient light strength",  &cloudsPushConstant->ambientStrength, 0.0f, 1.f);
 

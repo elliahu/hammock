@@ -35,6 +35,8 @@ struct PushConstants {
 [vk::binding(2)] Sampler3D lowFreqNoiseTexture;
 [vk::binding(3)] Sampler3D highFreqNoiseTexture;
 [vk::binding(4)] Sampler2D weatherMap;
+[vk::binding(5)] Sampler2D curlNoiseTexture;
+[vk::binding(6)] Sampler2D cameraDepthTexture;
 
 // Push constants
 [vk::push_constant] PushConstants constants;
@@ -173,8 +175,15 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
 
     // Check if we are doing expensive sampling
     if (expensive){
+
+        float3 p = float3(staticUv * DETAIL_SCALE, heightFraction);
+        if(constants.curliness > 0.0){
+            float2 curlNoise = curlNoiseTexture.SampleLevel(animatedUv, 0.0).xy;
+            p.xy += curlNoise.rg * (1.0 - heightFraction)  * constants.curliness;
+        }
+       
         // Sample high frequency noise and build the FBM
-        float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(float3(staticUv * DETAIL_SCALE, heightFraction), lod).rgb * constants.detailMultiplier;
+        float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(p, lod).rgb * constants.detailMultiplier;
         float highFreqFBM = dot(highFrequencyNoise, float3(0.625, 0.25, 0.125));
         float highFreqNoiseModifier = lerp(highFreqFBM, 1.0 - highFreqFBM, saturate(heightFraction * 10.0));
         baseCloudWithCoverage = remap(baseCloudWithCoverage, highFreqNoiseModifier, 1.0, 0.0, 1.0);
@@ -237,11 +246,11 @@ float lightRayAttenuation(float3 p) {
         float density = sampleCloudDensity(samplePos, false, l * 0.5);
 
         // Accumulate density
-        totalDensity += density * stepSize;
+        totalDensity += density * stepSize * ABSORPTION;
     }
 
     // Apply Beer's law for exponential light attenuation
-    return saturate(max(exp(-totalDensity * ABSORPTION), (exp(-totalDensity * ABSORPTION * 0.25)) * 0.7));
+    return saturate(max(exp(-totalDensity ), (exp(-totalDensity * 0.25)) * 0.7));
 }
 
 // Marches along a ray from the start to the end position
@@ -276,7 +285,8 @@ float4 raymarch(uint2 threadId, float3 start, float3 end) {
     // Raymarch variables
     float transmittance = 1.0;
     float accumulatedDensity = 0.0;
-    float3 inScatteredLight = 0.0;
+    float inScatteredLight = 0.0;
+    float ambientLight = 0.0;
     float currentStepSize = baseStepSize * largeStepMultiplier;
     bool insideCloud = false;
     bool everInCloud = false;
@@ -332,10 +342,10 @@ float4 raymarch(uint2 threadId, float3 start, float3 end) {
             float depthProb = 0.05 * pow(density, remap(heightFraction, 0.3, 0.85, 0.5, 2.0));
             float inScatterProb = depthProb;
 
-            float ambient = density * (1.0 - heightFraction) * transmittance * 0.01;
+            ambientLight += density * (1.0 - heightFraction) * transmittance;
 
             // Compute the differential in-scattering contribution using the current transmittance
-            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb+ ambient;
+            inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb;
 
             // Update total transmittance for extinction along the ray segment
             float currentTransmittance = exp(-density * currentStepSize * ABSORPTION);
@@ -348,7 +358,7 @@ float4 raymarch(uint2 threadId, float3 start, float3 end) {
             // Early exit if fully opaque
             if (transmittance < 0.001) {
                 if (constants.DEBUG_earlyTermination == 1) {
-                    inScatteredLight = float3(1.0, 0.0, 0.0);
+                    inScatteredLight = 0.0;
                 }
                 break;
             }
@@ -376,13 +386,13 @@ float4 raymarch(uint2 threadId, float3 start, float3 end) {
 
     if (constants.DEBUG_lateTermination == 1 && !everInCloud) {
         transmittance = 0.0;
-        inScatteredLight =  float3(1.0, 0.0, 0.0);
+        inScatteredLight =  0.0;
     }
 
     // Compute alpha from the accumulated optical depth,
     // Here we base it on the remaining transmittance.
     float alpha = 1.0 - transmittance;
-    return float4(inScatteredLight * SUN_COLOR * SUN_STRENGTH, alpha);
+    return float4(inScatteredLight * SUN_STRENGTH, ambientLight * constants.ambientStrength,0.0,  alpha);
 }
 
 [shader("compute")]
@@ -424,6 +434,15 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     int2 pixelCoord = threadId.xy;
 #endif
 
+    // We do not draw pixels that are occluded by the planets surface
+    // This is done by sampling the depth texture and checking if the depth is less than 1.0
+    float2 uv = float2((pixelCoord.x + 0.5) / resolution.x, (pixelCoord.y + 0.5) / resolution.y);
+    float depth = cameraDepthTexture.SampleLevel(uv, 0.0).r;
+    if(depth < 1.0){
+        cloudsStorageImage[pixelCoord.xy] = float4(0.0);
+        return;
+    }
+
     // Compute ray direction.
     float4 rayClip = float4(computeClipSpaceCoord(pixelCoord, resolution), 1.0);
     float4 rayView = mul(data.invProj, rayClip);
@@ -464,11 +483,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     // Encode depth into the result
     float3 pixelWorldPos = start;
-    // Transform to view space
-    float4 pixelViewPos = mul(data.view, float4(pixelWorldPos, 1.0));
-    // Extract view-space z (should be negative in front of camera)
-    float z_eye = remap(pixelViewPos.z, 0, -CLOUDS_TOP_RADIUS, data.near, -data.far);
-    clouds.g = encodeDepth(z_eye, data.near, data.far );
+    clouds.b = remap(distance(pixelWorldPos, EYE), 0.0, CLOUDS_BOTTOM_RADIUS, 1.0, 0.0);
 
     // Store the final value
     cloudsStorageImage[pixelCoord.xy] = clouds;

@@ -32,12 +32,15 @@ public:
         uniform.view = view;
         uniform.invView = HmckInvGeneral(view);
     }
+
     void setProjection(const HmckMat4 &projection) {
         uniform.proj = projection;
         uniform.invProj = HmckInvGeneral(projection);
     }
 
-    Image * getColorTarget() const {return resourceManager.getResource<Image>(color);}
+    void setCameraDepth(Image *image) { cameraDepth = image; }
+
+    Image *getColorTarget() const { return resourceManager.getResource<Image>(color); }
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
 
@@ -59,11 +62,19 @@ private:
     ResourceHandle lowFrequencyNoise;
     ResourceHandle highFrequencyNoise;
     ResourceHandle weatherMap;
+    ResourceHandle curlNoise;
     ResourceHandle sampler;
 
+    // Inputs
+    Image *cameraDepth;
+
     void prepareBuffers();
+
     void prepareResources();
+
     void prepareTargets(uint32_t width, uint32_t height);
+
     void prepareDescriptors();
+
     void preparePipelines();
 };

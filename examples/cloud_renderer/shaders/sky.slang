@@ -11,17 +11,6 @@ struct PixelOutput {
     float4 color : SV_Target;
 };
 
-struct CompositionBuffer{
-    float4x4 inverseView;
-    float4x4 inverseProjection;
-    float4 frustumA;
-    float4 frustumB;
-    float4 frustumC;
-    float4 frustumD;
-    float resX;
-    float resY;
-}
-
 [vk::binding(0,0)] ConstantBuffer<CompositionBuffer> data;
 [vk::binding(0,1)] Sampler2D<float4> skyView;
 
