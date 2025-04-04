@@ -70,7 +70,7 @@ float4 terrainColor(float2 uv){
     // Sample the terrain
     float4 terrainColor = terrainColorImage.SampleLevel(float2(uv.x, uv.y), 0.0);
     float3 color = terrainColor.rgb;
-
+    return float4(color, terrainColor.a);
 
     if (terrainColor.a == 1.0){
         // Sample the depth buffer

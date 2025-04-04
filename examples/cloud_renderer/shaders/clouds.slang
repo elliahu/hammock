@@ -23,7 +23,7 @@ struct PushConstants {
     int DEBUG_maxLightSamples;
     int DEBUG_earlyTermination;
     int DEBUG_lateTermination;
-    int DEBUG_longStepMulti;
+    float DEBUG_longStepMulti;
 };
 
 [vk::binding(0)] ConstantBuffer<GlobalData> data;

@@ -61,8 +61,6 @@ class Renderer final{
     const float rotationSpeed = 1.0f; // Radians per frame
 
     // Light
-    HmckVec4 lightColor{1.f, 1.f, 1.f, 5.f};
-    HmckVec4 lightDirection{0.f, 1.f, 0.f, 1.f};
 
     // Geometry buffers
     ResourceHandle vertexBuffer;

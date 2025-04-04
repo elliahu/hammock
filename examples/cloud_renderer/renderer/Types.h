@@ -10,7 +10,7 @@ struct GeometryPushConstantData {
     HmckMat4 modelViewProjection;
     HmckVec4 lightDirection;
     HmckVec4 lightColor;
-    HmckVec4 ambientLightColor = {0.05f, 0.05f,0.05f,0.0f};
+    HmckVec4 ambientLightColor = {0.1f, 0.1f,0.1f,0.0f};
 };
 
 // Data for cloud pass passed as uniform buffer
@@ -30,7 +30,6 @@ struct CloudsUniformBufferData {
     float znear;
     float zfar;
     float time = 0.0f;
-    float timeOfDay = 0.45f;
     int frameIndexMod16;
 };
 
@@ -56,7 +55,7 @@ struct CloudsPushConstantData {
     int DEBUG_maxLightSamples = 4;
     int DEBUG_earlyTermination = 0;
     int DEBUG_lateTermination = 0;
-    int DEBUG_longStepMulti = 2;
+    float DEBUG_longStepMulti = 2.f;
 };
 
 // Atmospheric pass data

@@ -179,7 +179,7 @@ void Renderer::init() {
     // Initialize passes
     depthPass.setVertexBuffer(resourceManager.getResource<Buffer>(vertexBuffer));
     depthPass.setIndexBuffer(resourceManager.getResource<Buffer>(indexBuffer));
-    depthPass.initialize(HmckVec2{512.f, 512.f});
+    depthPass.initialize(HmckVec2{(float)lWidth, (float)lHeight});
 
     atmospherePass.setShadowMap(depthPass.getSunDepth());
     atmospherePass.initialize();
@@ -204,7 +204,6 @@ void Renderer::init() {
     postProcessingPass.setIinput(compositionPass.getColorTarget());
     postProcessingPass.setSwapChainImageFormat(frameManager.getSwapChain()->getSwapChainImageFormat());
     postProcessingPass.initialize();
-
 
 
     ui->setCamera(&camera);
@@ -311,12 +310,7 @@ void Renderer::update() {
     if (progressTime) {
         cloudsPass.uniform.time = elapsedTime;
     }
-
-    float angle = (cloudsPass.uniform.timeOfDay - 0.25f) * 2.0f * HmckPI; // Shift so 0.25 (morning) starts at the horizon
-    float sunHeight = std::sin(angle); // Vertical movement
-    float sunHorizontal = std::cos(angle); // Horizontal movement
-    lightDirection = HmckVec4{HmckNorm(HmckVec3{sunHorizontal, sunHeight, 0.0f}), 0.0f};
-    cloudsPass.uniform.lightDirection = lightDirection;
+    ;
 
     float azimuthRadians = HmckToRad(HmckAngleDeg(45.0f));
     cloudsPass.uniform.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};
@@ -325,8 +319,8 @@ void Renderer::update() {
     // Update geometry pass
     geometryPass.setProjection(projection);
     geometryPass.setView(camera.getView());
-    geometryPass.setLightColor(lightColor.XYZ);
-    geometryPass.setLightDirection(lightDirection.XYZ);
+    geometryPass.setLightColor(cloudsPass.uniform.lightColor.XYZ);
+    geometryPass.setLightDirection(cloudsPass.uniform.lightDirection.XYZ);
 
 
     // Update post processing data
@@ -337,10 +331,10 @@ void Renderer::update() {
 
     // Update atmosphere
     atmospherePass.setEye(camera.position);
-    atmospherePass.setSunDirection(lightDirection.XYZ);
+    atmospherePass.setSunDirection(cloudsPass.uniform.lightDirection.XYZ);
 
     HmckMat4 shadowProjection = Projection().orthographic(-120.0, 120.0, -120.0, 120.0, camera.znear, camera.zfar, true);
-    HmckMat4 shadowView = HmckLookAt_RH(lightDirection.XYZ * 20.0, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+    HmckMat4 shadowView = HmckLookAt_RH(cloudsPass.uniform.lightDirection.XYZ * 20.0, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
 
     atmospherePass.setShadowViewProjection(shadowProjection * shadowView);
     Camera::FrustumDirections frustum = camera.getFrustumDirections();
@@ -361,7 +355,7 @@ void Renderer::update() {
     compositionPass.setInvView(HmckInvGeneral(view));
     compositionPass.setInvProjection(HmckInvGeneral(projection));
     compositionPass.setShadowViewProj(shadowProjection * shadowView);
-    compositionPass.setSunDirection(lightDirection);
+    compositionPass.setSunDirection(cloudsPass.uniform.lightDirection);
     compositionPass.setSunColor(cloudsPass.uniform.lightColor);
     compositionPass.setAmbientColor(cloudsPass.uniform.skyColorZenith);
 }
@@ -421,7 +415,8 @@ void Renderer::render() {
             atmospherePass.recordCommands(commandBuffers.atmosphere[frame], frame);
             // Submit atmosphere command buffers
             frameManager.submitCommandBuffer<CommandQueueFamily::Compute>(
-                commandBuffers.atmosphere[frame], {}, {semaphores.atmosphereReady[frame]}, {});
+                commandBuffers.atmosphere[frame], {}, {semaphores.atmosphereReady[frame]},
+                {});
 
             // Geometry pass
             frameManager.beginCommandBuffer(commandBuffers.terrain[frame]);

@@ -75,7 +75,7 @@ void ::UserInterface::showDebugWindow() {
     ImGui::SeparatorText("Rendering");
     ImGui::DragInt("Max density samples", &cloudsPushConstant->DEBUG_maxSamples, 0.1f, 2, 2048);
     ImGui::DragInt("Max light density samples",  &cloudsPushConstant->DEBUG_maxLightSamples, 0.1f, 2, 64);
-    ImGui::DragInt("Large step multiplier",  &cloudsPushConstant->DEBUG_longStepMulti, 1, 1, 100);
+    ImGui::DragFloat("Large step multiplier",  &cloudsPushConstant->DEBUG_longStepMulti, 0.1f, 1.f, 5.0f);
     ImGui::DragInt("Cheap sample distance",  &cloudsPushConstant->DEBUG_cheapSampleDistance, 10, 0,
                    1000000);
     ImGui::Checkbox("Enable epic view", (bool *)  &cloudsPushConstant->DEBUG_epicView);
@@ -83,6 +83,7 @@ void ::UserInterface::showDebugWindow() {
     ImGui::SeparatorText("Debug views");
     ImGui::Checkbox("Early termination regions", (bool *)  &cloudsPushConstant->DEBUG_earlyTermination);
     ImGui::Checkbox("Late termination regions", (bool *)  &cloudsPushConstant->DEBUG_lateTermination);
+
     ImGui::End();
 }
 
@@ -100,7 +101,7 @@ void ::UserInterface::showEditorWindow() {
     ImGui::DragFloat("Absorption",  &cloudsPushConstant->absorption, 0.0001f, 0.0f, 1.0f, "%.7f");
 
     ImGui::SeparatorText("Phase");
-    ImGui::SliderFloat("Eccentricity",  &cloudsPushConstant->eccentricity, 0.f, 1.0f);
+    ImGui::SliderFloat("Eccentricity",  &cloudsPushConstant->eccentricity, -.99f, .99f);
     ImGui::SliderFloat("Intensity",  &cloudsPushConstant->intensity, 0.f, 5.0f);
     ImGui::SliderFloat("Spread",  &cloudsPushConstant->spread, 0.f, 1.0f);
 
@@ -114,14 +115,24 @@ void ::UserInterface::showEditorWindow() {
 
     ImGui::SeparatorText("Light");
     ImGui::ColorEdit3("Light color", &cloudsUniformBuffer->lightColor.Elements[0]);
-    ImGui::SliderFloat3("Light direction",&cloudsUniformBuffer->lightDirection.Elements[0], -1.0f, 1.0f);
+    static float sunA = 0.f, sunE = 75.f;
+    ImGui::SliderFloat("Sun azimuth", &sunA, 0.f, 360.f);
+    ImGui::SliderFloat("Sun elevation", &sunE, 0.f, 90.f);
+
+    float azimuth = HmckToRad(HmckAngleDeg(sunA));
+    float elevation = HmckToRad(HmckAngleDeg(sunE));
+
+    HmckVec3 sunDir;
+    // Correct mapping for azimuth (horizontal rotation) and elevation (vertical angle)
+    sunDir.X = cos(elevation) * sin(azimuth); // East-West component
+    sunDir.Y = sin(elevation);                // Up-Down component (zenith to horizon)
+    sunDir.Z = cos(elevation) * cos(azimuth); // North-South component
+
+    cloudsUniformBuffer->lightDirection = HmckVec4{HmckNorm(sunDir), 0.0f};
+
     ImGui::ColorEdit3("Zenith sky color", &cloudsUniformBuffer->skyColorZenith.Elements[0]);
     ImGui::SliderFloat("Sun light strength", &cloudsUniformBuffer->lightColor.Elements[0], 0.0f, 15.f);
     ImGui::SliderFloat("Ambient light strength",  &cloudsPushConstant->ambientStrength, 0.0f, 1.f);
-
-    ImGui::SeparatorText("Environment properties");
-    ImGui::SliderFloat("Time of day", &cloudsUniformBuffer->timeOfDay, 0.25f, 0.75f);
-
 
     ImGui::End();
 }
