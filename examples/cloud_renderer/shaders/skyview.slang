@@ -24,12 +24,11 @@ void marchStep(
     float3 eyeTrans = exp(-sumSigmaT - 0.5 * deltaSumSigmaT);
     
     float sunTheta = PI / 2 - acos(dot(params.SunDirection.xyz, normalize(posR)));
-    
-        float3 rho = evalPhaseFunction(h, phaseU);
-        float3 sunTrans = getTransmittance(Transmittance, h, sunTheta);
+    float3 rho = evalPhaseFunction(h, phaseU);
+    float3 sunTrans = getTransmittance(Transmittance, h, sunTheta);
 
-        inScattering += (nextT - thisT) * eyeTrans * sigmaS * rho * sunTrans;
-  
+    inScattering += (nextT - thisT) * eyeTrans * sigmaS * rho * sunTrans;
+ 
     float tx = h / (AtmosphereRadius - PlanetRadius);
     float ty = 0.5 + 0.5 * sin(sunTheta);
     float3 ms = MultipleScattering.SampleLevel(float2(tx, ty), 0.0).rgb;

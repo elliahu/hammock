@@ -79,7 +79,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
             float3 deltaSumSigmaT = dt * sigmaT;
             float3 eyeTrans = exp(-sumSigmaT - 0.5 * deltaSumSigmaT);
 
-            if(!hasIntersectionWithSphere(posR, -params.SunDirection.xyz, PlanetRadius))
+            if(!hasIntersectionWithSphere(posR, params.SunDirection.xyz, PlanetRadius))
             {
                 float3 shadowPos  = params.Eye.xyz + dir * midT;
                 float4 shadowClip = mul(float4(shadowPos, 1), data.ShadowViewProj);

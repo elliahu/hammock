@@ -351,9 +351,6 @@ float4 raymarch(uint2 threadId, float3 start, float3 end) {
             float currentTransmittance = exp(-density * currentStepSize * ABSORPTION);
             transmittance *= currentTransmittance;
 
-            //uint2 shadowIndex = clamp(uint2(frac(getUVProjection(p) * COVERAGE_REPEAT) * 512.0), uint2(0, 0), uint2(511, 511));
-            //shadowMap[shadowIndex] += (1.0 - currentTransmittance);
-
 
             // Early exit if fully opaque
             if (transmittance < 0.001) {
