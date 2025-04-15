@@ -54,7 +54,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
     float theta = sign(vm) * (PI / 2) * vm * vm;
     float sinTheta = sin(theta), cosTheta = cos(theta);
     
-    float3 ori = params.Eye.xyz;
+    float3 ori = WorldScale * params.Eye.xyz;
     float3 dir = float3(cos(phi) * cosTheta, sinTheta, sin(phi) * cosTheta);
     
     float2 planetOri = float2(0, ori.y + PlanetRadius);

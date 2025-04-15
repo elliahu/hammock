@@ -82,10 +82,10 @@ float4 terrainColor(float2 uv){
         float3 terrainWorldPos = reconstructWorldPosition(uv, depth, data.inverseProjection, data.inverseView, 0.1, 1000.0);
 
         // Compute terrain altitude (height above ground)
-        float terrainAltitude = terrainWorldPos.y;
+        float terrainAltitude = terrainWorldPos.y * WorldScale;
 
         // Sample the transmittance LUT
-        float4 ap = aerialLUT.SampleLevel(float3(uv, depth), 0.0);
+        float4 ap = aerialLUT.SampleLevel(float3(uv, depth * WorldScale), 0.0);
         float3 inScatter = ap.xyz; // Atmospheric in-scattering
         float eyeTransmittance = ap.w;
         float3 sunTransmittance = getTransmittance(transmittanceLUT, terrainAltitude, asin(data.sunDirection.y));
@@ -119,10 +119,10 @@ float3 skyColor(float2 uv){
     // Reconstruct the world space position
     float3 worldPos = reconstructWorldPosition(uv, cloudDepth, data.inverseProjection, data.inverseView, 0.1, 1000.0);
     // Compute the altitude of the clouds
-    float cloudAltitude = worldPos.y;
+    float cloudAltitude = worldPos.y * WorldScale;
 
     // Sample the transmittance LUT
-    float4 ap = aerialLUT.SampleLevel(float3(uv, cloudDepth), 0.0);
+    float4 ap = aerialLUT.SampleLevel(float3(uv, cloudDepth * WorldScale), 0.0);
     float3 inScatter = ap.xyz; // Atmospheric in-scattering
     float eyeTransmittance = ap.w;
     float3 sunTransmittance = getTransmittance(transmittanceLUT, cloudAltitude, asin(data.sunDirection.y));
@@ -145,6 +145,9 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
     float2 previewPos = float2(0.8, 0.0);  // Top-right corner
 
     bool showPreview = all(screenUV >= previewPos) && all(screenUV <= (previewPos + previewSize));
+#ifndef DEBUG
+    showPreview = false;
+#endif
 
     if (showPreview) {
         // Map screenUV to shadow map UV
