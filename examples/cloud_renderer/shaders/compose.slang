@@ -92,7 +92,7 @@ float4 terrainColor(float2 uv){
 
         float shadowFactor = calculateShadow(terrainWorldPos);
 
-        color *= shadowFactor * sunTransmittance * eyeTransmittance;
+        color *= (max(0.25, shadowFactor)) * sunTransmittance * eyeTransmittance;
         color += inScatter;
     }
 
@@ -108,14 +108,28 @@ float3 skyColor(float2 uv){
     float3 ambientLight = cloudColor.g * data.ambientColor.rgb;
     float3 cloudIntensity = directLight + ambientLight;
     float cloudAlpha = cloudColor.a;
-   
-
+    float cloudDepth = cloudColor.b;
 
     // Sample sky color
     float4 skyColor = skyColorImage.SampleLevel(uv, 0.0);
 
     // Blend
     float3 color = blend(skyColor.rgb, cloudIntensity, cloudAlpha);
+
+    // Reconstruct the world space position
+    float3 worldPos = reconstructWorldPosition(uv, cloudDepth, data.inverseProjection, data.inverseView, 0.1, 1000.0);
+    // Compute the altitude of the clouds
+    float cloudAltitude = worldPos.y;
+
+    // Sample the transmittance LUT
+    float4 ap = aerialLUT.SampleLevel(float3(uv, cloudDepth), 0.0);
+    float3 inScatter = ap.xyz; // Atmospheric in-scattering
+    float eyeTransmittance = ap.w;
+    float3 sunTransmittance = getTransmittance(transmittanceLUT, cloudAltitude, asin(data.sunDirection.y));
+
+    color *= sunTransmittance * eyeTransmittance;
+    color += inScatter;
+
     return color;
 }
 

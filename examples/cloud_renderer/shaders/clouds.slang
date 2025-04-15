@@ -480,7 +480,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     // Encode depth into the result
     float3 pixelWorldPos = start;
-    clouds.b = remap(distance(pixelWorldPos, EYE), 0.0, CLOUDS_BOTTOM_RADIUS, 1.0, 0.0);
+    clouds.b = saturate(remap(distance(pixelWorldPos, EYE), 0.0, CLOUDS_BOTTOM_RADIUS, 1.0, 0.0));
 
     // Store the final value
     cloudsStorageImage[pixelCoord.xy] = clouds;
