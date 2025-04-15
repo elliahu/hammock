@@ -2,6 +2,8 @@
 #include "../IRenderGroup.h"
 #include "../Types.h"
 
+#define DEPTH_BIAS_CONSTANT 1.25f
+#define DEPTH_BIAS_SLOPE 1.75f
 
 /**
  * This pass generates two depth images

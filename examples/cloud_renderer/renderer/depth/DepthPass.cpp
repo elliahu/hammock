@@ -43,6 +43,8 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     VkRect2D scissor{0, 0, renderingExtent.width, renderingExtent.height};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    vkCmdSetDepthBias(commandBuffer, DEPTH_BIAS_CONSTANT,0.0f, DEPTH_BIAS_SLOPE);
+
     linearDepthPipeline->bind(commandBuffer);
 
     // Bind triangle vertex buffer (contains position and colors)
@@ -76,8 +78,6 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
 
     // Scissors
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    linearDepthPipeline->bind(commandBuffer);
 
     // Bind triangle vertex buffer (contains position and colors)
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer->m_buffer, offsets);

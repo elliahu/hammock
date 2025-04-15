@@ -157,7 +157,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
     } else {
         // Jitter
         float2 bn = blueNoise.SampleLevel(float2(1.0 / 128.0 * data.resX, 1.0 / 128.0 * data.resY), 0.0).xy;
-        float2 offset = 1.0 * bn.x * float2(cos(2 * PI * bn.y), sin(2 * PI * bn.y));
+        float2 offset = 1.5 * bn.x * float2(cos(2 * PI * bn.y), sin(2 * PI * bn.y));
 
         float4 terrainColorSample = terrainColor(input.uv, offset);
         output.color = terrainColorSample;
