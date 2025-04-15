@@ -1,6 +1,5 @@
 import toolbox;
 
-#define MAX_DISTANCE 2000.0
 #define PER_SLICE_SAMPLES 1
 
 
@@ -49,7 +48,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
         findClosestIntersectionWithSphere(ori + float3(0, PlanetRadius, 0), dir, AtmosphereRadius, maxT);
     }
 
-    float sliceDepth = MAX_DISTANCE / depth;
+    float sliceDepth = MaxDistance / depth;
     float halfSliceDepth = 0.5 * sliceDepth;
     float tBeg = 0, tEnd = min(halfSliceDepth, maxT);
 

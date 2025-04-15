@@ -69,7 +69,7 @@ float calculateShadow(float3 worldPos) {
     return fragmentDepthInLightSpace - bias > shadowMapDepth ? 0.0 : 1.0;
 }
 
-float4 terrainColor(float2 uv){
+float4 terrainColor(float2 uv, float2 jitter) {
     // Sample the terrain
     float4 terrainColor = terrainColorImage.SampleLevel(float2(uv.x, uv.y), 0.0);
     float3 color = terrainColor.rgb;
@@ -85,7 +85,7 @@ float4 terrainColor(float2 uv){
         float terrainAltitude = terrainWorldPos.y * WorldScale;
 
         // Sample the transmittance LUT
-        float4 ap = aerialLUT.SampleLevel(float3(uv, depth * WorldScale), 0.0);
+        float4 ap = aerialLUT.SampleLevel(float3(uv + jitter, depth * WorldScale), 0.0);
         float3 inScatter = ap.xyz; // Atmospheric in-scattering
         float eyeTransmittance = ap.w;
         float3 sunTransmittance = getTransmittance(transmittanceLUT, terrainAltitude, asin(data.sunDirection.y));
@@ -99,7 +99,7 @@ float4 terrainColor(float2 uv){
     return float4(color, terrainColor.a);
 }
 
-float3 skyColor(float2 uv){
+float3 skyColor(float2 uv, float2 jitter){
     // Sample cloud color
     float4 cloudColor = cloudsColorImage.SampleLevel(uv, 0.0);
     // R channel stores direct light intensity
@@ -122,7 +122,7 @@ float3 skyColor(float2 uv){
     float cloudAltitude = worldPos.y * WorldScale;
 
     // Sample the transmittance LUT
-    float4 ap = aerialLUT.SampleLevel(float3(uv, cloudDepth * WorldScale), 0.0);
+    float4 ap = aerialLUT.SampleLevel(float3(uv + jitter, cloudDepth * WorldScale), 0.0);
     float3 inScatter = ap.xyz; // Atmospheric in-scattering
     float eyeTransmittance = ap.w;
     float3 sunTransmittance = getTransmittance(transmittanceLUT, cloudAltitude, asin(data.sunDirection.y));
@@ -155,11 +155,15 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
         float depth = sunShadow.SampleLevel(shadowUV, 0.0).r;
         output.color = float4(depth.xxx, 1.0); // grayscale
     } else {
-        float4 terrainColorSample = terrainColor(input.uv);
+        // Jitter
+        float2 bn = blueNoise.SampleLevel(float2(1.0 / 128.0 * data.resX, 1.0 / 128.0 * data.resY), 0.0).xy;
+        float2 offset = 1.0 * bn.x * float2(cos(2 * PI * bn.y), sin(2 * PI * bn.y));
+
+        float4 terrainColorSample = terrainColor(input.uv, offset);
         output.color = terrainColorSample;
 
         if (terrainColorSample.a < 1.0) {
-            output.color = float4(skyColor(input.uv), 1.0);
+            output.color = float4(skyColor(input.uv, offset), 1.0);
         }
     }
 
