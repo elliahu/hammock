@@ -93,9 +93,9 @@ public:
         HmckVec3 nearCenter = HmckAdd(position, HmckMul(forward, znear));
 
         // Calculate direction vectors from the camera position to each corner of the near plane.
-        HmckVec3 topLeftDir = HmckSub(HmckAdd(nearCenter, HmckSub(HmckMul(up, halfHeight), HmckMul(right, halfWidth))), position);
+        HmckVec3 topLeftDir = HmckSub(HmckAdd(nearCenter, HmckAdd(HmckMul(up, halfHeight), HmckMul(right, -halfWidth))), position);
         HmckVec3 topRightDir = HmckSub(HmckAdd(nearCenter, HmckAdd(HmckMul(up, halfHeight), HmckMul(right, halfWidth))), position);
-        HmckVec3 bottomLeftDir = HmckSub(HmckAdd(nearCenter, HmckSub(HmckMul(up, -halfHeight), HmckMul(right, halfWidth))), position);
+        HmckVec3 bottomLeftDir = HmckSub(HmckAdd(nearCenter, HmckAdd(HmckMul(up, -halfHeight), HmckMul(right, -halfWidth))), position);
         HmckVec3 bottomRightDir = HmckSub(HmckAdd(nearCenter, HmckAdd(HmckMul(up, -halfHeight), HmckMul(right, halfWidth))), position);
 
         // Normalize the corner directions.

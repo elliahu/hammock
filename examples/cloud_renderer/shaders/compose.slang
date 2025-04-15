@@ -108,6 +108,7 @@ float3 skyColor(float2 uv){
     float3 ambientLight = cloudColor.g * data.ambientColor.rgb;
     float3 cloudIntensity = directLight + ambientLight;
     float cloudAlpha = cloudColor.a;
+   
 
 
     // Sample sky color

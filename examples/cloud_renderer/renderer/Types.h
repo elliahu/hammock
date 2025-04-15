@@ -60,8 +60,12 @@ struct CloudsPushConstantData {
 
 // Atmospheric pass data
 struct AtmosphereUniformBufferData {
+    HmckMat4 inverseProjection;
+    HmckMat4 inverseView;
     HmckVec4 eye;
     HmckVec4 sunDirection;
+    float resX;
+    float resY;
 };
 
 // Data for post process pass passed as push constant block

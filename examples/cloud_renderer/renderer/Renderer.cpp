@@ -296,6 +296,9 @@ void Renderer::update() {
 
     HmckMat4 projection = camera.getProjection();
     HmckMat4 view = camera.getView();
+    HmckMat4 inverseProjection = HmckInvGeneral(projection);
+    HmckMat4 inverseView = HmckInvGeneral(view);
+    Camera::FrustumDirections frustum = camera.getFrustumDirections();
 
     // Update cloud pass
     cloudsPass.setProjection(projection);
@@ -310,7 +313,6 @@ void Renderer::update() {
     if (progressTime) {
         cloudsPass.uniform.time = elapsedTime;
     }
-    ;
 
     float azimuthRadians = HmckToRad(HmckAngleDeg(45.0f));
     cloudsPass.uniform.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};
@@ -335,9 +337,11 @@ void Renderer::update() {
 
     HmckMat4 shadowProjection = Projection().orthographic(-120.0, 120.0, 120.0, -120.0, camera.znear, camera.zfar, true);
     HmckMat4 shadowView = HmckLookAt_RH(cloudsPass.uniform.lightDirection.XYZ * 200.0, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+    HmckMat4 shadowViewProjection = shadowProjection * shadowView;
 
-    atmospherePass.setShadowViewProjection(shadowProjection * shadowView);
-    Camera::FrustumDirections frustum = camera.getFrustumDirections();
+    atmospherePass.setShadowViewProjection(shadowViewProjection);
+    atmospherePass.setCameraInverseProjection(inverseProjection);
+    atmospherePass.setCameraInverseView(inverseView);
     atmospherePass.setCameraFrustum(
         HmckVec4{frustum.frustumA, 0.0f},
         HmckVec4{frustum.frustumB, 0.0f},
@@ -352,9 +356,9 @@ void Renderer::update() {
     depthPass.setSunProjection(shadowProjection);
     depthPass.setSunView(shadowView);
 
-    compositionPass.setInvView(HmckInvGeneral(view));
-    compositionPass.setInvProjection(HmckInvGeneral(projection));
-    compositionPass.setShadowViewProj(shadowProjection * shadowView);
+    compositionPass.setInvView(inverseView);
+    compositionPass.setInvProjection(inverseProjection);
+    compositionPass.setShadowViewProj(shadowViewProjection);
     compositionPass.setSunDirection(cloudsPass.uniform.lightDirection);
     compositionPass.setSunColor(cloudsPass.uniform.lightColor);
     compositionPass.setAmbientColor(cloudsPass.uniform.skyColorZenith);

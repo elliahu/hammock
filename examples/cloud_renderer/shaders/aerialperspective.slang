@@ -1,6 +1,6 @@
 import toolbox;
 
-#define MAX_DISTANCE 60000.0
+#define MAX_DISTANCE 2000.0
 #define PER_SLICE_SAMPLES 1
 
 
@@ -12,13 +12,17 @@ import toolbox;
 
 struct Data{
     float4x4 ShadowViewProj;
-    float3 FrustumA;
-    float3 FrustumB;
-    float3 FrustumC;
-    float3 FrustumD;
+    float4 frustumA, frustumB, frustumC, frustumD;
 }
 
 [vk_push_constant] Data data;
+
+float3 GetRayDir(float2 uv) {
+    // Bilinear interpolation between the 4 frustum corners
+    float3 topDir = lerp(data.frustumD.xyz, data.frustumC.xyz, uv.x);
+    float3 bottomDir = lerp(data.frustumB.xyz, data.frustumA.xyz, uv.x);
+    return normalize(lerp(bottomDir, topDir, uv.y));
+}
 
 [shader("compute")]
 [numthreads(8, 8, 1)]
@@ -32,20 +36,17 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
     float xf = (threadIdx.x + 0.5) / width;
     float yf = (threadIdx.y + 0.5) / height;
 
-    float AtmosEyeHeight = params.Eye.y;
+    float AtmosEyeHeight = WorldScale *  params.Eye.y;
 
     float3 ori = float3(0, AtmosEyeHeight, 0);
-    float3 dir = normalize(lerp(
-        lerp(data.FrustumA, data.FrustumB, xf), lerp(data.FrustumC, data.FrustumD, xf), yf));
+    float3 dir = GetRayDir(float2(xf, yf));
 
-    float u = dot(params.SunDirection.xyz, dir);
+    float u = dot(normalize(params.SunDirection.xyz), dir);
 
     float maxT = 0;
-    if(!findClosestIntersectionWithSphere(
-        ori + float3(0, PlanetRadius, 0), dir, PlanetRadius, maxT))
+    if(!findClosestIntersectionWithSphere(ori + float3(0, PlanetRadius, 0), dir, PlanetRadius, maxT))
     {
-        findClosestIntersectionWithSphere(
-            ori + float3(0, PlanetRadius, 0), dir, AtmosphereRadius, maxT);
+        findClosestIntersectionWithSphere(ori + float3(0, PlanetRadius, 0), dir, AtmosphereRadius, maxT);
     }
 
     float sliceDepth = MAX_DISTANCE / depth;
@@ -71,7 +72,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
             float3 posR = float3(0, ori.y + PlanetRadius, 0) + dir * midT;
             float  h    = length(posR) -PlanetRadius;
 
-            float SunTheta = PI/2 - acos(dot(params.SunDirection.xyz, normalize(posR)));
+            float SunTheta = asin(params.SunDirection.y);
 
             float3 sigmaS, sigmaT;
             getSigmaST(h, sigmaS, sigmaT);
@@ -81,7 +82,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
 
             if(!hasIntersectionWithSphere(posR, params.SunDirection.xyz, PlanetRadius))
             {
-                float3 shadowPos  = params.Eye.xyz + dir * midT;
+                float3 shadowPos  = params.Eye.xyz + dir * midT / WorldScale;
                 float4 shadowClip = mul(data.ShadowViewProj, float4(shadowPos, 1.0));
                 float3 shadowNDC  = shadowClip.xyz / shadowClip.w;
                 float2 shadowUV = shadowNDC.xy * 0.5 + 0.5;
@@ -90,23 +91,22 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
                 if(all(saturate(shadowUV) == shadowUV))
                 {
                     float rayZ = shadowClip.z;
-                    float smZ = ShadowMap.SampleLevel(float2(shadowUV.x, 1.0 - shadowUV.y), 0).r;
+                    float smZ = ShadowMap.SampleLevel(shadowUV, 0.0).r;
                     inShadow = rayZ >= smZ;
                 }
 
                 if(!inShadow)
                 {
                     float3 rho = evalPhaseFunction(h, u);
-                    float3 sunTrans = getTransmittance(
-                        Transmittance, h, SunTheta);
+                    float3 sunTrans = getTransmittance(Transmittance, h, SunTheta);
                     inScatter += dt * eyeTrans * sigmaS * rho * sunTrans;
                 }
             }
 
-                float tx = h / (AtmosphereRadius - PlanetRadius);
-                float ty = 0.5 + 0.5 * sin(SunTheta);
-                float3 ms = MultipleScattering.SampleLevel( float2(tx, ty), 0).rgb;
-                inScatter += dt * eyeTrans * sigmaS * ms;
+            float tx = h / (AtmosphereRadius - PlanetRadius);
+            float ty = 0.5 + 0.5 * sin(SunTheta);
+            float3 ms = MultipleScattering.SampleLevel( float2(tx, ty), 0).rgb;
+            inScatter += dt * eyeTrans * sigmaS * ms;
             
 
             sumSigmaT += deltaSumSigmaT;
@@ -115,7 +115,6 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
 
         float transmittance = relativeLuminance(exp(-sumSigmaT));
         AerialPerspective[int3(threadIdx.xy, z)] = float4(inScatter, transmittance);
-       // AerialPerspective[int3(threadIdx.xy, z)] = float4(dir, transmittance);
 
         tBeg = tEnd;
         tEnd = min(tEnd + sliceDepth, maxT);
