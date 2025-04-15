@@ -68,6 +68,8 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
 
+    depthPipeline->bind(commandBuffer);
+
     // sun depth
     renderingInfo.pDepthAttachment = &sunDepthTarget;
 
@@ -89,7 +91,7 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
         Geometry::MeshInstance &mesh = geometry.renderMeshes[i];
         HmckMat4 mvp = sunProjection * sunView * mesh.transform;
 
-        vkCmdPushConstants(commandBuffer, linearDepthPipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+        vkCmdPushConstants(commandBuffer, depthPipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(HmckMat4), &mvp);
 
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.firstIndex, 0,

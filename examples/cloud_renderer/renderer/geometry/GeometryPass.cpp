@@ -52,7 +52,6 @@ void GeometryPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameI
 
     colorAndDepthPipeline->bind(commandBuffer);
 
-
     // Bind triangle vertex buffer (contains position and colors)
     VkDeviceSize offsets[1]{0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer->m_buffer, offsets);
@@ -86,7 +85,7 @@ void GeometryPass::prepareTargets(uint32_t width, uint32_t height) {
             .width = width,
             .height = height,
             .channels = 4,
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
             .imageType = VK_IMAGE_TYPE_2D,
             .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -113,17 +112,20 @@ void GeometryPass::prepareTargets(uint32_t width, uint32_t height) {
     );
     // Set initial layout
     resourceManager.getResource<Image>(depth)->queueImageLayoutTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    sampler = resourceManager.createResource<Sampler>("geometry-sampler", SamplerDesc{});
 }
 
 void GeometryPass::preparePipelines() {
-   colorAndDepthPipeline = GraphicsPipeline::create({
+    colorAndDepthPipeline = GraphicsPipeline::create({
         .debugName = "terrain-color-and-depth-pipeline",
         .device = device,
         .vertexShader
         {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("terrain.vert")),},
         .fragmentShader
         {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("terrain.frag")),},
-        .descriptorSetLayouts = {},
+        .descriptorSetLayouts = {
+        },
         .pushConstantRanges{{VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GeometryPushConstantData)}},
         .graphicsState{
             .vertexBufferBindings{

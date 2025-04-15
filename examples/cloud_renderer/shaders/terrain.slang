@@ -62,7 +62,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
 
     float3 lightColor = terrainData.lightColor.rgb;
     float3 ambientLightColor = terrainData.ambientLightColor.rgb;
-    float3 albedo = float3(0.1); 
+    float3 albedo = float3(0.08); 
 
     float3 diffuse = albedo * lightColor * NdotL;
     float3 ambient = albedo * ambientLightColor;

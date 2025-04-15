@@ -28,6 +28,8 @@ public:
 private:
     GeometryPushConstantData shaderData;
     HmckMat4 view, projection;
+
+
     // Buffers
     Buffer *vertexBuffer;
     Buffer *indexBuffer;
@@ -37,11 +39,12 @@ private:
     // Pipelines
     std::unique_ptr<GraphicsPipeline> colorAndDepthPipeline;
 
+
     // Targets
     ResourceHandle depth;
     ResourceHandle color;
+    ResourceHandle sampler;
 
     void prepareTargets(uint32_t width, uint32_t height);
-
     void preparePipelines();
 };

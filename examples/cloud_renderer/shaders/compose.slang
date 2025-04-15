@@ -64,10 +64,31 @@ float calculateShadow(float3 worldPos) {
 
     float fragmentDepthInLightSpace = lightClipPos.z / lightClipPos.w;
 
-    // If your shadow map stores linear view-space depth:
-    float bias = 0.005;
-    return fragmentDepthInLightSpace - bias > shadowMapDepth ? 0.0 : 1.0;
+    float shadow = 0.0;
+    float bias = 0.01; // Adjust bias to avoid shadow acne
+    float2 texelSize = 1.0 / float2(data.resX, data.resY);
+    
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float2 offset = float2(x, y) * texelSize;
+            float depth = sunShadow.SampleLevel(shadowUV + offset, 0.0).r;
+            shadow += fragmentDepthInLightSpace > depth + bias ? 0.0 : 1.0;
+        }
+    }
+    
+    return shadow / 9.0;
 }
+
+float3 postProcessColor(float2 seed, float3 input)
+{
+    float rand = frac(sin(dot(
+        seed, float2(12.9898, 78.233) * 2.0)) * 43758.5453);
+    input = 255 * saturate(pow(input, 1));
+    input = rand.xxx < (input - floor(input)) ? ceil(input) : floor(input);
+
+    return input / 255;
+}
+
 
 float4 terrainColor(float2 uv, float2 jitter) {
     // Sample the terrain
@@ -79,7 +100,7 @@ float4 terrainColor(float2 uv, float2 jitter) {
         float depth = terrainDepthImage.SampleLevel(float2(uv.x, uv.y), 0.0).r;
 
         // Compute terrain world position
-        float3 terrainWorldPos = reconstructWorldPosition(uv, depth, data.inverseProjection, data.inverseView, 0.1, 1000.0);
+        float3 terrainWorldPos = reconstructWorldPosition(uv, depth, data.inverseProjection, data.inverseView, 0.1, 300.0);
 
         // Compute terrain altitude (height above ground)
         float terrainAltitude = terrainWorldPos.y * WorldScale;
@@ -96,7 +117,7 @@ float4 terrainColor(float2 uv, float2 jitter) {
         color += inScatter;
     }
 
-    return float4(color, terrainColor.a);
+    return float4(postProcessColor(uv, color), terrainColor.a);
 }
 
 float3 skyColor(float2 uv, float2 jitter){
@@ -117,7 +138,7 @@ float3 skyColor(float2 uv, float2 jitter){
     float3 color = blend(skyColor.rgb, cloudIntensity, cloudAlpha);
 
     // Reconstruct the world space position
-    float3 worldPos = reconstructWorldPosition(uv, cloudDepth, data.inverseProjection, data.inverseView, 0.1, 1000.0);
+    float3 worldPos = reconstructWorldPosition(uv, cloudDepth, data.inverseProjection, data.inverseView, 0.1, 300.0);
     // Compute the altitude of the clouds
     float cloudAltitude = worldPos.y * WorldScale;
 
@@ -130,7 +151,7 @@ float3 skyColor(float2 uv, float2 jitter){
     color *= sunTransmittance * eyeTransmittance;
     color += inScatter;
 
-    return color;
+    return postProcessColor(uv, color);
 }
 
 [shader("pixel")]
@@ -155,15 +176,13 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
         float depth = sunShadow.SampleLevel(shadowUV, 0.0).r;
         output.color = float4(depth.xxx, 1.0); // grayscale
     } else {
-        // Jitter
-        float2 bn = blueNoise.SampleLevel(float2(1.0 / 128.0 * data.resX, 1.0 / 128.0 * data.resY), 0.0).xy;
-        float2 offset = 1.5 * bn.x * float2(cos(2 * PI * bn.y), sin(2 * PI * bn.y));
+        float2 blueNoiseOffset = (blueNoise.SampleLevel(fragCoord.xy % 256.0 / 256.0, 0.0).xy - 0.5) / float2(data.resX, data.resY);
 
-        float4 terrainColorSample = terrainColor(input.uv, offset);
+        float4 terrainColorSample = terrainColor(input.uv, blueNoiseOffset);
         output.color = terrainColorSample;
 
         if (terrainColorSample.a < 1.0) {
-            output.color = float4(skyColor(input.uv, offset), 1.0);
+            output.color = float4(skyColor(input.uv, blueNoiseOffset), 1.0);
         }
     }
 
