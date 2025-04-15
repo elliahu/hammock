@@ -43,7 +43,7 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     VkRect2D scissor{0, 0, renderingExtent.width, renderingExtent.height};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    pipeline->bind(commandBuffer);
+    linearDepthPipeline->bind(commandBuffer);
 
     // Bind triangle vertex buffer (contains position and colors)
     VkDeviceSize offsets[1]{0};
@@ -56,7 +56,7 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
         Geometry::MeshInstance &mesh = geometry.renderMeshes[i];
         HmckMat4 mvp = cameraProjection * cameraView * mesh.transform;
 
-        vkCmdPushConstants(commandBuffer, pipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+        vkCmdPushConstants(commandBuffer, linearDepthPipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(HmckMat4), &mvp);
 
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.firstIndex, 0,
@@ -77,7 +77,7 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     // Scissors
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    pipeline->bind(commandBuffer);
+    linearDepthPipeline->bind(commandBuffer);
 
     // Bind triangle vertex buffer (contains position and colors)
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer->m_buffer, offsets);
@@ -89,7 +89,7 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
         Geometry::MeshInstance &mesh = geometry.renderMeshes[i];
         HmckMat4 mvp = sunProjection * sunView * mesh.transform;
 
-        vkCmdPushConstants(commandBuffer, pipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+        vkCmdPushConstants(commandBuffer, linearDepthPipeline->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(HmckMat4), &mvp);
 
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.firstIndex, 0,
@@ -148,8 +148,8 @@ void DepthPass::prepareTargets(uint32_t width, uint32_t height) {
 }
 
 void DepthPass::preparePipelines() {
-    pipeline = GraphicsPipeline::create({
-        .debugName = "terrain-color-and-depth-pipeline",
+    depthPipeline = GraphicsPipeline::create({
+        .debugName = "depth-pipeline",
         .device = device,
         .vertexShader
         {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("depth.vert")),},
@@ -158,6 +158,31 @@ void DepthPass::preparePipelines() {
         .descriptorSetLayouts = {},
         .pushConstantRanges{{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(HmckMat4)}},
         .graphicsState{
+            .cullMode = VK_CULL_MODE_NONE,
+            .vertexBufferBindings{
+                .vertexBindingDescriptions = Vertex::vertexInputBindingDescriptions(),
+                .vertexAttributeDescriptions = Vertex::vertexInputAttributeDescriptions(),
+            }
+        },
+        .dynamicRendering = {
+            .enabled = true,
+            .colorAttachmentCount = 0,
+            .colorAttachmentFormats = {},
+            .depthAttachmentFormat = resourceManager.getResource<Image>(sunDepth)->getFormat(),
+        }
+    });
+
+    linearDepthPipeline = GraphicsPipeline::create({
+        .debugName = "linear-depth-pipeline",
+        .device = device,
+        .vertexShader
+        {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("depth.vert")),},
+        .fragmentShader
+        {.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("linear_depth.frag")),},
+        .descriptorSetLayouts = {},
+        .pushConstantRanges{{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(HmckMat4)}},
+        .graphicsState{
+            .cullMode = VK_CULL_MODE_NONE,
             .vertexBufferBindings{
                 .vertexBindingDescriptions = Vertex::vertexInputBindingDescriptions(),
                 .vertexAttributeDescriptions = Vertex::vertexInputAttributeDescriptions(),

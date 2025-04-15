@@ -82,9 +82,9 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
             if(!hasIntersectionWithSphere(posR, params.SunDirection.xyz, PlanetRadius))
             {
                 float3 shadowPos  = params.Eye.xyz + dir * midT;
-                float4 shadowClip = mul(float4(shadowPos, 1), data.ShadowViewProj);
-                float2 shadowNDC  = shadowClip.xy / shadowClip.w;
-                float2 shadowUV   = 0.5 + float2(0.5, -0.5) * shadowNDC;
+                float4 shadowClip = mul(data.ShadowViewProj, float4(shadowPos, 1.0));
+                float3 shadowNDC  = shadowClip.xyz / shadowClip.w;
+                float2 shadowUV = shadowNDC.xy * 0.5 + 0.5;
 
                 bool inShadow = true;
                 if(all(saturate(shadowUV) == shadowUV))
@@ -115,7 +115,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
 
         float transmittance = relativeLuminance(exp(-sumSigmaT));
         AerialPerspective[int3(threadIdx.xy, z)] = float4(inScatter, transmittance);
-        //AerialPerspective[int3(threadIdx.xy, z)] = float4(dir, transmittance);
+       // AerialPerspective[int3(threadIdx.xy, z)] = float4(dir, transmittance);
 
         tBeg = tEnd;
         tEnd = min(tEnd + sliceDepth, maxT);

@@ -30,6 +30,16 @@ VSOutput vertexMain(VSInput input) {
 }
 
 [shader("pixel")]
-void pixelMain(VSOutput input) {
+void pixelDepth(VSOutput input, out float depth : SV_Depth) {
     
+}
+
+
+[shader("pixel")]
+void pixelLinearDepth(VSOutput input, out float depth : SV_Depth) {
+    // Manually set depth to the view-space Z value
+    float viewSpaceZ = input.position.z;  // This is the Z value in view space (camera space)
+
+    // Manually write to the depth buffer using SV_Depth
+    depth = viewSpaceZ;
 }

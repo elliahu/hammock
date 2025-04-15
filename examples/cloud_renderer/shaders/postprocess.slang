@@ -118,7 +118,7 @@ float3 postProcessColor(float2 seed, float3 input)
 [shader("pixel")]
 PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     PixelOutput output;
-    float3 color = compositionImage.SampleLevel(input.uv, 0.0).rgb;
+    float3 color = compositionImage.SampleLevel(float2(input.uv.x, 1.0 - input.uv.y), 0.0).rgb;
     float3 graded =  postProcessColor(input.uv, color);
 
      // Apply contrast and brightness

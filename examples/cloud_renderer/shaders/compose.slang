@@ -30,21 +30,73 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     return output;
 }
 
-float3 reconstructWorldPosition(float2 uv, float depth, float4x4 invProj, float4x4 invView) {
-    // Convert UV to clip space (NDC: -1 to 1 range)
-    float2 clipSpace = uv * 2.0 - 1.0;
+float3 reconstructWorldPosition(float2 uv, float depth, float4x4 invProj, float4x4 invView, float near, float far) {
+    // The depth is already in linear space, directly using the depth value.
+    // Reconstruct view-space Z from the linear depth value
+    float zView = near + depth * (far - near);
 
-    // Reconstruct clip space position (homogeneous coordinates)
-    float4 clipPosition = float4(clipSpace, depth, 1.0);
+    // Convert UV to NDC [-1, 1] space
+    float2 ndc = uv * 2.0 - 1.0;
 
-    // Transform to view space
-    float4 viewPosition = mul(invProj, clipPosition);
-    viewPosition.xyz /= viewPosition.w; // Perspective divide
+    // Reconstruct homogeneous clip-space position (Z value from depth, W = 1)
+    float4 clipPos = float4(ndc, depth, 1.0);
 
-    // Transform to world space
-    float4 worldPosition = mul(invView, viewPosition);
+    // Convert from clip space to view space using the inverse projection matrix
+    float4 viewPos = mul(invProj, clipPos);
+    viewPos /= viewPos.w;  // Perform the perspective divide
 
-    return worldPosition.xyz;
+    // Convert from view space to world space using the inverse view matrix
+    float4 worldPos = mul(invView, viewPos);
+
+    return worldPos.xyz;
+}
+
+
+float calculateShadow(float3 worldPos) {
+    float4 lightClipPos = mul(data.shadowViewProj, float4(worldPos, 1.0));
+    float3 ndc = lightClipPos.xyz / lightClipPos.w;
+    float2 shadowUV = ndc.xy * 0.5 + 0.5;
+
+    if (any(shadowUV < 0.0) || any(shadowUV > 1.0))
+        return 1.0;
+
+    float shadowMapDepth = sunShadow.SampleLevel(shadowUV, 0.0).r;
+
+    float fragmentDepthInLightSpace = lightClipPos.z / lightClipPos.w;
+
+    // If your shadow map stores linear view-space depth:
+    float bias = 0.005;
+    return fragmentDepthInLightSpace - bias > shadowMapDepth ? 0.0 : 1.0;
+}
+
+float4 terrainColor(float2 uv){
+    // Sample the terrain
+    float4 terrainColor = terrainColorImage.SampleLevel(float2(uv.x, uv.y), 0.0);
+    float3 color = terrainColor.rgb;
+
+    if (terrainColor.a == 1.0){
+        // Sample the depth buffer
+        float depth = terrainDepthImage.SampleLevel(float2(uv.x, uv.y), 0.0).r;
+
+        // Compute terrain world position
+        float3 terrainWorldPos = reconstructWorldPosition(uv, depth, data.inverseProjection, data.inverseView, 0.1, 1000.0);
+
+        // Compute terrain altitude (height above ground)
+        float terrainAltitude = terrainWorldPos.y;
+
+        // Sample the transmittance LUT
+        float4 ap = aerialLUT.SampleLevel(float3(uv, depth), 0.0);
+        float3 inScatter = ap.xyz; // Atmospheric in-scattering
+        float eyeTransmittance = ap.w;
+        float3 sunTransmittance = getTransmittance(transmittanceLUT, terrainAltitude, asin(data.sunDirection.y));
+
+        float shadowFactor = calculateShadow(terrainWorldPos);
+
+        color *= shadowFactor * sunTransmittance * eyeTransmittance;
+        color += inScatter;
+    }
+
+    return float4(color, terrainColor.a);
 }
 
 float3 skyColor(float2 uv){
@@ -66,62 +118,32 @@ float3 skyColor(float2 uv){
     return color;
 }
 
-float4 terrainColor(float2 uv){
-    // Sample the terrain
-    float4 terrainColor = terrainColorImage.SampleLevel(float2(uv.x, uv.y), 0.0);
-    float3 color = terrainColor.rgb;
-    return float4(color, terrainColor.a);
-
-    if (terrainColor.a == 1.0){
-        // Sample the depth buffer
-        float depth = terrainDepthImage.SampleLevel(float2(uv.x, uv.y), 0.0).r;
-
-        // Compute terrain world position
-        float3 terrainWorldPos = reconstructWorldPosition(uv, depth, data.inverseProjection, data.inverseView);
-
-         // Compute terrain altitude (height above ground)
-        float terrainAltitude = terrainWorldPos.y;
-
-        // Sample aerial perspective LUT (assume Z is depth remapped for the LUT)
-        float4 ap = aerialLUT.SampleLevel(float3(uv, depth), 0.0);
-        float3 inScatter = ap.xyz; // Atmospheric in-scattering
-        float eyeTransmittance = ap.w;
-
-        // Compute sun angle for transmittance LUT
-        float3 sunTransmittance = getTransmittance(transmittanceLUT, terrainAltitude, asin(data.sunDirection.y));
-
-        float4 shadowClip = mul(float4(terrainWorldPos, 1), data.shadowViewProj);
-        float2 shadowNDC = shadowClip.xy / shadowClip.w;
-        float2 shadowUV = 0.5 + float2(0.5, -0.5) * shadowNDC;
-
-        float shadowFactor = 1;
-        if(all(saturate(shadowUV) == shadowUV))
-        {
-            float shadedDepth = shadowClip.z;
-            float sampledDepth = sunShadow.SampleLevel(shadowUV, 0.0).r;
-            shadowFactor = shadedDepth <= sampledDepth;
-        }
-
-        color *= shadowFactor * sunTransmittance * eyeTransmittance;
-        color += inScatter;
-    }
-
-    return float4(color, terrainColor.a);
-}
-
-
-
 [shader("pixel")]
-PixelOutput pixelMain(VertexOutput input, float4 fragCoord: SV_Position) {
+PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
     PixelOutput output;
 
-    float4 terrainColorSample = terrainColor(float2(input.uv.x, 1.0 - input.uv.y));
-    output.color = terrainColorSample;
-    
-    if(terrainColorSample.a < 1.0){
-        output.color = float4(skyColor(float2(input.uv.x, 1.0 - input.uv.y)), 1.0);
+    // Normalize screen coordinates
+    float2 screenUV = fragCoord.xy / float2(data.resX, data.resY);
+
+    // Define preview size and position
+    float2 previewSize = float2(0.2, 0.2); // 20% of screen
+    float2 previewPos = float2(0.8, 0.0);  // Top-right corner
+
+    bool showPreview = all(screenUV >= previewPos) && all(screenUV <= (previewPos + previewSize));
+
+    if (showPreview) {
+        // Map screenUV to shadow map UV
+        float2 shadowUV = (screenUV - previewPos) / previewSize;
+        float depth = sunShadow.SampleLevel(shadowUV, 0.0).r;
+        output.color = float4(depth.xxx, 1.0); // grayscale
+    } else {
+        float4 terrainColorSample = terrainColor(input.uv);
+        output.color = terrainColorSample;
+
+        if (terrainColorSample.a < 1.0) {
+            output.color = float4(skyColor(input.uv), 1.0);
+        }
     }
 
-    
     return output;
 }

@@ -333,8 +333,8 @@ void Renderer::update() {
     atmospherePass.setEye(camera.position);
     atmospherePass.setSunDirection(cloudsPass.uniform.lightDirection.XYZ);
 
-    HmckMat4 shadowProjection = Projection().orthographic(-120.0, 120.0, -120.0, 120.0, camera.znear, camera.zfar, true);
-    HmckMat4 shadowView = HmckLookAt_RH(cloudsPass.uniform.lightDirection.XYZ * 20.0, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+    HmckMat4 shadowProjection = Projection().orthographic(-120.0, 120.0, 120.0, -120.0, camera.znear, camera.zfar, true);
+    HmckMat4 shadowView = HmckLookAt_RH(cloudsPass.uniform.lightDirection.XYZ * 200.0, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
 
     atmospherePass.setShadowViewProjection(shadowProjection * shadowView);
     Camera::FrustumDirections frustum = camera.getFrustumDirections();

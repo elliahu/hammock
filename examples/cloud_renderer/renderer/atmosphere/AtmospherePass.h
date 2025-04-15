@@ -1,7 +1,7 @@
 #pragma once
 #include "AerialPerspective.h"
 #include "Transmittance.h"
-#include "MultipleScattering.h"ů
+#include "MultipleScattering.h"
 #include "SkyView.h"
 #include "../IRenderGroup.h"
 #include "../Types.h"

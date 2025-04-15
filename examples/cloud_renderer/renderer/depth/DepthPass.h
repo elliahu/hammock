@@ -38,7 +38,8 @@ private:
     Geometry &geometry;
 
     // Pipeline
-    std::unique_ptr<GraphicsPipeline> pipeline;
+    std::unique_ptr<GraphicsPipeline> depthPipeline;
+    std::unique_ptr<GraphicsPipeline> linearDepthPipeline;
 
     // Targets
     ResourceHandle cameraDepth;
