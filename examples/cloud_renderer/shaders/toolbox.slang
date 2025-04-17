@@ -53,8 +53,10 @@ struct CompositionBuffer{
     float4 sunDirection;
     float4 sunColor;
     float4 ambientColor;
+    float4 cameraPosition;
     float resX;
     float resY;
+    int applyGodRays;
 }
 
 // Atmosphere functions

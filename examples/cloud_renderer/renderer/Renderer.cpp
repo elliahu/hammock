@@ -215,6 +215,7 @@ void Renderer::init() {
     ui->setCloudsPushData(&cloudsPass.properties);
     ui->setCloudsUniformData(&cloudsPass.uniform);
     ui->setPostProccessingData(&postProcessingPass.data);
+    ui->setCompositionData(&compositionPass.data);
 }
 
 
@@ -378,6 +379,7 @@ void Renderer::update() {
 
     godRaysPass.setSunScreenSpacePosition(screenSpaceSunPos.X, screenSpaceSunPos.Y);
 
+    compositionPass.setCameraPosition(HmckVec4{camera.position, 0.0f});
     compositionPass.setInvView(inverseView);
     compositionPass.setInvProjection(inverseProjection);
     compositionPass.setShadowViewProj(shadowViewProjection);

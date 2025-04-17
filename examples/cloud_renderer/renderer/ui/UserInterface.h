@@ -16,6 +16,7 @@ class UserInterface final {
     CloudsUniformBufferData * cloudsUniformBuffer;
     CloudsPushConstantData * cloudsPushConstant;
     PostProcessingPushConstantData * postProcessingPushConstant;
+    CompositionData * compositionData;
 
 
 
@@ -64,6 +65,7 @@ public:
     void setCloudsUniformData(CloudsUniformBufferData * data) { cloudsUniformBuffer = data; }
     void setPostProccessingData(PostProcessingPushConstantData * data) { postProcessingPushConstant = data; }
     void setCloudsPushData(CloudsPushConstantData * data) { cloudsPushConstant = data; }
+    void setCompositionData(CompositionData * data) { compositionData = data; }
 
     void recordUserInterface(VkCommandBuffer commandBuffer);
 };

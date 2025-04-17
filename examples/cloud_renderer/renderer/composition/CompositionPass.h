@@ -24,23 +24,14 @@ public:
     void setSunColor(HmckVec4 color) {data.sunColor = color; }
     void setAmbientColor(HmckVec4 color) {data.ambientColor = color; }
     void setGodRaysTexture(Image * image) {godRaysTexture = image;}
+    void setCameraPosition(HmckVec4 pos) {data.cameraPosition = pos; }
     Image* getColorTarget() { return resourceManager.getResource<Image>(compositedImage); }
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
 
+    CompositionData data;
+
 private:
-
-    struct CompositionData {
-        HmckMat4 inverseView;
-        HmckMat4 inverseProjection;
-        HmckMat4 shadowViewProj;
-        HmckVec4 sunDirection;
-        HmckVec4 sunColor;
-        HmckVec4 ambientColor;
-        float resX;
-        float resY;
-    } data;
-
 
     // Target
     ResourceHandle compositedImage; // Final composited image that is passed to the post procsessing pass

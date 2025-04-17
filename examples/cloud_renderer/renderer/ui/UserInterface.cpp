@@ -118,6 +118,7 @@ void ::UserInterface::showEditorWindow() {
     static float sunA = 0.f, sunE = 75.f;
     ImGui::SliderFloat("Sun azimuth", &sunA, 0.f, 360.f);
     ImGui::SliderFloat("Sun elevation", &sunE, 0.f, 90.f);
+    ImGui::Checkbox("Screen space god rays", (bool *)&compositionData->applyGodRays);
 
     float azimuth = HmckToRad(HmckAngleDeg(sunA));
     float elevation = HmckToRad(HmckAngleDeg(sunE));

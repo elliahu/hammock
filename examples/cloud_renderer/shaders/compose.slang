@@ -89,6 +89,41 @@ float3 postProcessColor(float2 seed, float3 input)
     return input / 255;
 }
 
+// Calculates god ray contribution for a given view direction and position
+float3 calculateGodRays(float2 uv, float4 godRaysValue, float3 worldPos, float3 viewDir, float cloudAlpha, bool isTerrain) {
+    // Calculate angle to sun for god ray attenuation
+    float sunDot = max(0.0, dot(viewDir, data.sunDirection.xyz));
+    
+    // Different attenuation based on whether we're rendering terrain or sky
+    float godRayFalloff = isTerrain ? pow(sunDot, 2.0) : pow(sunDot, 4.0);
+    
+    // For sky: attenuate by cloud coverage to make rays appear behind clouds
+    // For terrain: use full strength
+    float godRayMask = isTerrain ? 1.0 : (1.0 - pow(cloudAlpha, 0.5));
+    
+    // Adjust intensity based on whether we're rendering terrain or sky
+    float godRayIntensity = godRaysValue.a * godRayFalloff * godRayMask * (isTerrain ? 0.5 : 0.3);
+    
+    if (isTerrain) {
+        // For terrain, use additive blending (simpler)
+        return godRaysValue.rgb * godRayIntensity;
+    } else {
+        // For sky, use multiplicative blending to preserve colors better
+        // This creates the effect of light scattering through atmosphere
+        return godRaysValue.rgb * godRayIntensity;
+    }
+}
+
+// Apply god rays differently based on the render target type
+float3 applyGodRays(float3 baseColor, float3 godRayContribution, bool isTerrain) {
+    if (isTerrain) {
+        // Simple additive for terrain
+        return baseColor + godRayContribution;
+    } else {
+        // Multiplicative blend for sky to preserve colors
+        return baseColor * (1.0 + godRayContribution);
+    }
+}
 
 float4 terrainColor(float2 uv, float4 godRaysValue) {
     // Sample the terrain
@@ -105,8 +140,14 @@ float4 terrainColor(float2 uv, float4 godRaysValue) {
         // Compute terrain altitude (height above ground)
         float terrainAltitude = terrainWorldPos.y * WorldScale;
 
-        // Blend god rays additively with the scene
-        color += godRaysValue.rgb * godRaysValue.a;
+        // Calculate view direction
+        float3 viewDir = normalize(terrainWorldPos - data.cameraPosition.xyz);
+        
+        // Get god ray contribution and apply it
+        if(data.applyGodRays == 1){
+            float3 godRayContribution = calculateGodRays(uv, godRaysValue, terrainWorldPos, viewDir, 0.0, true);
+            color = applyGodRays(color, godRayContribution, true);
+        }
 
         // Sample the transmittance LUT
         float4 ap = aerialLUT.SampleLevel(float3(uv, depth), 0.0);
@@ -126,8 +167,6 @@ float4 terrainColor(float2 uv, float4 godRaysValue) {
 float3 skyColor(float2 uv, float4 godRaysValue){
     // Sample cloud color
     float4 cloudColor = cloudsColorImage.SampleLevel(uv, 0.0);
-    // R channel stores direct light intensity
-    // G channel stores ambient light intensity
     float3 directLight = cloudColor.r * data.sunColor.rgb;
     float3 ambientLight = cloudColor.g * data.ambientColor.rgb;
     float3 cloudIntensity = directLight + ambientLight;
@@ -136,15 +175,21 @@ float3 skyColor(float2 uv, float4 godRaysValue){
 
     // Sample sky color
     float4 skyColor = skyColorImage.SampleLevel(uv, 0.0);
-
-    // Blend
-    float3 color = blend(skyColor.rgb, cloudIntensity, cloudAlpha);
-
-    // Blend god rays additively with the scene
-    color += godRaysValue.rgb * godRaysValue.a;
-
-    // Reconstruct the world space position
+    float3 color = skyColor.rgb;
+    
+    // Reconstruct world position and view direction
     float3 worldPos = reconstructWorldPosition(uv, cloudDepth, data.inverseProjection, data.inverseView, 0.1, 300.0);
+    float3 viewDir = normalize(worldPos - data.cameraPosition.xyz);
+    
+    // Get god ray contribution and apply it to sky (before cloud blending)
+    if(data.applyGodRays == 1){
+        float3 godRayContribution = calculateGodRays(uv, godRaysValue, worldPos, viewDir, cloudAlpha, false);
+        color = applyGodRays(skyColor.rgb, godRayContribution, false);
+    }
+    
+    // Now blend clouds over the sky with god rays
+    color = blend(color, cloudIntensity, cloudAlpha);
+
     // Compute the altitude of the clouds
     float cloudAltitude = worldPos.y * WorldScale;
 

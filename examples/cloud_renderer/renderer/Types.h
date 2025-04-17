@@ -90,3 +90,16 @@ struct GodRaysCoefficients {
     float weight = 0.7;
     float alpha = 0.85;
 };
+
+struct CompositionData {
+    HmckMat4 inverseView;
+    HmckMat4 inverseProjection;
+    HmckMat4 shadowViewProj;
+    HmckVec4 sunDirection;
+    HmckVec4 sunColor;
+    HmckVec4 ambientColor;
+    HmckVec4 cameraPosition;
+    float resX;
+    float resY;
+    int applyGodRays = 0;
+};
