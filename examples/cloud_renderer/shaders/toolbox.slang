@@ -14,7 +14,7 @@ static const float HDensityRayleigh = 8000.0;
 static const float3 AbsorbOzone = float3(0.65, 1.881, 0.085) * 1e-6;
 static const float3 ScatterRayleigh = float3(5.802, 13.558, 33.1) * 1e-6;
 static const float WorldScale = 300.0;
-static const float MaxDistance = 3000.0;
+static const float MaxDistance = 15000.0;
 
 
 // Types
