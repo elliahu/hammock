@@ -23,6 +23,7 @@ public:
     void setSunDirection(HmckVec4 dir) {data.sunDirection = dir; }
     void setSunColor(HmckVec4 color) {data.sunColor = color; }
     void setAmbientColor(HmckVec4 color) {data.ambientColor = color; }
+    void setGodRaysTexture(Image * image) {godRaysTexture = image;}
     Image* getColorTarget() { return resourceManager.getResource<Image>(compositedImage); }
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
@@ -55,6 +56,7 @@ private:
     Image *skyViewLUT;
     Image *aerialPerspectiveLUT;
     Image *sunShadow;
+    Image *godRaysTexture;
     ResourceHandle blueNoise;
 
     // Descriptors

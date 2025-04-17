@@ -41,6 +41,8 @@ add_executable(cloud_renderer
         renderer/depth/DepthPass.h
         renderer/atmosphere/AerialPerspective.cpp
         renderer/atmosphere/AerialPerspective.h
+        renderer/composition/GodRaysPass.cpp
+        renderer/composition/GodRaysPass.h
 
 )
 

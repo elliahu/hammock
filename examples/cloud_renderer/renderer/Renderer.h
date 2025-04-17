@@ -6,6 +6,7 @@
 #include "clouds/CloudsPass.h"
 #include "composition/CompositionPass.h"
 #include "composition/PostProcessingPass.h"
+#include "composition/GodRaysPass.h"
 #include "depth/DepthPass.h"
 #include "ui/UserInterface.h"
 
@@ -54,7 +55,7 @@ class Renderer final{
     Camera camera{
         HmckVec3{-27.820, 9.603f, 46.809f},
         static_cast<float>(lWidth) /  static_cast<float>(lHeight),
-        HmckToRad(HmckAngleDeg(95.f)), 0.1f, 300.f, 14.822, 0.689,};
+        HmckToRad(HmckAngleDeg(75.f)), 0.1f, 300.f, 17.296, 0.693,};
 
     // Movement
     const float movementSpeed = 1.0f; // Units per frame
@@ -96,6 +97,7 @@ class Renderer final{
     GeometryPass geometryPass;
     CloudsPass cloudsPass;
     AtmospherePass atmospherePass;
+    GodRaysPass godRaysPass;
     CompositionPass compositionPass;
     PostProcessingPass postProcessingPass;
 

@@ -37,8 +37,9 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
         skyColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     }
 
-    // Acquire ownership from compute queue
-    cloudsColor->transition(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CommandQueueFamily::Graphics);
+    if (godRaysTexture->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        godRaysTexture->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
 
 
     // Begin rendering into intermediate composition image
@@ -213,6 +214,7 @@ void CompositionPass::prepareDescriptors() {
             .addBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // sun shadow
             .addBinding(7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // blue noise
             .addBinding(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Sky color
+            .addBinding(9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // God rays image
             .build();
 
     skyLayout = DescriptorSetLayout::Builder(device)
@@ -230,6 +232,7 @@ void CompositionPass::prepareDescriptors() {
     VkDescriptorImageInfo sunShadowInfo = sunShadow->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo blueNoiseInfo = resourceManager.getResource<Image>(blueNoise)->getDescriptorImageInfo(s->getSampler());
     VkDescriptorImageInfo skyColorInfo = resourceManager.getResource<Image>(skyColor)->getDescriptorImageInfo(s->getSampler());
+    VkDescriptorImageInfo godRaysImageInfo = godRaysTexture->getDescriptorImageInfo(s->getSampler());
     DescriptorWriter(*compositionLayout, *descriptorPool)
             .writeBuffer(0, &bufferInfo)
             .writeImage(1, &terrainColorImageInfo)
@@ -240,6 +243,7 @@ void CompositionPass::prepareDescriptors() {
             .writeImage(6, &sunShadowInfo)
             .writeImage(7, &blueNoiseInfo)
             .writeImage(8, &skyColorInfo)
+            .writeImage(9, &godRaysImageInfo)
             .build(compositionDescriptor);
 
     DescriptorWriter(*skyLayout, *descriptorPool)

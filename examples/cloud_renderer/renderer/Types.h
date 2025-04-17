@@ -78,3 +78,15 @@ struct PostProcessingPushConstantData {
     float grainAmount = 0.035f; // Default: 0.0, Range: 0.0 to 0.1
     float time = 0.0f;
 };
+
+struct GodRaysCoefficients {
+    float lssposX = 1.f; // light screen space position X
+    float lssposY = 1.f; // light screen space position Y
+    int num_samples = 128;;
+    float density = 0.8;
+    float exposure = 1.0;
+    float decay = 0.9;
+    float activeDistance = 1.0;
+    float weight = 0.7;
+    float alpha = 0.85;
+};

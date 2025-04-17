@@ -179,7 +179,7 @@ void Renderer::init() {
     // Initialize passes
     depthPass.setVertexBuffer(resourceManager.getResource<Buffer>(vertexBuffer));
     depthPass.setIndexBuffer(resourceManager.getResource<Buffer>(indexBuffer));
-    depthPass.initialize(HmckVec2{(float)lWidth, (float)lHeight});
+    depthPass.initialize(HmckVec2{(float) lWidth, (float) lHeight});
 
     atmospherePass.setShadowMap(depthPass.getSunDepth());
     atmospherePass.initialize();
@@ -192,6 +192,10 @@ void Renderer::init() {
     cloudsPass.setCameraDepth(depthPass.getCameraDepth());
     cloudsPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
 
+    godRaysPass.setCloudsImage(cloudsPass.getColorTarget());
+    godRaysPass.setTerrainDepth(geometryPass.getDepthTarget());
+    godRaysPass.initialize(HmckVec2{(float) lWidth, (float) lHeight});
+
     compositionPass.setCloudsColor(cloudsPass.getColorTarget());
     compositionPass.setTerrainColor(geometryPass.getColorTarget());
     compositionPass.setTerrainDepth(geometryPass.getDepthTarget());
@@ -199,6 +203,7 @@ void Renderer::init() {
     compositionPass.setSkyViewLUT(atmospherePass.skyView.getLut());
     compositionPass.setAerialPerspectiveLUT(atmospherePass.aerialPerspective.getLut());
     compositionPass.setSunShadow(depthPass.getSunDepth());
+    compositionPass.setGodRaysTexture(godRaysPass.getGodRaysTexture());
     compositionPass.initialize(HmckVec2{static_cast<float>(lWidth), static_cast<float>(lHeight)});
 
     postProcessingPass.setIinput(compositionPass.getColorTarget());
@@ -271,6 +276,7 @@ Renderer::Renderer(const int32_t width, const int32_t height)
       device{instance, window.getSurface()}, resourceManager{device}, frameManager{window, device},
       lWidth{static_cast<uint32_t>(width)}, lHeight{static_cast<uint32_t>(height)}, depthPass(device, resourceManager, geometry),
       geometryPass(device, resourceManager, geometry), cloudsPass(device, resourceManager), atmospherePass(device, resourceManager),
+      godRaysPass(device, resourceManager),
       compositionPass(device, resourceManager), postProcessingPass(device, resourceManager) {
     // Initialize the descriptor pool object from which descriptors will be allocated
     descriptorPool = DescriptorPool::Builder(device)
@@ -356,6 +362,22 @@ void Renderer::update() {
     depthPass.setSunProjection(shadowProjection);
     depthPass.setSunView(shadowView);
 
+    HmckVec3 simulatedSunPos = camera.position - cloudsPass.uniform.lightDirection.XYZ * 1000.0f;
+    HmckVec4 clipSpaceSunPos = projection * view * HmckVec4{simulatedSunPos.X, simulatedSunPos.Y, simulatedSunPos.Z, 1.0f};
+    HmckVec3 ndcSunPos = {
+        clipSpaceSunPos.X / clipSpaceSunPos.W,
+        clipSpaceSunPos.Y / clipSpaceSunPos.W,
+        clipSpaceSunPos.Z / clipSpaceSunPos.W
+    };
+
+    // Convert NDC [-1,1] to screen space [0,1]
+    HmckVec2 screenSpaceSunPos = {
+        (ndcSunPos.X + 1.0f) * 0.5f,
+        (ndcSunPos.Y + 1.0f) * 0.5f
+    };
+
+    godRaysPass.setSunScreenSpacePosition(screenSpaceSunPos.X, screenSpaceSunPos.Y);
+
     compositionPass.setInvView(inverseView);
     compositionPass.setInvProjection(inverseProjection);
     compositionPass.setShadowViewProj(shadowViewProjection);
@@ -431,6 +453,7 @@ void Renderer::render() {
 
             // Composition pass & post process & ui
             frameManager.beginCommandBuffer(commandBuffers.composition[frame]);
+            godRaysPass.recordCommands(commandBuffers.composition[frame], frame);
             compositionPass.recordCommands(commandBuffers.composition[frame], frame);
             recordSwapChainImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, frame, image);
             postProcessingPass.recordCommands(commandBuffers.composition[frame], frame);

@@ -1,69 +1,78 @@
-struct BlurData {
-    float4 screenSpaceLightPos;
-    int numSamples;
+import toolbox;
+
+// Input and output structures
+struct VertexOutput {
+    float2 uv;
+    float4 position : SV_Position; // Screen-space position
+};
+
+struct PixelOutput {
+    float4 color : SV_Target;
+};
+
+[vk::binding(0)] Sampler2D<float4> cloudsColorImage;
+[vk::binding(1)] Sampler2D<float4> terrainDepthImage;
+
+[vk::binding(0)] Sampler2D<float4> maskImage;
+
+
+struct Params{
+    float lssposX;
+    float lssposY;
+    int num_samples;
     float density;
     float exposure;
     float decay;
     float weight;
     float alpha;
-    float activeDistance;
 };
 
-[vk::binding(0)] RWTexture2D occlusionMask;
-[vk::binding(1)] RWTexture2D godRaysImage;
-[vk::push_constant] BlurData data;
+[vk::push_constant] Params coefficients;
 
 
-float rand2d(float2 co) {
-    return fract(sin(dot(co, float2(12.9898, 78.233))) * 43758.5453);
+// Fullscreen vertex shader: Outputs a unit square (quad) in normalized device coordinates
+[shader("vertex")]
+VertexOutput vertexMain(uint vertexID : SV_VertexID) {
+    VertexOutput output;
+    output.uv = float2((vertexID << 1) & 2, vertexID & 2);
+    output.position = float4(output.uv * 2.0 - 1.0, 0.0, 1.0);
+    return output;
 }
 
-// Radial Blur Function (updated to use Load)
-float3 applyRadialBlur(uint2 pixelCoord, float2 uv, int numSamples, float density, float exposure, float decay, float weight, float2 screenSpaceSunPos, uint2 imageSize){
-    float2 deltaCoords = (screenSpaceSunPos - uv) * density / float(numSamples);
-    float2 sampleUV = uv;
-    float3 colorAccum = occlusionMask.Load(int2(pixelCoord)).rgb;
-    float currentDecay = 1.0;
+[shader("pixel")]
+PixelOutput pixelMask(VertexOutput input, float4 fragCoord : SV_Position) {
+    PixelOutput output;
+    
+    float cloudAplha = cloudsColorImage.SampleLevel(input.uv, 0.0).a;
+    float terrainAlpha = 1.0 - terrainDepthImage.SampleLevel(input.uv, 0.0).r;
 
-    for (int i = 0; i < numSamples; ++i) {
-        sampleUV += deltaCoords;
-        uint2 sampleCoord = uint2(sampleUV * float2(imageSize));
-        sampleCoord = clamp(sampleCoord, uint2(0), imageSize - 1);
-        float3 sample = occlusionMask.Load(int2(sampleCoord)).rgb;
-        colorAccum += sample * currentDecay * weight;
-        currentDecay *= decay;
+    float mask = (cloudAplha > 0.0 || terrainAlpha > 0.0) ? 0.0 : 1.0;
+    output.color = float4(mask, mask, mask, 1.0);
+
+    return output;
+}
+
+
+float3 radialBlur(float2 vertex_tex_coordinates, float2 screen_space_position){
+    float2 delta_tex_coord = (vertex_tex_coordinates - screen_space_position) * coefficients.density * (1.0 / float(coefficients.num_samples));
+    float2 tex_coordinates = vertex_tex_coordinates;
+    float3 color = maskImage.SampleLevel(tex_coordinates, 0.0).rgb;
+    float decay = 1.0;
+    for (int i = 0; i < coefficients.num_samples; ++i)
+    {
+        tex_coordinates -= delta_tex_coord;
+        float3 current_sample = maskImage.SampleLevel(tex_coordinates, 0.0).rgb;
+        current_sample *= decay * coefficients.weight;
+        color += current_sample;
+        decay *= coefficients.decay;
     }
 
-    return colorAccum * exposure;
+    return color * coefficients.exposure;
 }
 
-[numthreads(16, 16, 1)]
-[shader("compute")]
-void computeMain(uint3 dispatchThreadID : SV_DispatchThreadID)
-{
-    uint2 pixelCoord = dispatchThreadID.xy;
-    uint2 imageSize;
-
-    // Get image size (assuming both input and output have the same size)
-    occlusionMask.GetDimensions(imageSize.x, imageSize.y);
-
-    if (pixelCoord.x >= imageSize.x || pixelCoord.y >= imageSize.y)
-        return; // Avoid out-of-bounds access
-
-    // Convert pixel coordinate to UV
-    float2 uv = float2(pixelCoord) / float2(imageSize);
-
-    // Apply the radial blur
-    float3 blur = applyRadialBlur(pixelCoord, uv, data.numSamples, data.density, data.exposure, data.decay, data.weight, data.screenSpaceLightPos.xy, imageSize);
-
-    // Calculate fade factor based on sun distance from screen center
-    float2 screenCenter = float2(0.5, 0.0);
-    float dist = length(data.screenSpaceLightPos.xy - screenCenter);
-    float fadeFactor = saturate(1.0 - (dist / data.activeDistance));
-
-    // Final color
-    float4 finalColor = float4(blur, data.alpha * fadeFactor);
-
-    // Write to output image
-    godRaysImage[pixelCoord] = finalColor;
+[shader("pixel")]
+PixelOutput pixelBlur(VertexOutput input, float4 fragCoord : SV_Position) {
+    PixelOutput output;
+    output.color = float4(radialBlur(input.uv, float2(coefficients.lssposX, coefficients.lssposY)), coefficients.alpha);
+    return output;
 }

@@ -19,7 +19,7 @@ struct PixelOutput {
 [vk::binding(6)] Sampler2D<float4> sunShadow;
 [vk::binding(7)] Sampler2D<float4> blueNoise;
 [vk::binding(8)] Sampler2D<float4> skyColorImage;
-
+[vk::binding(9)] Sampler2D<float4> godRaysImage;
 
 // Fullscreen vertex shader: Outputs a unit square (quad) in normalized device coordinates
 [shader("vertex")]
@@ -90,7 +90,7 @@ float3 postProcessColor(float2 seed, float3 input)
 }
 
 
-float4 terrainColor(float2 uv, float2 jitter) {
+float4 terrainColor(float2 uv, float4 godRaysValue) {
     // Sample the terrain
     float4 terrainColor = terrainColorImage.SampleLevel(float2(uv.x, uv.y), 0.0);
     float3 color = terrainColor.rgb;
@@ -104,6 +104,9 @@ float4 terrainColor(float2 uv, float2 jitter) {
 
         // Compute terrain altitude (height above ground)
         float terrainAltitude = terrainWorldPos.y * WorldScale;
+
+        // Blend god rays additively with the scene
+        color += godRaysValue.rgb * godRaysValue.a;
 
         // Sample the transmittance LUT
         float4 ap = aerialLUT.SampleLevel(float3(uv, depth), 0.0);
@@ -120,7 +123,7 @@ float4 terrainColor(float2 uv, float2 jitter) {
     return float4(postProcessColor(uv, color), terrainColor.a);
 }
 
-float3 skyColor(float2 uv, float2 jitter){
+float3 skyColor(float2 uv, float4 godRaysValue){
     // Sample cloud color
     float4 cloudColor = cloudsColorImage.SampleLevel(uv, 0.0);
     // R channel stores direct light intensity
@@ -136,6 +139,9 @@ float3 skyColor(float2 uv, float2 jitter){
 
     // Blend
     float3 color = blend(skyColor.rgb, cloudIntensity, cloudAlpha);
+
+    // Blend god rays additively with the scene
+    color += godRaysValue.rgb * godRaysValue.a;
 
     // Reconstruct the world space position
     float3 worldPos = reconstructWorldPosition(uv, cloudDepth, data.inverseProjection, data.inverseView, 0.1, 300.0);
@@ -176,14 +182,13 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
         float depth = sunShadow.SampleLevel(shadowUV, 0.0).r;
         output.color = float4(depth.xxx, 1.0); // grayscale
     } else {
-        //output.color = float4(skyColor(input.uv, blueNoiseOffset), 1.0);
-        //return output;
+        float4 godRays = godRaysImage.SampleLevel(input.uv, 0.0);
 
-        float4 terrainColorSample = terrainColor(input.uv, float2(0.0));
+        float4 terrainColorSample = terrainColor(input.uv, godRays);
         output.color = terrainColorSample;
 
         if (terrainColorSample.a < 1.0) {
-            output.color = float4(skyColor(input.uv, float2(0.0)), 1.0);
+            output.color = float4(skyColor(input.uv, godRays), 1.0);
         }
     }
 
