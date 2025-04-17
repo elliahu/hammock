@@ -23,6 +23,7 @@ float3 GetRayDir(float2 uv) {
     return normalize(lerp(bottomDir, topDir, uv.y));
 }
 
+
 [shader("compute")]
 [numthreads(8, 8, 1)]
 void computeMain(int3 threadIdx : SV_DispatchThreadID)

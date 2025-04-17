@@ -171,8 +171,6 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     float baseCloudWithCoverage = remap(baseCloud , coverage, 1.0, 0.0, 1.0);
     baseCloudWithCoverage = saturate(baseCloudWithCoverage * coverage);
 
-   // return saturate(baseCloudWithCoverage);
-
     // Check if we are doing expensive sampling
     if (expensive){
 
@@ -480,7 +478,7 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
 
     // Encode depth into the result
     float3 pixelWorldPos = start;
-    clouds.b = saturate(remap(distance(pixelWorldPos, EYE), 0.0, CLOUDS_BOTTOM_RADIUS, 1.0, 0.0));
+    clouds.b = saturate(distance(pixelWorldPos, EYE) / (CLOUDS_BOTTOM_RADIUS));
 
     // Store the final value
     cloudsStorageImage[pixelCoord.xy] = clouds;

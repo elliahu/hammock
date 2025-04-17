@@ -48,13 +48,31 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     float3 dir = normalize(mul(data.inverseView, rayEye).xyz);
 
     float phi = atan2(dir.z, dir.x);
-    float u = phi / (2 * PI);
+    float u = (phi + PI) / (2 * PI);
     
     float theta = asin(dir.y);
     float v = 0.5 + 0.5 * sign(theta) * sqrt(abs(theta) / (PI / 2));
 
-    output.color = float4(postProcessColor(input.uv,skyView.SampleLevel(float2(u, v), 0.0).rgb), 1.0);
+   float3 skyColor = skyView.SampleLevel(float2(u, v), 0.0).rgb;
+    
+    // Draw sun disk
+    float3 sunDir = normalize(data.sunDirection.xyz);
+    float sunDot = dot(dir, sunDir);
+    float sunSize = 0.998; // Controls the size of the sun disk (higher = smaller)
+    
+    // Add the sun if we're looking in its direction
+    if (sunDot > sunSize) {
+        // Calculate a smooth edge for the sun
+        float sunEdge = smoothstep(sunSize, sunSize + 0.001, sunDot);
+        
+        // Sun color (bright yellow-white)
+        float3 sunColor = float3(1.0);
+        
+        // Blend the sun with the sky based on the edge factor
+        skyColor = lerp(skyColor, sunColor, sunEdge);
+    }
 
+    output.color = float4(postProcessColor(input.uv, skyColor), 1.0);
 
     return output;
 }

@@ -106,7 +106,7 @@ float4 terrainColor(float2 uv, float2 jitter) {
         float terrainAltitude = terrainWorldPos.y * WorldScale;
 
         // Sample the transmittance LUT
-        float4 ap = aerialLUT.SampleLevel(float3(uv + jitter, depth * WorldScale), 0.0);
+        float4 ap = aerialLUT.SampleLevel(float3(uv, depth), 0.0);
         float3 inScatter = ap.xyz; // Atmospheric in-scattering
         float eyeTransmittance = ap.w;
         float3 sunTransmittance = getTransmittance(transmittanceLUT, terrainAltitude, asin(data.sunDirection.y));
@@ -143,7 +143,7 @@ float3 skyColor(float2 uv, float2 jitter){
     float cloudAltitude = worldPos.y * WorldScale;
 
     // Sample the transmittance LUT
-    float4 ap = aerialLUT.SampleLevel(float3(uv + jitter, cloudDepth * WorldScale), 0.0);
+    float4 ap = aerialLUT.SampleLevel(float3(uv, cloudDepth), 0.0);
     float3 inScatter = ap.xyz; // Atmospheric in-scattering
     float eyeTransmittance = ap.w;
     float3 sunTransmittance = getTransmittance(transmittanceLUT, cloudAltitude, asin(data.sunDirection.y));
@@ -176,13 +176,14 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
         float depth = sunShadow.SampleLevel(shadowUV, 0.0).r;
         output.color = float4(depth.xxx, 1.0); // grayscale
     } else {
-        float2 blueNoiseOffset = (blueNoise.SampleLevel(fragCoord.xy % 256.0 / 256.0, 0.0).xy - 0.5) / float2(data.resX, data.resY);
+        //output.color = float4(skyColor(input.uv, blueNoiseOffset), 1.0);
+        //return output;
 
-        float4 terrainColorSample = terrainColor(input.uv, blueNoiseOffset);
+        float4 terrainColorSample = terrainColor(input.uv, float2(0.0));
         output.color = terrainColorSample;
 
         if (terrainColorSample.a < 1.0) {
-            output.color = float4(skyColor(input.uv, blueNoiseOffset), 1.0);
+            output.color = float4(skyColor(input.uv, float2(0.0)), 1.0);
         }
     }
 
