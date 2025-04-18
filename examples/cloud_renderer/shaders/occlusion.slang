@@ -15,6 +15,8 @@ struct PixelOutput {
 
 [vk::binding(0)] Sampler2D<float4> maskImage;
 
+#define BLUR_RADIUS 5.0
+
 
 struct Params{
     float lssposX;
@@ -23,11 +25,34 @@ struct Params{
     float density;
     float exposure;
     float decay;
+    float activeDistance;
     float weight;
     float alpha;
 };
 
 [vk::push_constant] Params coefficients;
+
+// Gaussian blur function
+float gaussianBlur(float2 uv, float radius) {
+    float total = 0.0;
+    float weight = 0.0;
+    
+    for(float x = -radius; x <= radius; x += 1.0) {
+        for(float y = -radius; y <= radius; y += 1.0) {
+            float2 offset = float2(x, y) * 0.001; 
+            float gaussian = exp(-(x*x + y*y)/(2.0*radius*radius));
+            
+            float cloudSample = cloudsColorImage.SampleLevel(uv + offset, 0.0).a;
+            float terrainSample = 1.0 - terrainDepthImage.SampleLevel(uv + offset, 0.0).r;
+            float maskSample = (cloudSample > 0.0 || terrainSample > 0.0) ? 0.0 : 1.0;
+            
+            total += maskSample * gaussian;
+            weight += gaussian;
+        }
+    }
+    
+    return total / weight;
+}
 
 
 // Fullscreen vertex shader: Outputs a unit square (quad) in normalized device coordinates
@@ -43,10 +68,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID) {
 PixelOutput pixelMask(VertexOutput input, float4 fragCoord : SV_Position) {
     PixelOutput output;
     
-    float cloudAplha = cloudsColorImage.SampleLevel(input.uv, 0.0).a;
-    float terrainAlpha = 1.0 - terrainDepthImage.SampleLevel(input.uv, 0.0).r;
-
-    float mask = (cloudAplha > 0.0 || terrainAlpha > 0.0) ? 0.0 : 1.0;
+    float mask = gaussianBlur(input.uv, BLUR_RADIUS);
     output.color = float4(mask, mask, mask, 1.0);
 
     return output;

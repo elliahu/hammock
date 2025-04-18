@@ -455,7 +455,9 @@ void Renderer::render() {
 
             // Composition pass & post process & ui
             frameManager.beginCommandBuffer(commandBuffers.composition[frame]);
-            godRaysPass.recordCommands(commandBuffers.composition[frame], frame);
+            if (compositionPass.data.applyGodRays) {
+                godRaysPass.recordCommands(commandBuffers.composition[frame], frame);
+            }
             compositionPass.recordCommands(commandBuffers.composition[frame], frame);
             recordSwapChainImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, frame, image);
             postProcessingPass.recordCommands(commandBuffers.composition[frame], frame);
