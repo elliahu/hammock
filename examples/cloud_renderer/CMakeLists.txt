@@ -3,10 +3,6 @@ add_executable(cloud_renderer
         main.cpp
         # scenes
         scenes/IScene.h
-        scenes/SkyScene.cpp
-        scenes/SkyScene.h
-        scenes/NoiseEditor.cpp
-        scenes/NoiseEditor.h
         scenes/ParticipatingMediumScene.cpp
         scenes/ParticipatingMediumScene.h
         scenes/SignedDistanceField.h

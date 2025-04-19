@@ -2,12 +2,11 @@
 #include <cstdint>
 #include <hammock/hammock.h>
 
-#include "scenes/NoiseEditor.h"
-#include "scenes/SkyScene.h"
 #include "scenes/ParticipatingMediumScene.h"
 
 #include "renderer/Renderer.h"
 
+// To use reprojection in the cloud rendering, define REPROJECTION macro here and in the shaders/clouds.slang shader
 //#define REPROJECTION
 
 using namespace hammock;
@@ -28,15 +27,7 @@ int main(int argc, char * argv[]) {
     const auto height = parser.get<int32_t>("height");
     auto selectedScene = parser.get<std::string>("scene");
 
-    if (selectedScene == "noise") {
-        NoiseEditor editor{"Noise editor", 1024, 1024, 128, 128, 128};
-        editor.render();
-    }
-    else if (selectedScene == "clouds") {
-        SkyScene skyScene{"Sky rendering demo", static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-        skyScene.render();
-    }
-    else if (selectedScene == "medium") {
+    if (selectedScene == "medium") {
         ParticipatingMediumScene mediumScene{"Participating medium playground", static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
         mediumScene.render();
     }

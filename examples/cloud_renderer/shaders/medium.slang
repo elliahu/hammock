@@ -40,7 +40,7 @@ struct PushConstants {
 [vk::binding(3)] Sampler2D curlTexture; // TODO remove, unused
 [vk::binding(4)] Sampler2D blueNoiseTexture;
 
-#define BACKGROUND float3(0.2)
+#define BACKGROUND float3(0.15)
 
 #define NUM_STEPS 128
 #define NUM_LIGHT_STEPS constants.lightSteps
