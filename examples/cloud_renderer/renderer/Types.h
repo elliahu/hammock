@@ -55,7 +55,7 @@ struct CloudsPushConstantData {
     int DEBUG_maxLightSamples = 4;
     int DEBUG_earlyTermination = 0;
     int DEBUG_lateTermination = 0;
-    float DEBUG_longStepMulti = 2.f;
+    float DEBUG_longStepMulti = 1.6f;
 };
 
 // Atmospheric pass data

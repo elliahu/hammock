@@ -114,6 +114,16 @@ float3 calculateGodRays(float2 uv, float4 godRaysValue, float3 worldPos, float3 
     }
 }
 
+float3 blendSoftLight(float3 base, float3 blend, float3 opacity) {
+    float3 result;
+    for (int i = 0; i < 3; i++) {
+        result[i] = blend[i] < 0.5 
+            ? base[i] - (1 - 2 * blend[i]) * base[i] * (1 - base[i])
+            : base[i] + (2 * blend[i] - 1) * (sqrt(base[i]) - base[i]);
+    }
+    return lerp(base, result, opacity);
+}
+
 // Apply god rays differently based on the render target type
 float3 applyGodRays(float3 baseColor, float3 godRayContribution, bool isTerrain) {
     if (isTerrain) {
@@ -121,7 +131,8 @@ float3 applyGodRays(float3 baseColor, float3 godRayContribution, bool isTerrain)
         return baseColor + godRayContribution;
     } else {
         // Multiplicative blend for sky to preserve colors
-        return baseColor * (1.0 + godRayContribution);
+        return baseColor + godRayContribution;
+        return blendSoftLight(baseColor, godRayContribution, godRayContribution);
     }
 }
 
@@ -186,7 +197,7 @@ float3 skyColor(float2 uv, float4 godRaysValue){
         float3 godRayContribution = calculateGodRays(uv, godRaysValue, worldPos, viewDir, cloudAlpha, false);
         color = applyGodRays(skyColor.rgb, godRayContribution, false);
     }
-    
+
     // Now blend clouds over the sky with god rays
     color = blend(color, cloudIntensity, cloudAlpha);
 
@@ -227,7 +238,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
         float depth = sunShadow.SampleLevel(shadowUV, 0.0).r;
         output.color = float4(depth.xxx, 1.0); // grayscale
     } else {
-        float4 godRays = godRaysImage.SampleLevel(input.uv, 0.0);
+        float4 godRays = saturate(godRaysImage.SampleLevel(input.uv, 0.0));
 
         float4 terrainColorSample = terrainColor(input.uv, godRays);
         output.color = terrainColorSample;

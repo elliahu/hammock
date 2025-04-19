@@ -237,7 +237,7 @@ void Renderer::init() {
 
     godRaysPass.setCloudsImage(cloudsPass.getColorTarget());
     godRaysPass.setTerrainDepth(geometryPass.getDepthTarget());
-    godRaysPass.initialize(HmckVec2{(float) lWidth, (float) lHeight});
+    godRaysPass.initialize(HmckVec2{static_cast<float>(lWidth) * 0.5f, static_cast<float>(lHeight) * 0.5f});
 
     compositionPass.setCloudsColor(cloudsPass.getColorTarget());
     compositionPass.setTerrainColor(geometryPass.getColorTarget());

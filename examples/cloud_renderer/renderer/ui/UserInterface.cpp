@@ -141,6 +141,7 @@ void ::UserInterface::showEditorWindow() {
         ImGui::SliderFloat("Exposure", &godRaysCoefficients->exposure, 0.0f, 5.f);
         ImGui::SliderFloat("Decay", &godRaysCoefficients->decay, 0.0f, 5.0f);
         ImGui::SliderFloat("Weight", &godRaysCoefficients->weight, 0.0f, 5.0f);
+        ImGui::SliderFloat("Alpha", &godRaysCoefficients->alpha, 0.0f, 1.0f);
     }
 
 
