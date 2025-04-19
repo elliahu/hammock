@@ -118,8 +118,6 @@ void ::UserInterface::showEditorWindow() {
     static float sunA = 0.f, sunE = 75.f;
     ImGui::SliderFloat("Sun azimuth", &sunA, 0.f, 360.f);
     ImGui::SliderFloat("Sun elevation", &sunE, 0.f, 90.f);
-    ImGui::Checkbox("Screen space god rays", (bool *)&compositionData->applyGodRays);
-
     float azimuth = HmckToRad(HmckAngleDeg(sunA));
     float elevation = HmckToRad(HmckAngleDeg(sunE));
 
@@ -134,6 +132,17 @@ void ::UserInterface::showEditorWindow() {
     ImGui::ColorEdit3("Zenith sky color", &cloudsUniformBuffer->skyColorZenith.Elements[0]);
     ImGui::SliderFloat("Sun light strength", &cloudsUniformBuffer->lightColor.Elements[0], 0.0f, 15.f);
     ImGui::SliderFloat("Ambient light strength",  &cloudsPushConstant->ambientStrength, 0.0f, 1.f);
+
+    ImGui::SeparatorText("God rays");
+    ImGui::Checkbox("Screen space god rays", (bool *)&compositionData->applyGodRays);
+    if (compositionData->applyGodRays == 1){
+        ImGui::SliderInt("Number of samples", &godRaysCoefficients->num_samples, 1, 512);
+        ImGui::SliderFloat("Density", &godRaysCoefficients->density, 0.0f, 5.0f);
+        ImGui::SliderFloat("Exposure", &godRaysCoefficients->exposure, 0.0f, 5.f);
+        ImGui::SliderFloat("Decay", &godRaysCoefficients->decay, 0.0f, 5.0f);
+        ImGui::SliderFloat("Weight", &godRaysCoefficients->weight, 0.0f, 5.0f);
+    }
+
 
     ImGui::End();
 }

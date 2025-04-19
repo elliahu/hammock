@@ -17,9 +17,11 @@ public:
 
     Image * getGodRaysTexture() {return resourceManager.getResource<Image>(godRaysTexture);}
 
+    GodRaysCoefficients coefficients;
+
 private:
 
-    GodRaysCoefficients coefficients;
+
 
     // Targets
     ResourceHandle maskTexture;

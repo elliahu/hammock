@@ -1256,11 +1256,14 @@ namespace hammock {
                     // 3. Handle submission synchronization
                     if (group->globalStartIndex == allGroups.size() - 1) {
                         // Last group - let SwapChain handle presentation sync
-                        VkSemaphore waitSemaphore = VK_NULL_HANDLE;
                         if (group->globalStartIndex != 0) {
-                            waitSemaphore = allGroups[group->globalStartIndex - 1].group->signalSemaphores[frameIdx];
+                             VkSemaphore waitSemaphore = allGroups[group->globalStartIndex - 1].group->signalSemaphores[frameIdx];
+                            fm.submitPresentCommandBuffer(commandBuffer, {waitSemaphore}, {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT});
                         }
-                        fm.submitPresentCommandBuffer(commandBuffer, {waitSemaphore}, {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT});
+                        else {
+                            fm.submitPresentCommandBuffer(commandBuffer, {}, {});
+                        }
+
                     } else {
                         // Other groups - handle inter-group sync
                         std::vector<VkSemaphore> waitSemaphores{};

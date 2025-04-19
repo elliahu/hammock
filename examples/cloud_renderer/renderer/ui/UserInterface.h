@@ -17,6 +17,7 @@ class UserInterface final {
     CloudsPushConstantData * cloudsPushConstant;
     PostProcessingPushConstantData * postProcessingPushConstant;
     CompositionData * compositionData;
+    GodRaysCoefficients * godRaysCoefficients;
 
 
 
@@ -66,6 +67,7 @@ public:
     void setPostProccessingData(PostProcessingPushConstantData * data) { postProcessingPushConstant = data; }
     void setCloudsPushData(CloudsPushConstantData * data) { cloudsPushConstant = data; }
     void setCompositionData(CompositionData * data) { compositionData = data; }
+    void setGodRaysCoefficients(GodRaysCoefficients * data) {godRaysCoefficients = data;}
 
     void recordUserInterface(VkCommandBuffer commandBuffer);
 };

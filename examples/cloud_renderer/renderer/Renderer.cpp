@@ -259,6 +259,7 @@ void Renderer::init() {
     ui->setCloudsUniformData(&cloudsPass.uniform);
     ui->setPostProccessingData(&postProcessingPass.data);
     ui->setCompositionData(&compositionPass.data);
+    ui->setGodRaysCoefficients(&godRaysPass.coefficients);
 }
 
 
@@ -810,7 +811,7 @@ void Renderer::render() {
 
             // Next, compute and terrain in parallel
             // Compute thread
-            //threadPool.submit([&, frame, image]() {
+            threadPool.submit([&, frame, image]() {
             // Cloud pass
             frameManager.beginCommandBuffer(commandBuffers.clouds[frame]);
             cloudsPass.recordCommands(commandBuffers.clouds[frame], frame);
@@ -877,45 +878,46 @@ void Renderer::render() {
                 vkEndCommandBuffer(commandBuffers.atmosphere[frame]);
                 vkQueueSubmit2(device.computeQueue(), 1, &submitInfo, VK_NULL_HANDLE);
             }
-            //});
+            });
             // Graphics thread
-            //threadPool.submit([&, frame, image]() {
-            // Geometry pass
-            frameManager.beginCommandBuffer(commandBuffers.terrain[frame]);
-            geometryPass.recordCommands(commandBuffers.terrain[frame], frame); {
-                VkSemaphoreSubmitInfo waitSemaphore = {
-                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = semaphores.graphicsToComputeTransferGeometry[frame],
-                    .stageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                };
+            threadPool.submit([&, frame, image]() {
+                // Geometry pass
+                frameManager.beginCommandBuffer(commandBuffers.terrain[frame]);
+                geometryPass.recordCommands(commandBuffers.terrain[frame], frame); {
+                    VkSemaphoreSubmitInfo waitSemaphore = {
+                        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                        .semaphore = semaphores.graphicsToComputeTransferGeometry[frame],
+                        .stageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                    };
 
-                VkSemaphoreSubmitInfo signalSemaphore = {
-                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = semaphores.terrainColorReady[frame],
-                    .stageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT
-                };
+                    VkSemaphoreSubmitInfo signalSemaphore = {
+                        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                        .semaphore = semaphores.terrainColorReady[frame],
+                        .stageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT
+                    };
 
-                VkCommandBufferSubmitInfo cmdBufInfo = {
-                    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-                    .commandBuffer = commandBuffers.terrain[frame],
-                };
+                    VkCommandBufferSubmitInfo cmdBufInfo = {
+                        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+                        .commandBuffer = commandBuffers.terrain[frame],
+                    };
 
-                VkSubmitInfo2 submitInfo = {
-                    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-                    .waitSemaphoreInfoCount = 1,
-                    .pWaitSemaphoreInfos = &waitSemaphore,
-                    .commandBufferInfoCount = 1,
-                    .pCommandBufferInfos = &cmdBufInfo,
-                    .signalSemaphoreInfoCount = 1,
-                    .pSignalSemaphoreInfos = &signalSemaphore,
-                };
+                    VkSubmitInfo2 submitInfo = {
+                        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                        .waitSemaphoreInfoCount = 1,
+                        .pWaitSemaphoreInfos = &waitSemaphore,
+                        .commandBufferInfoCount = 1,
+                        .pCommandBufferInfos = &cmdBufInfo,
+                        .signalSemaphoreInfoCount = 1,
+                        .pSignalSemaphoreInfos = &signalSemaphore,
+                    };
 
-                vkEndCommandBuffer(commandBuffers.terrain[frame]);
-                vkQueueSubmit2(device.graphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-            }
+                    vkEndCommandBuffer(commandBuffers.terrain[frame]);
+                    vkQueueSubmit2(device.graphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+                }
+            });
 
             // Compute to graphics sync and transfer
-            //  threadPool.wait();
+            threadPool.wait();
             recordComputeToGraphicsTransfers(frame);
 
             // Lastly, the composition passes

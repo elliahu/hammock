@@ -82,12 +82,12 @@ struct PostProcessingPushConstantData {
 struct GodRaysCoefficients {
     float lssposX = 1.f; // light screen space position X
     float lssposY = 1.f; // light screen space position Y
-    int num_samples = 128;;
-    float density = 0.8;
-    float exposure = 1.0;
+    int num_samples = 128;
+    float density = 0.85;
+    float exposure = 1.5;
     float decay = 0.9;
     float activeDistance = 1.0;
-    float weight = 0.7;
+    float weight = 1.0;
     float alpha = 0.85;
 };
 
