@@ -14,14 +14,36 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     VkExtent3D renderingExtent = cameraDepthImage->getExtent();
 
     // Transition layouts
-    cameraDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-    sunDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    cameraDepthImage->pipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+        VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+        VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED
+    );
+    sunDepthImage->pipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+        VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+        VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+        VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED
+    );
 
     VkRenderingAttachmentInfo cameraDepthTarget = cameraDepthImage->getRenderingAttachmentInfo();
+    cameraDepthTarget.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     cameraDepthTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     cameraDepthTarget.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     VkRenderingAttachmentInfo sunDepthTarget = sunDepthImage->getRenderingAttachmentInfo();
+    sunDepthTarget.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     sunDepthTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     sunDepthTarget.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
@@ -43,7 +65,7 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     VkRect2D scissor{0, 0, renderingExtent.width, renderingExtent.height};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    vkCmdSetDepthBias(commandBuffer, DEPTH_BIAS_CONSTANT,0.0f, DEPTH_BIAS_SLOPE);
+    vkCmdSetDepthBias(commandBuffer, DEPTH_BIAS_CONSTANT, 0.0f, DEPTH_BIAS_SLOPE);
 
     linearDepthPipeline->bind(commandBuffer);
 
@@ -100,12 +122,6 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
 
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
-
-    // Release ownership
-    cameraDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, CommandQueueFamily::Compute);
-    sunDepthImage->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                              VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, CommandQueueFamily::Compute);
 }
 
 void DepthPass::prepareTargets(uint32_t width, uint32_t height) {

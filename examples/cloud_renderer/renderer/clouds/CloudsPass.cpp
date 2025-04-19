@@ -19,10 +19,7 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
     Image *cloudsColorTarget = resourceManager.getResource<Image>(color);
     VkExtent3D cloudsDispatchSize = cloudsColorTarget->getExtent();
 
-    // Storage image do not change layout from VK_IMAGE_LAYOUT_GENERAL the entire frame so no need for layout transition
-
-    // Acquire ownership of camera depth image and transition layout
-    cameraDepth->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, CommandQueueFamily::Compute);
+    // Storage image do not change layout from VK_IMAGE_LAYOUT_GENERAL the entire frame, so no need for layout transition
 
     // Bind descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 0, 1,
@@ -37,10 +34,6 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
 
     // Record the first dispatch that performs the raymarching and writes clouds and occlusion mask
     vkCmdDispatch(commandBuffer, CLOUDS_GROUPS_X(cloudsDispatchSize.width), CLOUDS_GROUPS_Y(cloudsDispatchSize.height), 1);
-
-
-    // Release ownership of cloud image to the graphics queue
-    cloudsColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CommandQueueFamily::Graphics);
 }
 
 void CloudsPass::prepareBuffers() {

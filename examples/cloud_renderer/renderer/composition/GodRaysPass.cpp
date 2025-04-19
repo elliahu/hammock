@@ -9,9 +9,6 @@ void GodRaysPass::initialize(HmckVec2 resolution) {
 }
 
 void GodRaysPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
-    // Acquire ownership from compute queue
-    cloudsImage->transition(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, CommandQueueFamily::Graphics);
-
     Image *godRaysImage = getGodRaysTexture();
     Image *maskImage = resourceManager.getResource<Image>(maskTexture);
     VkExtent2D extent = {maskImage->getExtent().width, maskImage->getExtent().height};

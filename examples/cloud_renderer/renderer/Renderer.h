@@ -80,6 +80,13 @@ class Renderer final{
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> depth;
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> terrain;
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> composition; // Composition and postprocess
+
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferRelease;
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToGraphicsTransferRelease;
+
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferAcquire;
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToGraphicsTransferAcquire;
+
     } commandBuffers;
 
     // Semaphores signal that the command buffer is finished so that different command buffer waiting for its result can start
@@ -88,6 +95,14 @@ class Renderer final{
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> cloudsReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphereReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> terrainColorReady;
+
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferClouds;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferAtmosphere;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferGeometry;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToGraphicsTransfer;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeSync;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToGraphicsSync;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToComputeSync;
     } semaphores;
 
     // Synchronization of the frames in flight (waiting until framesInFlight + 1 frame is acquired) is handled internally by the swap chain object
@@ -154,6 +169,11 @@ class Renderer final{
      * @param imageIndex index of the current swap image (there is more images then frames in flight)
      */
     void recordSwapChainImageTransition(VkImageLayout from, VkImageLayout to, uint32_t frameIndex, uint32_t imageIndex);
+
+    void recordGraphicsToComputeTransfers(uint32_t frameIndex);
+    void recordComputeToGraphicsTransfers(uint32_t frameIndex);
+
+
 
     /**
      * All input related code is in here
