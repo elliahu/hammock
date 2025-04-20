@@ -2,6 +2,7 @@
 static const float PI = 3.14159265358979323846;
 
 // Atmosphere parameters
+
 static const float PlanetRadius = 6378000.0; // 6378 km
 static const float AtmosphereRadius = 6460000.0; // 6460 km
 static const float OzoneThickness = 30000.0; // 30 km
@@ -13,8 +14,29 @@ static const float ScatterMie = 3.996 * 1e-6;
 static const float HDensityRayleigh = 8000.0;
 static const float3 AbsorbOzone = float3(0.65, 1.881, 0.085) * 1e-6;
 static const float3 ScatterRayleigh = float3(5.802, 13.558, 33.1) * 1e-6;
-static const float WorldScale = 300.0;
-static const float MaxDistance = 15000.0;
+static const float WorldScale = 200.0;
+static const float MaxDistance = 35000.0;
+
+/*
+// For Mars
+static const float PlanetRadius = 3389500.0; // Mars radius ≈ 3389.5 km
+static const float AtmosphereRadius = 3489500.0; // Thin atmosphere (~10 km thick)
+static const float OzoneThickness = 0.0; // Mars has no significant ozone layer
+static const float OzoneCenterHeight = 0.0; // No ozone peak
+
+// Mie scattering (dust-heavy but low density)
+static const float HDensityMie = 11000.0; // Less gravity, slower falloff than Earth
+static const float AbsorbMie = 3.0 * 1e-7; // Slightly more absorbing due to dust
+static const float AsymmetryMie = 0.85; // Martian dust is highly forward-scattering
+static const float ScatterMie = 2.0 * 1e-7; // Very low Mie scattering
+
+// Rayleigh scattering (mostly CO₂, low density)
+static const float HDensityRayleigh = 11000.0; // Extended falloff due to low pressure
+static const float3 ScatterRayleigh = float3(0.0001, 0.0002, 0.0003); // Near-zero (very weak blue sky)
+static const float3 AbsorbOzone = float3(0.0, 0.0, 0.0); // No ozone absorption
+static const float WorldScale = 100.0;
+static const float MaxDistance = 35000.0;
+*/
 
 
 // Types

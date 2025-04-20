@@ -149,7 +149,7 @@ void CloudsPass::prepareResources() {
     }
     // Weather map
     {
-        AutoDelete weatherMapData(readImage(ASSET_PATH("weather/stratocumulus.png"), w, h, c,
+        AutoDelete weatherMapData(readImage(ASSET_PATH("weather/cumulus.png"), w, h, c,
                                             Filesystem::ImageFormat::R8G8B8A8_UNORM), [](const void *p) {
             delete[] static_cast<const uchar8_t *>(p);
         });

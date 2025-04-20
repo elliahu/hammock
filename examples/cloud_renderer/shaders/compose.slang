@@ -65,7 +65,7 @@ float calculateShadow(float3 worldPos) {
     float fragmentDepthInLightSpace = lightClipPos.z / lightClipPos.w;
 
     float shadow = 0.0;
-    float bias = 0.01; // Adjust bias to avoid shadow acne
+    float bias = 0.005; // Adjust bias to avoid shadow acne
     float2 texelSize = 1.0 / float2(data.resX, data.resY);
     
     for (int x = -1; x <= 1; x++) {
@@ -161,7 +161,7 @@ float4 terrainColor(float2 uv, float4 godRaysValue) {
         }
 
         // Sample the transmittance LUT
-        float4 ap = aerialLUT.SampleLevel(float3(uv, depth), 0.0);
+        float4 ap = aerialLUT.SampleLevel(float3(uv, 1.0 - depth), 0.0);
         float3 inScatter = ap.xyz; // Atmospheric in-scattering
         float eyeTransmittance = ap.w;
         float3 sunTransmittance = getTransmittance(transmittanceLUT, terrainAltitude, asin(data.sunDirection.y));
@@ -187,6 +187,9 @@ float3 skyColor(float2 uv, float4 godRaysValue){
     // Sample sky color
     float4 skyColor = skyColorImage.SampleLevel(uv, 0.0);
     float3 color = skyColor.rgb;
+
+     // Now blend clouds over the sky with god rays
+    color = blend(color, cloudIntensity, cloudAlpha);
     
     // Reconstruct world position and view direction
     float3 worldPos = reconstructWorldPosition(uv, cloudDepth, data.inverseProjection, data.inverseView, 0.1, 300.0);
@@ -194,18 +197,18 @@ float3 skyColor(float2 uv, float4 godRaysValue){
     
     // Get god ray contribution and apply it to sky (before cloud blending)
     if(data.applyGodRays == 1){
-        float3 godRayContribution = calculateGodRays(uv, godRaysValue, worldPos, viewDir, cloudAlpha, false);
-        color = applyGodRays(skyColor.rgb, godRayContribution, false);
+        float3 godRayContribution = calculateGodRays(uv, godRaysValue, worldPos, viewDir, cloudAlpha, true);
+        color = applyGodRays(color, godRayContribution, true);
     }
 
-    // Now blend clouds over the sky with god rays
-    color = blend(color, cloudIntensity, cloudAlpha);
+   
+    
 
     // Compute the altitude of the clouds
     float cloudAltitude = worldPos.y * WorldScale;
 
     // Sample the transmittance LUT
-    float4 ap = aerialLUT.SampleLevel(float3(uv, cloudDepth), 0.0);
+    float4 ap = aerialLUT.SampleLevel(float3(uv, 1.0 - cloudDepth), 0.0);
     float3 inScatter = ap.xyz; // Atmospheric in-scattering
     float eyeTransmittance = ap.w;
     float3 sunTransmittance = getTransmittance(transmittanceLUT, cloudAltitude, asin(data.sunDirection.y));
