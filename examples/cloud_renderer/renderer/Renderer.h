@@ -9,6 +9,7 @@
 #include "composition/GodRaysPass.h"
 #include "depth/DepthPass.h"
 #include "ui/UserInterface.h"
+#include "Profiler.h"
 
 
 using namespace hammock;
@@ -31,6 +32,8 @@ class Renderer final{
     ResourceManager resourceManager;
     // Frame manager handles queue submission and contains swap chain abstraction
     FrameManager frameManager;
+    // Profiler is used to measure time of render passes / dispatches, see definition
+    Profiler profiler;
     // Descriptor pool is used to allocate descriptor sets and layouts
     std::unique_ptr<DescriptorPool> descriptorPool;
     // CPU Thread pool
