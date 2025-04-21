@@ -10,6 +10,7 @@
 #include "depth/DepthPass.h"
 #include "ui/UserInterface.h"
 #include "Profiler.h"
+#include "BenchmarkResult.h"
 
 
 using namespace hammock;
@@ -45,6 +46,9 @@ class Renderer final{
 
     // Launch dimensions
     uint32_t lWidth, lHeight;
+
+    // Results of benchmark
+    BenchmarkResult benchmarkResult;
 
     // Benchmarking
     float deltaTime{0.f}, elapsedTime{0.f};
@@ -203,4 +207,5 @@ public:
      */
     void render();
 
+    BenchmarkResult& getBenchmarkResult() { return benchmarkResult; }
 };

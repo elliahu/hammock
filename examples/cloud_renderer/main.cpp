@@ -34,6 +34,10 @@ int main(int argc, char * argv[]) {
     else if (selectedScene == "renderer") {
         Renderer renderer{width, height};
         renderer.render();
+        auto benchmarkResult = renderer.getBenchmarkResult();
+        std::cout << "Depth pre-pass avg: " << BenchmarkResult::average(benchmarkResult.depthPrePass) << std::endl;
+        std::cout << "Cloud compute avg: " << BenchmarkResult::average(benchmarkResult.cloudComputePass) << std::endl;
+        std::cout << "Composition avg: " << BenchmarkResult::average(benchmarkResult.compositionPass) << std::endl;
     }
     else {
         Logger::log(LOG_LEVEL_ERROR, "Invalid scene option");

@@ -823,7 +823,7 @@ void Renderer::render() {
                 profiler.resetTimestamp(commandBuffers.clouds[frame], 3);
                 profiler.writeTimestamp(commandBuffers.clouds[frame], 2, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
                 cloudsPass.recordCommands(commandBuffers.clouds[frame], frame);
-                profiler.writeTimestamp(commandBuffers.clouds[frame], 3, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+                profiler.writeTimestamp(commandBuffers.clouds[frame], 3, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
                 // Atmosphere pass
                 frameManager.beginCommandBuffer(commandBuffers.atmosphere[frame]);
                 atmospherePass.recordCommands(commandBuffers.atmosphere[frame], frame);
@@ -957,9 +957,10 @@ void Renderer::render() {
             // Process results from the profiler
             if (profiler.getResultsIfAvailable()) {
                 std::vector<float> results = profiler.getResults();
-                for (int i = 0; i < results.size(); i++) {
-                    std::cout << "PROFILER: Pass " << i << " : " << results[i] << " ms"  << std::endl;
-                }
+
+                benchmarkResult.depthPrePass.push_back(results[0]);
+                benchmarkResult.cloudComputePass.push_back(results[1]);
+                benchmarkResult.compositionPass.push_back(results[2]);
             }
         }
     }
