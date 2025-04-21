@@ -37,6 +37,7 @@ int main(int argc, char * argv[]) {
         auto benchmarkResult = renderer.getBenchmarkResult();
         std::cout << "-- PROFILER RESULTS --" << std::endl;
         std::cout << "Depth pre-pass avg: " << BenchmarkResult::average(benchmarkResult.depthPrePass.getSnapshot()) << " ms" << std::endl;
+        std::cout << "Terrain draw avg: " << BenchmarkResult::average(benchmarkResult.terrainDraw.getSnapshot()) << " ms" << std::endl;
         std::cout << "Cloud compute avg: " << BenchmarkResult::average(benchmarkResult.cloudComputePass.getSnapshot()) << " ms"  << std::endl;
         std::cout << "Transmittance LUT compute avg: " << BenchmarkResult::average(benchmarkResult.transmittanceLUT.getSnapshot()) << " ms"  << std::endl;
         std::cout << "Multiple scattering LUT compute avg: " << BenchmarkResult::average(benchmarkResult.multipleScatteringLUT.getSnapshot()) << " ms"  << std::endl;
@@ -44,6 +45,10 @@ int main(int argc, char * argv[]) {
         std::cout << "Aerial perspective LUT compute avg: " << BenchmarkResult::average(benchmarkResult.aerialPerspectiveLUT.getSnapshot()) << " ms"  << std::endl;
         std::cout << "God rays mask gen avg: " << BenchmarkResult::average(benchmarkResult.godRaysMask.getSnapshot()) << " ms"  << std::endl;
         std::cout << "God rays blur gen avg: " << BenchmarkResult::average(benchmarkResult.godRaysBlur.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "Sky view upsample avg: " << BenchmarkResult::average(benchmarkResult.skyUpsample.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "Composition avg: " << BenchmarkResult::average(benchmarkResult.composition.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "Post processing avg: " << BenchmarkResult::average(benchmarkResult.post.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "TOTAL avg: " << BenchmarkResult::average(benchmarkResult.total.getSnapshot()) << " ms"  << std::endl;
         std::cout << "-- ---------------- --" << std::endl;
     }
     else {

@@ -10,11 +10,15 @@ void PostProcessingPass::initialize() {
 
 void PostProcessingPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
 
+    profiler.resetTimestamp(commandBuffer, 20);
+    profiler.resetTimestamp(commandBuffer, 21);
+
     // Transition intermediate image
     if (input->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         input->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
+    profiler.writeTimestamp(commandBuffer, 20, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
     VkRenderingAttachmentInfo swapChainImageAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     swapChainImageAttachment.imageView = swapChainImageView;
     swapChainImageAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -58,6 +62,8 @@ void PostProcessingPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t 
 
     // End rendering
     vkCmdEndRendering(commandBuffer);
+
+    profiler.writeTimestamp(commandBuffer, 21, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
 }
 
 void PostProcessingPass::prepareDescriptors() {

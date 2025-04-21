@@ -13,6 +13,9 @@ void GeometryPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameI
     Image *terrainDepthTarget = resourceManager.getResource<Image>(depth);
     VkExtent3D renderingExtent = terrainColorTarget->getExtent();
 
+    profiler.resetTimestamp(commandBuffer, 22);
+    profiler.resetTimestamp(commandBuffer, 23);
+
     // Pipeline barriers
     if (terrainColorTarget->getLayout() != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
         // Record the transition to required layout
@@ -24,6 +27,7 @@ void GeometryPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameI
         terrainDepthTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
+    profiler.writeTimestamp(commandBuffer, 22, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
     // Begin rendering
     VkRenderingAttachmentInfo colorTarget = terrainColorTarget->getRenderingAttachmentInfo();
     colorTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -75,6 +79,8 @@ void GeometryPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameI
 
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
+
+    profiler.writeTimestamp(commandBuffer, 23, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 }
 
 

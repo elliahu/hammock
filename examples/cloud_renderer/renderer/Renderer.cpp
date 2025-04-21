@@ -632,7 +632,7 @@ void Renderer::handleInput() {
 
 Renderer::Renderer(const int32_t width, const int32_t height)
     : window{instance, "Vulkan atmospheric renderer", static_cast<int>(width), static_cast<int>(height)},
-      device{instance, window.getSurface()}, resourceManager{device}, frameManager{window, device}, profiler{device, 8},
+      device{instance, window.getSurface()}, resourceManager{device}, frameManager{window, device}, profiler{device, 12},
       lWidth{static_cast<uint32_t>(width)}, lHeight{static_cast<uint32_t>(height)}, depthPass(device, resourceManager, profiler, geometry),
       geometryPass(device, resourceManager, profiler, geometry), cloudsPass(device, resourceManager, profiler),
       atmospherePass(device, resourceManager, profiler),
@@ -973,6 +973,11 @@ void Renderer::render() {
                     benchmarkResult.godRaysMask.add(0);
                     benchmarkResult.godRaysBlur.add(0);
                 }
+                benchmarkResult.skyUpsample.add(results[8]);
+                benchmarkResult.composition.add(results[9]);
+                benchmarkResult.post.add(results[10]);
+                benchmarkResult.terrainDraw.add(results[11]);
+                benchmarkResult.total.add(deltaTime * 1000.0f);
             }
         }
     }

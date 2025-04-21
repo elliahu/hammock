@@ -18,6 +18,11 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
     Image *skyColorTarget = resourceManager.getResource<Image>(skyColor);
     VkExtent2D extent = {compositedColorTarget->getExtent().width, compositedColorTarget->getExtent().height};
 
+    profiler.resetTimestamp(commandBuffer, 16);
+    profiler.resetTimestamp(commandBuffer, 17);
+    profiler.resetTimestamp(commandBuffer, 18);
+    profiler.resetTimestamp(commandBuffer, 19);
+
     resourceManager.getResource<Buffer>(buffer)->writeToBuffer(&data);
 
     // Transition attachments into required layouts
@@ -41,6 +46,7 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
         godRaysTexture->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
+    profiler.writeTimestamp(commandBuffer, 16, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
 
     // Begin rendering into intermediate composition image
     VkRenderingAttachmentInfo colorTarget = skyColorTarget->getRenderingAttachmentInfo();
@@ -83,11 +89,14 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
 
+    profiler.writeTimestamp(commandBuffer, 17, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
+
     // transition sky image
     if (skyColorTarget->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         skyColorTarget->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
+    profiler.writeTimestamp(commandBuffer, 18, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
     // Composition
     colorTarget = compositedColorTarget->getRenderingAttachmentInfo();
     colorTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -108,6 +117,8 @@ void CompositionPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fra
 
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
+
+    profiler.writeTimestamp(commandBuffer, 19, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 }
 
 void CompositionPass::prepareBlueNoise() {

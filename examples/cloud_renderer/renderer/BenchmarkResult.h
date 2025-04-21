@@ -2,7 +2,7 @@
 #include <numeric>
 #include <vector>
 
-#define CIRCULAR_BUFFER_SIZE 300
+#define CIRCULAR_BUFFER_SIZE 1500
 
 class CircularBuffer {
 public:
@@ -48,6 +48,11 @@ struct BenchmarkResult {
     CircularBuffer aerialPerspectiveLUT{CIRCULAR_BUFFER_SIZE};
     CircularBuffer godRaysMask{CIRCULAR_BUFFER_SIZE};
     CircularBuffer godRaysBlur{CIRCULAR_BUFFER_SIZE};
+    CircularBuffer skyUpsample{CIRCULAR_BUFFER_SIZE};
+    CircularBuffer composition{CIRCULAR_BUFFER_SIZE};
+    CircularBuffer post{CIRCULAR_BUFFER_SIZE};
+    CircularBuffer terrainDraw{CIRCULAR_BUFFER_SIZE};
+    CircularBuffer total{CIRCULAR_BUFFER_SIZE};
 
     static float average(std::vector<float> values) {
         float sum = std::accumulate(values.begin(), values.end(), 0.0f);
