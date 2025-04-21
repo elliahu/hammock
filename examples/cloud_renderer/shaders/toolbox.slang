@@ -40,7 +40,7 @@ static const float MaxDistance = 35000.0;
 
 
 // Types
-struct GlobalData{
+struct CloudData{
     float4x4 invView;
     float4x4 invProj;
     float4x4 view;
@@ -57,6 +57,7 @@ struct GlobalData{
     float far;
     float time = 0.0f;
     int frameIndexMod16;
+    int _padding[2];
 };
 
 struct AtmosphereParams{

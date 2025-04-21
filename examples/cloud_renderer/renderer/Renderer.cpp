@@ -680,9 +680,6 @@ void Renderer::update() {
         cloudsPass.uniform.time = elapsedTime;
     }
 
-    float azimuthRadians = HmckToRad(HmckAngleDeg(45.0f));
-    cloudsPass.uniform.windDirection = HmckVec4{HmckCosF(azimuthRadians), 0.0f, HmckSinF(azimuthRadians), 0.0f};
-
 
     // Update geometry pass
     geometryPass.setProjection(projection);

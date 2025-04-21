@@ -110,8 +110,11 @@ void ::UserInterface::showEditorWindow() {
     ImGui::SliderFloat("Global density",  &cloudsPushConstant->globalDensity, 0.0f, 1.f);
     ImGui::SliderFloat("Wind speed",  &cloudsPushConstant->cloudSpeed, 0.0f, 5000.f);
     static float angle = 0.f;
-    ImGui::SliderAngle("Wind direction", &angle, 0.f, 360.f);
-    cloudsUniformBuffer->windDirection = HmckNorm(HmckVec4{sin(HmckToRad(HmckAngleDeg(angle))), 0.0f,cos(HmckToRad(HmckAngleDeg(angle))),  0.0f});
+    ImGui::SliderFloat("Wind direction", &angle, 0.f, 360.f);
+    float rad = angle * (3.14159265359f / 180.0f);
+    cloudsUniformBuffer->windDirection = HmckVec4{HmckVec3{cos(rad), 0.0f,sin(rad)},  0.0f};
+    std::cout << "X: " << cloudsUniformBuffer->windDirection.X << " Y: " <<  cloudsUniformBuffer->windDirection.Y << " Z " << cloudsUniformBuffer->windDirection.Z  << std::endl;
+
 
     ImGui::SeparatorText("Light");
     ImGui::ColorEdit3("Light color", &cloudsUniformBuffer->lightColor.Elements[0]);

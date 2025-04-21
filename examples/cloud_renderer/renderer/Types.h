@@ -23,7 +23,7 @@ struct CloudsUniformBufferData {
     HmckVec4 lightColor{1.0f, 1.0f, 1.0f, 5.0f}; // W is strength
     HmckVec4 lightDirection{0.0f, 1.0f, 0.f, 0.0f};
     HmckVec4 skyColorZenith{59.0 / 255.0, 110.0 / 255.0, 219.0 / 255.0};
-    HmckVec4 windDirection;
+    HmckVec4 windDirection{};
     float resX;
     float resY;
     float fov;
@@ -31,6 +31,7 @@ struct CloudsUniformBufferData {
     float zfar;
     float time = 0.0f;
     int frameIndexMod16;
+    int _padding[2];
 };
 
 // Data for cloud pass passed as push constant block

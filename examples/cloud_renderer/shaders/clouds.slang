@@ -26,7 +26,7 @@ struct PushConstants {
     float DEBUG_longStepMulti;
 };
 
-[vk::binding(0)] ConstantBuffer<GlobalData> data;
+[vk::binding(0)] ConstantBuffer<CloudData> data;
 
 // Storage images
 [vk::binding(1)] RWTexture2D cloudsStorageImage;
