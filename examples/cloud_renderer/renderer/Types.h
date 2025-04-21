@@ -58,7 +58,7 @@ struct CloudsPushConstantData {
     int DEBUG_maxLightSamples = 10;
 #else
     int DEBUG_maxSamples = 128;
-    int DEBUG_maxLightSamples = 4;
+    int DEBUG_maxLightSamples = 6;
 #endif
 
     int DEBUG_earlyTermination = 0;
