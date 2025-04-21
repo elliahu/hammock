@@ -113,7 +113,6 @@ void ::UserInterface::showEditorWindow() {
     ImGui::SliderFloat("Wind direction", &angle, 0.f, 360.f);
     float rad = angle * (3.14159265359f / 180.0f);
     cloudsUniformBuffer->windDirection = HmckVec4{HmckVec3{cos(rad), 0.0f,sin(rad)},  0.0f};
-    std::cout << "X: " << cloudsUniformBuffer->windDirection.X << " Y: " <<  cloudsUniformBuffer->windDirection.Y << " Z " << cloudsUniformBuffer->windDirection.Z  << std::endl;
 
 
     ImGui::SeparatorText("Light");

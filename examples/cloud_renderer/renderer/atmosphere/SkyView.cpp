@@ -1,6 +1,8 @@
 #include "SkyView.h"
 
 void SkyView::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
+
+    profiler.writeTimestamp(commandBuffer, 8, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     // Bind the descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 1, 1,
                             &descriptor, 0, nullptr);
@@ -9,7 +11,6 @@ void SkyView::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex)
     pipeline->bind(commandBuffer);
 
     // Dispatch
-    profiler.writeTimestamp(commandBuffer, 8, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     vkCmdDispatch(commandBuffer, GROUPS_COUNT(SKY_VIEW_LUT_SIZE_X, 8), GROUPS_COUNT(SKY_VIEW_LUT_SIZE_Y, 8), 1);
     profiler.writeTimestamp(commandBuffer, 9, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 }

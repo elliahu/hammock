@@ -10,8 +10,9 @@ void Transmittance::initialize(VkDescriptorSetLayout descriptorSetLayout) {
 }
 
 void Transmittance::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
+
+    profiler.writeTimestamp(commandBuffer, 4, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     // Bind the descriptor set
-    // Bind the common descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 1, 1,
                             &descriptor, 0, nullptr);
 
@@ -19,7 +20,6 @@ void Transmittance::recordCommands(VkCommandBuffer commandBuffer, uint32_t frame
     pipeline->bind(commandBuffer);
 
     // Dispatch
-    profiler.writeTimestamp(commandBuffer, 4, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     vkCmdDispatch(commandBuffer, GROUPS_COUNT(TRANSMITTANCE_LUT_SIZE_X,16), GROUPS_COUNT(TRANSMITTANCE_LUT_SIZE_Y,16), 1);
     profiler.writeTimestamp(commandBuffer, 5, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 }

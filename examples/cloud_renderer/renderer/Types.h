@@ -52,11 +52,23 @@ struct CloudsPushConstantData {
     float ambientStrength = 0.25;
     int DEBUG_epicView = 0;
     int DEBUG_cheapSampleDistance = 100000;
-    int DEBUG_maxSamples = 96;
+
+#if defined(HIGH_QUALITY)
+    int DEBUG_maxSamples = 256;
+    int DEBUG_maxLightSamples = 10;
+#else
+    int DEBUG_maxSamples = 128;
     int DEBUG_maxLightSamples = 4;
+#endif
+
     int DEBUG_earlyTermination = 0;
     int DEBUG_lateTermination = 0;
-    float DEBUG_longStepMulti = 2.5f;
+
+#if defined(HIGH_QUALITY)
+    float DEBUG_longStepMulti = 1.f;
+#else
+    float DEBUG_longStepMulti = 2.f;
+#endif
 };
 
 // Atmospheric pass data

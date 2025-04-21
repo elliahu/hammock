@@ -25,6 +25,8 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
     profiler.resetTimestamp(commandBuffer, 3);
 
 
+    profiler.writeTimestamp(commandBuffer, 2, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+
     // Bind descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 0, 1,
                             &descriptors[frameIndex], 0, nullptr);
@@ -36,7 +38,6 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
     vkCmdPushConstants(commandBuffer, pipeline->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
                        0, sizeof(CloudsPushConstantData), &properties);
 
-    profiler.writeTimestamp(commandBuffer, 2, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
     // Record the first dispatch that performs the raymarching and writes clouds and occlusion mask
     vkCmdDispatch(commandBuffer, CLOUDS_GROUPS_X(cloudsDispatchSize.width), CLOUDS_GROUPS_Y(cloudsDispatchSize.height), 1);
@@ -307,7 +308,7 @@ void CloudsPass::preparePipelines() {
     pipeline = ComputePipeline::create({
         .debugName = "clouds-compute-pipeline",
         .device = device,
-        .computeShader{.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH("clouds.comp")),},
+        .computeShader{.byteCode = Filesystem::readFile(COMPILED_SHADER_PATH(CLOUDS_SHADER_NAME)),},
         .descriptorSetLayouts = {
             layout->getDescriptorSetLayout()
         },

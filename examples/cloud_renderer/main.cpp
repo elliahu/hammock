@@ -3,11 +3,7 @@
 #include <hammock/hammock.h>
 
 #include "scenes/ParticipatingMediumScene.h"
-
 #include "renderer/Renderer.h"
-
-// To use reprojection in the cloud rendering, define REPROJECTION macro here and in the shaders/clouds.slang shader
-//#define REPROJECTION
 
 using namespace hammock;
 

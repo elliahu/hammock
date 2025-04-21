@@ -14,6 +14,15 @@
 
 class CloudsPass final : public IRenderGroup {
 public:
+
+#ifdef REPROJECTION
+#define CLOUDS_SHADER_NAME "clouds_repr.comp"
+#else
+#define CLOUDS_SHADER_NAME "clouds.comp"
+#endif
+
+
+
     CloudsPass(Device &device, ResourceManager &resourceManager, Profiler& profiler)
         : IRenderGroup(device, resourceManager, profiler) {
     }
