@@ -136,7 +136,7 @@ void Renderer::destroySyncObjects() {
 }
 
 void Renderer::prepareGeometry() {
-    Loader(geometry, device, resourceManager).loadglTF(ASSET_PATH("mountain.glb"));
+    Loader(geometry, device, resourceManager).loadglTF(ASSET_PATH("terrain.glb"));
 
     ASSERT(!geometry.vertices.empty(), "No vertices loaded!");
 
@@ -959,19 +959,19 @@ void Renderer::render() {
             if (profiler.getResultsIfAvailable()) {
                 std::vector<float> results = profiler.getResults();
 
-                benchmarkResult.depthPrePass.push_back(results[0]);
-                benchmarkResult.cloudComputePass.push_back(results[1]);
-                benchmarkResult.transmittanceLUT.push_back(results[2]);
-                benchmarkResult.multipleScatteringLUT.push_back(results[3]);
-                benchmarkResult.skyViewLUT.push_back(results[4]);
-                benchmarkResult.aerialPerspectiveLUT.push_back(results[5]);
+                benchmarkResult.depthPrePass.add(results[0]);
+                benchmarkResult.cloudComputePass.add(results[1]);
+                benchmarkResult.transmittanceLUT.add(results[2]);
+                benchmarkResult.multipleScatteringLUT.add(results[3]);
+                benchmarkResult.skyViewLUT.add(results[4]);
+                benchmarkResult.aerialPerspectiveLUT.add(results[5]);
                 if (compositionPass.data.applyGodRays) {
-                    benchmarkResult.godRaysMask.push_back(results[6]);
-                    benchmarkResult.godRaysBlur.push_back(results[7]);
+                    benchmarkResult.godRaysMask.add(results[6]);
+                    benchmarkResult.godRaysBlur.add(results[7]);
                 }
                 else {
-                    benchmarkResult.godRaysMask.push_back(0);
-                    benchmarkResult.godRaysBlur.push_back(0);
+                    benchmarkResult.godRaysMask.add(0);
+                    benchmarkResult.godRaysBlur.add(0);
                 }
             }
         }

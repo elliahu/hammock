@@ -18,7 +18,9 @@ void MultipleScattering::recordCommands(VkCommandBuffer commandBuffer, uint32_t 
     pipeline->bind(commandBuffer);
 
     // Dispatch
+    profiler.writeTimestamp(commandBuffer, 6, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     vkCmdDispatch(commandBuffer, GROUPS_COUNT(MULTI_SCATTER_LUT_SIZE_X, 16), GROUPS_COUNT(MULTI_SCATTER_LUT_SIZE_Y, 16), 1);
+    profiler.writeTimestamp(commandBuffer, 7, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 }
 
 void MultipleScattering::prepareDescriptors() {

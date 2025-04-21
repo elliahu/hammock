@@ -8,7 +8,9 @@ void AerialPerspective::recordCommands(VkCommandBuffer commandBuffer, uint32_t f
     // Bind the pipeline
     pipeline->bind(commandBuffer);
     // Dispatch
+    profiler.writeTimestamp(commandBuffer, 10, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     vkCmdDispatch(commandBuffer, GROUPS_COUNT(AERIAL_PERSPECTIVE_LUT_SIZE_X, 8), GROUPS_COUNT(AERIAL_PERSPECTIVE_LUT_SIZE_Y, 8), 1);
+    profiler.writeTimestamp(commandBuffer, 11, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 }
 
 void AerialPerspective::initialize(VkDescriptorSetLayout descriptorSetLayout) {

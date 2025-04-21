@@ -36,14 +36,14 @@ int main(int argc, char * argv[]) {
         renderer.render();
         auto benchmarkResult = renderer.getBenchmarkResult();
         std::cout << "-- PROFILER RESULTS --" << std::endl;
-        std::cout << "Depth pre-pass avg: " << BenchmarkResult::average(benchmarkResult.depthPrePass) << " ms" << std::endl;
-        std::cout << "Cloud compute avg: " << BenchmarkResult::average(benchmarkResult.cloudComputePass) << " ms"  << std::endl;
-        std::cout << "Transmittance LUT compute avg: " << BenchmarkResult::average(benchmarkResult.transmittanceLUT) << " ms"  << std::endl;
-        std::cout << "Multiple scattering LUT compute avg: " << BenchmarkResult::average(benchmarkResult.multipleScatteringLUT) << " ms"  << std::endl;
-        std::cout << "Sky view LUT compute avg: " << BenchmarkResult::average(benchmarkResult.skyViewLUT) << " ms"  << std::endl;
-        std::cout << "Aerial perspective LUT compute avg: " << BenchmarkResult::average(benchmarkResult.aerialPerspectiveLUT) << " ms"  << std::endl;
-        std::cout << "God rays mask gen avg: " << BenchmarkResult::average(benchmarkResult.godRaysMask) << " ms"  << std::endl;
-        std::cout << "God rays blur gen avg: " << BenchmarkResult::average(benchmarkResult.godRaysBlur) << " ms"  << std::endl;
+        std::cout << "Depth pre-pass avg: " << BenchmarkResult::average(benchmarkResult.depthPrePass.getSnapshot()) << " ms" << std::endl;
+        std::cout << "Cloud compute avg: " << BenchmarkResult::average(benchmarkResult.cloudComputePass.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "Transmittance LUT compute avg: " << BenchmarkResult::average(benchmarkResult.transmittanceLUT.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "Multiple scattering LUT compute avg: " << BenchmarkResult::average(benchmarkResult.multipleScatteringLUT.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "Sky view LUT compute avg: " << BenchmarkResult::average(benchmarkResult.skyViewLUT.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "Aerial perspective LUT compute avg: " << BenchmarkResult::average(benchmarkResult.aerialPerspectiveLUT.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "God rays mask gen avg: " << BenchmarkResult::average(benchmarkResult.godRaysMask.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "God rays blur gen avg: " << BenchmarkResult::average(benchmarkResult.godRaysBlur.getSnapshot()) << " ms"  << std::endl;
         std::cout << "-- ---------------- --" << std::endl;
     }
     else {

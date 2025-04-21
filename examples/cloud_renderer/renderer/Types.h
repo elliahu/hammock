@@ -103,5 +103,5 @@ struct CompositionData {
     HmckVec4 cameraPosition;
     float resX;
     float resY;
-    int applyGodRays = 0;
+    int applyGodRays = 1;
 };
