@@ -62,8 +62,10 @@ struct CloudsPushConstantData {
 struct AtmosphereUniformBufferData {
     HmckMat4 inverseProjection;
     HmckMat4 inverseView;
+    HmckMat4 shadowViewProj;
     HmckVec4 eye;
     HmckVec4 sunDirection;
+    HmckVec4 frustumA, frustumB, frustumC, frustumD;
     float resX;
     float resY;
 };

@@ -29,11 +29,6 @@ void AtmospherePass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fram
     transmittance.recordCommands(commandBuffer, frameIndex);
     multipleScattering.recordCommands(commandBuffer, frameIndex);
     skyView.recordCommands(commandBuffer, frameIndex);
-
-    // Bind the common descriptor set again as there is a compatibility break between passes for some reason ??
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, aerialPerspective.getPipelineLayout(), 0, 1,
-                            &descriptor, 0, nullptr);
-
     aerialPerspective.recordCommands(commandBuffer, frameIndex);
 }
 

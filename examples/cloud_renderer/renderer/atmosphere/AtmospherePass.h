@@ -28,10 +28,16 @@ public:
     }
 
     void setShadowMap(Image *image) { aerialPerspective.setShadowMap(image); }
-    void setShadowViewProjection(HmckMat4 mat) { aerialPerspective.setShadowViewProjection(mat); }
-    void setCameraInverseView(HmckMat4 mat) {atmosphere.inverseView = mat; }
-    void setCameraInverseProjection(HmckMat4 mat) {atmosphere.inverseProjection = mat; }
-    void setCameraFrustum(HmckVec4 a,HmckVec4 b,HmckVec4 c,HmckVec4 d) {aerialPerspective.setCameraFrustum(a, b, c, d); }
+    void setShadowViewProjection(HmckMat4 mat) { atmosphere.shadowViewProj = mat; }
+    void setCameraInverseView(HmckMat4 mat) { atmosphere.inverseView = mat; }
+    void setCameraInverseProjection(HmckMat4 mat) { atmosphere.inverseProjection = mat; }
+
+    void setCameraFrustum(HmckVec4 a, HmckVec4 b, HmckVec4 c, HmckVec4 d) {
+        atmosphere.frustumA = a;
+        atmosphere.frustumB = b;
+        atmosphere.frustumC = c;
+        atmosphere.frustumD = d;
+    }
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
 

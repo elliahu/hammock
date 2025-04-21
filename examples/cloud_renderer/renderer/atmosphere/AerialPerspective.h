@@ -19,22 +19,8 @@ public:
     void setMultipleScattering(Image *image) { multipleScattering = image; }
     void setTransmittance(Image *image) { transmittance = image; }
     void setShadowMap(Image *image) { shadowMap = image; }
-    void setShadowViewProjection(HmckMat4 mat) { data.shadowViewProjection = mat; }
-    void setCameraFrustum(HmckVec4 a,HmckVec4 b,HmckVec4 c,HmckVec4 d) {
-        data.frustumA = a;
-        data.frustumB = b;
-        data.frustumC = c;
-        data.frustumD = d;
-    }
 
 protected:
-    struct AerialPerspectiveData {
-        HmckMat4 shadowViewProjection;
-        HmckVec4 frustumA;
-        HmckVec4 frustumB;
-        HmckVec4 frustumC;
-        HmckVec4 frustumD;
-    } data;
 
 
     Image *multipleScattering;

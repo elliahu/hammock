@@ -7,10 +7,6 @@ void AerialPerspective::recordCommands(VkCommandBuffer commandBuffer, uint32_t f
                             &descriptor, 0, nullptr);
     // Bind the pipeline
     pipeline->bind(commandBuffer);
-
-    vkCmdPushConstants(commandBuffer, pipeline->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
-                           0, sizeof(AerialPerspectiveData), &data);
-
     // Dispatch
     vkCmdDispatch(commandBuffer, GROUPS_COUNT(AERIAL_PERSPECTIVE_LUT_SIZE_X, 8), GROUPS_COUNT(AERIAL_PERSPECTIVE_LUT_SIZE_Y, 8), 1);
 }
@@ -76,6 +72,6 @@ void AerialPerspective::preparePipeline(VkDescriptorSetLayout descriptorSetLayou
             descriptorSetLayout,
             layout->getDescriptorSetLayout()
         },
-        .pushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(AerialPerspectiveData)}}
+        .pushConstantRanges{}
     });
 }

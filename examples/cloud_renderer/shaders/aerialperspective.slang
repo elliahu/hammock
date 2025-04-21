@@ -9,17 +9,11 @@ import toolbox;
 [vk::binding(2,1)] Sampler2D ShadowMap;
 [vk::binding(3,1)] RWTexture3D<float4> AerialPerspective;
 
-struct Data{
-    float4x4 ShadowViewProj;
-    float4 frustumA, frustumB, frustumC, frustumD;
-}
-
-[vk_push_constant] Data data;
 
 float3 GetRayDir(float2 uv) {
     // Bilinear interpolation between the 4 frustum corners
-    float3 topDir = lerp(data.frustumD.xyz, data.frustumC.xyz, uv.x);
-    float3 bottomDir = lerp(data.frustumB.xyz, data.frustumA.xyz, uv.x);
+    float3 topDir = lerp(params.frustumD.xyz, params.frustumC.xyz, uv.x);
+    float3 bottomDir = lerp(params.frustumB.xyz, params.frustumA.xyz, uv.x);
     return normalize(lerp(bottomDir, topDir, uv.y));
 }
 
@@ -83,7 +77,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
             if(!hasIntersectionWithSphere(posR, params.SunDirection.xyz, PlanetRadius))
             {
                 float3 shadowPos  = params.Eye.xyz + dir * midT / WorldScale;
-                float4 shadowClip = mul(data.ShadowViewProj, float4(shadowPos, 1.0));
+                float4 shadowClip = mul(params.ShadowViewProj, float4(shadowPos, 1.0));
                 float3 shadowNDC  = shadowClip.xyz / shadowClip.w;
                 float2 shadowUV = shadowNDC.xy * 0.5 + 0.5;
 

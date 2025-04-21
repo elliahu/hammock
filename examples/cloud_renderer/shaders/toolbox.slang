@@ -62,8 +62,10 @@ struct GlobalData{
 struct AtmosphereParams{
     float4x4 inverseProjection;
     float4x4 inverseView;
+    float4x4 ShadowViewProj;
     float4 Eye;
     float4 SunDirection;
+    float4 frustumA, frustumB, frustumC, frustumD;
     float resX;
     float resY;
 };
