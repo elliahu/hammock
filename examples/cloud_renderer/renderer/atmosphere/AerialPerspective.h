@@ -8,8 +8,8 @@
 
 class AerialPerspective final : public ILookUpTable {
 public:
-    AerialPerspective(Device &device, ResourceManager &resourceManager)
-        : ILookUpTable(device, resourceManager) {
+    AerialPerspective(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : ILookUpTable(device, resourceManager, profiler) {
     }
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;

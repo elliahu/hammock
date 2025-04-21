@@ -7,7 +7,7 @@
  */
 class GeometryPass final : public IRenderGroup {
 public:
-    explicit GeometryPass(Device &device, ResourceManager &resourceManager, Geometry &geometry): IRenderGroup(device, resourceManager),
+    explicit GeometryPass(Device &device, ResourceManager &resourceManager, Profiler& profiler, Geometry &geometry): IRenderGroup(device, resourceManager, profiler),
         geometry(geometry) {
     };
 

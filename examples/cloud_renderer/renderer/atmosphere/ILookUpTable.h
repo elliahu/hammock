@@ -8,8 +8,8 @@
  */
 class ILookUpTable : public IRenderGroup {
 public:
-    ILookUpTable(Device &device, ResourceManager &resourceManager)
-        : IRenderGroup(device, resourceManager) {
+    ILookUpTable(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : IRenderGroup(device, resourceManager, profiler) {
     }
 
     virtual void initialize(VkDescriptorSetLayout descriptorSetLayout) = 0;

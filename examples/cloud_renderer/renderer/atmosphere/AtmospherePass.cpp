@@ -25,11 +25,29 @@ void AtmospherePass::recordCommands(VkCommandBuffer commandBuffer, uint32_t fram
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, transmittance.getPipelineLayout(), 0, 1,
                             &descriptor, 0, nullptr);
 
+    profiler.resetTimestamp(commandBuffer, 4);
+    profiler.resetTimestamp(commandBuffer, 5);
+    profiler.resetTimestamp(commandBuffer, 6);
+    profiler.resetTimestamp(commandBuffer, 7);
+    profiler.resetTimestamp(commandBuffer, 8);
+    profiler.resetTimestamp(commandBuffer, 9);
+    profiler.resetTimestamp(commandBuffer, 10);
+    profiler.resetTimestamp(commandBuffer, 11);
+
+
     // Record transmittance
+    profiler.writeTimestamp(commandBuffer, 4, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     transmittance.recordCommands(commandBuffer, frameIndex);
+    profiler.writeTimestamp(commandBuffer, 5, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    profiler.writeTimestamp(commandBuffer, 6, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     multipleScattering.recordCommands(commandBuffer, frameIndex);
+    profiler.writeTimestamp(commandBuffer, 7, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    profiler.writeTimestamp(commandBuffer, 8, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     skyView.recordCommands(commandBuffer, frameIndex);
+    profiler.writeTimestamp(commandBuffer, 9, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    profiler.writeTimestamp(commandBuffer, 10, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     aerialPerspective.recordCommands(commandBuffer, frameIndex);
+    profiler.writeTimestamp(commandBuffer, 11, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 }
 
 void AtmospherePass::prepareBuffers() {

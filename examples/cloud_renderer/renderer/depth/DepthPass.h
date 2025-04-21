@@ -12,8 +12,8 @@
  */
 class DepthPass final : public IRenderGroup {
 public:
-    DepthPass(Device &device, ResourceManager &resourceManager, Geometry &geometry)
-        : IRenderGroup(device, resourceManager), geometry(geometry) {
+    DepthPass(Device &device, ResourceManager &resourceManager, Profiler& profiler, Geometry &geometry)
+        : IRenderGroup(device, resourceManager, profiler), geometry(geometry) {
     }
 
     void initialize(HmckVec2 resolution);

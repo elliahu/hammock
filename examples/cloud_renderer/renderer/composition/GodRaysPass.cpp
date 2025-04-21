@@ -13,6 +13,11 @@ void GodRaysPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIn
     Image *maskImage = resourceManager.getResource<Image>(maskTexture);
     VkExtent2D extent = {maskImage->getExtent().width, maskImage->getExtent().height};
 
+    profiler.resetTimestamp(commandBuffer, 12);
+    profiler.resetTimestamp(commandBuffer, 13);
+    profiler.resetTimestamp(commandBuffer, 14);
+    profiler.resetTimestamp(commandBuffer, 15);
+
     if (terrainDepth->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         terrainDepth->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
@@ -26,7 +31,7 @@ void GodRaysPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIn
     }
 
     // First, create the mask
-
+    profiler.writeTimestamp(commandBuffer, 12, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
     VkRenderingAttachmentInfo colorTarget = maskImage->getRenderingAttachmentInfo();
     colorTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorTarget.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -63,6 +68,8 @@ void GodRaysPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIn
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
 
+    profiler.writeTimestamp(commandBuffer, 13, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
+
     if (godRaysImage->getLayout() != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
         godRaysImage->transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     }
@@ -71,6 +78,7 @@ void GodRaysPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIn
         maskImage->transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
+    profiler.writeTimestamp(commandBuffer, 14, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
     // Then blur the mask to create god rays texture
     colorTarget = godRaysImage->getRenderingAttachmentInfo();
     colorTarget.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -98,6 +106,8 @@ void GodRaysPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIn
 
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
+
+    profiler.writeTimestamp(commandBuffer, 15, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 }
 
 void GodRaysPass::prepareTargets(uint32_t width, uint32_t height) {

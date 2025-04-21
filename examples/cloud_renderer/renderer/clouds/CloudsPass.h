@@ -14,8 +14,8 @@
 
 class CloudsPass final : public IRenderGroup {
 public:
-    CloudsPass(Device &device, ResourceManager &resourceManager)
-        : IRenderGroup(device, resourceManager) {
+    CloudsPass(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : IRenderGroup(device, resourceManager, profiler) {
     }
 
     // This is passed as buffer

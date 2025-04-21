@@ -632,11 +632,12 @@ void Renderer::handleInput() {
 
 Renderer::Renderer(const int32_t width, const int32_t height)
     : window{instance, "Vulkan atmospheric renderer", static_cast<int>(width), static_cast<int>(height)},
-      device{instance, window.getSurface()}, resourceManager{device}, frameManager{window, device}, profiler{device, 3},
-      lWidth{static_cast<uint32_t>(width)}, lHeight{static_cast<uint32_t>(height)}, depthPass(device, resourceManager, geometry),
-      geometryPass(device, resourceManager, geometry), cloudsPass(device, resourceManager), atmospherePass(device, resourceManager),
-      godRaysPass(device, resourceManager),
-      compositionPass(device, resourceManager), postProcessingPass(device, resourceManager) {
+      device{instance, window.getSurface()}, resourceManager{device}, frameManager{window, device}, profiler{device, 8},
+      lWidth{static_cast<uint32_t>(width)}, lHeight{static_cast<uint32_t>(height)}, depthPass(device, resourceManager, profiler, geometry),
+      geometryPass(device, resourceManager, profiler, geometry), cloudsPass(device, resourceManager, profiler),
+      atmospherePass(device, resourceManager, profiler),
+      godRaysPass(device, resourceManager, profiler),
+      compositionPass(device, resourceManager, profiler), postProcessingPass(device, resourceManager, profiler) {
     // Initialize the descriptor pool object from which descriptors will be allocated
     descriptorPool = DescriptorPool::Builder(device)
             .setMaxSets(20000)
@@ -781,12 +782,9 @@ void Renderer::render() {
 
             // First depth pass
             frameManager.beginCommandBuffer(commandBuffers.depth[frame]);
-            profiler.resetTimestamp(commandBuffers.depth[frame], 0);
-            profiler.resetTimestamp(commandBuffers.depth[frame], 1);
-            profiler.writeTimestamp(commandBuffers.depth[frame], 0, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
+
             depthPass.recordCommands(commandBuffers.depth[frame], frame);
-            profiler.writeTimestamp(commandBuffers.depth[frame], 1, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
-            {
+             {
                 VkSemaphoreSubmitInfo signalSemaphore = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = semaphores.depthReady[frame],
@@ -819,15 +817,10 @@ void Renderer::render() {
             threadPool.submit([&, frame, image]() {
                 // Cloud pass
                 frameManager.beginCommandBuffer(commandBuffers.clouds[frame]);
-                profiler.resetTimestamp(commandBuffers.clouds[frame], 2);
-                profiler.resetTimestamp(commandBuffers.clouds[frame], 3);
-                profiler.writeTimestamp(commandBuffers.clouds[frame], 2, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
                 cloudsPass.recordCommands(commandBuffers.clouds[frame], frame);
-                profiler.writeTimestamp(commandBuffers.clouds[frame], 3, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
                 // Atmosphere pass
                 frameManager.beginCommandBuffer(commandBuffers.atmosphere[frame]);
-                atmospherePass.recordCommands(commandBuffers.atmosphere[frame], frame);
-                {
+                atmospherePass.recordCommands(commandBuffers.atmosphere[frame], frame); {
                     VkSemaphoreSubmitInfo waitSemaphore = {
                         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                         .semaphore = semaphores.graphicsToComputeTransferClouds[frame],
@@ -932,18 +925,26 @@ void Renderer::render() {
 
             // Lastly, the composition passes
             frameManager.beginCommandBuffer(commandBuffers.composition[frame]);
-            profiler.resetTimestamp(commandBuffers.composition[frame], 4);
-            profiler.resetTimestamp(commandBuffers.composition[frame], 5);
-            profiler.writeTimestamp(commandBuffers.composition[frame], 4, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT );
             if (compositionPass.data.applyGodRays) {
                 godRaysPass.recordCommands(commandBuffers.composition[frame], frame);
+            }
+            else {
+                // This is here for the validation layers to not throw error when the god rays pass is skipped
+                profiler.resetTimestamp(commandBuffers.composition[frame], 12);
+                profiler.resetTimestamp(commandBuffers.composition[frame], 13);
+                profiler.resetTimestamp(commandBuffers.composition[frame], 14);
+                profiler.resetTimestamp(commandBuffers.composition[frame], 15);
+
+                profiler.writeTimestamp(commandBuffers.composition[frame], 12, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
+                profiler.writeTimestamp(commandBuffers.composition[frame], 13, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
+                profiler.writeTimestamp(commandBuffers.composition[frame], 14, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
+                profiler.writeTimestamp(commandBuffers.composition[frame], 15, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
             }
             compositionPass.recordCommands(commandBuffers.composition[frame], frame);
             recordSwapChainImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, frame, image);
             postProcessingPass.recordCommands(commandBuffers.composition[frame], frame);
             ui->recordUserInterface(commandBuffers.composition[frame]);
             recordSwapChainImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, frame, image);
-            profiler.writeTimestamp(commandBuffers.composition[frame], 5, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 
             // Submit composition command buffer
             // This one is submitted for presentation
@@ -960,7 +961,18 @@ void Renderer::render() {
 
                 benchmarkResult.depthPrePass.push_back(results[0]);
                 benchmarkResult.cloudComputePass.push_back(results[1]);
-                benchmarkResult.compositionPass.push_back(results[2]);
+                benchmarkResult.transmittanceLUT.push_back(results[2]);
+                benchmarkResult.multipleScatteringLUT.push_back(results[3]);
+                benchmarkResult.skyViewLUT.push_back(results[4]);
+                benchmarkResult.aerialPerspectiveLUT.push_back(results[5]);
+                if (compositionPass.data.applyGodRays) {
+                    benchmarkResult.godRaysMask.push_back(results[6]);
+                    benchmarkResult.godRaysBlur.push_back(results[7]);
+                }
+                else {
+                    benchmarkResult.godRaysMask.push_back(0);
+                    benchmarkResult.godRaysBlur.push_back(0);
+                }
             }
         }
     }

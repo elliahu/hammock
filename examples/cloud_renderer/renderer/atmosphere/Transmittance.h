@@ -9,8 +9,8 @@
  */
 class Transmittance : public ILookUpTable {
 public:
-    Transmittance(Device &device, ResourceManager &resourceManager)
-        : ILookUpTable(device, resourceManager) {
+    Transmittance(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : ILookUpTable(device, resourceManager, profiler) {
     }
 
     void initialize(VkDescriptorSetLayout descriptorSetLayout) override;

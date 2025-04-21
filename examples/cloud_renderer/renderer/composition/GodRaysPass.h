@@ -5,8 +5,8 @@
 
 class GodRaysPass final : public IRenderGroup {
 public:
-    GodRaysPass(Device &device, ResourceManager &resourceManager)
-        : IRenderGroup(device, resourceManager) {
+    GodRaysPass(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : IRenderGroup(device, resourceManager, profiler) {
     }
     void initialize(HmckVec2 resolution);
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;

@@ -1,18 +1,21 @@
 #pragma once
 #include <hammock/hammock.h>
 
+#include "Profiler.h"
+
 using namespace hammock;
 
 class IRenderGroup {
 protected:
     Device& device;
     ResourceManager& resourceManager;
+    Profiler& profiler;
     std::unique_ptr<DescriptorPool> descriptorPool;
     std::queue<ResourceHandle> deletionQueue;
 public:
     virtual ~IRenderGroup() = default;
 
-    IRenderGroup(Device& device, ResourceManager& resourceManager) : device(device), resourceManager(resourceManager) {
+    IRenderGroup(Device& device, ResourceManager& resourceManager, Profiler& profiler) : device(device), resourceManager(resourceManager), profiler(profiler) {
         descriptorPool = DescriptorPool::Builder(device)
             .setMaxSets(20000)
             .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)

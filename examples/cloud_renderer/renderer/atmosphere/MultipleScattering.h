@@ -8,8 +8,8 @@
  */
 class MultipleScattering final : public ILookUpTable {
 public:
-    MultipleScattering(Device &device, ResourceManager &resourceManager)
-        : ILookUpTable(device, resourceManager) {
+    MultipleScattering(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : ILookUpTable(device, resourceManager, profiler) {
     }
 
     void initialize(VkDescriptorSetLayout descriptorSetLayout) override;

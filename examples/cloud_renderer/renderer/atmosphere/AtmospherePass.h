@@ -9,12 +9,12 @@
 
 class AtmospherePass final : public IRenderGroup {
 public:
-    AtmospherePass(Device &device, ResourceManager &resourceManager)
-        : IRenderGroup(device, resourceManager),
-          transmittance(device, resourceManager),
-          multipleScattering(device, resourceManager),
-          skyView(device, resourceManager),
-          aerialPerspective(device, resourceManager) {
+    AtmospherePass(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : IRenderGroup(device, resourceManager, profiler),
+          transmittance(device, resourceManager, profiler),
+          multipleScattering(device, resourceManager, profiler),
+          skyView(device, resourceManager, profiler),
+          aerialPerspective(device, resourceManager, profiler) {
     }
 
     void initialize();

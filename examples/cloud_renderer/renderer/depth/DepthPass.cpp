@@ -13,6 +13,10 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
     Image *sunDepthImage = resourceManager.getResource<Image>(sunDepth);
     VkExtent3D renderingExtent = cameraDepthImage->getExtent();
 
+    profiler.resetTimestamp(commandBuffer, 0);
+    profiler.resetTimestamp(commandBuffer, 1);
+    profiler.writeTimestamp(commandBuffer, 0, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
+
     // Transition layouts
     cameraDepthImage->pipelineBarrier(
         commandBuffer,
@@ -122,6 +126,8 @@ void DepthPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInde
 
     // Finish the rendering
     vkCmdEndRendering(commandBuffer);
+
+    profiler.writeTimestamp(commandBuffer, 1, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 }
 
 void DepthPass::prepareTargets(uint32_t width, uint32_t height) {

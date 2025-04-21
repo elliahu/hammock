@@ -6,8 +6,8 @@
 
 class SkyView final : public ILookUpTable {
 public:
-    SkyView(Device &device, ResourceManager &resourceManager)
-        : ILookUpTable(device, resourceManager) {
+    SkyView(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : ILookUpTable(device, resourceManager, profiler) {
     }
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;

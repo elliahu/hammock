@@ -7,8 +7,8 @@ class PostProcessingPass final : public IRenderGroup {
 public:
     PostProcessingPushConstantData data;
 
-    PostProcessingPass(Device &device, ResourceManager &resourceManager)
-        : IRenderGroup(device, resourceManager) {
+    PostProcessingPass(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : IRenderGroup(device, resourceManager, profiler) {
     }
 
     void initialize();

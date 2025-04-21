@@ -21,6 +21,10 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
 
     // Storage image do not change layout from VK_IMAGE_LAYOUT_GENERAL the entire frame, so no need for layout transition
 
+    profiler.resetTimestamp(commandBuffer, 2);
+    profiler.resetTimestamp(commandBuffer, 3);
+    profiler.writeTimestamp(commandBuffer, 2, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+
     // Bind descriptor set
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipelineLayout, 0, 1,
                             &descriptors[frameIndex], 0, nullptr);
@@ -34,6 +38,8 @@ void CloudsPass::recordCommands(VkCommandBuffer commandBuffer, uint32_t frameInd
 
     // Record the first dispatch that performs the raymarching and writes clouds and occlusion mask
     vkCmdDispatch(commandBuffer, CLOUDS_GROUPS_X(cloudsDispatchSize.width), CLOUDS_GROUPS_Y(cloudsDispatchSize.height), 1);
+
+    profiler.writeTimestamp(commandBuffer, 3, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 }
 
 void CloudsPass::prepareBuffers() {

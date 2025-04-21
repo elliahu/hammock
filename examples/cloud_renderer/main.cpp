@@ -35,9 +35,16 @@ int main(int argc, char * argv[]) {
         Renderer renderer{width, height};
         renderer.render();
         auto benchmarkResult = renderer.getBenchmarkResult();
-        std::cout << "Depth pre-pass avg: " << BenchmarkResult::average(benchmarkResult.depthPrePass) << std::endl;
-        std::cout << "Cloud compute avg: " << BenchmarkResult::average(benchmarkResult.cloudComputePass) << std::endl;
-        std::cout << "Composition avg: " << BenchmarkResult::average(benchmarkResult.compositionPass) << std::endl;
+        std::cout << "-- PROFILER RESULTS --" << std::endl;
+        std::cout << "Depth pre-pass avg: " << BenchmarkResult::average(benchmarkResult.depthPrePass) << " ms" << std::endl;
+        std::cout << "Cloud compute avg: " << BenchmarkResult::average(benchmarkResult.cloudComputePass) << " ms"  << std::endl;
+        std::cout << "Transmittance LUT compute avg: " << BenchmarkResult::average(benchmarkResult.transmittanceLUT) << " ms"  << std::endl;
+        std::cout << "Multiple scattering LUT compute avg: " << BenchmarkResult::average(benchmarkResult.multipleScatteringLUT) << " ms"  << std::endl;
+        std::cout << "Sky view LUT compute avg: " << BenchmarkResult::average(benchmarkResult.skyViewLUT) << " ms"  << std::endl;
+        std::cout << "Aerial perspective LUT compute avg: " << BenchmarkResult::average(benchmarkResult.aerialPerspectiveLUT) << " ms"  << std::endl;
+        std::cout << "God rays mask gen avg: " << BenchmarkResult::average(benchmarkResult.godRaysMask) << " ms"  << std::endl;
+        std::cout << "God rays blur gen avg: " << BenchmarkResult::average(benchmarkResult.godRaysBlur) << " ms"  << std::endl;
+        std::cout << "-- ---------------- --" << std::endl;
     }
     else {
         Logger::log(LOG_LEVEL_ERROR, "Invalid scene option");

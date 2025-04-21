@@ -4,8 +4,8 @@
 
 class CompositionPass final : public IRenderGroup {
 public:
-    CompositionPass(Device &device, ResourceManager &resourceManager)
-        : IRenderGroup(device, resourceManager) {
+    CompositionPass(Device &device, ResourceManager &resourceManager, Profiler& profiler)
+        : IRenderGroup(device, resourceManager, profiler) {
     }
 
     void initialize(HmckVec2 resolution);
