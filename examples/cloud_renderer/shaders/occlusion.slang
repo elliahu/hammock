@@ -43,8 +43,8 @@ float gaussianBlur(float2 uv, float radius) {
             float gaussian = exp(-(x*x + y*y)/(2.0*radius*radius));
             
             float cloudSample = cloudsColorImage.SampleLevel(uv + offset, 0.0).a;
-            float terrainSample = 1.0 - terrainDepthImage.SampleLevel(uv + offset, 0.0).r;
-            float maskSample = terrainSample >= 1.0 ? 1.0 : 1.0 - cloudSample;
+            float terrainSample = terrainDepthImage.SampleLevel(uv + offset, 0.0).r;
+            float maskSample = terrainSample < 1.0 ? 0.0 : 1.0 - cloudSample;
             
             total += maskSample * gaussian;
             weight += gaussian;

@@ -48,7 +48,7 @@ int main(int argc, char * argv[]) {
         std::cout << "Sky view upsample avg: " << BenchmarkResult::average(benchmarkResult.skyUpsample.getSnapshot()) << " ms"  << std::endl;
         std::cout << "Composition avg: " << BenchmarkResult::average(benchmarkResult.composition.getSnapshot()) << " ms"  << std::endl;
         std::cout << "Post processing avg: " << BenchmarkResult::average(benchmarkResult.post.getSnapshot()) << " ms"  << std::endl;
-        std::cout << "TOTAL avg: " << BenchmarkResult::average(benchmarkResult.total.getSnapshot()) << " ms"  << std::endl;
+        std::cout << "TOTAL FRAME avg: " << BenchmarkResult::average(benchmarkResult.total.getSnapshot()) << " ms"  << std::endl;
         std::cout << "-- ---------------- --" << std::endl;
     }
     else {

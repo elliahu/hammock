@@ -55,7 +55,7 @@ struct CloudsPushConstantData {
     int DEBUG_maxLightSamples = 4;
     int DEBUG_earlyTermination = 0;
     int DEBUG_lateTermination = 0;
-    float DEBUG_longStepMulti = 1.6f;
+    float DEBUG_longStepMulti = 2.5f;
 };
 
 // Atmospheric pass data
@@ -84,13 +84,13 @@ struct PostProcessingPushConstantData {
 struct GodRaysCoefficients {
     float lssposX = 1.f; // light screen space position X
     float lssposY = 1.f; // light screen space position Y
-    int num_samples = 128;
-    float density = 0.85;
-    float exposure = 1.5;
+    int num_samples = 64;
+    float density = 0.82;
+    float exposure = 0.3;
     float decay = 0.9;
     float activeDistance = 1.0;
     float weight = 1.0;
-    float alpha = 0.85;
+    float alpha = 0.3;
 };
 
 struct CompositionData {
