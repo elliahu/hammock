@@ -28,6 +28,13 @@ int main(int argc, char * argv[]) {
         mediumScene.render();
     }
     else if (selectedScene == "renderer") {
+#ifdef REPROJECTION
+        std::cout << "Using reprojection, note this is na experimental feature" << std::endl;
+#endif
+#ifdef HIGH_QUALITY_CLOUDS
+        std::cout << "Using high fidelity clouds. This is recommended only for powerfull GPUs" << std::endl;
+#endif
+
         Renderer renderer{width, height};
         renderer.render();
         auto benchmarkResult = renderer.getBenchmarkResult();

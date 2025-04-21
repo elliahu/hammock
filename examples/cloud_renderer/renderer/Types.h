@@ -53,7 +53,7 @@ struct CloudsPushConstantData {
     int DEBUG_epicView = 0;
     int DEBUG_cheapSampleDistance = 100000;
 
-#if defined(HIGH_QUALITY)
+#if defined(HIGH_QUALITY_CLOUDS)
     int DEBUG_maxSamples = 256;
     int DEBUG_maxLightSamples = 10;
 #else
@@ -64,8 +64,8 @@ struct CloudsPushConstantData {
     int DEBUG_earlyTermination = 0;
     int DEBUG_lateTermination = 0;
 
-#if defined(HIGH_QUALITY)
-    float DEBUG_longStepMulti = 1.f;
+#if defined(HIGH_QUALITY_CLOUDS)
+    float DEBUG_longStepMulti = 3.f;
 #else
     float DEBUG_longStepMulti = 2.f;
 #endif
