@@ -136,7 +136,7 @@ void Renderer::destroySyncObjects() {
 }
 
 void Renderer::prepareGeometry() {
-    Loader(geometry, device, resourceManager).loadglTF(ASSET_PATH("terrain_large.glb"));
+    Loader(geometry, device, resourceManager).loadglTF(ASSET_PATH("terrain.glb"));
 
     ASSERT(!geometry.vertices.empty(), "No vertices loaded!");
 

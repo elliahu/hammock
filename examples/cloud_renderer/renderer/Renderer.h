@@ -60,9 +60,9 @@ class Renderer final{
 
     // Perspective camera
     Camera camera{
-        HmckVec3{-126.362, 5.5, -18.894},
+        HmckVec3{35.397, 1.296, 67.394},
         static_cast<float>(lWidth) /  static_cast<float>(lHeight),
-        HmckToRad(HmckAngleDeg(65.f)), 0.1f, 300.f, 37.395, 0.108,};
+        HmckToRad(HmckAngleDeg(65.f)), 0.1f, 300.f, 34.671, 0.300,};
 
     // Movement
     const float movementSpeed = 1.0f; // Units per frame

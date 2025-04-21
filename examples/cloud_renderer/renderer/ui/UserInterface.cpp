@@ -109,27 +109,15 @@ void ::UserInterface::showEditorWindow() {
     ImGui::SliderFloat("Global coverage",  &cloudsPushConstant->globalCoverage, 0.0f, 1.f);
     ImGui::SliderFloat("Global density",  &cloudsPushConstant->globalDensity, 0.0f, 1.f);
     ImGui::SliderFloat("Wind speed",  &cloudsPushConstant->cloudSpeed, 0.0f, 5000.f);
-    static float angle = 0.f;
     ImGui::SliderFloat("Wind direction", &angle, 0.f, 360.f);
-    float rad = angle * (3.14159265359f / 180.0f);
-    cloudsUniformBuffer->windDirection = HmckVec4{HmckVec3{cos(rad), 0.0f,sin(rad)},  0.0f};
+
 
 
     ImGui::SeparatorText("Light");
     ImGui::ColorEdit3("Light color", &cloudsUniformBuffer->lightColor.Elements[0]);
-    static float sunA = 0.f, sunE = 75.f;
     ImGui::SliderFloat("Sun azimuth", &sunA, 0.f, 360.f);
     ImGui::SliderFloat("Sun elevation", &sunE, 0.f, 90.f);
-    float azimuth = HmckToRad(HmckAngleDeg(sunA));
-    float elevation = HmckToRad(HmckAngleDeg(sunE));
 
-    HmckVec3 sunDir;
-    // Correct mapping for azimuth (horizontal rotation) and elevation (vertical angle)
-    sunDir.X = cos(elevation) * sin(azimuth); // East-West component
-    sunDir.Y = sin(elevation);                // Up-Down component (zenith to horizon)
-    sunDir.Z = cos(elevation) * cos(azimuth); // North-South component
-
-    cloudsUniformBuffer->lightDirection = HmckVec4{HmckNorm(sunDir), 0.0f};
 
     ImGui::ColorEdit3("Zenith sky color", &cloudsUniformBuffer->skyColorZenith.Elements[0]);
     ImGui::SliderFloat("Sun light strength", &cloudsUniformBuffer->lightColor.Elements[0], 0.0f, 15.f);
@@ -197,6 +185,20 @@ void ::UserInterface::recordUserInterface(VkCommandBuffer commandBuffer) {
     if (showEditor && !hideAll) {
         showEditorWindow();
     }
+
+    float rad = angle * (3.14159265359f / 180.0f);
+    cloudsUniformBuffer->windDirection = HmckVec4{HmckVec3{cos(rad), 0.0f,sin(rad)},  0.0f};
+
+    float azimuth = HmckToRad(HmckAngleDeg(sunA));
+    float elevation = HmckToRad(HmckAngleDeg(sunE));
+
+    HmckVec3 sunDir;
+    // Correct mapping for azimuth (horizontal rotation) and elevation (vertical angle)
+    sunDir.X = cos(elevation) * sin(azimuth); // East-West component
+    sunDir.Y = sin(elevation);                // Up-Down component (zenith to horizon)
+    sunDir.Z = cos(elevation) * cos(azimuth); // North-South component
+
+    cloudsUniformBuffer->lightDirection = HmckVec4{HmckNorm(sunDir), 0.0f};
 
     if (showDebug && !hideAll) {
         showDebugWindow();

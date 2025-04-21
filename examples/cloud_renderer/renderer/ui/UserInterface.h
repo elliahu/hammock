@@ -27,11 +27,14 @@ class UserInterface final {
     int FRAMETIME_BUFFER_SIZE;
     int &frameTimeFrameIndex;
 
-    bool showEditor = true;
-    bool showDebug = true;
+    bool showEditor = false;
+    bool showDebug = false;
     bool showPostProc = false;
     bool showCamera = false;
     bool hideAll = false;
+
+    float angle = 233.f;
+    float sunA = 334.286f, sunE = 48.673f;
 
     void showCameraWindow();
 

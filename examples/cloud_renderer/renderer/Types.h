@@ -41,24 +41,24 @@ struct CloudsPushConstantData {
     float globalCoverage = 0.0;
     float baseMultiplier = 0.8f;
     float detailMultiplier = 0.75;
-    float cloudSpeed = 0.f;
+    float cloudSpeed = 840.f;
     float baseScale = 50.f;
     float detailScale = 50.0f;
     float curliness = 2.0f;
     float absorption = 0.0042f;
-    float eccentricity = 0.22f;
+    float eccentricity = 0.35f;
     float intensity = .95f;
     float spread = 1.0f;
     float ambientStrength = 0.25;
     int DEBUG_epicView = 0;
-    int DEBUG_cheapSampleDistance = 100000;
+    int DEBUG_cheapSampleDistance = 93000;
 
 #if defined(HIGH_QUALITY_CLOUDS)
     int DEBUG_maxSamples = 256;
     int DEBUG_maxLightSamples = 10;
 #else
     int DEBUG_maxSamples = 128;
-    int DEBUG_maxLightSamples = 6;
+    int DEBUG_maxLightSamples = 4;
 #endif
 
     int DEBUG_earlyTermination = 0;
@@ -67,7 +67,7 @@ struct CloudsPushConstantData {
 #if defined(HIGH_QUALITY_CLOUDS)
     float DEBUG_longStepMulti = 3.f;
 #else
-    float DEBUG_longStepMulti = 2.f;
+    float DEBUG_longStepMulti = 2.5f;
 #endif
 };
 
@@ -97,9 +97,9 @@ struct PostProcessingPushConstantData {
 struct GodRaysCoefficients {
     float lssposX = 1.f; // light screen space position X
     float lssposY = 1.f; // light screen space position Y
-    int num_samples = 64;
-    float density = 0.82;
-    float exposure = 0.3;
+    int num_samples = 56;
+    float density = 0.7;
+    float exposure = 0.8;
     float decay = 0.9;
     float activeDistance = 1.0;
     float weight = 1.0;
