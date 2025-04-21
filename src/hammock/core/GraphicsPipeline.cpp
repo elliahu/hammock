@@ -53,10 +53,8 @@ hammock::GraphicsPipeline::GraphicsPipeline(hammock::GraphicsPipeline::GraphicsP
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
     shaderStages.resize(2);
 
-
     createShaderModule(createInfo.vertexShader.byteCode, &vertShaderModule);
     createShaderModule(createInfo.fragmentShader.byteCode, &fragShaderModule);
-    shaderStages.resize(2);
     shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
     shaderStages[0].module = vertShaderModule;
@@ -103,11 +101,10 @@ hammock::GraphicsPipeline::GraphicsPipeline(hammock::GraphicsPipeline::GraphicsP
     pipelineInfo.basePipelineIndex = -1;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
+    VkPipelineRenderingCreateInfoKHR pipelineDynamicrenderingCreateInfo{};
     if (createInfo.dynamicRendering.enabled) {
         // Attachment information for dynamic rendering
-        VkPipelineRenderingCreateInfoKHR pipelineDynamicrenderingCreateInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR
-        };
+        pipelineDynamicrenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
         pipelineDynamicrenderingCreateInfo.colorAttachmentCount = createInfo.dynamicRendering.colorAttachmentCount;
         pipelineDynamicrenderingCreateInfo.pColorAttachmentFormats = createInfo.dynamicRendering.colorAttachmentFormats.
                 data();
@@ -118,13 +115,15 @@ hammock::GraphicsPipeline::GraphicsPipeline(hammock::GraphicsPipeline::GraphicsP
     }
 
 
-    if (vkCreateGraphicsPipelines(
-            createInfo.device.device(),
-            VK_NULL_HANDLE,
-            1,
-            &pipelineInfo,
-            nullptr,
-            &graphicsPipeline) != VK_SUCCESS) {
+    VkResult result = vkCreateGraphicsPipelines(
+        createInfo.device.device(),
+        VK_NULL_HANDLE,
+        1,
+        &pipelineInfo,
+        nullptr,
+        &graphicsPipeline);
+
+    if (result !=VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline");
     }
 }
