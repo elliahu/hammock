@@ -1,11 +1,12 @@
 import toolbox;
 
-#define STEP_COUNT 1024
+
+#define STEP_COUNT 1024 // Too hight for production code, something like 40 is good enough
 
 [vk::binding(0,0)] ConstantBuffer<AtmosphereParams> params;
 [vk::binding(0,1)] RWTexture2D<float4> Transmittance;
 
-
+// Performs basic raymarching to evaluate the transmittance
 [shader("compute")]
 [numthreads(16, 16, 1)]
 void computeMain(int3 threadIdx : SV_DispatchThreadID){
@@ -14,6 +15,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID){
     if(threadIdx.x >= width || threadIdx.y >= height)
         return;
 
+    // Indexed by height and sun theta
     float theta = asin(lerp(-1.0, 1.0, float(threadIdx.y + .5) / float(height)));
     float h = lerp(0.0, AtmosphereRadius - PlanetRadius, float(threadIdx.x + .5) / float(width));
 

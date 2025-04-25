@@ -24,7 +24,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     return output;
 }
 
-
+// Pseudo random post process that hides ugly banding and makes the result look natural
 float3 postProcessColor(float2 seed, float3 input)
 {
     float rand = frac(sin(dot(
@@ -35,7 +35,9 @@ float3 postProcessColor(float2 seed, float3 input)
     return input / 255;
 }
 
-
+// Pixel shader that up-samples currently visible part of the skyViewLUT and draws a basic sun disk
+// the sun disk itself is not phyiscally accurate in terms fo its size (too big) and color
+// it is here just for presentation and to actually see where the sun is (quite important)
 [shader("pixel")]
 PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     // Prep the output

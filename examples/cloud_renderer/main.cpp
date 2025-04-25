@@ -28,8 +28,8 @@ int main(int argc, char * argv[]) {
         mediumScene.render();
     }
     else if (selectedScene == "renderer") {
-#ifdef REPROJECTION
-        std::cout << "Using reprojection, note this is na experimental feature" << std::endl;
+#ifdef CLOUD_RENDER_SUBSAMPLE
+        std::cout << "Using subsampling when rendering clouds, note this is na experimental feature" << std::endl;
 #endif
 #ifdef HIGH_QUALITY_CLOUDS
         std::cout << "Using high fidelity clouds. This is recommended only for powerfull GPUs" << std::endl;

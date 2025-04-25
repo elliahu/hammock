@@ -47,5 +47,5 @@ add_executable(cloud_renderer
 # Link the engine library
 target_link_libraries(cloud_renderer PRIVATE hammock)
 target_include_directories(cloud_renderer PRIVATE ${PROJECT_SOURCE_DIR}/include)
-#target_compile_definitions(cloud_renderer PRIVATE REPROJECTION)
+#target_compile_definitions(cloud_renderer PRIVATE CLOUD_RENDER_SUBSAMPLE)
 #target_compile_definitions(cloud_renderer PRIVATE HIGH_QUALITY_CLOUDS)

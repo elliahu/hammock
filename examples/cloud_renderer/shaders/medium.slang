@@ -61,17 +61,8 @@ struct PushConstants {
 [shader("vertex")]
 VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     VertexOutput output;
-
-    // Replicate the GLSL trick:
-    //   outUV = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
     output.uv = float2((vertexID << 1) & 2, vertexID & 2);
-
-    // Transform into clip space for a big triangle covering the screen
     output.position = float4(output.uv * 2.0 - 1.0, 0.0, 1.0);
-
-    // If you need [0..1] UVs in the pixel shader, then do:
-    //output.uv *= 0.5;
-
     return output;
 }
 
@@ -136,6 +127,9 @@ float2 intersectRaySphere(float3 rayOrigin, float3 rayDir, float3 sphereCenter, 
     return float2(t0, t1);
 }
 
+// This is not optimized what so ever and is only here to present different components of volumetric rendering
+// Performance will not be great but the quality will be high
+// You can notice that all of the LUT computations and cloud computation use basically the same approach to some extent
 [shader("pixel")]
 PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
     PixelOutput output;
@@ -191,7 +185,7 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
         return output;
     }
 
-    // --- Cloud raymarching as before ---
+    // Ray-march
     float stepSize = (intersection.y - intersection.x) / float(NUM_STEPS);
     float3 noise = (constants.enableJitter == 1) ? blueNoiseTexture.SampleLevel(input.uv * 10, 0.0).rgb * constants.jitterStrenght : float3(0.0);
     float jitterOffset = noise.r * stepSize;

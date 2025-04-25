@@ -15,9 +15,10 @@ struct PixelOutput {
 
 [vk::binding(0)] Sampler2D<float4> maskImage;
 
-#define BLUR_RADIUS 5.0
 
+#define BLUR_RADIUS 5.0 // Too high for production code, 3 would be better
 
+// Passed as constants
 struct Params{
     float lssposX;
     float lssposY;
@@ -29,10 +30,11 @@ struct Params{
     float weight;
     float alpha;
 };
-
 [vk::push_constant] Params coefficients;
 
 // Gaussian blur function
+// This makes the mask much softer without hard lines thus making the result more pleasing
+// Thus come, unfortunately, at cost of lowered performance
 float gaussianBlur(float2 uv, float radius) {
     float total = 0.0;
     float weight = 0.0;
@@ -64,17 +66,16 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     return output;
 }
 
+// Pixel shader that computes mask
 [shader("pixel")]
 PixelOutput pixelMask(VertexOutput input, float4 fragCoord : SV_Position) {
     PixelOutput output;
-    
     float mask = gaussianBlur(input.uv, BLUR_RADIUS);
     output.color = float4(mask, mask, mask, 1.0);
-
     return output;
 }
 
-
+// Additive radial blur as proposed in GPU gems 3
 float3 radialBlur(float2 vertex_tex_coordinates, float2 screen_space_position){
     float2 delta_tex_coord = (vertex_tex_coordinates - screen_space_position) * coefficients.density * (1.0 / float(coefficients.num_samples));
     float2 tex_coordinates = vertex_tex_coordinates;
@@ -92,6 +93,7 @@ float3 radialBlur(float2 vertex_tex_coordinates, float2 screen_space_position){
     return color * coefficients.exposure;
 }
 
+// Additive radial blur pixel shader
 [shader("pixel")]
 PixelOutput pixelBlur(VertexOutput input, float4 fragCoord : SV_Position) {
     PixelOutput output;

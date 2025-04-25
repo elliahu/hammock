@@ -4,7 +4,7 @@
 
 #define CLOUDS_WORK_GROUP_SIZE_X 16
 #define CLOUDS_WORK_GROUP_SIZE_Y 16
-#ifndef REPROJECTION
+#ifndef CLOUD_RENDER_SUBSAMPLE
 #define CLOUDS_GROUPS_X(w) ((w + CLOUDS_WORK_GROUP_SIZE_X - 1) / CLOUDS_WORK_GROUP_SIZE_X)
 #define CLOUDS_GROUPS_Y(h) ((h + CLOUDS_WORK_GROUP_SIZE_Y - 1) / CLOUDS_WORK_GROUP_SIZE_Y)
 #else
@@ -15,7 +15,7 @@
 class CloudsPass final : public IRenderGroup {
 public:
 
-#ifdef REPROJECTION
+#ifdef CLOUD_RENDER_SUBSAMPLE
 #define CLOUDS_SHADER_NAME "clouds_repr.comp"
 #else
 #define CLOUDS_SHADER_NAME "clouds.comp"

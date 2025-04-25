@@ -22,6 +22,7 @@ struct PixelOutput {
 [vk::binding(9)] Sampler2D<float4> godRaysImage;
 
 // Fullscreen vertex shader: Outputs a unit square (quad) in normalized device coordinates
+// This is a sort of hack that allows fragment shader to be run for full screen without any vertex data
 [shader("vertex")]
 VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     VertexOutput output;
@@ -30,6 +31,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     return output;
 }
 
+// Reconstructs world space position based on the screen uv coord and normalized depth
 float3 reconstructWorldPosition(float2 uv, float depth, float4x4 invProj, float4x4 invView, float near, float far) {
     // The depth is already in linear space, directly using the depth value.
     // Reconstruct view-space Z from the linear depth value
@@ -51,7 +53,7 @@ float3 reconstructWorldPosition(float2 uv, float depth, float4x4 invProj, float4
     return worldPos.xyz;
 }
 
-
+// Computes shadow factor for given world space coord
 float calculateShadow(float3 worldPos) {
     float4 lightClipPos = mul(data.shadowViewProj, float4(worldPos, 1.0));
     float3 ndc = lightClipPos.xyz / lightClipPos.w;
@@ -79,6 +81,7 @@ float calculateShadow(float3 worldPos) {
     return shadow / 9.0;
 }
 
+// Pseudo-random color post process to combat banding even more
 float3 postProcessColor(float2 seed, float3 input)
 {
     float rand = frac(sin(dot(
@@ -114,6 +117,7 @@ float3 calculateGodRays(float2 uv, float4 godRaysValue, float3 worldPos, float3 
     }
 }
 
+// Standard soft-light blend calculation
 float3 blendSoftLight(float3 base, float3 blend, float3 opacity) {
     float3 result;
     for (int i = 0; i < 3; i++) {
@@ -131,11 +135,15 @@ float3 applyGodRays(float3 baseColor, float3 godRayContribution, bool isTerrain)
         return baseColor + godRayContribution;
     } else {
         // Multiplicative blend for sky to preserve colors
+        // I found out that it actually looks better using additive blend for clouds rather than multiplicative
+        // It does crate a halo on the sky but I find that quite nice so i kept it like this
+        // If you prefer standard approach described in the thesis, comment this line and uncomment the bellow one
         return baseColor + godRayContribution;
-        return blendSoftLight(baseColor, godRayContribution, godRayContribution);
+        //return blendSoftLight(baseColor, godRayContribution, godRayContribution);
     }
 }
 
+// Reconstructs terrain color
 float4 terrainColor(float2 uv, float4 godRaysValue) {
     // Sample the terrain
     float4 terrainColor = terrainColorImage.SampleLevel(float2(uv.x, uv.y), 0.0);
@@ -175,6 +183,7 @@ float4 terrainColor(float2 uv, float4 godRaysValue) {
     return float4(postProcessColor(uv, color), terrainColor.a);
 }
 
+// Reconstructs cloud color
 float3 skyColor(float2 uv, float4 godRaysValue){
     // Sample cloud color
     float4 cloudColor = cloudsColorImage.SampleLevel(uv, 0.0);
@@ -200,9 +209,6 @@ float3 skyColor(float2 uv, float4 godRaysValue){
         float3 godRayContribution = calculateGodRays(uv, godRaysValue, worldPos, viewDir, cloudAlpha, true);
         color = applyGodRays(color, godRayContribution, true);
     }
-
-   
-    
 
     // Compute the altitude of the clouds
     float cloudAltitude = worldPos.y * WorldScale;
@@ -234,6 +240,9 @@ PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position) {
 #ifndef DEBUG
     showPreview = false;
 #endif
+
+    // There is also a debug view that displays sun shadow map
+    // try it out by defining DEBUG macro at the top and recompiling this shader
 
     if (showPreview) {
         // Map screenUV to shadow map UV

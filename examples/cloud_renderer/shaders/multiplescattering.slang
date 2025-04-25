@@ -2,16 +2,16 @@ import toolbox;
 
 
 #define PLANET_ALBEDO float3(0.3)
-#define DIR_SAMPLE_COUNT 64
-#define SUN_INTENSITY float3(1.0)
-#define RAYMARCH_STEP_COUNT 20
+#define DIR_SAMPLE_COUNT 64 // Too high for production ready code, something like 8 or 16 is quite enough
+#define SUN_INTENSITY float3(1.0) // We do tonemap later so the dark values will be shifted automatically, for no tonemap use some very high values
+#define RAYMARCH_STEP_COUNT 20 // This is also quite high for production, 16 would be acceptable
 
 [vk::binding(0,0)] ConstantBuffer<AtmosphereParams> params;
 [vk::binding(0,1)] Sampler2D Transmittance;
 [vk::binding(1,1)] RWTexture2D<float4> MultiScattering;
 
 // Computes the radical inverse using base 2.
-float RadicalInverse_VdC(uint bits){
+float radicalInverse_VdC(uint bits){
     bits = (bits << 16) | (bits >> 16);
     bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
     bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
@@ -21,13 +21,13 @@ float RadicalInverse_VdC(uint bits){
 }
 
 // Returns a 2D Hammersley sample in [0,1]^2.
-float2 Hammersley(uint i, uint N){
-    return float2(float(i) / float(N), RadicalInverse_VdC(i));
+float2 hammersley(uint i, uint N){
+    return float2(float(i) / float(N), radicalInverse_VdC(i));
 }
 
 // Maps a 2D point from the Hammersley sequence to a uniform direction on the sphere.
-float3 UniformSampleSphere(uint i, uint N){
-    float2 xi = Hammersley(i, N);
+float3 uniformSampleSphere(uint i, uint N){
+    float2 xi = hammersley(i, N);
     // Map xi.x to [0,1] -> theta in [0, PI] using the inverse CDF of the cosine law.
     float theta = acos(1.0 - 2.0 * xi.x);
     // Map xi.y to phi in [0, 2PI].
@@ -36,10 +36,12 @@ float3 UniformSampleSphere(uint i, uint N){
     return float3(sinTheta * cos(phi), sinTheta * sin(phi), cos(theta));
 }
 
+// Analytical integration as proposed by Sébastien Hillaire (or rather based on his proposal)
 void integrate(
     float3 worldOri, float3 worldDir, float sunTheta, float3 toSunDir,
     out float3 innerL2, out float3 innerF)
 {
+    // cos sun dot ray
     float u = dot(worldDir, toSunDir);
 
     float endT = 0;
@@ -77,6 +79,7 @@ void integrate(
             float3 rho = evalPhaseFunction(h, u);
             float3 sunTransmittance = getTransmittance(Transmittance, h, sunTheta);
 
+            // Second order scattering
             sumL2 += dt * transmittance * sunTransmittance * sigmaS *
                      rho * SUN_INTENSITY;
         }
@@ -97,15 +100,17 @@ void integrate(
     innerF  = sumF;
 }
 
+// Wrapper so that the compute shader entry function is not total mess
 float3 computeM(float h, float sunTheta)
 {
     float3 worldOri = { 0, h + PlanetRadius, 0 };
     float3 toSunDir = { cos(sunTheta), sin(sunTheta), 0 };
 
+    // Uniformly sample the unit sphere and compute 2nd order scattering
     float3 sumL2 = float3(0, 0, 0), sumF = float3(0, 0, 0);
     for(int i = 0; i < DIR_SAMPLE_COUNT; ++i)
     {
-        float3 worldDir = UniformSampleSphere(i, DIR_SAMPLE_COUNT);
+        float3 worldDir = uniformSampleSphere(i, DIR_SAMPLE_COUNT);
 
         float3 innerL2, innerF;
         integrate(worldOri, worldDir, sunTheta, toSunDir, innerL2, innerF);
@@ -128,9 +133,9 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
     if(threadIdx.x >= width || threadIdx.y >= height)
         return;
 
+    // Indexed by height and sun theta
     float sinSunTheta = lerp(-1, 1, (threadIdx.y + 0.5) / height);
     float sunTheta = asin(sinSunTheta);
-
     float h = lerp(0.0, AtmosphereRadius - PlanetRadius, (threadIdx.x + 0.5) / width);
 
     MultiScattering[threadIdx.xy] = float4(computeM(h, sunTheta), 1);

@@ -5,8 +5,8 @@ import toolbox;
 [vk::binding(1,1)] Sampler2D MultipleScattering;
 [vk::binding(2,1)] RWTexture2D<float4> SkyView;
 
-#define NUM_SAMPLES 30
-#define SUN_INTENSITY float3(8.0)
+#define NUM_SAMPLES 30            // Good for production code, might even be lowered to 20
+#define SUN_INTENSITY float3(8.0) // Here we ramp up a bit the intensity of the sun 
 
 
 void marchStep(

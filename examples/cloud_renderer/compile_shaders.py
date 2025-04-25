@@ -30,7 +30,7 @@ subprocess.check_call([compiler , "shaders/medium.slang", '-o', 'spv/medium.frag
 
 # Main renderer
 subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'spv/clouds.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
-subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'spv/clouds_repr.comp.spv', '-target', 'spirv', '-entry', 'computeMain', '-DREPROJECTION'])
+subprocess.check_call([compiler , "shaders/clouds.slang", '-o', 'spv/clouds_repr.comp.spv', '-target', 'spirv', '-entry', 'computeMain', '-DCLOUD_RENDER_SUBSAMPLE'])
 subprocess.check_call([compiler , "shaders/transmittance.slang", '-o', 'spv/transmittance.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/multiplescattering.slang", '-o', 'spv/multiplescattering.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
 subprocess.check_call([compiler , "shaders/skyview.slang", '-o', 'spv/skyview.comp.spv', '-target', 'spirv', '-entry', 'computeMain'])
