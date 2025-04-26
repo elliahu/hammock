@@ -5,7 +5,7 @@
 
 class PostProcessingPass final : public IRenderGroup {
 public:
-    PostProcessingPushConstantData data;
+    PostProcessingPushConstantData data{};
 
     PostProcessingPass(Device &device, ResourceManager &resourceManager, Profiler& profiler)
         : IRenderGroup(device, resourceManager, profiler) {

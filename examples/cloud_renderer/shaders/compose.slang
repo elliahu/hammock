@@ -174,7 +174,7 @@ float4 terrainColor(float2 uv, float4 godRaysValue) {
         float eyeTransmittance = ap.w;
         float3 sunTransmittance = getTransmittance(transmittanceLUT, terrainAltitude, asin(data.sunDirection.y));
 
-        float shadowFactor = calculateShadow(terrainWorldPos);
+        float shadowFactor = 1.0;// calculateShadow(terrainWorldPos);
 
         color *= (max(0.25, shadowFactor)) * sunTransmittance * eyeTransmittance;
         color += inScatter;
@@ -195,20 +195,11 @@ float3 skyColor(float2 uv, float4 godRaysValue){
 
     // Sample sky color
     float4 skyColor = skyColorImage.SampleLevel(uv, 0.0);
-    float3 color = skyColor.rgb;
-
-     // Now blend clouds over the sky with god rays
-    color = blend(color, cloudIntensity, cloudAlpha);
+    float3 color = cloudIntensity;
     
     // Reconstruct world position and view direction
     float3 worldPos = reconstructWorldPosition(uv, cloudDepth, data.inverseProjection, data.inverseView, 0.1, 300.0);
-    float3 viewDir = normalize(worldPos - data.cameraPosition.xyz);
-    
-    // Get god ray contribution and apply it to sky (before cloud blending)
-    if(data.applyGodRays == 1){
-        float3 godRayContribution = calculateGodRays(uv, godRaysValue, worldPos, viewDir, cloudAlpha, true);
-        color = applyGodRays(color, godRayContribution, true);
-    }
+    float3 viewDir = normalize(worldPos - data.cameraPosition.xyz);    
 
     // Compute the altitude of the clouds
     float cloudAltitude = worldPos.y * WorldScale;
@@ -221,6 +212,15 @@ float3 skyColor(float2 uv, float4 godRaysValue){
 
     color *= sunTransmittance * eyeTransmittance;
     color += inScatter;
+
+    // Blend clouds over the sky with god rays
+    color = blend(skyColor.rgb, color, cloudAlpha);
+
+    if (data.applyGodRays == 1) {
+        float3 godRayContribution = calculateGodRays(uv, godRaysValue, worldPos, viewDir, cloudAlpha, true);
+        godRayContribution *= sunTransmittance;
+        color = applyGodRays(color, godRayContribution, true);
+    }
 
     return postProcessColor(uv, color);
 }

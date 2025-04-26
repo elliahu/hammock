@@ -1,3 +1,6 @@
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Add the executable
 add_executable(cloud_renderer
         main.cpp

@@ -1,13 +1,11 @@
 import toolbox;
 
 [vk::binding(0,0)] ConstantBuffer<AtmosphereParams> params;
-[vk::binding(0,1)] Sampler2D Transmittance;
-[vk::binding(1,1)] Sampler2D MultipleScattering;
+[vk::binding(0,1)] Sampler2D transmittance;
+[vk::binding(1,1)] Sampler2D multipleScattering;
 [vk::binding(2,1)] RWTexture2D<float4> SkyView;
 
-#define NUM_SAMPLES 30            // Good for production code, might even be lowered to 20
-#define SUN_INTENSITY float3(8.0) // Here we ramp up a bit the intensity of the sun 
-
+#define NUM_SAMPLES 30            
 
 void marchStep(
     float phaseU, float3 ori, float3 dir, float thisT, float nextT,
@@ -21,17 +19,17 @@ void marchStep(
     getSigmaST(h, sigmaS, sigmaT);
     
     float3 deltaSumSigmaT = (nextT - thisT) * sigmaT;
-    float3 eyeTrans = exp(-sumSigmaT - 0.5 * deltaSumSigmaT);
+    float3 eyeTrans = exp(-sumSigmaT - deltaSumSigmaT);
     
     float sunTheta = PI / 2 - acos(dot(params.SunDirection.xyz, normalize(posR)));
     float3 rho = evalPhaseFunction(h, phaseU);
-    float3 sunTrans = getTransmittance(Transmittance, h, sunTheta);
+    float3 sunTrans = getTransmittance(transmittance, h, sunTheta);
 
     inScattering += (nextT - thisT) * eyeTrans * sigmaS * rho * sunTrans;
  
     float tx = h / (AtmosphereRadius - PlanetRadius);
     float ty = 0.5 + 0.5 * sin(sunTheta);
-    float3 ms = MultipleScattering.SampleLevel(float2(tx, ty), 0.0).rgb;
+    float3 ms = multipleScattering.SampleLevel(float2(tx, ty), 0.0).rgb;
     
     inScattering += (nextT - thisT) * eyeTrans * sigmaS * ms;
     
@@ -49,17 +47,20 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
     
     float2 texCoord = float2((threadIdx.x + 0.5) / width, (threadIdx.y + 0.5) / height);
     
+    // Indexed by phi and theta angles
+    // More information is compressed near horizon using formula bellow
     float phi = 2 * PI * texCoord.x;
     float vm = 2 * texCoord.y - 1;
     float theta = sign(vm) * (PI / 2) * vm * vm;
     float sinTheta = sin(theta), cosTheta = cos(theta);
     
+    // Compute origin and direction
     float3 ori = WorldScale * params.Eye.xyz;
     float3 dir = float3(cos(phi) * cosTheta, sinTheta, sin(phi) * cosTheta);
-    
     float2 planetOri = float2(0, ori.y + PlanetRadius);
     float2 planetDir = float2(cosTheta, sinTheta);
     
+    // Find intersection
     float endT = 0;
     if(!findClosestIntersectionWithCircle(planetOri, planetDir, PlanetRadius, endT))
     {
@@ -72,6 +73,7 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
     float3 inScatter = float3(0, 0, 0);
     float3 sumSigmaT = float3(0, 0, 0);
     
+    // Compute sky color for this pixel by raymarching along the ray
     float dt = (endT - t) / NUM_SAMPLES;
     for (int i = 0; i < NUM_SAMPLES; ++i)
     {
@@ -79,6 +81,6 @@ void computeMain(int3 threadIdx : SV_DispatchThreadID)
         marchStep(phaseU, ori, dir, t, nextT, sumSigmaT, inScatter);
         t = nextT;
     }
-    
-    SkyView[threadIdx.xy] = float4(inScatter * SUN_INTENSITY, 1.0);
+
+    SkyView[threadIdx.xy] = float4(inScatter * SunIntensity, 1.0);
 }

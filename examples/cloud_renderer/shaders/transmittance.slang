@@ -1,7 +1,7 @@
 import toolbox;
 
 
-#define STEP_COUNT 1024 // Too hight for production code, something like 40 is good enough
+#define STEP_COUNT 128 
 
 [vk::binding(0,0)] ConstantBuffer<AtmosphereParams> params;
 [vk::binding(0,1)] RWTexture2D<float4> Transmittance;

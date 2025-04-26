@@ -29,7 +29,7 @@ public:
 
     void recordCommands(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
 
-    CompositionData data;
+    CompositionData data{};
 
 private:
 

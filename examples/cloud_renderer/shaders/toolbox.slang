@@ -1,5 +1,8 @@
 // General constants
 static const float PI = 3.14159265358979323846;
+static const float SunIntensity = 3.0;
+static const float WorldScale = 500.0;
+static const float MaxDistance = 10000.0; // Distance of the aerial perspective LUT
 
 // Atmosphere parameters
 static const float PlanetRadius = 6378000.0; // 6378 km
@@ -13,8 +16,7 @@ static const float ScatterMie = 3.996 * 1e-6;
 static const float HDensityRayleigh = 8000.0;
 static const float3 AbsorbOzone = float3(0.65, 1.881, 0.085) * 1e-6;
 static const float3 ScatterRayleigh = float3(5.802, 13.558, 33.1) * 1e-6;
-static const float WorldScale = 200.0;
-static const float MaxDistance = 8000.0; // Distance of the aerial perspective LUT 
+
 
 /*
 // For Mars, uncomment this and comment the above
@@ -29,12 +31,10 @@ static const float AbsorbMie = 3.0 * 1e-7; // Slightly more absorbing due to dus
 static const float AsymmetryMie = 0.85; // Martian dust is highly forward-scattering
 static const float ScatterMie = 2.0 * 1e-7; // Very low Mie scattering
 
-// Rayleigh scattering (mostly CO₂, low density)
+// Rayleigh scattering (mostly CO2, low density)
 static const float HDensityRayleigh = 11000.0; // Extended falloff due to low pressure
 static const float3 ScatterRayleigh = float3(0.0001, 0.0002, 0.0003); // Near-zero (very weak blue sky)
 static const float3 AbsorbOzone = float3(0.0, 0.0, 0.0); // No ozone absorption
-static const float WorldScale = 100.0;
-static const float MaxDistance = 35000.0;
 */
 
 

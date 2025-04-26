@@ -10,6 +10,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <stdexcept>
 #if defined(SURFER_PLATFORM_WIN32)
 #include "windows.h"
 #include <windowsx.h>
@@ -309,7 +310,7 @@ namespace Surfer {
             }
 
             // Calculate window rect to account for borders and title bar
-            RECT windowRect = {0, 0, width, height};
+            RECT windowRect = {0, 0, static_cast<LONG>(width), static_cast<LONG>(height)};
             AdjustWindowRectEx(&windowRect, WS_OVERLAPPEDWINDOW, FALSE, 0);
             int adjustedWidth = windowRect.right - windowRect.left;
             int adjustedHeight = windowRect.bottom - windowRect.top;

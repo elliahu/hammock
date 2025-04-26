@@ -2,9 +2,8 @@ import toolbox;
 
 
 #define PLANET_ALBEDO float3(0.3)
-#define DIR_SAMPLE_COUNT 64 // Too high for production ready code, something like 8 or 16 is quite enough
-#define SUN_INTENSITY float3(1.0) // We do tonemap later so the dark values will be shifted automatically, for no tonemap use some very high values
-#define RAYMARCH_STEP_COUNT 20 // This is also quite high for production, 16 would be acceptable
+#define DIR_SAMPLE_COUNT 32
+#define RAYMARCH_STEP_COUNT 20 
 
 [vk::binding(0,0)] ConstantBuffer<AtmosphereParams> params;
 [vk::binding(0,1)] Sampler2D Transmittance;
@@ -81,7 +80,7 @@ void integrate(
 
             // Second order scattering
             sumL2 += dt * transmittance * sunTransmittance * sigmaS *
-                     rho * SUN_INTENSITY;
+                     rho * SunIntensity;
         }
 
         sumF      += dt * transmittance * sigmaS;
@@ -93,7 +92,7 @@ void integrate(
         float3 transmittance = exp(-sumSigmaT);
         float3 sunTransmittance = getTransmittance(Transmittance, 0, sunTheta);
         sumL2 += transmittance * sunTransmittance * max(0, toSunDir.y) *
-                 SUN_INTENSITY * (PLANET_ALBEDO / PI);
+                 SunIntensity * (PLANET_ALBEDO / PI);
     }
 
     innerL2 = sumL2;

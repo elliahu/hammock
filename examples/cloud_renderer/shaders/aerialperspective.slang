@@ -1,6 +1,6 @@
 import toolbox;
 
-#define PER_SLICE_SAMPLES 4
+#define PER_SLICE_SAMPLES 8
 
 
 [vk::binding(0,0)] ConstantBuffer<AtmosphereParams> params;

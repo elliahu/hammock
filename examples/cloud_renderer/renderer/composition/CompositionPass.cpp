@@ -230,6 +230,7 @@ void CompositionPass::prepareDescriptors() {
 
     skyLayout = DescriptorSetLayout::Builder(device)
             .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Sky view LUT
+            .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Transmittance LUT
             .build();
 
     Sampler *s = resourceManager.getResource<Sampler>(sampler);
@@ -259,6 +260,7 @@ void CompositionPass::prepareDescriptors() {
 
     DescriptorWriter(*skyLayout, *descriptorPool)
             .writeImage(0, &skyViewLUTInfo)
+            .writeImage(1, &transmittanceLUTInfo)
             .build(skyDescriptor);
 }
 

@@ -28,10 +28,10 @@ public:
     }
 
     // This is passed as buffer
-    CloudsUniformBufferData uniform;
+    CloudsUniformBufferData uniform{};
 
     // This is passed as push data
-    CloudsPushConstantData properties;
+    CloudsPushConstantData properties{};
 
 
     void initialize(HmckVec2 resolution);

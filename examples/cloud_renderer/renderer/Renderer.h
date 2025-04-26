@@ -60,7 +60,7 @@ class Renderer final{
 
     // Perspective camera
     Camera camera{
-        HmckVec3{35.397, 1.296, 67.394},
+        HmckVec3{35.397, 4.296, 67.394},
         static_cast<float>(lWidth) /  static_cast<float>(lHeight),
         HmckToRad(HmckAngleDeg(65.f)), 0.1f, 300.f, 34.671, 0.300,};
 

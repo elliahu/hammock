@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <limits>
 
 HmckMat4 hammock::Projection::perspective(float fovy, float aspect, float zNear, float zFar, bool flip ) {
     assert(HmckABS(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
