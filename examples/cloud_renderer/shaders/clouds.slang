@@ -1,12 +1,5 @@
 import toolbox;
 
-struct CloudSample {
-    float density = 0.0;
-    float coverage = 0.0;
-    float type = 0.0;
-};
-
-
 struct PushConstants {
     float anvilBias;
     float globalDensity;
@@ -18,31 +11,30 @@ struct PushConstants {
     float detailScale;
     float curliness;
     float absorption;
-    float phase;
+    float eccentricity;
+    float intensity;
+    float spread;
     float ambientStrength;
     int DEBUG_epicView;
     int DEBUG_cheapSampleDistance;
     int DEBUG_maxSamples;
     int DEBUG_maxLightSamples;
-    int DEBUG_expensiveSampling;
     int DEBUG_earlyTermination;
     int DEBUG_lateTermination;
-    int DEBUG_longStepMulti;
+    float DEBUG_longStepMulti;
 };
 
-[vk::binding(0)] ConstantBuffer<FrameDataUbo> data;
+[vk::binding(0)] ConstantBuffer<CloudData> data;
 
 // Storage images
 [vk::binding(1)] RWTexture2D cloudsStorageImage;
-[vk::binding(2)] RWTexture2D godRaysMaskStorageImage;
 
 // Images and samplers
-[vk::binding(3)] Sampler3D lowFreqNoiseTexture;
-[vk::binding(4)] Sampler3D highFreqNoiseTexture;
-[vk::binding(5)] Sampler2D cloudMapTexture;
-
-// Shadow map
-[vk::binding(6)] RWTexture2D<float> shadowMap;
+[vk::binding(2)] Sampler3D lowFreqNoiseTexture;
+[vk::binding(3)] Sampler3D highFreqNoiseTexture;
+[vk::binding(4)] Sampler2D weatherMap;
+[vk::binding(5)] Sampler2D curlNoiseTexture;
+[vk::binding(6)] Sampler2D cameraDepthTexture;
 
 // Push constants
 [vk::push_constant] PushConstants constants;
@@ -50,9 +42,8 @@ struct PushConstants {
 // Camera
 #define EYE data.cameraPosition.xyz
 
-// Areal perspective
-#define FOG_DISTANCE 70000.0
-#define FOG_FACTOR 0.000008
+// 'Epic' view distance
+#define EPIC_DISTANCE 70000.0
 
 // Sampling
 #define NUM_STEPS constants.DEBUG_maxSamples
@@ -74,8 +65,9 @@ struct PushConstants {
 #define COVERAGE_REPEAT 9.0
 
 // Earth
+// These values are not physically correct, but they are used to create a nice effect
 #define EARTH_RADIUS 637800
-#define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + 4000)
+#define CLOUDS_BOTTOM_RADIUS (EARTH_RADIUS + 6000)
 #define CLOUDS_TOP_RADIUS (CLOUDS_BOTTOM_RADIUS + 10500)
 #define CENTER float3(0.0, -EARTH_RADIUS, 0.0)
 
@@ -98,8 +90,6 @@ static const float bayerFilter[16u] = float[]
 3.0 * BAYER_FACTOR, 11.0 * BAYER_FACTOR, 1.0 * BAYER_FACTOR, 9.0 * BAYER_FACTOR,
 15.0 * BAYER_FACTOR, 7.0 * BAYER_FACTOR, 13.0 * BAYER_FACTOR, 5.0 * BAYER_FACTOR
 );
-
-#define MASK_THRESHOLD 0.01
 
 
 // Returns a relative hight in cloud layer 0 to 1
@@ -139,14 +129,13 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
         return 0.0;
     }
 
-
     // Sample low frequency noise to construct FBM
     float4 lowFrequencyNoise = lowFreqNoiseTexture.SampleLevel(float3(animatedUv * BASE_SCALE, heightFraction), lod);
     float lowFreqFBM = dot(lowFrequencyNoise.gba, float3(0.625, 0.25, 0.125));
     float baseCloud = remap(lowFrequencyNoise.r, lowFreqFBM - 1.0, 1.0, 0.0, 1.0) * constants.globalDensity;
 
     // Sample the cloud map
-    float3 cloudMap = cloudMapTexture.SampleLevel(animatedUv * COVERAGE_REPEAT, 0.0).rgb * constants.baseMultiplier;
+    float3 cloudMap = weatherMap.SampleLevel(animatedUv * COVERAGE_REPEAT, 0.0).rgb * constants.baseMultiplier;
     // Coverage is in red and green channels
     float coverage = max(cloudMap.r, saturate(constants.globalCoverage - 0.5) * cloudMap.g * 2);
     coverage = pow(coverage, remap(heightFraction, 0.7, 0.8, 1.0, lerp(1.0, 0.5, constants.anvilBias)));
@@ -158,8 +147,8 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
         // Calculate distance from camera
         float distanceFromCamera = length(p - EYE);
         // Define the distance threshold near the max view distance
-        float transitiondstToStartance = FOG_DISTANCE * 0.8; // Start at 80% of max distance
-        float transitionWidth = FOG_DISTANCE * 0.1; // Transition over 10% of max distance
+        float transitiondstToStartance = EPIC_DISTANCE * 0.8; // Start at 80% of max distance
+        float transitionWidth = EPIC_DISTANCE * 0.1; // Transition over 10% of max distance
         // Create a sharp transition that happens only near the horizon
         float distanceFactor = saturate((distanceFromCamera - transitiondstToStartance) / transitionWidth);
         // Use a power function to make the transition even sharper
@@ -177,12 +166,17 @@ float sampleCloudDensity(float3 p, bool expensive, float lod) {
     float baseCloudWithCoverage = remap(baseCloud , coverage, 1.0, 0.0, 1.0);
     baseCloudWithCoverage = saturate(baseCloudWithCoverage * coverage);
 
-   // return saturate(baseCloudWithCoverage);
-
     // Check if we are doing expensive sampling
     if (expensive){
+        // Offset the sampling coordinate of detail noise to simulate atmospheric turbulence further eroding the clouds
+        float3 p = float3(staticUv * DETAIL_SCALE, heightFraction);
+        if(constants.curliness > 0.0){
+            float2 curlNoise = curlNoiseTexture.SampleLevel(animatedUv, 0.0).xy;
+            p.xy += curlNoise.rg * (1.0 - heightFraction)  * constants.curliness;
+        }
+       
         // Sample high frequency noise and build the FBM
-        float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(float3(staticUv * DETAIL_SCALE, heightFraction), lod).rgb * constants.detailMultiplier;
+        float3 highFrequencyNoise = highFreqNoiseTexture.SampleLevel(p, lod).rgb * constants.detailMultiplier;
         float highFreqFBM = dot(highFrequencyNoise, float3(0.625, 0.25, 0.125));
         float highFreqNoiseModifier = lerp(highFreqFBM, 1.0 - highFreqFBM, saturate(heightFraction * 10.0));
         baseCloudWithCoverage = remap(baseCloudWithCoverage, highFreqNoiseModifier, 1.0, 0.0, 1.0);
@@ -202,7 +196,7 @@ float lightRayAttenuation(float3 p) {
     // Cone parameters (as described by Schneider)
     float lastStepDistanceMultiplier = 5.0; // Last step reaches 2x further
 
-    // Lightmarch - exactly NUM_LIGHT_STEPS total samples
+    // Lightmarch
     for (int l = 0; l < NUM_LIGHT_STEPS; l++) {
         float t = (float)l / (NUM_LIGHT_STEPS - 1); // Normalized position [0,1]
 
@@ -245,16 +239,17 @@ float lightRayAttenuation(float3 p) {
         float density = sampleCloudDensity(samplePos, false, l * 0.5);
 
         // Accumulate density
-        totalDensity += density * stepSize;
+        totalDensity += density * stepSize * ABSORPTION;
     }
 
-    // Apply Beer's law for exponential light attenuation
-    return saturate(max(exp(-totalDensity * ABSORPTION), (exp(-totalDensity * ABSORPTION * 0.25)) * 0.7));
+    // Apply modified Beer's law for exponential light attenuation
+    // This makes sure that the bottom of the clouds is not too dark
+    return saturate(max(exp(-totalDensity ), (exp(-totalDensity * 0.25)) * 0.7));
 }
 
 // Marches along a ray from the start to the end position
 // Uses adaptive stepping: longer steps until cloud is detected, then short steps
-float4 raymarch(uint3 threadId, float3 start, float3 end) {
+float4 raymarch(uint2 threadId, float3 start, float3 end) {
     // Create the ray to march along
     float3 ray = end - start;
     float rayLength = length(ray);
@@ -275,16 +270,17 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
     int b = int(threadId.y) % 4;
     float3 p = start + rayDirection * baseStepSize * bayerFilter[a * 4 + b] * 1.87;
 
-    // Phase function
+    // Phase function, precomputed here as the angle of the sun never changes for directional representation
     float3 L = normalize(SUN_DIR);
     float3 V = normalize(rayDirection);
     float cosTheta = dot(L, V);
-    float phase = dualLobePhase(cosTheta, constants.phase);
+    float phase = directedPhase(cosTheta, constants.eccentricity, constants.intensity, constants.spread);
 
-    // Raymarch variables
+    // Ray-marching variables
     float transmittance = 1.0;
     float accumulatedDensity = 0.0;
-    float3 inScatteredLight = 0.0;
+    float inScatteredLight = 0.0;
+    float ambientLight = 0.0;
     float currentStepSize = baseStepSize * largeStepMultiplier;
     bool insideCloud = false;
     bool everInCloud = false;
@@ -293,18 +289,18 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
     // Maximum distance we can travel
     float remainingDistance = rayLength;
 
-    // Raymarch with adaptive step sizes
+    // Ray-march with adaptive step sizes
     while (remainingDistance > 0.0) {
         // Calculate the distance from the camera
         float distanceFromCamera = length(p - EYE);
         bool expensive = distanceFromCamera < constants.DEBUG_cheapSampleDistance;
         float lod = expensive ? 0.0 : 2.0;
 
-        // Sample the density (use cheap sampling for large steps)
-        float density = sampleCloudDensity(p, expensive && insideCloud, lod);
+        // Sample the density
+        float density = sampleCloudDensity(p, true, lod);
 
         // Adaptive stepping logic
-        if (density > 0.001) {
+        if (density > 0.05) {
             // We hit a cloud - if we were taking large steps, we need to back up and switch to small steps
             if (!insideCloud) {
                 // Back up one large step and switch to small steps
@@ -337,9 +333,10 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
             float transmittanceAlongLightRay = lightRayAttenuation(p);
 
             // in-scattering
-            float depthProb = 0.05 * pow(density, remap(heightFraction, 0.3, 0.85, 0.5, 2.0));
-            float vertProb = saturate(pow(remap(heightFraction, 0.07, 0.14, 0.1, 1.0), 1.5));
-            float inScatterProb = depthProb;//* vertProb;
+            float inScatterProb = 0.05 * pow(density, remap(heightFraction, 0.3, 0.85, 0.5, 2.0));
+
+            // Ambient light
+            ambientLight += density * (1.0 - heightFraction) * transmittance;
 
             // Compute the differential in-scattering contribution using the current transmittance
             inScatteredLight += density * currentStepSize * transmittance * powderTerm * transmittanceAlongLightRay * phase * inScatterProb;
@@ -348,14 +345,11 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
             float currentTransmittance = exp(-density * currentStepSize * ABSORPTION);
             transmittance *= currentTransmittance;
 
-            uint2 shadowIndex = clamp(uint2(frac(getUVProjection(p) * COVERAGE_REPEAT) * 512.0), uint2(0, 0), uint2(511, 511));
-            shadowMap[shadowIndex] += (1.0 - currentTransmittance);
-
 
             // Early exit if fully opaque
             if (transmittance < 0.001) {
                 if (constants.DEBUG_earlyTermination == 1) {
-                    inScatteredLight = float3(1.0, 0.0, 0.0);
+                    inScatteredLight = 0.0;
                 }
                 break;
             }
@@ -365,7 +359,7 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
             emptyStepsCount++;
 
             // If we've taken several empty steps while using small steps, switch back to large steps
-            if (insideCloud && emptyStepsCount > 3) {
+            if (insideCloud && emptyStepsCount > 5) {
                 insideCloud = false;
                 currentStepSize = baseStepSize * largeStepMultiplier;
             }
@@ -383,56 +377,101 @@ float4 raymarch(uint3 threadId, float3 start, float3 end) {
 
     if (constants.DEBUG_lateTermination == 1 && !everInCloud) {
         transmittance = 0.0;
-        inScatteredLight =  float3(1.0, 0.0, 0.0);
+        inScatteredLight =  0.0;
     }
 
     // Compute alpha from the accumulated optical depth,
     // Here we base it on the remaining transmittance.
     float alpha = 1.0 - transmittance;
-    return float4(inScatteredLight * SUN_COLOR * SUN_STRENGTH, alpha);
+    // Storing direct light strength in red channel and ambient light strength in green channel
+    // Actual color information is reconstructed later in composition pass
+    return float4(inScatteredLight * SUN_STRENGTH, ambientLight * constants.ambientStrength,0.0,  alpha);
 }
 
+// If using CLOUD_RENDER_SUBSAMPLE, spatiotemporal rendering is performed and only every 16th pixel is updated each frame. 
+// For static scenes, no quality los is present and performance is drastically improved, for moving clouds however,
+// ghosting is visible.
+// This is only an experimental feature that enables this to be run even on device with integrated GPUs
+
 [shader("compute")]
+#ifdef CLOUD_RENDER_SUBSAMPLE
+[numthreads(8, 8, 1)]
+void computeMain(uint3 groupId: SV_GroupID, uint3 groupThreadId: SV_GroupThreadID)
+#else
 [numthreads(16,16,1)]
 void computeMain(uint3 threadId : SV_DispatchThreadID)
+#endif
 {
+
+#ifdef CLOUD_RENDER_SUBSAMPLE
+    // Array of 16 positions in a cross pattern.
+    static const int2 crossOffsets[16] = {
+        int2(0,0),int2(2,2),int2(2,0),int2(0,2),
+        int2(1,1),int2(3,3),int2(3,1),int2(1,3),
+        int2(1,0),int2(3,2),int2(3,0),int2(1,2),
+        int2(0,1),int2(2,3),int2(2,1),int2(0,3)
+    };
+
+    // Calculate block position (each thread handles one 4x4 block)
+    int2 blockPos = int2(groupId.xy) * 8 + int2(groupThreadId.xy);
+
+   // Selected pixel within 4x4 block for this frame
+    int2 selectedPixel = crossOffsets[data.frameIndexMod16];
+
+    // Calculate actual pixel coordinate
+    int2 pixelCoord = blockPos * 4 + selectedPixel;
+
+    // Check bounds
     int2 resolution = int2(data.resX, data.resY);
+    if (any(pixelCoord >= resolution)) {
+        return;
+    }
+
+#else
+    int2 resolution = int2(data.resX, data.resY);
+    int2 pixelCoord = threadId.xy;
+#endif
+
+    // We do not draw pixels that are occluded by the planets surface
+    // This is done by sampling the depth texture and checking if the depth is less than 1.0
+    float2 uv = float2((pixelCoord.x + 0.5) / resolution.x, (pixelCoord.y + 0.5) / resolution.y);
+    float depth = cameraDepthTexture.SampleLevel(uv, 0.0).r;
+    if(depth < 1.0){
+        cloudsStorageImage[pixelCoord.xy] = float4(0.0);
+        return;
+    }
 
     // Compute ray direction.
-    float4 rayClip = float4(computeClipSpaceCoord(threadId.xy, resolution), 1.0);
+    float4 rayClip = float4(computeClipSpaceCoord(pixelCoord, resolution), 1.0);
     float4 rayView = mul(data.invProj, rayClip);
     rayView = float4(rayView.xy, -1.0, 0.0);
     float3 rayDirection = mul(data.invView, rayView).xyz;
     rayDirection = normalize(rayDirection);
     float3 rayOrigin = data.cameraPosition.xyz;
 
-    // Compute distance from camera to sphere center.
-    float cameraDist = length(rayOrigin - CENTER);
-    bool insideInnerSphere = cameraDist < CLOUDS_BOTTOM_RADIUS;
-    bool insideOuterSphere = cameraDist < CLOUDS_TOP_RADIUS;
-    bool aboveOuterSphere = cameraDist > CLOUDS_TOP_RADIUS;
-
-    // Get intersections.
+    // Get intersections
+    // For the sake of simplicity, we only account for situation where the camera is inside the atmosphere under the cloud layer
+    // Otherwise, strange things can happen
+    // This could be however changed in production code quite easily 
     float2 planetIntersect = intersectRaySphere(CENTER, EARTH_RADIUS, rayOrigin, rayDirection);
     float2 innerCloudIntersect = intersectRaySphere(CENTER, CLOUDS_BOTTOM_RADIUS, rayOrigin, rayDirection);
     float2 outerCloudIntersect = intersectRaySphere(CENTER, CLOUDS_TOP_RADIUS, rayOrigin, rayDirection);
 
-    // if we intersected a planet, we exit as there are no clouds under ground
+
+    // if we intersected a planet, we exit as there are no clouds under ground :)
     if (planetIntersect.y > 0.0) {
-        cloudsStorageImage[threadId.xy] = float4(0.0);
-        godRaysMaskStorageImage[threadId.xy / 4] = float4(0.0, 0.0, 0.0, 1.0);
+        cloudsStorageImage[pixelCoord.xy] = float4(0.0);
         return;
     }
 
-    // We only account for situation where we are between the planet and clouds
+    // We only account for situation where we are between the planet and clouds as noted above
     float dstToStart = innerCloudIntersect.y;
     float dstToEnd = outerCloudIntersect.y;
 
 
     // Validate segment
     if (dstToEnd <= dstToStart || dstToStart < 0.0) {
-        cloudsStorageImage[threadId.xy] = float4(1.0, 0.0, 0.0, 1.0);
-        godRaysMaskStorageImage[threadId.xy / 4] = float4(0.0, 0.0, 0.0, 1.0);
+        cloudsStorageImage[pixelCoord.xy] = float4(1.0, 0.0, 0.0, 1.0);
         return;
     }
 
@@ -441,12 +480,14 @@ void computeMain(uint3 threadId : SV_DispatchThreadID)
     float3 end = rayOrigin + rayDirection * dstToEnd;
     float distanceToPixel = length(end - rayOrigin);
 
-    // Perform raymarching for clouds.
-    float4 color = raymarch(threadId,start, end);
+    // Perform ray-marching for clouds.
+    float4 clouds = raymarch(pixelCoord, start, end);
 
-    // If the alpha is high enough, write it to the mask, else write the color of the light
-    godRaysMaskStorageImage[threadId.xy / 4] = float4(lerp(SUN_COLOR, float3(0.0), color.a), 1.0);
+    // Encode depth into the result
+    float3 pixelWorldPos = start;
+    // This gives nice balance between over dimming due to aerial perspective applied later and no aerial perspective (for 0 distance)
+    clouds.b = saturate(distance(pixelWorldPos, EYE) / (CLOUDS_BOTTOM_RADIUS));
 
     // Store the final value
-    cloudsStorageImage[threadId.xy] = color;
+    cloudsStorageImage[pixelCoord.xy] = clouds;
 }

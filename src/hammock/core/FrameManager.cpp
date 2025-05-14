@@ -31,12 +31,12 @@ void hammock::FrameManager::recreateSwapChain() {
 }
 
 
-void hammock::FrameManager::submitPresentCommandBuffer(VkCommandBuffer commandBuffer, VkSemaphore wait) {
+void hammock::FrameManager::submitPresentCommandBuffer(VkCommandBuffer commandBuffer,  const std::vector<VkSemaphore>& wait, const std::vector<VkPipelineStageFlags>& waitStages) {
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer");
     }
 
-    auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex, wait);
+    auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex, wait, waitStages);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized()) {
         // Window was resized (resolution was changed)
         window.resetWindowResizedFlag();

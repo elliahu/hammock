@@ -75,6 +75,10 @@ namespace hammock {
 
         // Create the physical device features structures
 
+        VkPhysicalDeviceSynchronization2FeaturesKHR sync2Features{};
+        sync2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
+        sync2Features.synchronization2 = VK_TRUE;
+
         VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
         descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         // Enable non-uniform indexing
@@ -94,6 +98,7 @@ namespace hammock {
 
         // Chain the features structures
         descriptorIndexingFeatures.pNext = &dynamicRenderingFeatures;
+        dynamicRenderingFeatures.pNext = &sync2Features;
 
         // Populate VkPhysicalDeviceFeatures2
         VkPhysicalDeviceFeatures2 deviceFeatures2{};
@@ -158,7 +163,7 @@ namespace hammock {
 
         VmaAllocatorCreateInfo allocatorCreateInfo = {};
         allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-        allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+        allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
         allocatorCreateInfo.physicalDevice = physicalDevice;
         allocatorCreateInfo.device = device_;
         allocatorCreateInfo.instance = instance.getInstance();

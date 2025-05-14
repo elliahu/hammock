@@ -10,6 +10,8 @@ namespace hammock {
 
         HmckMat4 perspective(float fovy, float aspect, float zNear, float zFar, bool flip = true);
 
+        HmckMat4 orthographic(float left, float right, float bottom, float top, float znear, float zfar, bool flip = true);
+
         HmckMat4 view(HmckVec3 eye, HmckVec3 target, HmckVec3 up);
 
         HmckMat4 inverseView(HmckVec3 eye, HmckVec3 target, HmckVec3 up);

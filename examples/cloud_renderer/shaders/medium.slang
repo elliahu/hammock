@@ -61,23 +61,19 @@ struct PushConstants {
 [shader("vertex")]
 VertexOutput vertexMain(uint vertexID : SV_VertexID) {
     VertexOutput output;
-
-    // Replicate the GLSL trick:
-    //   outUV = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
     output.uv = float2((vertexID << 1) & 2, vertexID & 2);
-
-    // Transform into clip space for a big triangle covering the screen
     output.position = float4(output.uv * 2.0 - 1.0, 0.0, 1.0);
-
-    // If you need [0..1] UVs in the pixel shader, then do:
-    //output.uv *= 0.5;
-
     return output;
 }
 
 // Convert world position to AABB UVW
 float3 worldToAABB(float3 worldPos) {
     return (worldPos - AABB_MIN) / (AABB_MAX - AABB_MIN);
+}
+
+// sdf if a sphere
+float sdfSphere(float3 p, float radius) {
+    return length(p) - radius;
 }
 
 // Sample the signed distance field
@@ -118,75 +114,119 @@ float3 lightRayAttenuation(float3 p){
     return attenuationAlongLightRay;
 }
 
+float2 intersectRaySphere(float3 rayOrigin, float3 rayDir, float3 sphereCenter, float sphereRadius) {
+    float3 oc = rayOrigin - sphereCenter;
+    float a = dot(rayDir, rayDir);
+    float b = 2.0 * dot(oc, rayDir);
+    float c = dot(oc, oc) - sphereRadius * sphereRadius;
+    float discriminant = b * b - 4.0 * a * c;
+    if (discriminant < 0.0) return float2(-1.0, -1.0);
+    float sqrtDisc = sqrt(discriminant);
+    float t0 = (-b - sqrtDisc) / (2.0 * a);
+    float t1 = (-b + sqrtDisc) / (2.0 * a);
+    return float2(t0, t1);
+}
 
+// This is not optimized what so ever and is only here to present different components of volumetric rendering
+// Performance will not be great but the quality will be high
+// You can notice that all of the LUT computations and cloud computation use basically the same approach to some extent
 [shader("pixel")]
 PixelOutput pixelMain(VertexOutput input, float4 fragCoord : SV_Position){
-    // Prep the output
     PixelOutput output;
 
-    // Simpler ray direction calculation for testing
     float2 ndc = (input.position.xy / float2(buffer.resX, buffer.resY)) * 2.0 - 1.0;
     float4 rayClip = float4(ndc, 1.0, 1.0);
     float4 rayEye = mul(inverse(buffer.proj), rayClip);
-    rayEye.w = 0.0; // Direction vector
+    rayEye.w = 0.0;
     float3 rayDirection = normalize(mul(inverse(buffer.view), rayEye).xyz);
     float3 rayOrigin = buffer.eye.xyz;
 
-    // Intersection
     float2 intersection = intersectRayAABB(rayOrigin, rayDirection, AABB_MIN, AABB_MAX);
-    if (intersection.y < 0.0) {
+    float lightRadius = 0.04;
+    float2 lightHit = intersectRaySphere(rayOrigin, rayDirection, buffer.lightPosition.xyz, lightRadius);
+
+    bool hitAABB = intersection.y >= 0.0;
+    bool hitLight = lightHit.x > 0.0;
+
+    // If the ray hits neither, draw background
+    if (!hitAABB && !hitLight) {
         output.color = float4(BACKGROUND, 1.0);
         return output;
     }
 
-    // Ray marching variables
+    // If we only hit the light (not the AABB), draw the light
+    if (!hitAABB && hitLight) {
+        output.color = float4(LIGHT_COLOR, 1.0);
+        return output;
+    }
+
+    // If we hit both, determine what to render based on intersection distances
+    float tCloud = intersection.x;
+    float tLight = hitLight ? lightHit.x : 1e30;
+
+    // Check if there's actual cloud density between camera and light
+    bool cloudBeforeLight = false;
+    if (hitLight && hitAABB && tLight > tCloud) {
+        float3 p = rayOrigin + rayDirection * tCloud;
+        float stepSize = (min(tLight, intersection.y) - tCloud) / 8.0;
+        
+        for (int i = 0; i < 8; i++) {
+            if (sampleDensity(p) > 0.0) {
+                cloudBeforeLight = true;
+                break;
+            }
+            p += rayDirection * stepSize;
+        }
+    }
+
+    // If we hit the light and there's no cloud density before it, draw the light
+    if (hitLight && (!hitAABB || !cloudBeforeLight || tLight < tCloud)) {
+        output.color = float4(LIGHT_COLOR, 1.0);
+        return output;
+    }
+
+    // Ray-march
     float stepSize = (intersection.y - intersection.x) / float(NUM_STEPS);
-    // Get a blue noise sample; ideally, normalize your coordinates
     float3 noise = (constants.enableJitter == 1) ? blueNoiseTexture.SampleLevel(input.uv * 10, 0.0).rgb * constants.jitterStrenght : float3(0.0);
-    // Use one channel (e.g., the red channel) to determine an offset within one step interval
     float jitterOffset = noise.r * stepSize;
-    // Apply the jitter to the start position
     float3 p = rayOrigin + rayDirection * (intersection.x + jitterOffset);
-    // Acumulated values
     float3 totalTransmittance = float3(1.0);
     float3 inScattering = float3(0.0);
 
-     // Raymarch
     for (int i = 0; i < NUM_STEPS; i++) {
         float density = sampleDensity(p);
 
         if (density > 0.0) {
-            // Compute the light contribution along the light ray from this point
             float3 attenuationAlongLightRay = lightRayAttenuation(p);
             float3 lightContribution = LIGHT_COLOR * attenuationAlongLightRay;
 
-            // Calculate phase using the angle between the light and view direction.
-            float3 L = normalize(buffer.lightPosition.xyz - p);  // direction from point p to the light
-            float3 V = normalize(rayDirection);          // direction from point p to the camera
+            float3 L = normalize(buffer.lightPosition.xyz - p);
+            float3 V = normalize(rayDirection);
             float cosTheta = dot(L, V);
             float phase = henyeyGreenstein(cosTheta, PHASE_G);
 
-            // Compute the differential in-scattering contribution using the current transmittance
             float3 dL = totalTransmittance * density * SCATTERING * phase * lightContribution  * stepSize;
             inScattering += dL;
 
-            // Now update total transmittance for extinction along the ray segment
             float3 attenuation = exp(-density* stepSize* (SCATTERING + ABSORPTION));
             totalTransmittance *= attenuation;
         }
 
         if (max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)) < 0.01)
-        break;
+            break;
 
         p += rayDirection * stepSize;
     }
 
-    // Optionally, compute alpha from the accumulated optical depth,
-    // but here we base it on the remaining transmittance.
     float alpha = 1.0 - max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b));
-
-    // Use the in-scattered radiance as the final color output.
     float3 color = inScattering;
+
+    // Composite cloud over light if light is behind cloud (light is inside AABB interval)
+    bool lightBehindCloud = hitLight && (lightHit.x > intersection.x) && (lightHit.x < intersection.y);
+    if (lightBehindCloud) {
+        color = color * alpha + LIGHT_COLOR * (1.0 - alpha);
+        alpha = 1.0;
+    }
 
     output.color = float4(color, alpha);
 

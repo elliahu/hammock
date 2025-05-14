@@ -6,11 +6,13 @@
 #include <stdexcept>
 #include <string>
 #include <cstdlib> // for abort
+#include <algorithm>
 #include <hammock/core/HandmadeMath.h>
 #include <hammock/utils/Initializers.h>
 #include "stb_image.h"
 #include <cassert>
 #include <functional>
+#include <cmath>
 
 namespace hammock {
     enum LogLevel {
@@ -94,15 +96,24 @@ namespace hammock {
 
     // Custom assert macro
 #ifndef ASSERT
+#if defined(_MSC_VER)
 #define ASSERT(expr, message)                                            \
-    do {                                                                 \
-        if (!(expr)) {                                                   \
-            AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,         \
-            __PRETTY_FUNCTION__, message);     \
-        }                                                                \
-    } while (false)
+do {                                                                 \
+if (!(expr)) {                                                   \
+AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,         \
+__FUNCTION__, message);   /* Use __FUNCTION__ for MSVC */    \
+}                                                                \
+} while (false)
+#else
+#define ASSERT(expr, message)                                            \
+do {                                                                 \
+if (!(expr)) {                                                   \
+AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,         \
+__PRETTY_FUNCTION__, message);  /* Use __PRETTY_FUNCTION__ */ \
+}                                                                \
+} while (false)
 #endif
-
+#endif
     struct alignas(16) IntPadded {
         int32_t value;
         int32_t padding[3]; // Explicit padding to 16 bytes
@@ -161,7 +172,7 @@ namespace hammock {
     };
 
     // TODO FIXME this is total shit! it needs to know the size of the allocation and also if it should use free() for C style or delete[]
-    [[deprecated("Use AutoDele class")]] class ScopedMemory {
+    class [[deprecated("Use AutoDele class")]] ScopedMemory {
     public:
         // Constructor to take ownership of the pointer
         explicit ScopedMemory(const void *ptr = nullptr)
@@ -294,7 +305,7 @@ namespace hammock {
     }
 
     inline uint32_t getNumberOfMipLevels(const uint32_t width, const uint32_t height) {
-        return static_cast<uint32_t>(floor(log2(std::ranges::min(width, height)))) + 1;
+        return static_cast<uint32_t>(std::floor(std::log2(std::min(width, height)))) + 1;
     }
 
     inline void transitionImageLayout(

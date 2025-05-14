@@ -43,7 +43,7 @@ namespace hammock {
 
         VkResult acquireNextImage(uint32_t *imageIndex) const;
 
-        VkResult submitCommandBuffers(const VkCommandBuffer *buffers, const uint32_t *imageIndex, VkSemaphore waitForSemaphore);
+        VkResult submitCommandBuffers(const VkCommandBuffer *buffers, const uint32_t *imageIndex, const std::vector<VkSemaphore>& waitForSemaphore, const std::vector<VkPipelineStageFlags>& waitStages);
 
         [[nodiscard]] bool compareSwapFormats(const SwapChain &swapChain) const {
             return swapChain.swapChainImageFormat == swapChainImageFormat;

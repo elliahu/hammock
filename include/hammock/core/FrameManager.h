@@ -77,7 +77,7 @@ namespace hammock {
 
         template<CommandQueueFamily Queue>
         void submitCommandBuffer(VkCommandBuffer commandBuffer, const std::vector<VkSemaphore> &waitSemaphores,
-                                 const std::vector<VkSemaphore> &signalSemaphores, VkPipelineStageFlags waitStage,  VkFence fence = VK_NULL_HANDLE) {
+                                 const std::vector<VkSemaphore> &signalSemaphores, const std::vector<VkPipelineStageFlags>& waitStages,  VkFence fence = VK_NULL_HANDLE) {
             if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
                 throw std::runtime_error("failed to record command buffer");
             }
@@ -86,7 +86,7 @@ namespace hammock {
             submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
             submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
             submitInfo.pWaitSemaphores = waitSemaphores.data();
-            submitInfo.pWaitDstStageMask = &waitStage;
+            submitInfo.pWaitDstStageMask = waitStages.data();
 
             submitInfo.commandBufferCount = 1;
             submitInfo.pCommandBuffers = &commandBuffer;
@@ -113,7 +113,7 @@ namespace hammock {
             }
         }
 
-        void submitPresentCommandBuffer(VkCommandBuffer commandBuffer, VkSemaphore wait);
+        void submitPresentCommandBuffer(VkCommandBuffer commandBuffer, const std::vector<VkSemaphore>& wait, const std::vector<VkPipelineStageFlags>& waitStages);
 
         bool beginFrame();
 

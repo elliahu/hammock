@@ -81,19 +81,25 @@ namespace hammock {
     }
 
     VkResult SwapChain::submitCommandBuffers(
-        const VkCommandBuffer *buffers, const uint32_t *imageIndex, VkSemaphore waitForSemaphore) {
+        const VkCommandBuffer *buffers, const uint32_t *imageIndex, const std::vector<VkSemaphore>& wait, const std::vector<VkPipelineStageFlags>& waitStages) {
 
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
+        std::vector<VkSemaphore> waitSemaphores = {imageAvailableSemaphores[currentFrame]};
+        std::vector<VkPipelineStageFlags> waitStage = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-        VkSemaphore waitSemaphores[2] = {imageAvailableSemaphores[currentFrame], waitForSemaphore};
-        uint32_t waitSemaphoreCount = (waitForSemaphore != VK_NULL_HANDLE) ? 2 : 1;
+        for(auto &w: waitStages) {
+            waitStage.push_back(w);
+        }
 
-        constexpr VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        submitInfo.waitSemaphoreCount = waitSemaphoreCount;
-        submitInfo.pWaitSemaphores = waitSemaphores;
-        submitInfo.pWaitDstStageMask = waitStages;
+        for (auto& waitSemaphore: wait) {
+            waitSemaphores.push_back(waitSemaphore);
+        }
+
+        submitInfo.waitSemaphoreCount = waitSemaphores.size();
+        submitInfo.pWaitSemaphores = waitSemaphores.data();
+        submitInfo.pWaitDstStageMask = waitStage.data();
 
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = buffers;
@@ -336,10 +342,10 @@ namespace hammock {
             }
 
             // V-sync that may produce tearing if frame is submitted late
-            if (availablePresentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
-                std::cout << "Present mode: V-Sync Relaxed" << std::endl;
-                return availablePresentMode;
-            }
+            // if (availablePresentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
+            //     std::cout << "Present mode: V-Sync Relaxed" << std::endl;
+            //     return availablePresentMode;
+            // }
 
         }
 

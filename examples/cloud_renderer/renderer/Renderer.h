@@ -1,37 +1,26 @@
 #pragma once
 #include <hammock/hammock.h>
-#include "Types.h"
 #include "Camera.h"
-#include "UserInterface.h"
+#include "atmosphere/AtmospherePass.h"
+#include "geometry/GeometryPass.h"
+#include "clouds/CloudsPass.h"
+#include "composition/CompositionPass.h"
+#include "composition/PostProcessingPass.h"
+#include "composition/GodRaysPass.h"
+#include "depth/DepthPass.h"
+#include "ui/UserInterface.h"
+#include "Profiler.h"
+#include "BenchmarkResult.h"
 
-// working directory
-#define CWD(path) "../../../examples/cloud_renderer/" path
-
-// assets
-#define ASSET_PATH(asset) CWD("assets/" asset)
-#define TERRAIN_GEOMETRY_PATH ASSET_PATH("terrain.glb")
-#define HIGH_FREQ_NOISE_PATH ASSET_PATH("base")
-#define LOW_FREQ_NOISE_PATH ASSET_PATH("detail")
-#define WEATHER_MAP_PATH ASSET_PATH("weather/stratocumulus.png")
-
-// shaders
-#define COMPILED_SHADER_PATH(shader) CWD("spv/" shader ".spv")
-#define CLOUDS_COMP_SHADER_PATH COMPILED_SHADER_PATH("clouds.comp")
-#define TERRAIN_VERT_SHADER_PATH COMPILED_SHADER_PATH("terrain.vert")
-#define TERRAIN_FRAG_SHADER_PATH COMPILED_SHADER_PATH("terrain.frag")
-#define COMPOSITION_VERT_SHADER_PATH COMPILED_SHADER_PATH("compose.vert")
-#define COMPOSITION_FRAG_SHADER_PATH COMPILED_SHADER_PATH("compose.frag")
-#define POSTPROC_VERT_SHADER_PATH COMPILED_SHADER_PATH("postprocess.vert")
-#define POSTPROC_FRAG_SHADER_PATH COMPILED_SHADER_PATH("postprocess.frag")
-
-// resolutions
-#define CLOUD_MASK_FRAC 0.25f
 
 using namespace hammock;
 
 /**
  * This is the main renderer class
  * It uses hammock engine under the hood, which is my custom Vulkan abstraction layer
+ * TODO do a depth prepass so that we can perform depth culling in cloud compute
+ * TODO store non-linear cloud depth so we can then blend them using areal perspective
+ * TODO light shafts should be performed after the composition by blending clouds mask, and terrain depth
  */
 class Renderer final{
     // Vulkan instance
@@ -44,143 +33,98 @@ class Renderer final{
     ResourceManager resourceManager;
     // Frame manager handles queue submission and contains swap chain abstraction
     FrameManager frameManager;
+    // Profiler is used to measure time of render passes / dispatches, see definition
+    Profiler profiler;
     // Descriptor pool is used to allocate descriptor sets and layouts
     std::unique_ptr<DescriptorPool> descriptorPool;
-    // User interface
-    std::unique_ptr<::UserInterface> userInterface;
+    // CPU Thread pool
+    ThreadPool threadPool{};
+    uint32_t processorCount{0};
 
     // Deletion queue is used to queue resources that should be deleted
     std::queue<ResourceHandle> deletionQueue;
 
-    // Geometry object representing scenes triangle geometry (in this case terrain)
-    Geometry geometry;
-
     // Launch dimensions
     uint32_t lWidth, lHeight;
+
+    // Results of benchmark
+    BenchmarkResult benchmarkResult;
 
     // Benchmarking
     float deltaTime{0.f}, elapsedTime{0.f};
     static constexpr int FRAMETIME_BUFFER_SIZE{512}; // Number of frames to track
     float frameTimes[FRAMETIME_BUFFER_SIZE] = {0.0f};
     int frameTimeFrameIndex{0};
-
-    // Data passed to the gpu
-    struct {
-        // Cloud properties data
-        CloudsProperties cloudsProperties;
-        // Shared date
-        GlobalData globalData;
-        // Terrain data
-        TerrainData terrainData;
-        // Postprocessing data
-        PostProcessingData postProcessingData;
-    } data;
+    bool progressTime{true};
+    int frameIndex{0};
 
     // Perspective camera
     Camera camera{
-        HmckVec3{0.f, 2.0f, 0.f},
+        HmckVec3{35.397, 4.296, 67.394},
         static_cast<float>(lWidth) /  static_cast<float>(lHeight),
-        HmckToRad(HmckAngleDeg(45.f)), 0.01f, 1000.f};
+        HmckToRad(HmckAngleDeg(65.f)), 0.1f, 300.f, 34.671, 0.300,};
 
     // Movement
     const float movementSpeed = 1.0f; // Units per frame
     const float rotationSpeed = 1.0f; // Radians per frame
 
-    // Resources
+    // Light
 
-    // Default sampler
-    ResourceHandle defaultSampler;
+    // Geometry buffers
+    ResourceHandle vertexBuffer;
+    ResourceHandle indexBuffer;
 
-    struct {
-        // Global buffers, one for each frame in flight
-        std::array<ResourceHandle, SwapChain::MAX_FRAMES_IN_FLIGHT> global;
-        // Vertex buffer
-        ResourceHandle vertexBuffer;
-        // Index buffer
-        ResourceHandle indexBuffer;
-    } buffers;
+    // Actual geometry
+    Geometry geometry;
 
-    struct {
-        // Low freq noise is used to create base shape of the cloud
-        ResourceHandle lowFrequencyNoise;
-        // High freq noise is used to create detail shape on top of the base shape of the cloud
-        ResourceHandle highFrequencyNoise;
-        // Weather map describes weather state in the scene
-        ResourceHandle weatherMap;
-    } assets;
-
-    struct {
-        // Composited image
-        ResourceHandle compositedColor;
-
-        // Clouds storage image
-        ResourceHandle cloudsColor;
-        // Clouds density mask image
-        ResourceHandle cloudsMaskColor;
-
-        // Terrain image
-        ResourceHandle terrainColor;
-        // Terrain depth
-        ResourceHandle terrainDepth;
-    } targets;
-
-    // Here it is important to minimize the number of descriptor sets per pass as some devices may only support as little as 4
-    // There is a one global descriptor set accessible from both queues and then each pass only uses up to one other set
-    // If possible no additional sets are used and all the data passed to the render pass is passed using push block which is fast
-    struct {
-        // Shared descriptor set
-        std::array<VkDescriptorSet, SwapChain::MAX_FRAMES_IN_FLIGHT> global;
-        // Descriptor set for clouds contains only static resources (render targets and textures) that does not require to be per-frame
-        VkDescriptorSet clouds;
-        // Composition descriptor
-        VkDescriptorSet composition;;
-        // Post process descriptor
-        VkDescriptorSet postprocess;
-    } descriptors;
-
-    struct {
-        // Shared descriptor set layout
-        std::unique_ptr<DescriptorSetLayout> global;
-        // clouds descriptor set layout
-        std::unique_ptr<DescriptorSetLayout> clouds;
-        // composition descriptor set layout
-        std::unique_ptr<DescriptorSetLayout> composition;
-        // post process descriptor set layout
-        std::unique_ptr<DescriptorSetLayout> postprocess;
-    } descriptorLayouts;
-
-    // Pipelines
-    struct {
-        // Clouds compute pipeline
-        std::unique_ptr<ComputePipeline> cloudsCompute;
-
-        // Terrain graphics pipeline
-        std::unique_ptr<GraphicsPipeline> terrainGraphics;
-
-        // Composition graphics pipeline
-        std::unique_ptr<GraphicsPipeline> compositionGraphics;
-
-        // Post process pipeline
-        std::unique_ptr<GraphicsPipeline> postprocessGraphics;
-    } pipelines;
 
     // Command buffers
     // There is one command buffer per group per frame,
-    // so that the cpu can record commands for next frame while gpu processes commands from current frame
+    // so that the CPU can record commands for next frame while gpu processes commands from current frame (2 frames in flight)
     struct {
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> clouds; // Clouds and blur
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphere;
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> depth;
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> terrain;
         std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> composition; // Composition and postprocess
+
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferRelease;
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToGraphicsTransferRelease;
+
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferAcquire;
+        std::array<VkCommandBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToGraphicsTransferAcquire;
+
     } commandBuffers;
 
-    // Semaphores signal that the command buffer is finished so that the command buffer waiting for its result can start
+    // Semaphores signal that the command buffer is finished so that different command buffer waiting for its result can start
     struct {
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> depthReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> cloudsReady;
         std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> atmosphereReady;
-        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> terrainReady;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> terrainColorReady;
+
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferClouds;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferAtmosphere;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeTransferGeometry;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToGraphicsTransfer;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsToComputeSync;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToGraphicsSync;
+        std::array<VkSemaphore, SwapChain::MAX_FRAMES_IN_FLIGHT> computeToComputeSync;
     } semaphores;
 
+    // Synchronization of the frames in flight (waiting until framesInFlight + 1 frame is acquired) is handled internally by the swap chain object
+
+    // Render passes
+    DepthPass depthPass;
+    GeometryPass geometryPass;
+    CloudsPass cloudsPass;
+    AtmospherePass atmospherePass;
+    GodRaysPass godRaysPass;
+    CompositionPass compositionPass;
+    PostProcessingPass postProcessingPass;
+
+    // User interface system
+    std::unique_ptr<::UserInterface> ui;
 
     /**
      * Queues resource for deletion
@@ -196,36 +140,6 @@ class Renderer final{
      * Deletes all items in the queue
      */
     void processDeletionQueue();
-
-    /**
-     * Build all graphics and compute pipelines
-     */
-    void buildPipelines();
-
-    /**
-     * Builds all the descriptor sets
-     */
-    void buildDescriptorSets();
-
-    /**
-    * Builds all the descriptor set layouts
-    */
-    void buildDescriptorSetLayouts();
-
-    /**
-     * Creates all the uniform buffers
-     */
-    void createBuffers();
-
-    /**
-     * Creates all images
-     */
-    void createTargets();
-
-    /**
-     * Loads all assets
-     */
-    void loadAssets();
 
     /**
      * Allocates command buffer one per frame per queue
@@ -247,31 +161,35 @@ class Renderer final{
      */
     void destroySyncObjects();
 
+    void prepareGeometry();
+
     /**
      * Initializes the renderer
      */
     void init();
 
     /**
-     * Records terrain commands into its command buffer
+     * Helper method that queues a transition of given swap chain image on the composition queue
+     * @param from original layout
+     * @param to new layout
+     * @param frameIndex index of the current frame the image corresponds to
+     * @param imageIndex index of the current swap image (there is more images then frames in flight)
      */
-    void recordTerrainCommandBuffer();
+    void recordSwapChainImageTransition(VkImageLayout from, VkImageLayout to, uint32_t frameIndex, uint32_t imageIndex);
+
+    void recordGraphicsToComputeTransfers(uint32_t frameIndex);
+    void recordComputeToGraphicsTransfers(uint32_t frameIndex);
+
+
 
     /**
-     * Records composition commands into its command buffer
+     * All input related code is in here
      */
-    void recordCompositionCommandBuffer();
-
-    /**
-     * Submits recorded command buffer to their corresponding queues
-     */
-    void submitCommandBuffers();
-
-
     void handleInput();
 
     /**
      * Called every frame before the draw
+     * this is used to update the buffers etc.
      */
     void update();
 
@@ -284,6 +202,10 @@ public:
     // Destructor
     ~Renderer();
 
+    /**
+     * Initiates the rendering loop
+     */
     void render();
 
+    BenchmarkResult& getBenchmarkResult() { return benchmarkResult; }
 };

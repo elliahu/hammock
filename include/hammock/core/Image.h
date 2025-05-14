@@ -50,13 +50,14 @@ namespace hammock {
             m_layers = desc.layers;
             m_mips = desc.mips;
 
+            m_queueFamily = desc.currentQueueFamily;
             // Vulkan handles are created in load function on demand
 
             // attachment
             m_clearValue = desc.clearValue;
 
             // queue family indices
-            for (auto& family : desc.queueFamilies) {
+            for (auto &family: desc.queueFamilies) {
                 if (family == CommandQueueFamily::Graphics) m_queueFamilyIndices.push_back(device.getGraphicsQueueFamilyIndex());
                 if (family == CommandQueueFamily::Compute) m_queueFamilyIndices.push_back(device.getComputeQueueFamilyIndex());
                 if (family == CommandQueueFamily::Transfer) m_queueFamilyIndices.push_back(device.getTransferQueueFamilyIndex());
@@ -98,7 +99,7 @@ namespace hammock {
         [[nodiscard]] uint32_t getMipLevel() const { return m_mips; }
         [[nodiscard]] uint32_t getLayerLevel() const { return m_layers; }
         [[nodiscard]] CommandQueueFamily getQueueFamily() const { return m_queueFamily; }
-        [[nodiscard]] VkExtent3D getExtent() const  {return { m_width, m_height, m_depth }; }
+        [[nodiscard]] VkExtent3D getExtent() const { return {m_width, m_height, m_depth}; }
 
         [[nodiscard]] VkRenderingAttachmentInfo getRenderingAttachmentInfo() const {
             return {
@@ -147,18 +148,77 @@ namespace hammock {
          * @param newLayout New layout
          */
         void queueImageLayoutTransition(VkImageLayout newLayout) {
-            if (newLayout == m_layout) {return;}
+            if (newLayout == m_layout) { return; }
             device.transitionImageLayout(m_image, m_layout, newLayout, m_layers, 0, m_mips, 0, getAspectMask());
             m_layout = newLayout;
         }
 
-        /**
-         * Transitions to new layout. Transition is recorder in the provied command buffer.
+
+        VkImageSubresourceRange getSubresourceRange(uint32_t baseMipLevel = 0, uint32_t baseArrayLayer = 0) const {
+            return {
+                .aspectMask = getAspectMask(),
+                .baseMipLevel = baseMipLevel,
+                .levelCount = m_mips,
+                .baseArrayLayer = baseArrayLayer,
+                .layerCount = m_layers
+            };
+        }
+
+        void pipelineBarrier(
+            VkCommandBuffer cmd,
+            VkPipelineStageFlags2 srcStageMask,
+            VkAccessFlags2 srcAccessMask,
+            VkPipelineStageFlags2 dstStageMask,
+            VkAccessFlags2 dstAccessMask,
+            VkImageLayout oldLayout,
+            VkImageLayout newLayout,
+            uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex) {
+            // Subresource range
+            VkImageSubresourceRange subresourceRange = getSubresourceRange();
+
+            VkImageMemoryBarrier2 imageBarrier = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                .srcStageMask = srcStageMask,
+                .srcAccessMask = srcAccessMask,
+                .dstStageMask = dstStageMask,
+                .dstAccessMask = dstAccessMask,
+                .oldLayout = oldLayout,
+                .newLayout = newLayout, // Optional: layout transition
+                .srcQueueFamilyIndex = srcQueueFamilyIndex,
+                .dstQueueFamilyIndex = dstQueueFamilyIndex,
+                .image = m_image,
+                .subresourceRange = subresourceRange,
+            };
+
+            VkDependencyInfo depInfo = {
+                .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                .imageMemoryBarrierCount = 1,
+                .pImageMemoryBarriers = &imageBarrier,
+            };
+
+            vkCmdPipelineBarrier2(cmd, &depInfo);
+
+            m_layout = newLayout;
+        }
+
+         /**
+         * Transitions to new layout. Transition is recorder in the command buffer.
          * @param cmd Command buffer
          * @param newLayout New layout
          */
         void transition(VkCommandBuffer cmd, VkImageLayout newLayout,
                         CommandQueueFamily newQueueFamily = CommandQueueFamily::Ignored) {
+            transition(cmd, m_layout, newLayout, newQueueFamily);
+        }
+
+        /**
+         * Transitions to new layout. Transition is recorder in the command buffer.
+         * @param cmd Command buffer
+         * @param oldLayout Old layout
+         * @param newLayout New layout
+         */
+        void transition(VkCommandBuffer cmd,VkImageLayout oldLayout, VkImageLayout newLayout,
+                       CommandQueueFamily newQueueFamily = CommandQueueFamily::Ignored) {
             VkImageSubresourceRange subresourceRange = {};
             subresourceRange.aspectMask = getAspectMask();
             subresourceRange.baseMipLevel = 0;
@@ -181,19 +241,19 @@ namespace hammock {
                 newFamily = device.getTransferQueueFamilyIndex();
             }
 
-            if (m_queueFamily == CommandQueueFamily::Graphics) {
+            if (m_queueFamily == CommandQueueFamily::Graphics && newFamily != VK_QUEUE_FAMILY_IGNORED) {
                 oldFamily = device.getGraphicsQueueFamilyIndex();
             }
 
-            if (m_queueFamily == CommandQueueFamily::Compute) {
+            if (m_queueFamily == CommandQueueFamily::Compute && newFamily != VK_QUEUE_FAMILY_IGNORED) {
                 oldFamily = device.getComputeQueueFamilyIndex();
             }
 
-            if (m_queueFamily == CommandQueueFamily::Transfer) {
+            if (m_queueFamily == CommandQueueFamily::Transfer && newFamily != VK_QUEUE_FAMILY_IGNORED) {
                 oldFamily = device.getTransferQueueFamilyIndex();
             }
 
-            transitionImageLayout(cmd, m_image, m_layout, newLayout, subresourceRange,
+            transitionImageLayout(cmd, m_image, oldLayout, newLayout, subresourceRange,
                                   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, oldFamily,
                                   newFamily);
 
@@ -203,6 +263,7 @@ namespace hammock {
 
             m_layout = newLayout;
         }
+        
 
         /**
          * Copy data from buffer into this image
