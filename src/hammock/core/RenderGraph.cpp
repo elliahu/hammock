@@ -12,8 +12,8 @@ void hammock::PipelineBarrier::apply() const {
         if (node.isSwapChainImage()) {
             VkImageSubresourceRange subresourceRange = {};
             subresourceRange.aspectMask = node.isDepthAttachment()
-                    ? VK_IMAGE_ASPECT_DEPTH_BIT
-                    : VK_IMAGE_ASPECT_COLOR_BIT;
+                                              ? VK_IMAGE_ASPECT_DEPTH_BIT
+                                              : VK_IMAGE_ASPECT_COLOR_BIT;
             subresourceRange.baseMipLevel = 0;
             subresourceRange.levelCount = 1;
             subresourceRange.baseArrayLayer = 0;
@@ -24,20 +24,25 @@ void hammock::PipelineBarrier::apply() const {
 
             transitionImageLayout(
                 commandBuffer,
-                 renderContext.getSwapChain()->getImage(renderContext.getSwapChainImageIndex()),
+                renderContext.getSwapChain()->getImage(renderContext.getSwapChainImageIndex()),
                 VK_IMAGE_LAYOUT_UNDEFINED, newLayout, subresourceRange);
             return;
         }
         const ResourceHandle handle = node.resolve(rm, renderContext.getFrameIndex());
-        auto * image = rm.getResource<Image>(handle);
+        auto *image = rm.getResource<Image>(handle);
 
         if (!layoutChangeNeeded) {
             newLayout = image->getLayout();
         }
 
-        image->transition(commandBuffer, newLayout, access.queueFamily);
-    }
-    else if (node.isBuffer()) {
+        transitionImageLayout(
+            commandBuffer,
+            image->getImage(),
+            image->getLayout(),
+            newLayout,
+            image->getSubresourceRange()
+        );
+    } else if (node.isBuffer()) {
         // TODO support for buffer transition
     }
 }

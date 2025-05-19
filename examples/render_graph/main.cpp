@@ -48,7 +48,7 @@ int main() {
         } camera;
 
         HmckMat4 padding;
-    } uniformData;
+    } uniformData{};
     uniformData.aspectRatio = fm.getAspectRatio();
 
     enum class SceneObjectType { Sphere = 0, Plane = 1 };

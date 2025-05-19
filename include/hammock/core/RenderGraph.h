@@ -565,7 +565,7 @@ namespace hammock {
             ViewPortWidth = 1.0f, float ViewPortHeight = 1.0f
             , float ViewPortDepthMin = 0.f, float ViewPortDepthMax = 1.f>
         RenderPassNode &addPass(const std::string &name) {
-            RenderPassNode node;
+            RenderPassNode node{};
             node.name = name;
             node.type = QueueFamily;
             node.viewportSize = ViewPortSize;
