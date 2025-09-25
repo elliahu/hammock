@@ -108,7 +108,7 @@ __FUNCTION__, message);   /* Use __FUNCTION__ for MSVC */    \
 #define ASSERT(expr, message)                                            \
 do {                                                                 \
 if (!(expr)) {                                                   \
-AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,         \
+hammock::AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,         \
 __PRETTY_FUNCTION__, message);  /* Use __PRETTY_FUNCTION__ */ \
 }                                                                \
 } while (false)
