@@ -2,7 +2,7 @@
 #include <chrono>
 
 #include "hammock/core/GraphicsPipeline.h"
-#include "hammock/core/Framebuffer.h"
+#include "hammock/legacy/Framebuffer.h"
 #include "hammock/core/CoreUtils.h"
 #include "hammock/core/Shader.h"
 #include "hammock/utils/Filesystem.h"

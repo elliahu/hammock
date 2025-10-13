@@ -6,7 +6,7 @@
 #include <cassert>
 #include <vulkan/vulkan.h>
 
-#include "Device.h"
+#include "hammock/core/Device.h"
 #include "hammock/core/CoreUtils.h"
 
 #define VK_FLAGS_NONE 0
