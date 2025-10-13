@@ -1,4 +1,0 @@
-#include "resources.h"
-
-// Main application icon
-IDI_HAMMOCK_ICON ICON "../src/engine/platform/win32/hammock.ico"

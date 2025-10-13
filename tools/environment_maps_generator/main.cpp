@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     Hammock::Window window{instance, "Generating Environment Maps", 1, 1};
     Hammock::Device device{instance, window.getSurface()};
     Hammock::DeviceStorage resources{device};
-    Hammock::Generator generator{};
+    Hammock::EnvironmentMapsGenerator generator{};
 
     // get the source hdr file
     std::string hdrFilename(argv[1]); // first argument

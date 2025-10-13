@@ -1,12 +1,11 @@
 #pragma once
 
 #include "hammock/core/Types.h"
+#include "hammock/rendergraph/RGResource.h"
 
 namespace Hammock {
-    /**
-        * Rendergraph node interface for creating render passes
-        *
-        */
+    /// RenderPass interface
+    /// Inherit from this interface to create a concrete render pass
     class IRGRenderPass {
     public:
         // Pure virtual destructor to make sure that derived class frees its resources
@@ -24,6 +23,13 @@ namespace Hammock {
         // Call write(...) to declare write access
         virtual void declareResources() = 0;
 
+        // Execute pass code in this method
+        virtual void recordCommands(VkCommandBuffer) = 0;
+
+        // Retrieves command queue family for this pass
+        [[nodiscard]] CommandQueueFamily getCommandQueueFamily() const { return commandQueueFamily; }
+
+    protected:
         // Declare read access
         void read(const RGResourceAccess &resourceAccess) {
             resourceReads.push_back(resourceAccess);
@@ -34,9 +40,6 @@ namespace Hammock {
             resourceWrites.push_back(resourceAccess);
         }
 
-        [[nodiscard]] CommandQueueFamily getCommandQueueFamily() const { return commandQueueFamily; }
-
-    protected:
         CommandQueueFamily commandQueueFamily;
         ResourceManager &resourceManager;
         std::vector<RGResourceAccess> resourceReads;

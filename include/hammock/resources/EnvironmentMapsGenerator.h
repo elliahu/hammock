@@ -8,7 +8,7 @@
 
 
 namespace Hammock {
-    class Generator {
+    class EnvironmentMapsGenerator {
     public:
          DeviceStorageResourceHandle<Texture2D> generatePrefilteredMap(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources,
                                     VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT);

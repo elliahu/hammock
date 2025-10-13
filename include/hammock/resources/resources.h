@@ -1,3 +1,3 @@
 #pragma once
 #include "Descriptors.h"
-#include "Generator.h"
+#include "EnvironmentMapsGenerator.h"

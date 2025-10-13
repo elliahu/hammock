@@ -37,9 +37,6 @@ namespace Hammock {
             return currentImageIndex;
         }
 
-        // TODO command buffer will not be stored by the frame manager. frame manager will only create buffer on demand and submit provided buffers.
-        // Maybe even make these methods in Device
-
 
         template<CommandQueueFamily Queue>
         VkCommandBuffer createCommandBuffer() {

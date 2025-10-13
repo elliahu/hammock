@@ -10,6 +10,8 @@
 namespace Hammock {
     typedef const uint32_t Binding;
 
+    typedef VkDescriptorSet DescriptorSet;
+
     class DescriptorSetLayout {
     public:
         class Builder {

@@ -1,13 +1,13 @@
-#include "hammock/resources/Generator.h"
 #include <chrono>
 
+#include "hammock/resources/EnvironmentMapsGenerator.h"
 #include "hammock/core/GraphicsPipeline.h"
 #include "hammock/legacy/Framebuffer.h"
 #include "hammock/core/CoreUtils.h"
-#include "hammock/core/Shader.h"
+#include "hammock/legacy/Shader.h"
 #include "hammock/utils/Filesystem.h"
 
-Hammock:: DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::generatePrefilteredMap(Device &device,  DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources, VkFormat format) {
+Hammock:: DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMapsGenerator::generatePrefilteredMap(Device &device,  DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources, VkFormat format) {
     auto tStart = std::chrono::high_resolution_clock::now();
     uint32_t width = resources.getTexture2D(environmentMap)->width;
     uint32_t height = resources.getTexture2D(environmentMap)->height;
@@ -348,7 +348,7 @@ Hammock:: DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::ge
     return prefilteredMap;
 }
 
-Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::generatePrefilteredMapWithStaticRoughness(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources,
+Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMapsGenerator::generatePrefilteredMapWithStaticRoughness(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources,
                                                                      VkFormat format) {
     auto tStart = std::chrono::high_resolution_clock::now();
     uint32_t width = resources.getTexture2D(environmentMap)->width;
@@ -558,7 +558,7 @@ Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::gen
     return prefilteredMap;
 }
 
-Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::generateIrradianceMap(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources, VkFormat format,
+Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMapsGenerator::generateIrradianceMap(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources, VkFormat format,
                                                  float _deltaPhi, float _deltaTheta) {
     auto tStart = std::chrono::high_resolution_clock::now();
     uint32_t width = resources.getTexture2D(environmentMap)->width;
@@ -771,7 +771,7 @@ Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::gen
     return irradianceMap;
 }
 
-Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::generateBRDFLookUpTable(Device &device, DeviceStorage &resources, uint32_t dim, VkFormat format) {
+Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMapsGenerator::generateBRDFLookUpTable(Device &device, DeviceStorage &resources, uint32_t dim, VkFormat format) {
     auto tStart = std::chrono::high_resolution_clock::now();
     std::unique_ptr<GraphicsPipeline> brdfLUTPipeline{};
     DeviceStorageResourceHandle<Texture2D> brdfLookUpTable = resources.createEmptyTexture2D();

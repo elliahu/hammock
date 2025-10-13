@@ -8,7 +8,6 @@
 #include "ComputePipeline.h"
 #include "Raytracing.h"
 #include "FrameManager.h"
-#include "Shader.h"
 #include "SwapChain.h"
 #include "ThreadPool.h"
 #include "VulkanInstance.h"
