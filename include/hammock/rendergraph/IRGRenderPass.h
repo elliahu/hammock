@@ -2,7 +2,7 @@
 
 #include "hammock/core/Types.h"
 
-namespace hammock {
+namespace Hammock {
     /**
         * Rendergraph node interface for creating render passes
         *
@@ -14,8 +14,10 @@ namespace hammock {
 
         // Make sure that the constructor is required
         IRGRenderPass() = delete;
+
         explicit IRGRenderPass(const CommandQueueFamily &commandQueueFamily, ResourceManager &resourceManager)
-        : resourceManager(resourceManager), commandQueueFamily(commandQueueFamily) {}
+            : resourceManager(resourceManager), commandQueueFamily(commandQueueFamily) {
+        }
 
         // Declare what resources this pass will read/write
         // Call read(...) to declare read access
@@ -32,13 +34,12 @@ namespace hammock {
             resourceWrites.push_back(resourceAccess);
         }
 
-        [[nodiscard]] CommandQueueFamily getCommandQueueFamily() const {return commandQueueFamily;}
+        [[nodiscard]] CommandQueueFamily getCommandQueueFamily() const { return commandQueueFamily; }
 
     protected:
         CommandQueueFamily commandQueueFamily;
         ResourceManager &resourceManager;
         std::vector<RGResourceAccess> resourceReads;
         std::vector<RGResourceAccess> resourceWrites;
-
     };
 };

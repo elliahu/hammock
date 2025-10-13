@@ -5,7 +5,7 @@
 #include <vector>
 
 
-namespace hammock{
+namespace Hammock{
     namespace Init {
         inline VkImageCreateInfo imageCreateInfo() {
             VkImageCreateInfo imageCreateInfo{};

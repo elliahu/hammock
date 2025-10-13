@@ -7,7 +7,7 @@
 #include "hammock/core/Shader.h"
 #include "hammock/utils/Filesystem.h"
 
-hammock:: DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::generatePrefilteredMap(Device &device,  DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources, VkFormat format) {
+Hammock:: DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::generatePrefilteredMap(Device &device,  DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources, VkFormat format) {
     auto tStart = std::chrono::high_resolution_clock::now();
     uint32_t width = resources.getTexture2D(environmentMap)->width;
     uint32_t height = resources.getTexture2D(environmentMap)->height;
@@ -195,12 +195,12 @@ hammock:: DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::ge
         .debugName = "PrefilteredMap_generation",
         .device = device,
         .vertexShader{
-            .byteCode = hammock::Filesystem::readFile(
+            .byteCode = Hammock::Filesystem::readFile(
                 Shader::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
             .entryFunc = "main"
         },
         .fragmentShader{
-            .byteCode = hammock::Filesystem::readFile(
+            .byteCode = Hammock::Filesystem::readFile(
                 Shader::getCompiledShaderPath("generate_prefilteredmap.frag.spv").string()),
             .entryFunc = "main"
         },
@@ -348,7 +348,7 @@ hammock:: DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::ge
     return prefilteredMap;
 }
 
-hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::generatePrefilteredMapWithStaticRoughness(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources,
+Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::generatePrefilteredMapWithStaticRoughness(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources,
                                                                      VkFormat format) {
     auto tStart = std::chrono::high_resolution_clock::now();
     uint32_t width = resources.getTexture2D(environmentMap)->width;
@@ -479,12 +479,12 @@ hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::gen
         .debugName = "PrefilteredMap_generation",
         .device = device,
         .vertexShader{
-            .byteCode = hammock::Filesystem::readFile(
+            .byteCode = Hammock::Filesystem::readFile(
                 Shader::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
             .entryFunc = "main"
         },
         .fragmentShader{
-            .byteCode = hammock::Filesystem::readFile(
+            .byteCode = Hammock::Filesystem::readFile(
                 Shader::getCompiledShaderPath("generate_prefilteredmap.frag.spv").string()),
             .entryFunc = "main"
         },
@@ -558,7 +558,7 @@ hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::gen
     return prefilteredMap;
 }
 
-hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::generateIrradianceMap(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources, VkFormat format,
+Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::generateIrradianceMap(Device &device, DeviceStorageResourceHandle<Texture2D> environmentMap, DeviceStorage &resources, VkFormat format,
                                                  float _deltaPhi, float _deltaTheta) {
     auto tStart = std::chrono::high_resolution_clock::now();
     uint32_t width = resources.getTexture2D(environmentMap)->width;
@@ -684,12 +684,12 @@ hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::gen
         .debugName = "IrradianceMap_generation",
         .device = device,
         .vertexShader{
-            .byteCode = hammock::Filesystem::readFile(
+            .byteCode = Hammock::Filesystem::readFile(
                 Shader::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
             .entryFunc = "main"
         },
         .fragmentShader{
-            .byteCode = hammock::Filesystem::readFile(
+            .byteCode = Hammock::Filesystem::readFile(
                 Shader::getCompiledShaderPath("generate_irradiancemap.frag.spv").string()),
             .entryFunc = "main"
         },
@@ -771,7 +771,7 @@ hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::gen
     return irradianceMap;
 }
 
-hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::generateBRDFLookUpTable(Device &device, DeviceStorage &resources, uint32_t dim, VkFormat format) {
+Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::Generator::generateBRDFLookUpTable(Device &device, DeviceStorage &resources, uint32_t dim, VkFormat format) {
     auto tStart = std::chrono::high_resolution_clock::now();
     std::unique_ptr<GraphicsPipeline> brdfLUTPipeline{};
     DeviceStorageResourceHandle<Texture2D> brdfLookUpTable = resources.createEmptyTexture2D();
@@ -886,12 +886,12 @@ hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::Generator::gen
         .debugName = "BRDFLUT_generation",
         .device = device,
         .vertexShader{
-            .byteCode = hammock::Filesystem::readFile(
+            .byteCode = Hammock::Filesystem::readFile(
                 Shader::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
             .entryFunc = "main"
         },
         .fragmentShader{
-            .byteCode = hammock::Filesystem::readFile(Shader::getCompiledShaderPath("generate_brdflut.frag.spv").string()),
+            .byteCode = Hammock::Filesystem::readFile(Shader::getCompiledShaderPath("generate_brdflut.frag.spv").string()),
             .entryFunc = "main"
         },
         .descriptorSetLayouts = {

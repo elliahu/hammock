@@ -3,7 +3,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-namespace hammock {
+namespace Hammock {
     class VulkanInstance {
 #ifdef NDEBUG
         bool enableValidationLayers = false;

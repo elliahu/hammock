@@ -3,7 +3,7 @@
 #include "hammock/core/Device.h"
 #include "hammock/core/CoreUtils.h"
 
-namespace hammock {
+namespace Hammock {
 
     typedef uint16_t float16_t;
     typedef float float32_t;

@@ -14,7 +14,7 @@
 #include <functional>
 #include <cmath>
 
-namespace hammock {
+namespace Hammock {
     enum LogLevel {
         LOG_LEVEL_DEBUG,
         LOG_LEVEL_WARN,
@@ -108,7 +108,7 @@ __FUNCTION__, message);   /* Use __FUNCTION__ for MSVC */    \
 #define ASSERT(expr, message)                                            \
 do {                                                                 \
 if (!(expr)) {                                                   \
-hammock::AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,         \
+Hammock::AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,         \
 __PRETTY_FUNCTION__, message);  /* Use __PRETTY_FUNCTION__ */ \
 }                                                                \
 } while (false)

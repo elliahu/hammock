@@ -2,7 +2,7 @@
 
 #include <chrono>
 
-void hammock::ResourceManager::releaseResource(uint64_t id) {
+void Hammock::ResourceManager::releaseResource(uint64_t id) {
     auto it = resources.find(id);
     if (it != resources.end()) {
         if (it->second->isResident()) {
@@ -14,7 +14,7 @@ void hammock::ResourceManager::releaseResource(uint64_t id) {
     }
 }
 
-uint64_t hammock::ResourceManager::getCurrentTimestamp() {
+uint64_t Hammock::ResourceManager::getCurrentTimestamp() {
     // Get the current time point
     auto now = std::chrono::system_clock::now();
     // Convert to duration since epoch in milliseconds
@@ -23,7 +23,7 @@ uint64_t hammock::ResourceManager::getCurrentTimestamp() {
     return static_cast<uint64_t>(duration.count());
 }
 
-void hammock::ResourceManager::evictResources(VkDeviceSize requiredSize) {
+void Hammock::ResourceManager::evictResources(VkDeviceSize requiredSize) {
     // Sort resources by last used time and use count
     std::vector<std::pair<uint64_t, CacheEntry> > sortedCache;
     for (const auto &entry: resourceCache) {

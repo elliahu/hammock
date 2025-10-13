@@ -2,7 +2,7 @@
 
 #include "hammock/core/Device.h"
 
-namespace hammock {
+namespace Hammock {
 
     class [[deprecated("Buffer should be used")]] LegacyBuffer {
     public:

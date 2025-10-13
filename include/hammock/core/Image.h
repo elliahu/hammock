@@ -2,7 +2,7 @@
 #include "hammock/core/Types.h"
 #include "hammock/core/CoreUtils.h"
 
-namespace hammock {
+namespace Hammock {
     class Image : public Resource {
     protected:
         // Format and usage

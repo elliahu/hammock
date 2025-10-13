@@ -11,7 +11,7 @@
 #include "hammock/core/Framebuffer.h"
 
 
-namespace hammock {
+namespace Hammock {
     class FrameManager {
     public:
         FrameManager(Window &window, Device &device);

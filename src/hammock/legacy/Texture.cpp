@@ -8,7 +8,7 @@
 #include "../../../include/hammock/core/CoreUtils.h"
 
 
-hammock::ITexture::~ITexture() {
+Hammock::ITexture::~ITexture() {
     // if image have sampler, destroy it
     if (sampler != VK_NULL_HANDLE) {
         vkDestroySampler(device.device(), sampler, nullptr);
@@ -20,13 +20,13 @@ hammock::ITexture::~ITexture() {
     vkFreeMemory(device.device(), memory, nullptr);
 }
 
-void hammock::ITexture::updateDescriptor() {
+void Hammock::ITexture::updateDescriptor() {
     descriptor.sampler = sampler;
     descriptor.imageView = view;
     descriptor.imageLayout = layout;
 }
 
-void hammock::TextureCubeMap::loadFromFiles(const std::vector<std::string> &filenames, const VkFormat format,
+void Hammock::TextureCubeMap::loadFromFiles(const std::vector<std::string> &filenames, const VkFormat format,
                                          Device &device, const VkImageLayout imageLayout) {
     std::vector<stbi_uc *> pixels{6};
     stbi_set_flip_vertically_on_load(true);
@@ -112,7 +112,7 @@ void hammock::TextureCubeMap::loadFromFiles(const std::vector<std::string> &file
     }
 }
 
-void hammock::TextureCubeMap::createSampler(const Device &device, const VkFilter filter) {
+void Hammock::TextureCubeMap::createSampler(const Device &device, const VkFilter filter) {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = filter;
@@ -141,7 +141,7 @@ void hammock::TextureCubeMap::createSampler(const Device &device, const VkFilter
     }
 }
 
-void hammock::Texture2D::loadFromBuffer(const void *buffer, const uint32_t instanceSize, const uint32_t width,
+void Hammock::Texture2D::loadFromBuffer(const void *buffer, const uint32_t instanceSize, const uint32_t width,
                                      const uint32_t height, const uint32_t channels, Device &device, VkFormat format,
                                      const VkImageLayout imageLayout, uint32_t mipLevels) {
     this->width = width;
@@ -213,7 +213,7 @@ void hammock::Texture2D::loadFromBuffer(const void *buffer, const uint32_t insta
     }
 }
 
-void hammock::Texture2D::createSampler(const Device &device,
+void Hammock::Texture2D::createSampler(const Device &device,
                                     VkFilter filter,
                                     VkSamplerAddressMode addressMode,
                                     VkBorderColor borderColor,
@@ -247,7 +247,7 @@ void hammock::Texture2D::createSampler(const Device &device,
     }
 }
 
-void hammock::Texture2D::generateMipMaps(const Device &device, const uint32_t mipLevels) const {
+void Hammock::Texture2D::generateMipMaps(const Device &device, const uint32_t mipLevels) const {
     VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
 
     transitionImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, {
@@ -334,7 +334,7 @@ void hammock::Texture2D::generateMipMaps(const Device &device, const uint32_t mi
     vkQueueWaitIdle(device.graphicsQueue());
 }
 
-void hammock::Texture3D::loadFromBuffer(Device &device, const void *buffer, VkDeviceSize instanceSize, uint32_t width,
+void Hammock::Texture3D::loadFromBuffer(Device &device, const void *buffer, VkDeviceSize instanceSize, uint32_t width,
                                      uint32_t height, uint32_t channels, uint32_t depth, VkFormat format,
                                      VkImageLayout imageLayout) {
     this->width = width;
@@ -483,7 +483,7 @@ void hammock::Texture3D::loadFromBuffer(Device &device, const void *buffer, VkDe
     checkResult(vkCreateImageView(device.device(), &view, nullptr, &this->view));
 }
 
-void hammock::Texture3D::createSampler(Device &device, VkFilter filter, VkSamplerAddressMode addressMode) {
+void Hammock::Texture3D::createSampler(Device &device, VkFilter filter, VkSamplerAddressMode addressMode) {
     // Create sampler
     VkSamplerCreateInfo sampler = Init::samplerCreateInfo();
     sampler.magFilter = filter;

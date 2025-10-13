@@ -2,7 +2,7 @@
 #include <imgui.h>
 #include <iostream>
 
-hammock::Window::Window(VulkanInstance &instance, const std::string &_windowName, int windowWidth,
+Hammock::Window::Window(VulkanInstance &instance, const std::string &_windowName, int windowWidth,
                         int windowHeight) : instance{instance}, width{windowWidth}, height{windowHeight}, windowName{_windowName} {
     window = Surfer::Window::createWindow(_windowName, instance.getInstance(), windowWidth, windowHeight, 100, 100);
 
@@ -61,27 +61,27 @@ hammock::Window::Window(VulkanInstance &instance, const std::string &_windowName
 #endif
 }
 
-hammock::Window::~Window() {
+Hammock::Window::~Window() {
     Surfer::Window::destroyWindow(window);
 }
 
-bool hammock::Window::isKeyDown(Surfer::KeyCode keyCode) {
+bool Hammock::Window::isKeyDown(Surfer::KeyCode keyCode) {
     if (keysDown.contains(keyCode)) {
         return keysDown[keyCode];
     }
     return false;
 }
 
-HmckVec2 hammock::Window::getMousePosition() const {
+HmckVec2 Hammock::Window::getMousePosition() const {
     unsigned int x, y;
     window->getCursorPosition(x, y);
     return {static_cast<float>(x), static_cast<float>(y)};
 }
 
-bool hammock::Window::shouldClose() const {
+bool Hammock::Window::shouldClose() const {
     return window->shouldClose();
 }
 
-void hammock::Window::pollEvents() {
+void Hammock::Window::pollEvents() {
     window->pollEvents();
 }

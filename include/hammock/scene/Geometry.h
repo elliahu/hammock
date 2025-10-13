@@ -6,7 +6,7 @@
 #include "hammock/core/Types.h"
 #include "hammock/scene/Vertex.h"
 
-namespace hammock {
+namespace Hammock {
     struct Geometry {
 
         enum VisibilityFlags : int32_t {

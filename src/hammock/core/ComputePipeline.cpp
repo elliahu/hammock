@@ -1,6 +1,6 @@
 #include "hammock/core/ComputePipeline.h"
 
-hammock::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : device(config.device),
+Hammock::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : device(config.device),
     pipeline(VK_NULL_HANDLE),
     computeShaderModule(VK_NULL_HANDLE) {
     // Create a pipeline layout using the provided descriptor set layouts and push constant ranges.
@@ -40,13 +40,13 @@ hammock::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &confi
     }
 }
 
-hammock::ComputePipeline::~ComputePipeline() {
+Hammock::ComputePipeline::~ComputePipeline() {
     vkDestroyPipeline(device.device(), pipeline, nullptr);
     vkDestroyShaderModule(device.device(), computeShaderModule, nullptr);
     vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
 }
 
-void hammock::ComputePipeline::createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) const {
+void Hammock::ComputePipeline::createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) const {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size();

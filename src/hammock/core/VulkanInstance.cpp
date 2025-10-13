@@ -7,7 +7,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace hammock {
+namespace Hammock {
     // local callback functions
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -47,19 +47,19 @@ namespace hammock {
     }
 }
 
-hammock::VulkanInstance::VulkanInstance() {
+Hammock::VulkanInstance::VulkanInstance() {
     createInstance();
     setupDebugMessenger();
 }
 
-hammock::VulkanInstance::~VulkanInstance() {
+Hammock::VulkanInstance::~VulkanInstance() {
     if (enableValidationLayers) {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
     vkDestroyInstance(instance, nullptr);
 }
 
-void hammock::VulkanInstance::setupDebugMessenger() {
+void Hammock::VulkanInstance::setupDebugMessenger() {
     if (!enableValidationLayers) return;
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     populateDebugMessengerCreateInfo(createInfo);
@@ -68,7 +68,7 @@ void hammock::VulkanInstance::setupDebugMessenger() {
     }
 }
 
-void hammock::VulkanInstance::createInstance() {
+void Hammock::VulkanInstance::createInstance() {
     if (enableValidationLayers && !checkValidationLayerSupport()) {
         Logger::log(LOG_LEVEL_WARN, "Validation layers requested, but not available. Validation layers not used!\n");
         enableValidationLayers = false;
@@ -110,7 +110,7 @@ void hammock::VulkanInstance::createInstance() {
 
 }
 
-bool hammock::VulkanInstance::checkValidationLayerSupport() const {
+bool Hammock::VulkanInstance::checkValidationLayerSupport() const {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -135,7 +135,7 @@ bool hammock::VulkanInstance::checkValidationLayerSupport() const {
     return true;
 }
 
-std::vector<const char *> hammock::VulkanInstance::getRequiredExtensions() const {
+std::vector<const char *> Hammock::VulkanInstance::getRequiredExtensions() const {
     std::vector<const char *> extensions;
 
     // Common extension for all platforms
@@ -156,7 +156,7 @@ std::vector<const char *> hammock::VulkanInstance::getRequiredExtensions() const
     return extensions;
 }
 
-void hammock::VulkanInstance::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
+void Hammock::VulkanInstance::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
     createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |

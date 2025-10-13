@@ -6,7 +6,7 @@
 #include <string>
 
 
-hammock::UserInterface::UserInterface(Device &device, VkRenderPass renderPass, VkDescriptorPool descriptorPool,
+Hammock::UserInterface::UserInterface(Device &device, VkRenderPass renderPass, VkDescriptorPool descriptorPool,
                                       Window &window) : device{device}, renderPass(renderPass),
                                                         window{window}, imguiPool{descriptorPool} {
     init();
@@ -152,12 +152,12 @@ hammock::UserInterface::UserInterface(Device &device, VkRenderPass renderPass, V
     });
 }
 
-hammock::UserInterface::~UserInterface() {
+Hammock::UserInterface::~UserInterface() {
     ImGui_ImplVulkan_Shutdown();
     ImGui::DestroyContext();
 }
 
-void hammock::UserInterface::beginUserInterface() {
+void Hammock::UserInterface::beginUserInterface() {
     // Handle UI forwarding from windowing system
     forwardWindowEvents();
 
@@ -165,12 +165,12 @@ void hammock::UserInterface::beginUserInterface() {
     ImGui::NewFrame();
 }
 
-void hammock::UserInterface::endUserInterface(VkCommandBuffer commandBuffer) {
+void Hammock::UserInterface::endUserInterface(VkCommandBuffer commandBuffer) {
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 }
 
-void hammock::UserInterface::showDebugStats(const HmckMat4 &inverseView, float frameTime) {
+void Hammock::UserInterface::showDebugStats(const HmckMat4 &inverseView, float frameTime) {
     const ImGuiIO &io = ImGui::GetIO();
     constexpr ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                                               ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
@@ -191,7 +191,7 @@ void hammock::UserInterface::showDebugStats(const HmckMat4 &inverseView, float f
 }
 
 
-void hammock::UserInterface::showColorSettings(float *exposure, float *gamma, float *whitePoint) {
+void Hammock::UserInterface::showColorSettings(float *exposure, float *gamma, float *whitePoint) {
     constexpr ImGuiWindowFlags window_flags = ImGuiWindowFlags_AlwaysAutoResize;
     beginWindow("Color settings", (bool *) false, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::DragFloat("Exposure", exposure, 0.01f, 0.01f);
@@ -200,7 +200,7 @@ void hammock::UserInterface::showColorSettings(float *exposure, float *gamma, fl
     endWindow();
 }
 
-void hammock::UserInterface::init() {
+void Hammock::UserInterface::init() {
     ImGui::CreateContext();
 
     //this initializes imgui for Vulkan
@@ -224,7 +224,7 @@ void hammock::UserInterface::init() {
     ImGui_ImplVulkan_CreateFontsTexture();
 }
 
-void hammock::UserInterface::forwardWindowEvents() {
+void Hammock::UserInterface::forwardWindowEvents() {
     if (ImGui::GetCurrentContext()) {
         auto &io = ImGui::GetIO();
 
@@ -235,7 +235,7 @@ void hammock::UserInterface::forwardWindowEvents() {
     }
 }
 
-void hammock::UserInterface::setupStyle() {
+void Hammock::UserInterface::setupStyle() {
     ImGuiStyle &style = ImGui::GetStyle();
     // Setup ImGUI style
 
@@ -300,7 +300,7 @@ void hammock::UserInterface::setupStyle() {
     style.TabRounding = 6;
 }
 
-VkCommandBuffer hammock::UserInterface::beginSingleTimeCommands() const {
+VkCommandBuffer Hammock::UserInterface::beginSingleTimeCommands() const {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -319,7 +319,7 @@ VkCommandBuffer hammock::UserInterface::beginSingleTimeCommands() const {
     return commandBuffer;
 }
 
-void hammock::UserInterface::endSingleTimeCommands(const VkCommandBuffer commandBuffer) const {
+void Hammock::UserInterface::endSingleTimeCommands(const VkCommandBuffer commandBuffer) const {
     vkEndCommandBuffer(commandBuffer);
 
     VkSubmitInfo submitInfo{};
@@ -333,10 +333,10 @@ void hammock::UserInterface::endSingleTimeCommands(const VkCommandBuffer command
     vkFreeCommandBuffers(device.device(), device.getGraphicsCommandPool(), 1, &commandBuffer);
 }
 
-void hammock::UserInterface::beginWindow(const char *title, bool *open, ImGuiWindowFlags flags) {
+void Hammock::UserInterface::beginWindow(const char *title, bool *open, ImGuiWindowFlags flags) {
     ImGui::Begin(title, open, flags);
 }
 
-void hammock::UserInterface::endWindow() {
+void Hammock::UserInterface::endWindow() {
     ImGui::End();
 }

@@ -7,7 +7,7 @@
 #include <hammock/resources/Descriptors.h>
 #include <hammock/legacy/Texture.h>
 
-namespace hammock {
+namespace Hammock {
 
     typedef int32_t id_t;
 

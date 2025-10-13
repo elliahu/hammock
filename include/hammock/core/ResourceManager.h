@@ -6,7 +6,7 @@
 #include "hammock/core/Buffer.h"
 #include "hammock/core/Device.h"
 
-namespace hammock {
+namespace Hammock {
     class ResourceManager;
 
     class ResourceFactory final {

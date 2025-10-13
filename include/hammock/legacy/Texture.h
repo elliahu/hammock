@@ -5,7 +5,7 @@
 #include "hammock/core/Device.h"
 #include "hammock/core/CoreUtils.h"
 
-namespace hammock {
+namespace Hammock {
 
 
 

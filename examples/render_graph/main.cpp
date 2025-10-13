@@ -1,6 +1,6 @@
 #include <hammock/hammock.h>
 
-using namespace hammock;
+using namespace Hammock;
 
 std::string assetPath(const std::string &asset) {
     return "../../../data/" + asset;
@@ -12,7 +12,7 @@ std::string compiledShaderPath(const std::string &shader) {
 
 int main() {
     VulkanInstance instance{};
-    hammock::Window window{instance, "Render Graph", 1280, 720};
+    Hammock::Window window{instance, "Render Graph", 1280, 720};
     Device device{instance, window.getSurface()};
     ResourceManager rm{device};
     // TODO decouple context and window

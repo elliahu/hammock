@@ -1,5 +1,5 @@
 #pragma once
 
-namespace hammock {
+namespace Hammock {
     class DeferredRenderer{};
 };

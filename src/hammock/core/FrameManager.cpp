@@ -1,15 +1,15 @@
 #include "hammock/core/FrameManager.h"
 
-hammock::FrameManager::FrameManager(Window &window, Device &device) : window{window}, device{device} {
+Hammock::FrameManager::FrameManager(Window &window, Device &device) : window{window}, device{device} {
     recreateSwapChain();
 }
 
-hammock::FrameManager::~FrameManager() {
+Hammock::FrameManager::~FrameManager() {
 }
 
 
 
-void hammock::FrameManager::recreateSwapChain() {
+void Hammock::FrameManager::recreateSwapChain() {
     auto extent = window.getExtent();
 
     while (extent.width == 0 || extent.height == 0) {
@@ -31,7 +31,7 @@ void hammock::FrameManager::recreateSwapChain() {
 }
 
 
-void hammock::FrameManager::submitPresentCommandBuffer(VkCommandBuffer commandBuffer,  const std::vector<VkSemaphore>& wait, const std::vector<VkPipelineStageFlags>& waitStages) {
+void Hammock::FrameManager::submitPresentCommandBuffer(VkCommandBuffer commandBuffer,  const std::vector<VkSemaphore>& wait, const std::vector<VkPipelineStageFlags>& waitStages) {
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer");
     }
@@ -46,7 +46,7 @@ void hammock::FrameManager::submitPresentCommandBuffer(VkCommandBuffer commandBu
     }
 }
 
-bool hammock::FrameManager::beginFrame() {
+bool Hammock::FrameManager::beginFrame() {
     assert(!isFrameStarted && "Cannot call beginFrame while already in progress");
 
     auto result = swapChain->acquireNextImage(&currentImageIndex);
@@ -64,7 +64,7 @@ bool hammock::FrameManager::beginFrame() {
     return true;
 }
 
-void hammock::FrameManager::endFrame() {
+void Hammock::FrameManager::endFrame() {
     assert(isFrameStarted && "Cannot call endFrame while frame is not in progress");
     isFrameStarted = false;
     currentFrameIndex = (currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;

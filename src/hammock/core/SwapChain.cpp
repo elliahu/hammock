@@ -9,7 +9,7 @@
 #include <stdexcept>
 
 
-namespace hammock {
+namespace Hammock {
     SwapChain::SwapChain(Device &deviceRef, const VkExtent2D extent)
         : device{deviceRef}, windowExtent{extent} {
         init();

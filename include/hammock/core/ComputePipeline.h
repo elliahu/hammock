@@ -4,7 +4,7 @@
 #include "hammock/core/Device.h"
 #include <memory>
 
-namespace hammock {
+namespace Hammock {
     class ComputePipeline {
         struct ComputePipelineConfig {
             ComputePipelineConfig() = default;

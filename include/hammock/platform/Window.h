@@ -12,7 +12,7 @@
 #include "hammock/core/VulkanInstance.h"
 #include "hammock/core/HandmadeMath.h"
 
-namespace hammock
+namespace Hammock
 {
     class Window
     {

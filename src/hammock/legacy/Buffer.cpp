@@ -11,7 +11,7 @@
 #include <cassert>
 #include <cstring>
 
-namespace hammock {
+namespace Hammock {
     /**
      * Returns the minimum instance size required to be compatible with devices minOffsetAlignment
      *

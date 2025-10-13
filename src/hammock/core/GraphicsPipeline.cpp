@@ -1,22 +1,22 @@
 #include "hammock/core/GraphicsPipeline.h"
 
-std::unique_ptr<hammock::GraphicsPipeline> hammock::GraphicsPipeline::create(
+std::unique_ptr<Hammock::GraphicsPipeline> Hammock::GraphicsPipeline::create(
     GraphicsPipelineCreateInfo createInfo) {
     return std::make_unique<GraphicsPipeline>(createInfo);
 }
 
-void hammock::GraphicsPipeline::bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint) {
+void Hammock::GraphicsPipeline::bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint) {
     vkCmdBindPipeline(commandBuffer, pipelineBindPoint, graphicsPipeline);
 }
 
-hammock::GraphicsPipeline::~GraphicsPipeline() {
+Hammock::GraphicsPipeline::~GraphicsPipeline() {
     vkDestroyShaderModule(device.device(), vertShaderModule, nullptr);
     vkDestroyShaderModule(device.device(), fragShaderModule, nullptr);
     vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
     vkDestroyPipeline(device.device(), graphicsPipeline, nullptr);
 }
 
-hammock::GraphicsPipeline::GraphicsPipeline(hammock::GraphicsPipeline::GraphicsPipelineCreateInfo &createInfo) : device{
+Hammock::GraphicsPipeline::GraphicsPipeline(Hammock::GraphicsPipeline::GraphicsPipelineCreateInfo &createInfo) : device{
     createInfo.device
 } {
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -129,7 +129,7 @@ hammock::GraphicsPipeline::GraphicsPipeline(hammock::GraphicsPipeline::GraphicsP
 }
 
 
-void hammock::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipelineConfig &configInfo) {
+void Hammock::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipelineConfig &configInfo) {
     configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
@@ -197,7 +197,7 @@ void hammock::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipelineConf
     configInfo.dynamicStateInfo.flags = 0;
 }
 
-void hammock::GraphicsPipeline::createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) const {
+void Hammock::GraphicsPipeline::createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) const {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size();

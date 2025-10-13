@@ -6,7 +6,7 @@
 #include <functional>
 #include <memory>
 
-namespace hammock {
+namespace Hammock {
 
     class ThreadPool {
 public:

@@ -9,7 +9,7 @@
 #include "hammock/core/Types.h"
 
 
-namespace hammock {
+namespace Hammock {
     typedef std::function<ResourceHandle(ResourceManager &, uint32_t frameIndex)>
     ResourceResolver;
 

@@ -15,7 +15,7 @@
 #include <string>
 
 
-namespace hammock {
+namespace Hammock {
     struct SwapChainSupportDetails {
         VkSurfaceCapabilitiesKHR capabilities;
         std::vector<VkSurfaceFormatKHR> formats;

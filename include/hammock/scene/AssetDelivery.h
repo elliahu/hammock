@@ -11,7 +11,7 @@
 #include "hammock/core/Types.h"
 #include "hammock/core/ResourceManager.h"
 
-namespace hammock {
+namespace Hammock {
     namespace gltf = tinygltf;
 
     struct Loader {

@@ -2,7 +2,7 @@
 #include <cstring>
 #include "hammock/core/Types.h"
 
-namespace hammock {
+namespace Hammock {
     class Buffer : public Resource {
     protected:
         void *m_mapped = nullptr;

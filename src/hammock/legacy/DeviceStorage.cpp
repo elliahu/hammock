@@ -1,11 +1,11 @@
 #include "hammock/legacy/DeviceStorage.h"
 #include <stdint.h>
 
-namespace hammock {
+namespace Hammock {
     const uint32_t DeviceStorage::INVALID_HANDLE = UINT32_MAX;
 }
 
-hammock::DeviceStorage::DeviceStorage(Device &device) : device{device}, buffers(), descriptorSets(),
+Hammock::DeviceStorage::DeviceStorage(Device &device) : device{device}, buffers(), descriptorSets(),
                                                      descriptorSetLayouts(),
                                                      texture2Ds(),
                                                      texture3Ds() {
@@ -26,7 +26,7 @@ hammock::DeviceStorage::DeviceStorage(Device &device) : device{device}, buffers(
             .build();
 }
 
-hammock::DeviceStorageResourceHandle<hammock::LegacyBuffer> hammock::DeviceStorage::createBuffer(BufferCreateInfo createInfo) {
+Hammock::DeviceStorageResourceHandle<Hammock::LegacyBuffer> Hammock::DeviceStorage::createBuffer(BufferCreateInfo createInfo) {
     auto buffer = std::make_unique<LegacyBuffer>(
         device,
         createInfo.instanceSize,
@@ -42,7 +42,7 @@ hammock::DeviceStorageResourceHandle<hammock::LegacyBuffer> hammock::DeviceStora
 }
 
 
-hammock::DeviceStorageResourceHandle<hammock::LegacyBuffer> hammock::DeviceStorage::createVertexBuffer(const VertexBufferCreateInfo &createInfo) {
+Hammock::DeviceStorageResourceHandle<Hammock::LegacyBuffer> Hammock::DeviceStorage::createVertexBuffer(const VertexBufferCreateInfo &createInfo) {
     LegacyBuffer stagingBuffer{
         device,
         createInfo.vertexSize,
@@ -68,7 +68,7 @@ hammock::DeviceStorageResourceHandle<hammock::LegacyBuffer> hammock::DeviceStora
     return handle;
 }
 
-hammock::DeviceStorageResourceHandle<hammock::LegacyBuffer> hammock::DeviceStorage::createIndexBuffer(const IndexBufferCreateInfo &createInfo) {
+Hammock::DeviceStorageResourceHandle<Hammock::LegacyBuffer> Hammock::DeviceStorage::createIndexBuffer(const IndexBufferCreateInfo &createInfo) {
     LegacyBuffer stagingBuffer{
         device,
         createInfo.indexSize,
@@ -94,7 +94,7 @@ hammock::DeviceStorageResourceHandle<hammock::LegacyBuffer> hammock::DeviceStora
     return handle;
 }
 
-hammock::DeviceStorageResourceHandle<hammock::DescriptorSetLayout> hammock::DeviceStorage::createDescriptorSetLayout(
+Hammock::DeviceStorageResourceHandle<Hammock::DescriptorSetLayout> Hammock::DeviceStorage::createDescriptorSetLayout(
     const DescriptorSetLayoutCreateInfo &createInfo) {
     auto descriptorSetLayoutBuilder = DescriptorSetLayout::Builder(device);
 
@@ -109,7 +109,7 @@ hammock::DeviceStorageResourceHandle<hammock::DescriptorSetLayout> hammock::Devi
     return handle;
 }
 
-hammock::DeviceStorageResourceHandle<VkDescriptorSet_T *> hammock::DeviceStorage::createDescriptorSet(
+Hammock::DeviceStorageResourceHandle<VkDescriptorSet_T *> Hammock::DeviceStorage::createDescriptorSet(
     const DescriptorSetCreateInfo &createInfo) {
     VkDescriptorSet descriptorSet;
 
@@ -145,7 +145,7 @@ hammock::DeviceStorageResourceHandle<VkDescriptorSet_T *> hammock::DeviceStorage
     throw std::runtime_error("Faild to create descriptor!");
 }
 
-hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::DeviceStorage::createTexture2D(
+Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::DeviceStorage::createTexture2D(
     const Texture2DCreateFromBufferInfo &createInfo) {
     std::unique_ptr<Texture2D> texture = std::make_unique<Texture2D>(device);
 
@@ -177,7 +177,7 @@ hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::DeviceStorage:
     return handle;
 }
 
-hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::DeviceStorage::createEmptyTexture2D() {
+Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::DeviceStorage::createEmptyTexture2D() {
     std::unique_ptr<Texture2D> texture = std::make_unique<Texture2D>(device);
     DeviceStorageResourceHandle<Texture2D> handle(static_cast<id_t>(texture2Ds.size()));
     texture2Ds.emplace(handle.id(), std::move(texture));
@@ -185,7 +185,7 @@ hammock::DeviceStorageResourceHandle<hammock::Texture2D> hammock::DeviceStorage:
 }
 
 
-hammock::DeviceStorageResourceHandle<hammock::Texture3D> hammock::DeviceStorage::createTexture3D(
+Hammock::DeviceStorageResourceHandle<Hammock::Texture3D> Hammock::DeviceStorage::createTexture3D(
     const Texture3DCreateFromBufferInfo &createInfo) {
     std::unique_ptr<Texture3D> texture = std::make_unique<Texture3D>(device);
     texture->loadFromBuffer(
@@ -205,7 +205,7 @@ hammock::DeviceStorageResourceHandle<hammock::Texture3D> hammock::DeviceStorage:
     return handle;
 }
 
-hammock::DescriptorSetLayout &hammock::DeviceStorage::getDescriptorSetLayout(DeviceStorageResourceHandle<DescriptorSetLayout> handle) {
+Hammock::DescriptorSetLayout &Hammock::DeviceStorage::getDescriptorSetLayout(DeviceStorageResourceHandle<DescriptorSetLayout> handle) {
     if (descriptorSetLayouts.contains(handle.id())) {
         return *descriptorSetLayouts[handle.id()];
     }
@@ -213,7 +213,7 @@ hammock::DescriptorSetLayout &hammock::DeviceStorage::getDescriptorSetLayout(Dev
     throw std::runtime_error("Descriptor set layout with provided handle does not exist!");
 }
 
-VkDescriptorSet hammock::DeviceStorage::getDescriptorSet(DeviceStorageResourceHandle<VkDescriptorSet> handle) {
+VkDescriptorSet Hammock::DeviceStorage::getDescriptorSet(DeviceStorageResourceHandle<VkDescriptorSet> handle) {
     if (descriptorSets.contains(handle.id())) {
         return descriptorSets[handle.id()];
     }
@@ -221,7 +221,7 @@ VkDescriptorSet hammock::DeviceStorage::getDescriptorSet(DeviceStorageResourceHa
     throw std::runtime_error("Descriptor with provided handle does not exist!");
 }
 
-std::unique_ptr<hammock::LegacyBuffer> &hammock::DeviceStorage::getBuffer(DeviceStorageResourceHandle<LegacyBuffer> handle) {
+std::unique_ptr<Hammock::LegacyBuffer> &Hammock::DeviceStorage::getBuffer(DeviceStorageResourceHandle<LegacyBuffer> handle) {
     if (buffers.contains(handle.id())) {
         return buffers[handle.id()];
     }
@@ -229,7 +229,7 @@ std::unique_ptr<hammock::LegacyBuffer> &hammock::DeviceStorage::getBuffer(Device
     throw std::runtime_error("Uniform buffer with provided handle does not exist!");
 }
 
-std::unique_ptr<hammock::Texture2D> &hammock::DeviceStorage::getTexture2D(DeviceStorageResourceHandle<Texture2D> handle) {
+std::unique_ptr<Hammock::Texture2D> &Hammock::DeviceStorage::getTexture2D(DeviceStorageResourceHandle<Texture2D> handle) {
     if (texture2Ds.contains(handle.id())) {
         return texture2Ds[handle.id()];
     }
@@ -237,12 +237,12 @@ std::unique_ptr<hammock::Texture2D> &hammock::DeviceStorage::getTexture2D(Device
     throw std::runtime_error("Texture2D with provided handle does not exist!");
 }
 
-VkDescriptorImageInfo hammock::DeviceStorage::getTexture2DDescriptorImageInfo(DeviceStorageResourceHandle<Texture2D> handle) {
+VkDescriptorImageInfo Hammock::DeviceStorage::getTexture2DDescriptorImageInfo(DeviceStorageResourceHandle<Texture2D> handle) {
     return getTexture2D(handle)->descriptor;
 }
 
 
-std::unique_ptr<hammock::Texture3D> &hammock::DeviceStorage::getTexture3D(DeviceStorageResourceHandle<Texture3D> handle) {
+std::unique_ptr<Hammock::Texture3D> &Hammock::DeviceStorage::getTexture3D(DeviceStorageResourceHandle<Texture3D> handle) {
     if (texture3Ds.contains(handle.id())) {
         return texture3Ds[handle.id()];
     }
@@ -250,11 +250,11 @@ std::unique_ptr<hammock::Texture3D> &hammock::DeviceStorage::getTexture3D(Device
     throw std::runtime_error("Texture3D with provided handle does not exist!");
 }
 
-VkDescriptorImageInfo hammock::DeviceStorage::getTexture3DDescriptorImageInfo(DeviceStorageResourceHandle<Texture3D> handle) {
+VkDescriptorImageInfo Hammock::DeviceStorage::getTexture3DDescriptorImageInfo(DeviceStorageResourceHandle<Texture3D> handle) {
     return getTexture3D(handle)->descriptor;
 }
 
-void hammock::DeviceStorage::bindDescriptorSet(
+void Hammock::DeviceStorage::bindDescriptorSet(
     const VkCommandBuffer commandBuffer,
     const VkPipelineBindPoint bindPoint,
     const VkPipelineLayout pipelineLayout,
@@ -275,40 +275,40 @@ void hammock::DeviceStorage::bindDescriptorSet(
         pDynamicOffsets);
 }
 
-void hammock::DeviceStorage::destroyBuffer(DeviceStorageResourceHandle<LegacyBuffer> handle) {
+void Hammock::DeviceStorage::destroyBuffer(DeviceStorageResourceHandle<LegacyBuffer> handle) {
     buffers.erase(handle.id());
 }
 
-void hammock::DeviceStorage::destroyDescriptorSetLayout(DeviceStorageResourceHandle<DescriptorSetLayout> handle) {
+void Hammock::DeviceStorage::destroyDescriptorSetLayout(DeviceStorageResourceHandle<DescriptorSetLayout> handle) {
     descriptorSetLayouts.erase(handle.id());
 }
 
-void hammock::DeviceStorage::destroyTexture2D(DeviceStorageResourceHandle<Texture2D> handle) {
+void Hammock::DeviceStorage::destroyTexture2D(DeviceStorageResourceHandle<Texture2D> handle) {
     texture2Ds.erase(handle.id());
 }
 
-void hammock::DeviceStorage::destroyTexture3D(DeviceStorageResourceHandle<Texture3D> handle) {
+void Hammock::DeviceStorage::destroyTexture3D(DeviceStorageResourceHandle<Texture3D> handle) {
     texture3Ds.erase(handle.id());
 }
 
-void hammock::DeviceStorage::bindVertexBuffer(DeviceStorageResourceHandle<LegacyBuffer> handle, const VkCommandBuffer commandBuffer) {
+void Hammock::DeviceStorage::bindVertexBuffer(DeviceStorageResourceHandle<LegacyBuffer> handle, const VkCommandBuffer commandBuffer) {
     VkDeviceSize offsets[] = {0};
     VkBuffer buffers[] = {getBuffer(handle)->getBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 }
 
-void hammock::DeviceStorage::bindVertexBuffer(DeviceStorageResourceHandle<LegacyBuffer> vertexBuffer, DeviceStorageResourceHandle<LegacyBuffer> indexBuffer,
+void Hammock::DeviceStorage::bindVertexBuffer(DeviceStorageResourceHandle<LegacyBuffer> vertexBuffer, DeviceStorageResourceHandle<LegacyBuffer> indexBuffer,
                                            const VkCommandBuffer commandBuffer, VkIndexType indexType) {
     bindVertexBuffer(vertexBuffer, commandBuffer);
     bindIndexBuffer(indexBuffer, commandBuffer);
 }
 
-void hammock::DeviceStorage::bindIndexBuffer(DeviceStorageResourceHandle<LegacyBuffer> handle, const VkCommandBuffer commandBuffer,
+void Hammock::DeviceStorage::bindIndexBuffer(DeviceStorageResourceHandle<LegacyBuffer> handle, const VkCommandBuffer commandBuffer,
                                           const VkIndexType indexType) {
     vkCmdBindIndexBuffer(commandBuffer, getBuffer(handle)->getBuffer(), 0, indexType);
 }
 
-void hammock::DeviceStorage::copyBuffer(DeviceStorageResourceHandle<LegacyBuffer> from, DeviceStorageResourceHandle<LegacyBuffer> to) {
+void Hammock::DeviceStorage::copyBuffer(DeviceStorageResourceHandle<LegacyBuffer> from, DeviceStorageResourceHandle<LegacyBuffer> to) {
     auto &fromBuffer = getBuffer(from);
     auto &toBuffer = getBuffer(to);
 

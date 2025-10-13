@@ -8,7 +8,7 @@
 #include <cmath>
 #include "hammock/core/HandmadeMath.h"
 
-namespace hammock {
+namespace Hammock {
     namespace Math {
         inline float lerp(float a, float b, float f) {
             return a + f * (b - a);
