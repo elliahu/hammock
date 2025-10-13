@@ -167,4 +167,7 @@ namespace hammock {
     };
 
 
+    // Command Buffer
+    typedef VkCommandBuffer CommandBuffer;
+
 }

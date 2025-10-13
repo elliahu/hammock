@@ -2,8 +2,8 @@
 add_subdirectory(hammock/core)
 add_subdirectory(hammock/platform)
 add_subdirectory(hammock/resources)
+add_subdirectory(hammock/renderer)
 add_subdirectory(hammock/scene)
-#add_subdirectory(hammock/shaders)
 add_subdirectory(hammock/utils)
 add_subdirectory(hammock/legacy)
 
@@ -13,7 +13,6 @@ set(HAMMOCK_SRC
         ${PLATFORM_SOURCES}
         ${RESOURCE_SOURCES}
         ${SCENE_SOURCES}
-        #${SHADER_SOURCES}
         ${UTILS_SOURCES}
         ${LEGACY_SOURCES}
         PARENT_SCOPE
