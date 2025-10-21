@@ -50,7 +50,7 @@ public:
      */
     static void info(const char *format, ...) {
         // Optimization: Check the level first to avoid va_list setup if not needed
-        if (LOG_LEVEL_INFO >= hmckMinLogLevel) {
+        if (LOG_LEVEL_INFO <= hmckMinLogLevel) {
             va_list args;
             va_start(args, format);
             vlog(LOG_LEVEL_INFO, format, args);
@@ -67,7 +67,7 @@ public:
      * @param ... Variadic arguments to be formatted.
      */
     static void debug(const char *format, ...) {
-        if (LOG_LEVEL_DEBUG >= hmckMinLogLevel) {
+        if (LOG_LEVEL_DEBUG <= hmckMinLogLevel) {
             va_list args;
             va_start(args, format);
             vlog(LOG_LEVEL_DEBUG, format, args);
@@ -81,7 +81,7 @@ public:
      * Usage: Logger::warn("msg %s", "issue");
      */
     static void warn(const char *format, ...) {
-        if (LOG_LEVEL_WARN >= hmckMinLogLevel) {
+        if (LOG_LEVEL_WARN <= hmckMinLogLevel) {
             va_list args;
             va_start(args, format);
             vlog(LOG_LEVEL_WARN, format, args);
@@ -95,7 +95,7 @@ public:
      * Usage: Logger::error("Failed: %d", -1);
      */
     static void error(const char *format, ...) {
-        if (LOG_LEVEL_ERROR >= hmckMinLogLevel) {
+        if (LOG_LEVEL_ERROR <= hmckMinLogLevel) {
             va_list args;
             va_start(args, format);
             vlog(LOG_LEVEL_ERROR, format, args);
@@ -110,7 +110,7 @@ public:
      * Logger::log(LOG_LEVEL_DEBUG, "msg %d", 2);
      */
     static void log(const LogLevel level, const char *format, ...) {
-        if (level >= hmckMinLogLevel) {
+        if (level <= hmckMinLogLevel) {
             va_list args;
             va_start(args, format);
             vlog(level, format, args);
