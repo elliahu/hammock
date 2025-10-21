@@ -1,29 +1,74 @@
 {
+    "version": "0.2.0",
     "configurations": [
-      {
-        "type": "cppdbg",
-        "request": "launch",
-        "name": "Noise generator",
-        "program": "${workspaceFolder}/cmake-build-debug/examples/cloud_renderer/cloud_renderer",
-        "preLaunchTask": "build-cloud-renderer",
-        "cwd": "${workspaceFolder}/cmake-build-debug/examples/cloud_renderer",
-        "args": ["--width", "1920", "--height", "1080", "--scene", "noise"]
-      },
-      {
-        "type": "cppdbg",
-        "request": "launch",
-        "name": "Clouds",
-        "program": "${workspaceFolder}/cmake-build-debug/examples/cloud_renderer/cloud_renderer",
-        "preLaunchTask": "build-cloud-renderer",
-        "cwd": "${workspaceFolder}/cmake-build-debug/examples/cloud_renderer/",
-        "args": ["--width", "1920", "--height", "1080", "--scene", "clouds"]
-      },
-    ],
-    "inputs": [
-      {
-        "type": "promptString",
-        "id": "executableName",
-        "description": "Name of your executable"
-      }
+        {
+            "name": "(Release) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            // Assumes the executable is named after the workspace folder and placed in the 'cmake-build-release' directory
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "cmake-build-release", // Ensures the project is configured and built before launching
+            // Configuration specific to LINUX (using GDB)
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            
+            // Platform-specific settings
+            "linux": {
+                "program": "${workspaceFolder}/cmake-build-release/examples/render_graph/render_graph",
+                "miDebuggerPath": "/usr/bin/gdb",
+            },
+            
+            // Configuration specific to WINDOWS (using GDB/G++.exe, typically MinGW/MSYS2)
+            "windows": {
+                "program": "${workspaceFolder}/cmake-build-release/examples/render_graph/render_graph.exe",
+                // Adjust this path if your gdb.exe is not directly in the system PATH
+                "miDebuggerPath": "gdb.exe", 
+            }
+        },
+        {
+            "name": "(Debug) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            // NOTE: You will need to create a corresponding task named 'cmake-build-debug' in tasks.json
+            "preLaunchTask": "cmake-build-debug", 
+
+            // Configuration specific to LINUX (using GDB)
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            
+            // Platform-specific settings
+            "linux": {
+                "program": "${workspaceFolder}/cmake-build-debug/examples/render_graph/render_graph",
+                "miDebuggerPath": "/usr/bin/gdb",
+            },
+            
+            // Configuration specific to WINDOWS (using GDB/G++.exe, typically MinGW/MSYS2)
+            "windows": {
+                "program": "${workspaceFolder}/cmake-build-debug/examples/render_graph/render_graph.exe",
+                // Adjust this path if your gdb.exe is not directly in the system PATH
+                "miDebuggerPath": "gdb.exe", 
+            }
+        }
     ]
-  }
+}

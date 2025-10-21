@@ -1,6 +1,6 @@
 #include "hammock/core/FrameManager.h"
 
-Hammock::FrameManager::FrameManager(Window &window, Device &device) : window{window}, device{device} {
+Hammock::FrameManager::FrameManager(Window &window, Device &device, ResourceManager &resourceManager ) : window{window}, device{device}, resourceManager{resourceManager}{
     recreateSwapChain();
 }
 
@@ -27,6 +27,28 @@ void Hammock::FrameManager::recreateSwapChain() {
         if (!oldSwapChain->compareSwapFormats(*swapChain.get())) {
             throw std::runtime_error("SwapChain image format has changed");
         }
+    }
+
+    // Clear previous images
+    for (auto handle: handlesOfSwapImages) {
+        resourceManager.releaseResource(handle.getUid());
+    }
+
+    handlesOfSwapImages.clear();
+
+    // Track new images
+    for(int i = 0; i < swapChain->imageCount(); i++) {
+
+        ResourceHandle handle = resourceManager.addResource<Image>("SWAPCHAIN_IMAGE_" + std::to_string(i), ImageDesc{
+            .width = extent.width,
+            .height = extent.height,
+            .image = swapChain->getImage(i),
+            .view = swapChain->getImageView(i),
+            .format = swapChain->getSwapChainImageFormat(),
+            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+        });
+
+        handlesOfSwapImages.push_back(handle);
     }
 }
 

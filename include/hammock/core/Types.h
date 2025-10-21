@@ -140,6 +140,8 @@ namespace Hammock {
     */
     struct ImageDesc {
         uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
+        VkImage image = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
         VkFormat format;
         VkImageUsageFlags usage;
         VkImageType imageType = VK_IMAGE_TYPE_2D;

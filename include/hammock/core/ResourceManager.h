@@ -65,6 +65,21 @@ namespace Hammock {
             return ResourceHandle::create(ResourceTypeTraits<T>::type, id);
         }
 
+        template<typename T, typename... Args>
+        ResourceHandle addResource(Args &&... args) {
+            static_assert(ResourceTypeTraits<T>::type != ResourceType::Invalid,
+                          "Resource type not registered in ResourceTypeTraits");
+
+            auto resource = ResourceFactory::create<T>(device, nextId, std::forward<Args>(args)...);
+            uint64_t id = nextId++;
+
+            resources[id] = std::move(resource);
+            resourceCache[id] = {getCurrentTimestamp(), 0};
+
+            return ResourceHandle::create(ResourceTypeTraits<T>::type, id);
+        }
+
+
         template<typename T>
         T *getResource(ResourceHandle handle) {
             // Type check

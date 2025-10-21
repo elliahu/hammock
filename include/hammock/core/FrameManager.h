@@ -6,14 +6,14 @@
 #include <queue>
 
 #include "hammock/platform/Window.h"
-#include "hammock/core/Device.h"
+#include "hammock/core/ResourceManager.h"
 #include "hammock/core/SwapChain.h"
 
 
 namespace Hammock {
     class FrameManager {
     public:
-        FrameManager(Window &window, Device &device);
+        FrameManager(Window &window, Device &device, ResourceManager &resourceManager );
 
         ~FrameManager();
 
@@ -122,7 +122,9 @@ namespace Hammock {
 
         Window &window;
         Device &device;
+        ResourceManager &resourceManager;
         std::unique_ptr<SwapChain> swapChain;
+        std::vector<ResourceHandle> handlesOfSwapImages;
 
         uint32_t currentImageIndex;
         int currentFrameIndex{0};

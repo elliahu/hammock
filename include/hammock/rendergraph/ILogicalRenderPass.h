@@ -9,11 +9,11 @@ namespace Hammock {
         /// Inherit from this interface to create a concrete render pass
         class ILogicalRenderPass {
         public:
-            // Pure virtual destructor to make sure that derived class frees its resources
-            virtual ~ILogicalRenderPass() = 0;
+            // This is called when pass is created, initialize all needed resources only in here
+            virtual void create() = 0;
 
-            // Make sure that the constructor is required
-            ILogicalRenderPass() = delete;
+            // Release all allocated resources here
+            virtual void release() = 0;
 
             struct CreateInfo {
                 const CommandQueueFamily &commandQueueFamily;

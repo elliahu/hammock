@@ -51,7 +51,9 @@ namespace Hammock {
             m_mips = desc.mips;
 
             m_queueFamily = desc.currentQueueFamily;
-            // Vulkan handles are created in load function on demand
+
+            m_image = desc.image;
+            m_view = desc.view;
 
             // attachment
             m_clearValue = desc.clearValue;

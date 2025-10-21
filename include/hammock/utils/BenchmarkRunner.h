@@ -20,8 +20,8 @@ namespace Hammock {
 
             struct FrameTime {
                 float average = 0.f;
-                float min = std::numeric_limits<float>::max();
-                float max = std::numeric_limits<float>::min();
+                float min = (std::numeric_limits<float>::max());
+                float max = (std::numeric_limits<float>::min());
             } frameTime;
         };
 
