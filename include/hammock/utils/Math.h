@@ -1,11 +1,11 @@
 #pragma once
 
-
 #include <cassert>
-#include <fstream>
-#include <string>
-#include <random>
 #include <cmath>
+#include <fstream>
+#include <random>
+#include <string>
+
 #include "hammock/core/HandmadeMath.h"
 
 namespace Hammock {
@@ -14,10 +14,9 @@ namespace Hammock {
             return a + f * (b - a);
         }
 
-        inline HmckMat4 normal(HmckMat4 &model) {
+        inline HmckMat4 normal(HmckMat4& model) {
             return HmckTranspose(HmckInvGeneral(model));
         }
-
 
         inline uint32_t padSizeToMinAlignment(uint32_t originalSize, uint32_t minAlignment) {
             return (originalSize + minAlignment - 1) & ~(minAlignment - 1);
@@ -32,7 +31,7 @@ namespace Hammock {
          * @param elevation   The elevation angle in radians (vertical rotation, float).
          * @return            The calculated orbital position (Vec3).
          */
-        inline HmckVec3 orbitalPosition(const HmckVec3 &center, float radius, float azimuth, float elevation) {
+        inline HmckVec3 orbitalPosition(const HmckVec3& center, float radius, float azimuth, float elevation) {
             // Calculate the position in spherical coordinates
             float x = radius * cos(elevation) * cos(azimuth);
             float y = radius * sin(elevation);
@@ -43,7 +42,5 @@ namespace Hammock {
             return orbitalPosition;
         }
 
-
-
-    }
-}
+    }  // namespace Math
+}  // namespace Hammock

@@ -172,4 +172,5 @@ namespace Hammock {
     // Command Buffer
     typedef VkCommandBuffer CommandBuffer;
 
+    typedef uint32_t uint32_hash_t;
 }
