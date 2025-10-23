@@ -76,6 +76,7 @@ namespace Hammock {
     };
 
     // Base resource class
+    // TODO this should be in separate file
     class Resource : public NonCopyable {
     protected:
         Device &device;
@@ -110,9 +111,6 @@ namespace Hammock {
         FrameBufferRelative,
     };
 
-    enum class CommandQueueFamily {
-        Ignored, Graphics, Compute, Transfer
-    };
 
     /**
     * Describes relative size of a viewport
@@ -168,9 +166,6 @@ namespace Hammock {
         float mipLodBias = 0.0f;
     };
 
-
-    // Command Buffer
-    typedef VkCommandBuffer CommandBuffer;
 
     typedef uint32_t uint32_hash_t;
 }

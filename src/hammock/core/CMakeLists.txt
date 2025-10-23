@@ -1,4 +1,5 @@
 set(CORE_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/CommandBuffer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Device.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/GraphicsPipeline.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/ComputePipeline.cpp

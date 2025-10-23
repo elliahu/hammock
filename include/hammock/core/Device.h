@@ -1,19 +1,17 @@
 #pragma once
 
-#include "hammock/platform/Window.h"
-#include "hammock/core/VulkanInstance.h"
-
 #include <vulkan/vulkan.h>
+
+#include "hammock/core/VulkanInstance.h"
+#include "hammock/platform/Window.h"
 
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
-#include "vk_mem_alloc.h"
-
+#include <expected>
+#include <string>
 #include <vector>
 
-// std lib headers
-#include <string>
-
+#include "vk_mem_alloc.h"
 
 namespace Hammock {
     struct SwapChainSupportDetails {
@@ -31,23 +29,27 @@ namespace Hammock {
         bool presentFamilyHasValue = false;
         bool computeFamilyHasValue = false;
         bool transferFamilyHasValue = false;
-        [[nodiscard]] bool isComplete() const { return graphicsFamilyHasValue && presentFamilyHasValue && computeFamilyHasValue && transferFamilyHasValue; }
+        [[nodiscard]] bool isComplete() const {
+            return graphicsFamilyHasValue && presentFamilyHasValue && computeFamilyHasValue && transferFamilyHasValue;
+        }
     };
 
+    enum class CommandQueueFamily { Ignored, Graphics, Compute, Transfer };
+
     class Device {
-    public:
-        Device(VulkanInstance &instance, VkSurfaceKHR surface);
+       public:
+        Device(VulkanInstance& instance, VkSurfaceKHR surface);
 
         ~Device();
 
         // Not copyable or movable
-        Device(const Device &) = delete;
+        Device(const Device&) = delete;
 
-        Device &operator=(const Device &) = delete;
+        Device& operator=(const Device&) = delete;
 
-        Device(Device &&) = delete;
+        Device(Device&&) = delete;
 
-        Device &operator=(Device &&) = delete;
+        Device& operator=(Device&&) = delete;
 
         [[nodiscard]] VkCommandPool getGraphicsCommandPool() const { return graphicsCommandPool; }
         [[nodiscard]] VkCommandPool getTransferCommandPool() const { return transferCommandPool; }
@@ -74,15 +76,11 @@ namespace Hammock {
         [[nodiscard]] QueueFamilyIndices findPhysicalQueueFamilies() { return findQueueFamilies(physicalDevice); }
 
         VkFormat findSupportedFormat(
-            const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
+            const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
 
         // Buffer Helper Functions
-        void createBuffer(
-            VkDeviceSize size,
-            VkBufferUsageFlags usage,
-            VkMemoryPropertyFlags properties,
-            VkBuffer &buffer,
-            VkDeviceMemory &bufferMemory) const;
+        void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
+            VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
 
         VkCommandBuffer beginSingleTimeCommands() const;
 
@@ -90,36 +88,95 @@ namespace Hammock {
 
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
 
-        void copyBufferToImage(
-            VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount,
+        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount,
             uint32_t baseArrayLayer = 0, uint32_t depth = 1) const;
 
         // Image helper functionss
-        void createImageWithInfo(
-            const VkImageCreateInfo &imageInfo,
-            VkMemoryPropertyFlags properties,
-            VkImage &image,
-            VkDeviceMemory &imageMemory) const;
+        void createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image,
+            VkDeviceMemory& imageMemory) const;
 
-        void transitionImageLayout(
-            VkImage image,
-            VkImageLayout layoutOld,
-            VkImageLayout layoutNew,
-            uint32_t layerCount = 1,
-            uint32_t baseLayer = 0,
-            uint32_t levelCount = 1,
-            uint32_t baseLevel = 0,
-            VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT
-        ) const;
+        void transitionImageLayout(VkImage image, VkImageLayout layoutOld, VkImageLayout layoutNew,
+            uint32_t layerCount = 1, uint32_t baseLayer = 0, uint32_t levelCount = 1, uint32_t baseLevel = 0,
+            VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) const;
 
-        void copyImageToHostVisibleImage(VkImage srcImage, VkImage dstImage,
-                                         uint32_t width, uint32_t height) const;
+        // TODO this should be named copyImageToImage
+        // only used in env generator atm
+        void copyImageToHostVisibleImage(VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height) const;
 
         void waitIdle();
 
+        template <CommandQueueFamily Queue>
+        auto createVulkanCommandBuffers(uint32_t commandBufferCount = 1)
+            -> std::expected<std::vector<VkCommandBuffer>, std::string> {
+            VkCommandBufferAllocateInfo allocInfo{};
+            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            allocInfo.commandBufferCount = commandBufferCount;
+            if (Queue == CommandQueueFamily::Graphics) {
+                allocInfo.commandPool = getGraphicsCommandPool();
+            }
+            if (Queue == CommandQueueFamily::Compute) {
+                allocInfo.commandPool = getComputeCommandPool();
+            }
+            if (Queue == CommandQueueFamily::Transfer) {
+                allocInfo.commandPool = getTransferCommandPool();
+            }
+
+            std::vector<VkCommandBuffer> commandBuffers{};
+            commandBuffers.reserve(commandBufferCount);
+
+            if (vkAllocateCommandBuffers(device_, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+                return std::unexpected("failed to allocate command buffer");
+            }
+            return commandBuffers;
+        }
+
+        // Begins a command buffer
+        auto beginVulkanCommandBuffer(VkCommandBuffer commandBuffer) -> std::expected<void, std::string> {
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+            if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+                return std::unexpected("Failed to begin recording a command buffer");
+            }
+
+            return {};  // Success
+        }
+
+        // Submits and ends command buffers, waits on semaphores and signals semaphores
+        auto submitVulkanCommandBuffers(VkQueue queue, uint32_t waitSemaphoreInfoCount,
+            const VkSemaphoreSubmitInfo* pWaitSemaphoreInfos, uint32_t commandBufferInfoCount,
+            const VkCommandBufferSubmitInfo* pCommandBufferInfos, uint32_t signalSemaphoreInfoCount,
+            const VkSemaphoreSubmitInfo* pSignalSemaphoreInfos) -> std::expected<void, std::string> {
+            // Create the submit info
+            VkSubmitInfo2 submitInfo = {
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                .waitSemaphoreInfoCount = waitSemaphoreInfoCount,
+                .pWaitSemaphoreInfos = pWaitSemaphoreInfos,
+                .commandBufferInfoCount = commandBufferInfoCount,
+                .pCommandBufferInfos = pCommandBufferInfos,
+                .signalSemaphoreInfoCount = signalSemaphoreInfoCount,
+                .pSignalSemaphoreInfos = pSignalSemaphoreInfos,
+            };
+
+            // End all of the
+            for (int i = 0; i < commandBufferInfoCount; i++) {
+                if (vkEndCommandBuffer(pCommandBufferInfos[i].commandBuffer) != VK_SUCCESS) {
+                    return std::unexpected("Failed to end command buffer");
+                }
+            }
+
+            if (vkQueueSubmit2(queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+                return std::unexpected("Failed to submit command buffers");
+            }
+
+            return {};  // Success
+        }
+
+        // TODO should be encapsed and accessed by getter
         VkPhysicalDeviceProperties properties;
 
-    private:
+       private:
         void pickPhysicalDevice();
 
         void createLogicalDevice();
@@ -133,12 +190,11 @@ namespace Hammock {
 
         QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
-
         bool checkDeviceExtensionSupport(VkPhysicalDevice device) const;
 
         SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
 
-        VulkanInstance &instance;
+        VulkanInstance& instance;
         VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
         VkCommandPool graphicsCommandPool;
         VkCommandPool transferCommandPool;
@@ -156,11 +212,10 @@ namespace Hammock {
 
         VmaAllocator allocator_;
 
-        const std::vector<const char *> deviceExtensions =
-        {
+        const std::vector<const char*> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
             VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
         };
     };
-}
+}  // namespace Hammock

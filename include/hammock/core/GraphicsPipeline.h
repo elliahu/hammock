@@ -1,17 +1,19 @@
 #pragma once
+#include <memory>
 #include <string>
 #include <vector>
+
 #include "hammock/core/Device.h"
-#include <memory>
+
 
 namespace Hammock {
     class GraphicsPipeline {
         struct GraphicsPipelineConfig {
             GraphicsPipelineConfig() = default;
 
-            GraphicsPipelineConfig(const GraphicsPipelineConfig &) = delete;
+            GraphicsPipelineConfig(const GraphicsPipelineConfig&) = delete;
 
-            GraphicsPipelineConfig &operator=(const GraphicsPipelineConfig &) = delete;
+            GraphicsPipelineConfig& operator=(const GraphicsPipelineConfig&) = delete;
 
             VkPipelineViewportStateCreateInfo viewportInfo;
             VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
@@ -26,18 +28,18 @@ namespace Hammock {
 
         struct GraphicsPipelineCreateInfo {
             std::string debugName;
-            Device &device;
+            Device& device;
 
             struct ShaderModuleInfo {
-                const std::vector<char> &byteCode{};
+                const std::vector<char>& byteCode{};
                 std::string entryFunc = "main";
             };
 
             ShaderModuleInfo vertexShader{};
             ShaderModuleInfo fragmentShader{};
 
-            std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-            std::vector<VkPushConstantRange> pushConstantRanges;
+            std::vector<VkDescriptorSetLayout> descriptorSetLayouts{};
+            std::vector<VkPushConstantRange> pushConstantRanges{};
 
             struct GraphicsStateInfo {
                 VkBool32 depthTest = VK_TRUE;
@@ -57,7 +59,7 @@ namespace Hammock {
             } dynamicState;
 
             struct DynamicRendering {
-                bool enabled = false;
+                bool enabled = true;
                 uint32_t colorAttachmentCount = 0;
                 std::vector<VkFormat> colorAttachmentFormats{};
                 VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED;
@@ -67,29 +69,29 @@ namespace Hammock {
             VkRenderPass renderPass = VK_NULL_HANDLE;
         };
 
-    public:
-        GraphicsPipeline(GraphicsPipelineCreateInfo &createInfo);
+       public:
+        GraphicsPipeline(GraphicsPipelineCreateInfo& createInfo);
 
-        GraphicsPipeline(const GraphicsPipeline &) = delete;
-        GraphicsPipeline &operator =(const GraphicsPipeline &) = delete;
+        GraphicsPipeline(const GraphicsPipeline&) = delete;
+        GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
 
         ~GraphicsPipeline();
 
         static std::unique_ptr<GraphicsPipeline> create(GraphicsPipelineCreateInfo createInfo);
 
-        void bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
+        void bind(
+            VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
         VkPipelineLayout pipelineLayout;
 
-    private:
+       private:
+        static void defaultRenderPipelineConfig(GraphicsPipelineConfig& configInfo);
 
-        static void defaultRenderPipelineConfig(GraphicsPipelineConfig &configInfo);
+        void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule) const;
 
-        void createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) const;
-
-        Device &device;
+        Device& device;
         VkPipeline graphicsPipeline;
         VkShaderModule vertShaderModule;
         VkShaderModule fragShaderModule;
     };
-}
+}  // namespace Hammock

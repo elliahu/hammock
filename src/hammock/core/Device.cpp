@@ -4,6 +4,7 @@
 #include <iostream>
 #include <set>
 #include <unordered_set>
+#include "hammock/core/CoreUtils.h"
 
 
 namespace Hammock {
@@ -30,7 +31,7 @@ namespace Hammock {
         if (deviceCount == 0) {
             throw std::runtime_error("failed to find GPUs with Vulkan support!");
         }
-        std::cout << "Device count: " << deviceCount << std::endl;
+        Logger::info("Device count: %d", deviceCount);
         std::vector<VkPhysicalDevice> devices(deviceCount);
         vkEnumeratePhysicalDevices(instance.getInstance(), &deviceCount, devices.data());
 
@@ -46,7 +47,7 @@ namespace Hammock {
         }
 
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-        std::cout << "physical device: " << properties.deviceName << std::endl;
+        Logger::info("Physical device: %s", properties.deviceName);
     }
 
     void Device::createLogicalDevice() {

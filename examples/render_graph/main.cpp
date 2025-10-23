@@ -1,35 +1,54 @@
 #include <hammock/hammock.h>
 
+#include <cstddef>
+
+#include "hammock/core/GraphicsPipeline.h"
+#include "hammock/utils/Filesystem.h"
+
 using namespace Hammock;
 
-
-auto getCompiledShaderDir() -> std::string {
-    
+auto getCompiledShaderPath(const std::string& name) -> std::string {
+    return std::string(HAMMOCK_BUILD_DIR) + "/spv/" + name;
 }
-
 
 // Here we create a simple logical render pass
 class SimplePass final : public Rendergraph::LogicalRenderPassInterface {
+   private:
+    std::unique_ptr<GraphicsPipeline> pipeline{nullptr};
+
    public:
-    explicit SimplePass(const CreateInfo& createInfo)
-        : LogicalRenderPassInterface(createInfo) {
-         write(HashName(Rendergraph::Graph::SWAP_CHAIN_IMAGE_RESOURCE_NAME));
+    explicit SimplePass(const CreateInfo& createInfo) : LogicalRenderPassInterface(createInfo) {
+        write(HashName(Rendergraph::Graph::SWAP_CHAIN_IMAGE_RESOURCE_NAME));
     }
 
     // Called by render graph, Allocates resources
     void onCreate() override {
-        Logger::info("Concrete pass created");
+        Logger::info("Creating concrete pass ...");
+
+        pipeline = GraphicsPipeline::create({
+            .debugName = "pipeline",
+            .device = device,
+            .vertexShader = {Filesystem::readFile(getCompiledShaderPath("fullscreen.vert.spv"))},
+            .fragmentShader = {Filesystem::readFile(getCompiledShaderPath("fullscreen.frag.spv"))},
+            .graphicsState =
+                {
+                    .cullMode = VK_CULL_MODE_NONE,
+                    .blendAtaAttachmentStates{Init::pipelineColorBlendAttachmentState(0xf, VK_TRUE)},
+                    .vertexBufferBindings{},
+                },
+            .dynamicRendering =
+                {
+                    .colorAttachmentCount = 1,
+                    .colorAttachmentFormats = {frameManager.getSwapChain()->getSwapChainImageFormat()},
+                },
+        });
     }
 
     // Called by render graph Frees allocated resources
-    void onRelease() override {
-        Logger::info("Concrete pass released");
-    }
+    void onRelease() override { Logger::info("Concrete pass released"); }
 
     // Called by render graph for every frame
-    void onRecordCommands(VkCommandBuffer) override {
-        Logger::info("Recording commands in concrete pass");
-    }
+    void onRecordCommands(VkCommandBuffer) override { Logger::info("Recording commands in concrete pass"); }
 };
 
 int main() {
@@ -38,64 +57,53 @@ int main() {
     Device device{instance, window.getSurface()};
     ResourceManager rm{device};
     FrameManager fm{window, device, rm};
-    std::unique_ptr<DescriptorPool> descriptorPool = DescriptorPool::Builder(device)
-                                                         .setMaxSets(20000)
-                                                         .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 10000)
-                                                         .addPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 10000)
-                                                         .build();
-
-   /*  std::unique_ptr<GraphicsPipeline> pipeline = GraphicsPipeline::create({
-        .debugName = "pipeline",
-        .device = device,
-        .vertexShader = {Filesystem::readFile("")}
-        
-    }); */                                                     
+    auto descriptorPool = DescriptorPool::Builder(device)
+                              .setMaxSets(20000)
+                              .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 10000)
+                              .addPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 10000)
+                              .build();
 
     // Create the rendergraph instance
-    auto renderGraph = std::make_unique<Rendergraph::Graph>(Rendergraph::Graph::CreateInfo{
-        .resourceManager = rm});
+    auto renderGraph = std::make_unique<Rendergraph::Graph>(Rendergraph::Graph::CreateInfo{.resourceManager = rm});
 
-    renderGraph->useSwapChainImageResolver([&fm](){
-        return Rendergraph::Graph::SwapChainImage{
-            .image = fm.getSwapChain()->getImage(fm.getSwapChainImageIndex()),
+    renderGraph->useSwapChainImageResolver([&fm]() {
+        return Rendergraph::Graph::SwapChainImage{.image = fm.getSwapChain()->getImage(fm.getSwapChainImageIndex()),
             .imageView = fm.getSwapChain()->getImageView(fm.getSwapChainImageIndex()),
-            .format = fm.getSwapChain()->getSwapChainImageFormat()
-        };
+            .format = fm.getSwapChain()->getSwapChainImageFormat()};
     });
 
-    
-    renderGraph->addPass(
+    /* renderGraph->addPass(
         Rendergraph::LogicalPassBuilder::create(HashName("LAMBDA_PASS"), CommandQueueFamily::Graphics, rm)
             .onCreate([] { Logger::info("Lambda pass created"); })
             .onRelease([] { Logger::info("Lambda pass released"); })
             .write(HashName(Rendergraph::Graph::SWAP_CHAIN_IMAGE_RESOURCE_NAME))
-            .onRecordCommands([](VkCommandBuffer cmd) {
-                Logger::info("Recording commands in lambda pass");
-            })
-            .build());
+            .onRecordCommands([](VkCommandBuffer cmd) { Logger::info("Recording commands in lambda pass"); })
+            .build()); */
 
-   /*  renderGraph->addPass(std::make_unique<SimplePass>(Rendergraph::LogicalRenderPassInterface::CreateInfo{
-        HashName("CONCRETE_PASS"), CommandQueueFamily::Graphics, rm
-    })); */
+    renderGraph->addPass(std::make_unique<SimplePass>(Rendergraph::LogicalRenderPassInterface::CreateInfo{
+        HashName("CONCRETE_PASS"),
+        CommandQueueFamily::Graphics,
+        rm,
+        fm,
+        device,
+    }));
 
-    // Build the render graph        
-    if(const auto result = renderGraph->build(); !result) {
+    // Build the render graph
+    if (const auto result = renderGraph->build(); !result) {
         Logger::error("Rendergraph build failed: %s", result.error().c_str());
         exit(EXIT_FAILURE);
     }
 
-
-            
     renderGraph->execute();
 
     device.waitIdle();

@@ -30,6 +30,12 @@ target_include_directories(hammock PUBLIC ${PROJECT_SOURCE_DIR}/external/imgui)
 # Remove the fcking max macro !?
 add_compile_definitions(NOMINMAX)
 
+# Add ROOT dir macro
+target_compile_definitions(hammock 
+    PUBLIC HAMMOCK_PROJECT_DIR="${PROJECT_SOURCE_DIR}"
+    PUBLIC HAMMOCK_BUILD_DIR="${CMAKE_CURRENT_BINARY_DIR}"
+)
+
 if(WIN32)
     target_compile_definitions(hammock PRIVATE VK_USE_PLATFORM_WIN32_KHR)
     target_link_libraries(hammock PRIVATE Dwmapi)

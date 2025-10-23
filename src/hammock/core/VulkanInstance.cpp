@@ -70,7 +70,7 @@ void Hammock::VulkanInstance::setupDebugMessenger() {
 
 void Hammock::VulkanInstance::createInstance() {
     if (enableValidationLayers && !checkValidationLayerSupport()) {
-        Logger::log(LOG_LEVEL_WARN, "Validation layers requested, but not available. Validation layers not used!\n");
+        Logger::log(LOG_LEVEL_WARN, "Validation layers requested, but not available. Validation layers not used!");
         enableValidationLayers = false;
     }
 
@@ -94,12 +94,15 @@ void Hammock::VulkanInstance::createInstance() {
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
     if (enableValidationLayers) {
+        Logger::log(LOG_LEVEL_INFO, "Validation layers available");
+
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();
 
         populateDebugMessengerCreateInfo(debugCreateInfo);
         createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *) &debugCreateInfo;
     } else {
+        Logger::log(LOG_LEVEL_INFO, "Validation layers unavailable");
         createInfo.enabledLayerCount = 0;
         createInfo.pNext = nullptr;
     }

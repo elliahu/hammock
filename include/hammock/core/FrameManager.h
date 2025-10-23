@@ -37,78 +37,7 @@ namespace Hammock {
             return currentImageIndex;
         }
 
-
-        template<CommandQueueFamily Queue>
-        VkCommandBuffer createCommandBuffer() {
-            VkCommandBufferAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            if (Queue == CommandQueueFamily::Graphics) {
-                allocInfo.commandPool = device.getGraphicsCommandPool();
-            }
-            if (Queue == CommandQueueFamily::Compute) {
-                allocInfo.commandPool = device.getComputeCommandPool();
-            }
-            if (Queue == CommandQueueFamily::Transfer) {
-                allocInfo.commandPool = device.getTransferCommandPool();
-            }
-            allocInfo.commandBufferCount = 1;
-
-            VkCommandBuffer commandBuffer;
-
-            if (vkAllocateCommandBuffers(device.device(), &allocInfo, &commandBuffer) != VK_SUCCESS) {
-                throw std::runtime_error("failed to allocate command buffer");
-            }
-            return commandBuffer;
-        }
-
-        void beginCommandBuffer(VkCommandBuffer commandBuffer) {
-            VkCommandBufferBeginInfo beginInfo{};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-            if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-                throw std::runtime_error("failed to begin recording a command buffer");
-            }
-        }
-
-        template<CommandQueueFamily Queue>
-        void submitCommandBuffer(VkCommandBuffer commandBuffer, const std::vector<VkSemaphore> &waitSemaphores,
-                                 const std::vector<VkSemaphore> &signalSemaphores, const std::vector<VkPipelineStageFlags>& waitStages,  VkFence fence = VK_NULL_HANDLE) {
-            if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-                throw std::runtime_error("failed to record command buffer");
-            }
-
-            VkSubmitInfo submitInfo{};
-            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
-            submitInfo.pWaitSemaphores = waitSemaphores.data();
-            submitInfo.pWaitDstStageMask = waitStages.data();
-
-            submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &commandBuffer;
-
-            submitInfo.signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());;
-            submitInfo.pSignalSemaphores = signalSemaphores.data();
-
-            VkResult submitResult;
-
-            if (Queue == CommandQueueFamily::Graphics) {
-                submitResult = vkQueueSubmit(device.graphicsQueue(), 1, &submitInfo, fence);
-            }
-
-            if (Queue == CommandQueueFamily::Transfer) {
-                submitResult = vkQueueSubmit(device.transferQueue(), 1, &submitInfo, fence);
-            }
-
-            if (Queue == CommandQueueFamily::Compute) {
-                submitResult = vkQueueSubmit(device.computeQueue(), 1, &submitInfo, fence);
-            }
-
-            if (submitResult != VK_SUCCESS) {
-                throw std::runtime_error("failed to submit command buffer");
-            }
-        }
-
+        
         void submitPresentCommandBuffer(VkCommandBuffer commandBuffer, const std::vector<VkSemaphore>& wait, const std::vector<VkPipelineStageFlags>& waitStages);
 
         bool beginFrame();

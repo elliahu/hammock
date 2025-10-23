@@ -25,6 +25,7 @@ set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/spv")
 add_custom_command(
     OUTPUT ${SLANG_OUTPUT_FILE} 
     COMMAND ${Python3_EXECUTABLE} ${PROCESS_SCRIPT}
+             ${SLANG_DIR}/fullscreen.slang ${OUTPUT_DIR}/fullscreen.vert.spv vertexMain
              ${SLANG_DIR}/fullscreen.slang ${OUTPUT_DIR}/fullscreen.frag.spv pixelMain
     # This is the crucial part: it forces the command to re-run
     # if any of these files (the .slang sources) have changed.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreUtils.h"
+#include "CommandBuffer.h"
 #include "Device.h"
 #include "Image.h"
 #include "Buffer.h"

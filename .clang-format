@@ -1,0 +1,12 @@
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 120
+NamespaceIndentation: All
+BinPackArguments: false
+ContinuationIndentWidth: 4
+AlignAfterOpenBracket: DontAlign
+BraceWrapping:
+  AfterFunction: true
+  AfterClass: true
+  AfterStruct: true
+  IndentBraces: false
