@@ -1,4 +1,5 @@
 #include <chrono>
+#include <numbers>
 
 #include "hammock/resources/EnvironmentMapsGenerator.h"
 #include "hammock/core/GraphicsPipeline.h"
@@ -747,8 +748,8 @@ Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMap
         float deltaPhi;
         float deltaTheta;
     } pushBlock{
-                .deltaPhi = (2.0f * static_cast<float>(M_PI)) / _deltaPhi,
-                .deltaTheta = (0.5f * static_cast<float>(M_PI)) / _deltaTheta
+                .deltaPhi = (2.0f * static_cast<float>(std::numbers::pi)) / _deltaPhi,
+                .deltaTheta = (0.5f * static_cast<float>(std::numbers::pi)) / _deltaTheta
             };
     vkCmdPushConstants(commandBuffer, pipeline->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        2 * sizeof(float), &pushBlock);

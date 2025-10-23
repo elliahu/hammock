@@ -1,12 +1,16 @@
 #pragma once
 
+#include <functional>
+#include "hammock/core/core.h"
+#include "hammock/rendergraph/NodeInterface.h"
+
 namespace Hammock {
     namespace Rendergraph {
         typedef std::function<ResourceHandle(ResourceManager&, uint32_t frameIndex)>
             ResourceResolver;
 
         /// RenderGraph node representing a resource
-        class LogicalResource {
+        class LogicalResource : public NodeInterface {
            public:
 
            enum class Type {
@@ -22,7 +26,7 @@ namespace Hammock {
                 DepthStencilAttachment,
             };
 
-            LogicalResource(uint32_hash_t hashName,  Type type) : hashName(hashName), type(type){}
+            LogicalResource(uint32_hash_t hashName,  Type type) : NodeInterface(hashName), type(type){}
 
             
             
@@ -73,22 +77,15 @@ namespace Hammock {
                 isDirty = true;
             }
 
-            [[nodiscard]] uint32_t getHashName() const {return hashName;}
+            
 
            private:
-            // Uniquely identifies the resource
-            uint32_hash_t hashName;
             // Type of the resource
             Type type;
             // cache to store handles to avoid constant recreation
             std::vector<ResourceHandle> cachedHandles;
             // Needs recreation
             bool isDirty = true;
-
-            std::vector<uint32_hash_t> readers;   // Passes that read this resource
-            std::vector<uint32_hash_t> writers;   // Passes that write to this resource
-            std::vector<uint32_t> incomingEdges;  // indices of edges coming into this resource
-            std::vector<uint32_t> outgoingEdges;  // indices of edges going out from this resource
         };
     }  // namespace Rendergraph
 };  // namespace Hammock

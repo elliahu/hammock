@@ -8,6 +8,8 @@ add_subdirectory(hammock/scene)
 add_subdirectory(hammock/utils)
 add_subdirectory(hammock/legacy)
 
+add_subdirectory(shaders)
+
 # Combine all sources for parent scope
 set(HAMMOCK_SRC
         ${CORE_SOURCES}

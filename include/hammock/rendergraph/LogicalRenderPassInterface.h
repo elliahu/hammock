@@ -3,18 +3,15 @@
 #include <string>
 
 #include "hammock/core/Types.h"
+#include "hammock/rendergraph/NodeInterface.h"
 #include "hammock/rendergraph/LogicalResource.h"
 
 namespace Hammock {
     namespace Rendergraph {
         /// RenderPass interface
         /// Inherit from this interface to create a concrete render pass
-        class ILogicalRenderPass {
+        class LogicalRenderPassInterface : public NodeInterface {
            public:
-            std::vector<uint32_hash_t> resourceReads; // resources read by this pass
-            std::vector<uint32_hash_t> resourceWrites; // resources written by this pass
-            std::vector<uint32_t> incomingEdges; // indices of edges coming into this pass
-            std::vector<uint32_t> outgoingEdges; // indices of edges going out from this pass
             // This is called when pass is created, initialize all needed resources only in here
             virtual void onCreate() = 0;
 
@@ -27,8 +24,8 @@ namespace Hammock {
                 ResourceManager& resourceManager;
             };
 
-            explicit ILogicalRenderPass(const CreateInfo& createInfo)
-                : hashName(createInfo.hashName), resourceManager(createInfo.resourceManager), commandQueueFamily(createInfo.commandQueueFamily) {
+            explicit LogicalRenderPassInterface(const CreateInfo& createInfo)
+                : NodeInterface(createInfo.hashName), resourceManager(createInfo.resourceManager), commandQueueFamily(createInfo.commandQueueFamily) {
             }
 
             // Execute pass code in this method
@@ -39,18 +36,16 @@ namespace Hammock {
 
             // Declare read access
             void read(uint32_t resourceHashName) {
-                resourceReads.push_back(resourceHashName);
+                to.push_back(resourceHashName);
             }
 
             // Declare write access
             void write(uint32_t resourceHashName) {
-                resourceWrites.push_back(resourceHashName);
+                from.push_back(resourceHashName);
             }
 
-            [[nodiscard]] uint32_hash_t getHashName() const { return hashName; }
 
            protected:
-            uint32_hash_t hashName;
             CommandQueueFamily commandQueueFamily;
             ResourceManager& resourceManager;
         };
@@ -82,31 +77,31 @@ namespace Hammock {
 
             // --- New: resource declaration chaining ---
             LogicalPassBuilder& read(uint32_t resourceHashName) {
-                resourceReads.push_back(resourceHashName);
+                to.push_back(resourceHashName);
                 return *this;
             }
 
             LogicalPassBuilder& write(uint32_t resourceHashName) {
-                resourceWrites.push_back(resourceHashName);
+                from.push_back(resourceHashName);
                 return *this;
             }
             // -------------------------------------------
 
-            std::unique_ptr<ILogicalRenderPass> build() {
-                struct LambdaPass : ILogicalRenderPass {
+            std::unique_ptr<LogicalRenderPassInterface> build() {
+                struct LambdaPass : LogicalRenderPassInterface {
                     LambdaPass(const CreateInfo& info,
                                CreateCallback onCreate,
                                ReleaseCallback onRelease,
                                RecordCommandsCallback onRecordCommands,
                                std::vector<uint32_t> reads,
                                std::vector<uint32_t> writes)
-                        : ILogicalRenderPass(info),
+                        : LogicalRenderPassInterface(info),
                           onCreateCb(std::move(onCreate)),
                           onReleaseCb(std::move(onRelease)),
                           onRecordCommandsCb(std::move(onRecordCommands)) {
                         // Transfer resource declarations
-                        resourceReads = std::move(reads);
-                        resourceWrites = std::move(writes);
+                        to = std::move(reads);
+                        from = std::move(writes);
                     }
 
                     void onCreate() override {
@@ -126,7 +121,7 @@ namespace Hammock {
                     RecordCommandsCallback onRecordCommandsCb;
                 };
 
-                ILogicalRenderPass::CreateInfo info{
+                LogicalRenderPassInterface::CreateInfo info{
                     .hashName = hashName,
                     .commandQueueFamily = queueFamily,
                     .resourceManager = resourceManager};
@@ -136,8 +131,8 @@ namespace Hammock {
                     std::move(onCreateCb),
                     std::move(onReleaseCb),
                     std::move(onRecordCommandsCb),
-                    std::move(resourceReads),
-                    std::move(resourceWrites));
+                    std::move(to),
+                    std::move(from));
             }
 
            private:
@@ -151,8 +146,8 @@ namespace Hammock {
             ReleaseCallback onReleaseCb;
             RecordCommandsCallback onRecordCommandsCb;
 
-            std::vector<uint32_t> resourceReads; 
-            std::vector<uint32_t> resourceWrites; 
+            std::vector<uint32_t> to; 
+            std::vector<uint32_t> from; 
         };
 
     }  // namespace Rendergraph

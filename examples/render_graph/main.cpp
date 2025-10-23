@@ -1,22 +1,19 @@
-#include <iostream>
 #include <hammock/hammock.h>
 
 using namespace Hammock;
 
-std::string assetPath(const std::string& asset) {
-    return "../../../data/" + asset;
+
+auto getCompiledShaderDir() -> std::string {
+    
 }
 
-std::string compiledShaderPath(const std::string& shader) {
-    return "../../../src/hammock/shaders/compiled/" + shader + ".spv";
-}
 
 // Here we create a simple logical render pass
-class SimplePass final : public Rendergraph::ILogicalRenderPass {
+class SimplePass final : public Rendergraph::LogicalRenderPassInterface {
    public:
     explicit SimplePass(const CreateInfo& createInfo)
-        : ILogicalRenderPass(createInfo) {
-            
+        : LogicalRenderPassInterface(createInfo) {
+         write(HashName(Rendergraph::Graph::SWAP_CHAIN_IMAGE_RESOURCE_NAME));
     }
 
     // Called by render graph, Allocates resources
@@ -31,6 +28,7 @@ class SimplePass final : public Rendergraph::ILogicalRenderPass {
 
     // Called by render graph for every frame
     void onRecordCommands(VkCommandBuffer) override {
+        Logger::info("Recording commands in concrete pass");
     }
 };
 
@@ -56,6 +54,13 @@ int main() {
                                                          .addPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 10000)
                                                          .build();
 
+   /*  std::unique_ptr<GraphicsPipeline> pipeline = GraphicsPipeline::create({
+        .debugName = "pipeline",
+        .device = device,
+        .vertexShader = {Filesystem::readFile("")}
+        
+    }); */                                                     
+
     // Create the rendergraph instance
     auto renderGraph = std::make_unique<Rendergraph::Graph>(Rendergraph::Graph::CreateInfo{
         .resourceManager = rm});
@@ -68,6 +73,7 @@ int main() {
         };
     });
 
+    
     renderGraph->addPass(
         Rendergraph::LogicalPassBuilder::create(HashName("LAMBDA_PASS"), CommandQueueFamily::Graphics, rm)
             .onCreate([] { Logger::info("Lambda pass created"); })
@@ -78,10 +84,17 @@ int main() {
             })
             .build());
 
+   /*  renderGraph->addPass(std::make_unique<SimplePass>(Rendergraph::LogicalRenderPassInterface::CreateInfo{
+        HashName("CONCRETE_PASS"), CommandQueueFamily::Graphics, rm
+    })); */
+
+    // Build the render graph        
     if(const auto result = renderGraph->build(); !result) {
         Logger::error("Rendergraph build failed: %s", result.error().c_str());
         exit(EXIT_FAILURE);
     }
+
+
             
     renderGraph->execute();
 

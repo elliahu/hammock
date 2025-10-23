@@ -17,12 +17,18 @@ add_subdirectory(src)
 # Define engine library
 add_library(hammock STATIC ${HAMMOCK_SRC} ${IMGUI_SRC})
 
+# Build engine shaders
+add_dependencies(hammock process_slang_files)
+
 # Include directories for engine
 target_include_directories(hammock PUBLIC ${PROJECT_SOURCE_DIR}/include/)
 target_include_directories(hammock PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(hammock PUBLIC $ENV{VULKAN_SDK}/Include)
 target_include_directories(hammock PUBLIC ${PROJECT_SOURCE_DIR}/external)
 target_include_directories(hammock PUBLIC ${PROJECT_SOURCE_DIR}/external/imgui)
+
+# Remove the fcking max macro !?
+add_compile_definitions(NOMINMAX)
 
 if(WIN32)
     target_compile_definitions(hammock PRIVATE VK_USE_PLATFORM_WIN32_KHR)
