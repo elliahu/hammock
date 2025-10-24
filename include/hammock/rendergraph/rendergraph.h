@@ -2,6 +2,7 @@
 
 #include "Graph.h"
 #include "Edge.h"
-#include "LogicalRenderPassInterface.h"
-#include "LogicalResource.h"
-#include "NodeInterface.h"
+#include "Pass.h"
+#include "Resource.h"
+#include "Node.h"
+#include "ExecutionContext.h"

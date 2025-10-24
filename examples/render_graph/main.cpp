@@ -11,46 +11,6 @@ auto getCompiledShaderPath(const std::string& name) -> std::string {
     return std::string(HAMMOCK_BUILD_DIR) + "/spv/" + name;
 }
 
-// Here we create a simple logical render pass
-class SimplePass final : public Rendergraph::LogicalRenderPassInterface {
-   private:
-    std::unique_ptr<GraphicsPipeline> pipeline{nullptr};
-
-   public:
-    explicit SimplePass(const CreateInfo& createInfo) : LogicalRenderPassInterface(createInfo) {
-        write(HashName(Rendergraph::Graph::SWAP_CHAIN_IMAGE_RESOURCE_NAME));
-    }
-
-    // Called by render graph, Allocates resources
-    void onCreate() override {
-        Logger::info("Creating concrete pass ...");
-
-        pipeline = GraphicsPipeline::create({
-            .debugName = "pipeline",
-            .device = device,
-            .vertexShader = {Filesystem::readFile(getCompiledShaderPath("fullscreen.vert.spv"))},
-            .fragmentShader = {Filesystem::readFile(getCompiledShaderPath("fullscreen.frag.spv"))},
-            .graphicsState =
-                {
-                    .cullMode = VK_CULL_MODE_NONE,
-                    .blendAtaAttachmentStates{Init::pipelineColorBlendAttachmentState(0xf, VK_TRUE)},
-                    .vertexBufferBindings{},
-                },
-            .dynamicRendering =
-                {
-                    .colorAttachmentCount = 1,
-                    .colorAttachmentFormats = {frameManager.getSwapChain()->getSwapChainImageFormat()},
-                },
-        });
-    }
-
-    // Called by render graph Frees allocated resources
-    void onRelease() override { Logger::info("Concrete pass released"); }
-
-    // Called by render graph for every frame
-    void onRecordCommands(VkCommandBuffer) override { Logger::info("Recording commands in concrete pass"); }
-};
-
 int main() {
     VulkanInstance instance{};
     Hammock::Window window{instance, "Render Graph", 1920, 1080};
@@ -82,21 +42,6 @@ int main() {
             .format = fm.getSwapChain()->getSwapChainImageFormat()};
     });
 
-    /* renderGraph->addPass(
-        Rendergraph::LogicalPassBuilder::create(HashName("LAMBDA_PASS"), CommandQueueFamily::Graphics, rm)
-            .onCreate([] { Logger::info("Lambda pass created"); })
-            .onRelease([] { Logger::info("Lambda pass released"); })
-            .write(HashName(Rendergraph::Graph::SWAP_CHAIN_IMAGE_RESOURCE_NAME))
-            .onRecordCommands([](VkCommandBuffer cmd) { Logger::info("Recording commands in lambda pass"); })
-            .build()); */
-
-    renderGraph->addPass(std::make_unique<SimplePass>(Rendergraph::LogicalRenderPassInterface::CreateInfo{
-        HashName("CONCRETE_PASS"),
-        CommandQueueFamily::Graphics,
-        rm,
-        fm,
-        device,
-    }));
 
     // Build the render graph
     if (const auto result = renderGraph->build(); !result) {

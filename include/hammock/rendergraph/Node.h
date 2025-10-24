@@ -6,13 +6,13 @@
 namespace Hammock {
     namespace Rendergraph {
 
-        class NodeInterface {
+        class Node {
            protected:
             uint32_hash_t hashName;
 
            public:
 
-           NodeInterface(uint32_hash_t hashName) : hashName(hashName){}
+           Node(uint32_hash_t hashName) : hashName(hashName){}
 
             std::vector<uint32_hash_t> to;        // If resource - pass that write to this resource, If pass - resource that this pass reads from
             std::vector<uint32_hash_t> from;      // If resource - Pass that reads from this resource, If pass - resource

@@ -3,9 +3,7 @@
         "Rendergraph"
     ],
     "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 0, NamespaceIndentation: All}",
-    "clangd.arguments": [
-        "--fallback-style={BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 0, NamespaceIndentation: All}"
-    ],
+    "C_Cpp.intelliSenseEngine": "disabled",
     "C_Cpp.default.cppStandard": "c++23",
     "files.watcherExclude": {
         "cmake-build-*/**": true,

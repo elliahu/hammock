@@ -2,16 +2,20 @@
 
 #include <algorithm>
 #include <expected>
+#include <memory>
 #include <queue>
 #include <unordered_map>
 
+#include "hammock/core/Types.h"
 #include "hammock/core/core.h"
 #include "hammock/rendergraph/Edge.h"
-#include "hammock/rendergraph/LogicalRenderPassInterface.h"
-#include "hammock/rendergraph/NodeInterface.h"
+#include "hammock/rendergraph/Node.h"
+#include "hammock/rendergraph/Pass.h"
+
 
 namespace Hammock {
     namespace Rendergraph {
+
         class Graph {
            public:
             // Internal struct that represents swapchain image
@@ -33,21 +37,22 @@ namespace Hammock {
 
             explicit Graph(const CreateInfo& createInfo);
 
-            /**
-             * @brief Adds a pass to the render graph
-             * @attention this transfers ownership of the pass to the graph
-             * @param pass Logical render pass to add
-             */
-            auto addPass(std::unique_ptr<LogicalRenderPassInterface> pass) -> void;
+            auto addPass(std::unique_ptr<Pass> pass) -> uint32_hash_t {
+                passes.insert({pass->getHashName(), std::move(pass)});
+            };
 
-            auto addResource(const LogicalResource& resource) -> void;
+            auto createImage(ImageDesc desc, uint32_hash_t hash) -> uint32_hash_t {
+                
+            };
+
+            auto createBuffer() -> uint32_hash_t {};
 
             /**
              * @brief Add a resolver to get the swapchain image for the current frame
              *
              * @param resolver Function that resolves the swapchain image for a given frame index
              */
-            auto useSwapChainImageResolver(SwapChainImageResolver resolver) -> void;
+            auto useSwapChainImageResolver(SwapChainImageResolver resolver) -> uint32_hash_t;
 
             auto build() -> std::expected<void, std::string>;
 
@@ -58,9 +63,8 @@ namespace Hammock {
 
            private:
             ResourceManager& rm;
-            std::unordered_map<uint32_hash_t, std::unique_ptr<LogicalRenderPassInterface>>
-                passes{};  // Logical passes in the graph
-            std::unordered_map<uint32_hash_t, LogicalResource>
+            std::unordered_map<uint32_hash_t, std::unique_ptr<Pass>> passes{};  // Logical passes in the graph
+            std::unordered_map<uint32_hash_t, std::shared_ptr<Resource>>
                 resources{};            // resources owned by the graph or external resources accessed by the graph
             std::vector<Edge> edges{};  // Edges that connect resources with passes
             std::vector<uint32_hash_t> sortedNodes{};
@@ -74,7 +78,7 @@ namespace Hammock {
              * @return std::expected<LogicalResource&, std::string>
              */
             auto findResourceByName(uint32_hash_t name)
-                -> std::expected<std::reference_wrapper<LogicalResource>, std::string>;
+                -> std::expected<std::shared_ptr<Resource>, std::string>;
 
             /**
              * @brief Get the Swap Chain Image object (uses the resolver)
@@ -89,10 +93,9 @@ namespace Hammock {
             auto buildEdges() -> std::expected<void, std::string>;
 
             /**
-            * @brief Sorts the graph topologically
-            */
+             * @brief Sorts the graph topologically
+             */
             auto sortTopologically() -> std::expected<void, std::string>;
-        
         };
     }  // namespace Rendergraph
 };  // namespace Hammock

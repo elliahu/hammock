@@ -1,4 +1,7 @@
 #include "hammock/rendergraph/Graph.h"
+#include "hammock/core/Types.h"
+#include "hammock/rendergraph/Resource.h"
+#include <memory>
 
 Hammock::Rendergraph::Graph::Graph(const CreateInfo& createInfo) : rm{createInfo.resourceManager} {}
 
@@ -76,14 +79,14 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
             }
 
             // Retrieve the value
-            LogicalResource& resource = expectedResource.value();
+            auto resource = expectedResource.value();
 
             // Add to visited resources
-            visitedResources.push_back(resource.getHashName());
+            visitedResources.push_back(resource->getHashName());
 
             // Create the edge
             edges.push_back(Edge{
-                .srcHashName = resource.getHashName(),
+                .srcHashName = resource->getHashName(),
                 .dstHashName = pass->getHashName(),
                 .type = Edge::Type::ResourceToPass,  // Pass is reading the resource R -> P
             });
@@ -99,15 +102,15 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
             }
 
             // Retrieve the value
-            LogicalResource& resource = expectedResource.value();
+            auto resource = expectedResource.value();
 
             // Add to visited resources
-            visitedResources.push_back(resource.getHashName());
+            visitedResources.push_back(resource->getHashName());
 
             // Create the edge
             edges.push_back(Edge{
                 .srcHashName = pass->getHashName(),
-                .dstHashName = resource.getHashName(),
+                .dstHashName = resource->getHashName(),
                 .type = Edge::Type::PassToResource,  // Pass is writing the resource P -> R
             });
 
@@ -133,10 +136,10 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
 }
 
 auto Hammock::Rendergraph::Graph::findResourceByName(uint32_hash_t name)
-    -> std::expected<std::reference_wrapper<LogicalResource>, std::string> {
+    -> std::expected<std::shared_ptr<Resource>, std::string> {
     auto it = resources.find(name);
     if (it != resources.end()) {
-        return std::ref(it->second);
+        return it->second;
     } else {
         return std::unexpected("Resource with hash " + std::to_string(name) + " not found in render graph.");
     }
@@ -144,7 +147,7 @@ auto Hammock::Rendergraph::Graph::findResourceByName(uint32_hash_t name)
 
 auto Hammock::Rendergraph::Graph::execute() -> void {
     for (auto& pass : passes) {
-        pass.second->onRecordCommands(VK_NULL_HANDLE);  // TODO: Pass actual command buffer
+        
     }
 }
 
@@ -159,31 +162,20 @@ auto Hammock::Rendergraph::Graph::build() -> std::expected<void, std::string> {
         return result;
     }
 
-    // Initialize the passes (call onCreate method of all registered passes)
-    for(const auto & [passHashName, pass] : passes){
-        pass->onCreate();
-    }
-
     return {};  // Success
 }
 
-auto Hammock::Rendergraph::Graph::useSwapChainImageResolver(SwapChainImageResolver resolver) -> void {
+auto Hammock::Rendergraph::Graph::useSwapChainImageResolver(SwapChainImageResolver resolver) -> uint32_hash_t {
     swapChainImageResolver = std::move(resolver);
 
+    uint32_hash_t hash = HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
+
     // Create a logical resource that represents a swap chain image
-    LogicalResource logicalSwapImage{HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME), LogicalResource::Type::SwapChainImage};
-    logicalSwapImage.resolver = nullptr;
+    auto swapImage = std::make_shared<SwapChainImageResource>(hash);
 
     // Add to resources
-    resources.insert({HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME), std::move(logicalSwapImage)});
+    resources.insert({hash, std::move(swapImage)});
+
+    return hash;
 }
 
-auto Hammock::Rendergraph::Graph::addResource(const LogicalResource& resource) -> void {
-    // TODO resolve possible collisions (RARE)
-    resources.insert({resource.getHashName(), resource});
-}
-
-auto Hammock::Rendergraph::Graph::addPass(std::unique_ptr<LogicalRenderPassInterface> pass) -> void {
-    // TODO resolve possible collisions (RARE)
-    passes.insert({pass->getHashName(), std::move(pass)});
-}

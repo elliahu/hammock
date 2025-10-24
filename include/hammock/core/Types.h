@@ -151,6 +151,42 @@ namespace Hammock {
         VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         VkMemoryPropertyFlags memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+
+        static inline auto DepthStencil(uint32_t width, uint32_t height) -> ImageDesc{
+            return {
+                .width = width,
+                .height = height,
+                .format = VK_FORMAT_D32_SFLOAT,
+                .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+            };
+        }
+
+        static inline auto RGBA8(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0) -> ImageDesc{
+            return {
+                .width = width,
+                .height = height,
+                .format = VK_FORMAT_R8G8B8A8_UNORM,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage
+            };
+        }
+
+        static inline auto RGBA16F(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0) -> ImageDesc{
+            return {
+                .width = width,
+                .height = height,
+                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage
+            };
+        }
+
+        static inline auto RGBA32F(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0) -> ImageDesc{
+            return {
+                .width = width,
+                .height = height,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage
+            };
+        }
     };
 
     struct SamplerDesc {
