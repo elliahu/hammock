@@ -26,7 +26,7 @@ namespace Hammock
         Window(const Window &) = delete;
         Window &operator=(const Window &) = delete;
 
-        VkSurfaceKHR getSurface() const { return window->getSurface(); }
+        VkSurfaceKHR getSurface() const override{ return window->getSurface(); }
         std::string getWindowName() const { return windowName; }
         VkExtent2D getExtent() const override
         {
