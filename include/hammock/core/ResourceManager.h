@@ -1,8 +1,6 @@
 #pragma once
 #include <hammock/core/CoreUtils.h>
 
-#include <functional>
-
 #include "hammock/core/Buffer.h"
 #include "hammock/core/Device.h"
 #include "hammock/core/Image.h"

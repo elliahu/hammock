@@ -15,6 +15,12 @@ public:
         }
     }
 
+    static void dispose() {
+        if (instance_ != nullptr) {
+            instance_ = nullptr;
+        }
+    }
+
     static T& getInstance() {
         if (!instance_) {
             throw std::runtime_error("Singleton not initialized. Call initialize() first.");

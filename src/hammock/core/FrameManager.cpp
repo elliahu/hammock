@@ -1,4 +1,6 @@
 #include "hammock/core/FrameManager.h"
+#include <iostream>
+#include "hammock/core/ResourceManager.h"
 
 Hammock::FrameManager::FrameManager(Window &window, Device &device) : window{window}, device{device}{
     recreateSwapChain();
@@ -15,6 +17,7 @@ void Hammock::FrameManager::recreateSwapChain() {
     while (extent.width == 0 || extent.height == 0) {
         window.pollEvents();
         extent = window.getExtent();
+        std::cout << "Window resized\n";
     }
     vkDeviceWaitIdle(device.device());
 

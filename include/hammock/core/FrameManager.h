@@ -2,10 +2,9 @@
 
 #include <cassert>
 #include <memory>
-#include <queue>
 #include <vector>
 
-#include "hammock/core/ResourceManager.h"
+
 #include "hammock/core/SwapChain.h"
 #include "hammock/platform/Window.h"
 #include "hammock/utils/Singleton.h"

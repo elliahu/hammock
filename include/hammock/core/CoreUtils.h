@@ -176,8 +176,8 @@ namespace Hammock {
         inline AssertAction CurrentAction = AssertAction::Abort;
 
         // Assert handler
-        inline void HandleAssert(const char* expr, const char* file, int line, const char* func,
-                                 const std::string& message) {
+        inline void HandleAssert(
+            const char* expr, const char* file, int line, const char* func, const std::string& message) {
             // Construct the debug message
             std::string debugMessage = "[ASSERT FAILED]\n";
             debugMessage += "Expression: " + std::string(expr) + "\n";
@@ -205,20 +205,20 @@ namespace Hammock {
     // Custom assert macro
 #ifndef ASSERT
 #if defined(_MSC_VER)
-#define ASSERT(expr, message)                                                                 \
-    do {                                                                                      \
-        if (!(expr)) {                                                                        \
-            AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,                              \
-                                      __FUNCTION__, message); /* Use __FUNCTION__ for MSVC */ \
-        }                                                                                     \
+#define ASSERT(expr, message)                                                                      \
+    do {                                                                                           \
+        if (!(expr)) {                                                                             \
+            AssertUtils::HandleAssert(                                                             \
+                #expr, __FILE__, __LINE__, __FUNCTION__, message); /* Use __FUNCTION__ for MSVC */ \
+        }                                                                                          \
     } while (false)
 #else
-#define ASSERT(expr, message)                                                                               \
-    do {                                                                                                    \
-        if (!(expr)) {                                                                                      \
-            Hammock::AssertUtils::HandleAssert(#expr, __FILE__, __LINE__,                                   \
-                                               __PRETTY_FUNCTION__, message); /* Use __PRETTY_FUNCTION__ */ \
-        }                                                                                                   \
+#define ASSERT(expr, message)                                                                           \
+    do {                                                                                                \
+        if (!(expr)) {                                                                                  \
+            Hammock::AssertUtils::HandleAssert(                                                         \
+                #expr, __FILE__, __LINE__, __PRETTY_FUNCTION__, message); /* Use __PRETTY_FUNCTION__ */ \
+        }                                                                                               \
     } while (false)
 #endif
 #endif
@@ -279,22 +279,18 @@ namespace Hammock {
         NonCopyable& operator=(const NonCopyable&) = delete;
     };
 
-    // TODO FIXME this is total shit! it needs to know the size of the allocation and also if it should use free() for C style or delete[]
+    // TODO FIXME this is total shit! it needs to know the size of the allocation and also if it should use
+    // free() for C style or delete[]
     class [[deprecated("Use AutoDele class")]] ScopedMemory {
        public:
         // Constructor to take ownership of the pointer
-        explicit ScopedMemory(const void* ptr = nullptr)
-            : memory_(ptr) {
-        }
+        explicit ScopedMemory(const void* ptr = nullptr) : memory_(ptr) {}
 
         // Destructor automatically frees the memory
-        ~ScopedMemory() {
-            clear();
-        }
+        ~ScopedMemory() { clear(); }
 
         // Move constructor to allow transferring ownership
-        ScopedMemory(ScopedMemory&& other) noexcept
-            : memory_(other.memory_) {
+        ScopedMemory(ScopedMemory&& other) noexcept : memory_(other.memory_) {
             other.memory_ = nullptr;  // Release ownership from the source
         }
 
@@ -322,34 +318,30 @@ namespace Hammock {
         }
 
         // Retrieve the pointer
-        const void* get() const {
-            return memory_;
-        }
+        const void* get() const { return memory_; }
 
         // Access the pointer with [] syntax (useful for arrays)
-        const void* operator[](size_t index) const {
-            return static_cast<const char*>(memory_) + index;
-        }
+        const void* operator[](size_t index) const { return static_cast<const char*>(memory_) + index; }
 
        private:
         const void* memory_;  // Pointer to the managed memory
     };
 
-    class AutoDelete {
+    class AutoDispose {
        public:
         using Deleter = std::function<void(const void*)>;
 
-        explicit AutoDelete(const void* ptr = nullptr, Deleter deleter = nullptr)
+        explicit AutoDispose(const void* ptr = nullptr, Deleter deleter = nullptr)
             : memory_(ptr), deleter_(std::move(deleter)) {}
 
-        ~AutoDelete() { clear(); }
+        ~AutoDispose() { clear(); }
 
-        AutoDelete(AutoDelete&& other) noexcept
+        AutoDispose(AutoDispose&& other) noexcept
             : memory_(other.memory_), deleter_(std::move(other.deleter_)) {
             other.memory_ = nullptr;
         }
 
-        AutoDelete& operator=(AutoDelete&& other) noexcept {
+        AutoDispose& operator=(AutoDispose&& other) noexcept {
             if (this != &other) {
                 clear();
                 memory_ = other.memory_;
@@ -359,8 +351,8 @@ namespace Hammock {
             return *this;
         }
 
-        AutoDelete(const AutoDelete&) = delete;
-        AutoDelete& operator=(const AutoDelete&) = delete;
+        AutoDispose(const AutoDispose&) = delete;
+        AutoDispose& operator=(const AutoDispose&) = delete;
 
         void clear() {
             if (memory_) {
@@ -376,6 +368,40 @@ namespace Hammock {
         Deleter deleter_;
     };
 
+    class Scoped {
+       public:
+        explicit Scoped(std::function<void()> onExitScope)
+            : callback_(std::move(onExitScope)), active_(true) {}
+
+        // Move constructor
+        Scoped(Scoped&& other) noexcept : callback_(std::move(other.callback_)), active_(other.active_) {
+            other.active_ = false;
+        }
+
+        // Disable copy
+        Scoped(const Scoped&) = delete;
+        Scoped& operator=(const Scoped&) = delete;
+
+        // Dismiss the callback if needed
+        void dismiss() { active_ = false; }
+
+        ~Scoped() {
+            if (active_ && callback_) {
+                callback_();
+            }
+        }
+
+       private:
+        std::function<void()> callback_;
+        bool active_;
+    };
+
+    // Helper function to simplify usage
+    template <typename F>
+    Scoped makeScoped(F&& f) {
+        return Scoped(std::forward<F>(f));
+    }
+
     // dark magic from: https://stackoverflow.com/a/57595105
     template <typename T, typename... Rest>
     void hashCombine(std::size_t& seed, const T& v, const Rest&... rest) {
@@ -384,7 +410,8 @@ namespace Hammock {
     };
 
     inline void checkResult(VkResult result) {
-        assert(result == VK_SUCCESS && "Vulkan API assertion failed! This may indicates a bug in the application.");
+        assert(result == VK_SUCCESS &&
+               "Vulkan API assertion failed! This may indicates a bug in the application.");
     }
 
     // Check if enity of type P is derived from T
@@ -416,12 +443,8 @@ namespace Hammock {
         return static_cast<uint32_t>(std::floor(std::log2((std::min)(width, height)))) + 1;
     }
 
-    inline void transitionImageLayout(
-        VkCommandBuffer cmdbuffer,
-        VkImage image,
-        VkImageLayout oldImageLayout,
-        VkImageLayout newImageLayout,
-        VkImageSubresourceRange subresourceRange,
+    inline void transitionImageLayout(VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout,
+        VkImageLayout newImageLayout, VkImageSubresourceRange subresourceRange,
         VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
         VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
         uint32_t srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -519,7 +542,8 @@ namespace Hammock {
                 // Image will be read in a shader (sampler, input attachment)
                 // Make sure any writes to the image have been finished
                 if (imageMemoryBarrier.srcAccessMask == 0) {
-                    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+                    imageMemoryBarrier.srcAccessMask =
+                        VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
                 }
                 imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
                 break;
@@ -530,22 +554,12 @@ namespace Hammock {
 
         // Put barrier inside setup command buffer
         vkCmdPipelineBarrier(
-            cmdbuffer,
-            srcStageMask,
-            dstStageMask,
-            0,
-            0, nullptr,
-            0, nullptr,
-            1, &imageMemoryBarrier);
+            cmdbuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
     }
 
     // Fixed sub resource on first mip level and layer
-    inline void transitionImageLayout(
-        VkCommandBuffer cmdbuffer,
-        VkImage image,
-        VkImageAspectFlags aspectMask,
-        VkImageLayout oldImageLayout,
-        VkImageLayout newImageLayout,
+    inline void transitionImageLayout(VkCommandBuffer cmdbuffer, VkImage image, VkImageAspectFlags aspectMask,
+        VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
         VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
         VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT) {
         VkImageSubresourceRange subresourceRange = {};
@@ -553,7 +567,8 @@ namespace Hammock {
         subresourceRange.baseMipLevel = 0;
         subresourceRange.levelCount = 1;
         subresourceRange.layerCount = 1;
-        transitionImageLayout(cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
+        transitionImageLayout(
+            cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
     }
 
     inline size_t alignSize(size_t size, size_t alignment) {
@@ -561,32 +576,28 @@ namespace Hammock {
     }
 
     inline bool isDepthFormat(VkFormat format) {
-        std::vector<VkFormat> formats =
-            {
-                VK_FORMAT_D16_UNORM,
-                VK_FORMAT_X8_D24_UNORM_PACK32,
-                VK_FORMAT_D32_SFLOAT,
-                VK_FORMAT_D16_UNORM_S8_UINT,
-                VK_FORMAT_D24_UNORM_S8_UINT,
-                VK_FORMAT_D32_SFLOAT_S8_UINT,
-            };
+        std::vector<VkFormat> formats = {
+            VK_FORMAT_D16_UNORM,
+            VK_FORMAT_X8_D24_UNORM_PACK32,
+            VK_FORMAT_D32_SFLOAT,
+            VK_FORMAT_D16_UNORM_S8_UINT,
+            VK_FORMAT_D24_UNORM_S8_UINT,
+            VK_FORMAT_D32_SFLOAT_S8_UINT,
+        };
         return std::ranges::find(formats, format) != std::end(formats);
     }
 
     inline bool isStencilFormat(VkFormat format) {
-        std::vector<VkFormat> formats =
-            {
-                VK_FORMAT_S8_UINT,
-                VK_FORMAT_D16_UNORM_S8_UINT,
-                VK_FORMAT_D24_UNORM_S8_UINT,
-                VK_FORMAT_D32_SFLOAT_S8_UINT,
-            };
+        std::vector<VkFormat> formats = {
+            VK_FORMAT_S8_UINT,
+            VK_FORMAT_D16_UNORM_S8_UINT,
+            VK_FORMAT_D24_UNORM_S8_UINT,
+            VK_FORMAT_D32_SFLOAT_S8_UINT,
+        };
         return std::ranges::find(formats, format) != std::end(formats);
     }
 
-    inline bool isDepthStencil(VkFormat format) {
-        return (isDepthFormat(format) || isStencilFormat(format));
-    }
+    inline bool isDepthStencil(VkFormat format) { return (isDepthFormat(format) || isStencilFormat(format)); }
 
     inline uint16_t float32float16(float f) {
         uint32_t f32 = *(uint32_t*)&f;
@@ -634,8 +645,6 @@ namespace Hammock {
         return hash;
     }
 
-    constexpr uint32_t HashName(const char* name) noexcept {
-        return HashFNV1a32bit(name);
-    }
+    constexpr uint32_t HashName(const char* name) noexcept { return HashFNV1a32bit(name); }
 
 }  // namespace Hammock
