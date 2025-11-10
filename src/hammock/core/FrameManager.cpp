@@ -1,6 +1,6 @@
 #include "hammock/core/FrameManager.h"
 
-Hammock::FrameManager::FrameManager(Window &window, Device &device, ResourceManager &resourceManager ) : window{window}, device{device}, resourceManager{resourceManager}{
+Hammock::FrameManager::FrameManager(Window &window, Device &device) : window{window}, device{device}{
     recreateSwapChain();
 }
 
@@ -31,7 +31,7 @@ void Hammock::FrameManager::recreateSwapChain() {
 
     // Clear previous images
     for (auto handle: handlesOfSwapImages) {
-        resourceManager.releaseResource(handle.getUid());
+        ResourceManager::getInstance().releaseResource(handle.getUid());
     }
 
     handlesOfSwapImages.clear();
@@ -39,7 +39,7 @@ void Hammock::FrameManager::recreateSwapChain() {
     // Track new images
     for(int i = 0; i < swapChain->imageCount(); i++) {
 
-        ResourceHandle handle = resourceManager.addResource<Image>("SWAPCHAIN_IMAGE_" + std::to_string(i), ImageDesc{
+        ResourceHandle handle = ResourceManager::getInstance().addResource<Image>("SWAPCHAIN_IMAGE_" + std::to_string(i), ImageDesc{
             .width = extent.width,
             .height = extent.height,
             .image = swapChain->getImage(i),

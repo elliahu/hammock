@@ -3,7 +3,9 @@
 #include <cstddef>
 #include <memory>
 
+#include "hammock/core/FrameManager.h"
 #include "hammock/core/GraphicsPipeline.h"
+#include "hammock/core/ResourceManager.h"
 #include "hammock/rendergraph/ExecutionContext.h"
 #include "hammock/rendergraph/Pass.h"
 #include "hammock/resources/Descriptors.h"
@@ -19,8 +21,12 @@ int main() {
     VulkanInstance instance{};
     Hammock::Window window{instance, "Render Graph", 1920, 1080};
     Device device{instance, window.getSurface()};
-    ResourceManager rm{device};
-    FrameManager fm{window, device, rm};
+
+    ResourceManager::initialize(device);
+    ResourceManager& rm = ResourceManager::getInstance();
+
+    FrameManager::initialize(window, device);
+    FrameManager& fm = FrameManager::getInstance();
 
     DescriptorPool::initialize(device,
         1000,
@@ -32,12 +38,12 @@ int main() {
             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000},
             {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 10000},
         });
-    auto& descPool = DescriptorPool::getInstance();
+    DescriptorPool& descPool = DescriptorPool::getInstance();
 
-        auto descriptorSetLayout =
-            DescriptorSetLayout::Builder(device)
-                .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                .build();
+    auto descriptorSetLayout =
+        DescriptorSetLayout::Builder(device)
+            .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .build();
 
     auto pipeline = GraphicsPipeline::create({.debugName = "present-pipeline",
         .device = device,
