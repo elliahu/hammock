@@ -1,6 +1,6 @@
 BasedOnStyle: Google
 IndentWidth: 4
-ColumnLimit: 120
+ColumnLimit: 110
 NamespaceIndentation: All
 BinPackArguments: false
 ContinuationIndentWidth: 4

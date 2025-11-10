@@ -71,29 +71,6 @@ namespace Hammock {
         vkDestroyDescriptorSetLayout(device.device(), descriptorSetLayout, nullptr);
     }
 
-    // *************** Descriptor Pool Builder *********************
-
-    DescriptorPool::Builder &DescriptorPool::Builder::addPoolSize(
-        const VkDescriptorType descriptorType, const uint32_t count) {
-        poolSizes.push_back({descriptorType, count});
-        return *this;
-    }
-
-    DescriptorPool::Builder &DescriptorPool::Builder::setPoolFlags(
-        const VkDescriptorPoolCreateFlags flags) {
-        poolFlags = flags;
-        return *this;
-    }
-
-    DescriptorPool::Builder &DescriptorPool::Builder::setMaxSets(const uint32_t count) {
-        maxSets = count;
-        return *this;
-    }
-
-    std::unique_ptr<DescriptorPool> DescriptorPool::Builder::build() const {
-        return std::make_unique<DescriptorPool>(device, maxSets, poolFlags, poolSizes);
-    }
-
     // *************** Descriptor Pool *********************
 
     DescriptorPool::DescriptorPool(

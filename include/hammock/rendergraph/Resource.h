@@ -3,9 +3,8 @@
 #include <functional>
 
 #include "hammock/core/core.h"
-#include "hammock/rendergraph/Pass.h"
 #include "hammock/rendergraph/Node.h"
-
+#include "hammock/rendergraph/Pass.h"
 
 namespace Hammock {
     namespace Rendergraph {
@@ -18,37 +17,45 @@ namespace Hammock {
 
             Resource(uint32_hash_t hashName) : Node(hashName) {}
 
-            // Resolver is used to resolve the actual resource handle for resources that are buffered
-            ResourceResolver resolver;
-
-            /**
-             * Returns handle corresponding to resource of specific frame
-             * @param rm ResourceManager where resource is registered
-             * @param frameIndex Frame index of the resource
-             * @return Returns resolved handle
-             */
-            ResourceHandle resolve(ResourceManager& rm, uint32_t frameIndex) {
-                if (isDirty || cachedHandles.empty()) {
-                    cachedHandles.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-                    isDirty = false;
-                }
-
-                if (!cachedHandles[frameIndex].isValid()) {
-                    cachedHandles[frameIndex] = resolver(rm, frameIndex);
-                }
-
-                return cachedHandles[frameIndex];
-            }
-
+            /// Returns a type of the resource
             virtual auto getType() -> Type = 0;
 
-            void setDirty() { isDirty = true; }
+            /// Returns handle corresponding to resource of specific frame
+            /// @param rm ResourceManager where resource is registered
+            /// @param frameIndex Frame index of the resource
+            /// @return Returns resolved handle
+            ResourceHandle resolve(ResourceManager& rm, uint32_t frameIndex) {
+                if (_isDirty || _cachedHandles.empty()) {
+                    _cachedHandles.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+                    _isDirty = false;
+                }
+
+                if (!_cachedHandles[frameIndex].isValid()) {
+                    _cachedHandles[frameIndex] = _resolver(rm, frameIndex);
+                }
+
+                return _cachedHandles[frameIndex];
+            }
+
+            /// Sets resource resolver
+            auto setResolver(ResourceResolver resolver) -> void {
+                _resolver = std::move(resolver);
+            }
+
+            /// Marks resource as dirty
+            auto setDirty() -> void { _isDirty = true; }
+
+            /// Returns true if resource is frame-local (has one copy per frame-in-flight)
+            auto isFrameLocal() -> bool { return _frameLocal_; }
 
            private:
+            // Resolver is used to resolve the actual resource handle for resources that are buffered
+            ResourceResolver _resolver;
             // cache to store handles to avoid constant recreation
-            std::vector<ResourceHandle> cachedHandles;
+            std::vector<ResourceHandle> _cachedHandles;
             // Needs recreation
-            bool isDirty = true;
+            bool _isDirty = true;
+            bool _frameLocal_ = true;
         };
 
         class ImageResource : public Resource {
@@ -59,14 +66,14 @@ namespace Hammock {
         };
 
         class BufferResource : public Resource {
-            public:
+           public:
             BufferResource(uint32_hash_t hashName) : Resource(hashName) {}
 
             auto getType() -> Type override { return Type::Buffer; }
         };
 
         class SwapChainImageResource : public Resource {
-            public:
+           public:
             SwapChainImageResource(uint32_hash_t hashName) : Resource(hashName) {}
 
             auto getType() -> Type override { return Type::SwapChainImage; }

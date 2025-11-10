@@ -19,18 +19,31 @@
 namespace Hammock {
     namespace Rendergraph {
 
+        class Pass;
+
         enum class PassType { Graphics, Compute, Transfer };
 
         typedef std::function<void(ExecutionContext&)> ExecutionCallback;
 
+        typedef Pass* PassPtr;
+
+        struct PassResourceBinding {
+            uint32_hash_t resource;
+            uint32_t binding;
+            VkDescriptorType descriptorType;
+            VkShaderStageFlags stageFlags;
+            uint32_t count = 1;
+            VkDescriptorBindingFlags flags = 0;
+        };
+
         class Pass : public Node {
            public:
-            Pass(PassType type, uint32_hash_t hash) : Node(hash), type(type) {}
+            Pass(PassType type, const std::string& name) : Node(HashName(name.c_str())), type(type) {}
             virtual ~Pass() = default;
 
             auto getType() -> PassType { return type; }
 
-            std::unordered_map<uint32_hash_t, uint32_t> bindings{};
+            std::vector<PassResourceBinding> bindings{};
 
             ExecutionCallback execute{nullptr};
 
@@ -40,19 +53,19 @@ namespace Hammock {
 
         class ComputePass : public Pass {
            public:
-            ComputePass(PassType type, uint32_hash_t hash) : Pass(type, hash) {}
+            ComputePass(const std::string& name) : Pass(PassType::Compute, name) {}
             std::unique_ptr<ComputePipeline> pipeline;
         };
 
         class GraphicsPass : public Pass {
            public:
-            GraphicsPass(PassType type, uint32_hash_t hash) : Pass(type, hash) {}
+            GraphicsPass(const std::string& name) : Pass(PassType::Graphics, name) {}
             std::unique_ptr<GraphicsPipeline> pipeline;
         };
 
         class TransferPass : public Pass {
            public:
-            TransferPass(PassType type, uint32_hash_t hash) : Pass(type, hash) {}
+            TransferPass(const std::string& name) : Pass(PassType::Transfer, name) {}
         };
 
         template <typename PassT>
@@ -63,7 +76,7 @@ namespace Hammock {
             std::unique_ptr<PassT> pass;
 
            public:
-            explicit PassBuilder(uint32_hash_t hash) : pass(std::make_unique<PassT>(hash)) {}
+            explicit PassBuilder(const std::string& name) : pass(std::make_unique<PassT>(name)) {}
 
             auto read(std::initializer_list<uint32_hash_t> handles) -> PassBuilder& {
                 for (const auto& handle : handles) {
@@ -78,9 +91,9 @@ namespace Hammock {
                 return *this;
             }
 
-            PassBuilder& bindings(std::initializer_list<std::pair<uint32_hash_t, uint32_t>> bindingsList) {
+            PassBuilder& bindings(std::initializer_list<PassResourceBinding> bindingsList) {
                 for (auto& binding : bindingsList) {
-                    pass->bindings[binding.first] = binding.second;
+                    pass->bindings.push_back(binding);
                 }
                 return *this;
             }

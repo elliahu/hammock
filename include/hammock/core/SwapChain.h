@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include <functional>
 #include <vector>
 #include <memory>
 
@@ -47,6 +48,12 @@ namespace Hammock {
 
         [[nodiscard]] bool compareSwapFormats(const SwapChain &swapChain) const {
             return swapChain.swapChainImageFormat == swapChainImageFormat;
+        }
+
+        static void forEachFrameInFlight(std::function<void(int frame)> cb){
+            for(int frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++){
+                cb(frame);
+            }
         }
 
     private:

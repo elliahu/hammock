@@ -9,21 +9,17 @@ Hammock::DeviceStorage::DeviceStorage(Device &device) : device{device}, buffers(
                                                      descriptorSetLayouts(),
                                                      texture2Ds(),
                                                      texture3Ds() {
-    descriptorPool = DescriptorPool::Builder(device)
-            .setMaxSets(20000)
-            .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 10000)
-            .addPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 10000)
-            .build();
+            DescriptorPool::initialize(device,
+        1000,
+        VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        {
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10000},
+            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10000},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000},
+            {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 10000},
+        });
+    auto& descriptorPool = DescriptorPool::getInstance();
 }
 
 Hammock::DeviceStorageResourceHandle<Hammock::LegacyBuffer> Hammock::DeviceStorage::createBuffer(BufferCreateInfo createInfo) {

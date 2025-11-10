@@ -10,12 +10,6 @@ namespace Hammock {
        public:
         CommandBuffer(VkCommandBuffer cmd) : commandBuffer(cmd) {}
 
-        // Not copyable or movable
-        CommandBuffer(const CommandBuffer&) = delete;
-        CommandBuffer& operator=(const CommandBuffer&) = delete;
-        CommandBuffer(CommandBuffer&&) = delete;
-        CommandBuffer& operator=(CommandBuffer&&) = delete;
-
         auto waitOnSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void;
 
         auto signalSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void;
@@ -23,6 +17,8 @@ namespace Hammock {
         auto begin() -> std::expected<void, std::string>;
 
         auto submit(VkQueue queue) -> std::expected<void, std::string>;
+
+        auto getCommandBuffer() -> VkCommandBuffer { return commandBuffer; }
 
        private:
         VkCommandBuffer commandBuffer;
