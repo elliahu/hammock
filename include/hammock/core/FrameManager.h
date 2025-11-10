@@ -16,8 +16,8 @@ namespace Hammock {
        public:
         ~FrameManager();
 
-        static void initialize(Window& window, Device& device) {
-            Singleton<FrameManager>::initialize(window, device);
+        static void initialize(SurfaceProvider& i_surfaceProvider, Device& device) {
+            Singleton<FrameManager>::initialize(i_surfaceProvider, device);
         }
 
         // delete copy constructor and copy destructor
@@ -46,11 +46,11 @@ namespace Hammock {
         void endFrame();
 
        protected:
-        FrameManager(Window& window, Device& device);
+        FrameManager(SurfaceProvider& i_surfaceProvider, Device& device);
 
         void recreateSwapChain();
 
-        Window& window;
+        SurfaceProvider& surfaceProvider;
         Device& device;
         std::unique_ptr<SwapChain> swapChain;
         std::vector<ResourceHandle> handlesOfSwapImages;

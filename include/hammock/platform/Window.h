@@ -11,10 +11,11 @@
 #include <VulkanSurfer.h>
 #include "hammock/core/VulkanInstance.h"
 #include "hammock/core/HandmadeMath.h"
+#include "hammock/core/SurfaceProvider.h"
 
 namespace Hammock
 {
-    class Window
+    class Window : public SurfaceProvider
     {
     public:
         Window(VulkanInstance &instance, const std::string &_windowName, int windowWidth, int windowHeight);
@@ -27,12 +28,12 @@ namespace Hammock
 
         VkSurfaceKHR getSurface() const { return window->getSurface(); }
         std::string getWindowName() const { return windowName; }
-        VkExtent2D getExtent() const
+        VkExtent2D getExtent() const override
         {
             return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
         }
-        bool wasWindowResized() const { return framebufferResized; }
-        void resetWindowResizedFlag() { framebufferResized = false; }
+        bool wasResized() const override{ return framebufferResized; }
+        void resetResized() override { framebufferResized = false; }
 
         bool isKeyDown(Surfer::KeyCode keyCode);
         bool isInFocus() const {return inFocus;}

@@ -2,7 +2,7 @@
 #include <iostream>
 #include "hammock/core/ResourceManager.h"
 
-Hammock::FrameManager::FrameManager(Window &window, Device &device) : window{window}, device{device}{
+Hammock::FrameManager::FrameManager(SurfaceProvider& i_surfaceProvider, Device &device) : surfaceProvider{i_surfaceProvider}, device{device}{
     recreateSwapChain();
 }
 
@@ -12,11 +12,10 @@ Hammock::FrameManager::~FrameManager() {
 
 
 void Hammock::FrameManager::recreateSwapChain() {
-    auto extent = window.getExtent();
+    auto extent = surfaceProvider.getExtent();
 
     while (extent.width == 0 || extent.height == 0) {
-        window.pollEvents();
-        extent = window.getExtent();
+        extent = surfaceProvider.getExtent();
         std::cout << "Window resized\n";
     }
     vkDeviceWaitIdle(device.device());
@@ -62,9 +61,9 @@ void Hammock::FrameManager::submitPresentCommandBuffer(VkCommandBuffer commandBu
     }
 
     auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex, wait, waitStages);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized()) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || surfaceProvider.wasResized()) {
         // Window was resized (resolution was changed)
-        window.resetWindowResizedFlag();
+        surfaceProvider.resetResized();
         recreateSwapChain();
     } else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image");
