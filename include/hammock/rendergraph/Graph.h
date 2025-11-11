@@ -16,7 +16,7 @@
 #include "hammock/rendergraph/Edge.h"
 #include "hammock/rendergraph/Node.h"
 #include "hammock/rendergraph/Pass.h"
-#include "hammock/resources/Descriptors.h"
+#include "hammock/core/Descriptors.h"
 
 namespace Hammock {
     namespace Rendergraph {
@@ -31,7 +31,7 @@ namespace Hammock {
             };
 
             /// name of the swapchain image for referencing
-            inline static const char* SWAP_CHAIN_IMAGE_RESOURCE_NAME = "__swap_chain_image__";
+            inline static auto SWAP_CHAIN_IMAGE_RESOURCE_NAME = "__swap_chain_image__";
 
             // Resolver typedef
             typedef std::function<SwapChainImage()> SwapChainImageResolver;

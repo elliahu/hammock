@@ -1,10 +1,6 @@
 #include <hammock/hammock.h>
-
 #include <memory>
-#include "hammock/core/CoreUtils.h"
-#include "hammock/core/FrameManager.h"
-#include "hammock/core/ResourceManager.h"
-#include "hammock/resources/Descriptors.h"
+
 
 using namespace Hammock;
 
@@ -35,7 +31,7 @@ int main() {
         });
     DescriptorPool& dp = DescriptorPool::getInstance();
 
-    Scoped deleter([]{
+    Scoped deleter([] {
         ResourceManager::dispose();
         FrameManager::dispose();
         DescriptorPool::dispose();
@@ -62,42 +58,39 @@ int main() {
             .colorAttachmentCount = 1,
             .colorAttachmentFormats = {fm.getSwapChain()->getSwapChainImageFormat()},
         }});
-    /*
-        // Create the rendergraph instance
-        auto renderGraph = std::make_unique<Rendergraph::Graph>(Rendergraph::Graph::CreateInfo{
-            .device = device,
-            .resourceManager = rm,
-        });
 
-        auto scColor = renderGraph->useSwapChainImages([&fm]() {
-            return Rendergraph::Graph::SwapChainImage{
-                .image = fm.getSwapChain()->getImage(fm.getSwapChainImageIndex()),
-                .imageView = fm.getSwapChain()->getImageView(fm.getSwapChainImageIndex()),
-                .format = fm.getSwapChain()->getSwapChainImageFormat(),
-            };
-        });
+    // Create the rendergraph instance
+    auto renderGraph = std::make_unique<Rendergraph::Graph>(Rendergraph::Graph::CreateInfo{
+        .device = device,
+        .resourceManager = rm,
+    });
 
-        renderGraph->addPass(Rendergraph::PassBuilder<Rendergraph::GraphicsPass>("COLOR1")
-                .write({scColor})
-                .bindings({{scColor, 0}})
-                .pipeline(std::move(pipeline))
-                .execute([](Rendergraph::ExecutionContext context) { Logger::debug("Executing COLOR1"); })
-                .build());
+    auto scColor = renderGraph->useSwapChainImages([&fm]() {
+        return Rendergraph::Graph::SwapChainImage{
+            .image = fm.getSwapChain()->getImage(fm.getSwapChainImageIndex()),
+            .imageView = fm.getSwapChain()->getImageView(fm.getSwapChainImageIndex()),
+            .format = fm.getSwapChain()->getSwapChainImageFormat(),
+        };
+    });
 
-        // Build the render graph
-        if (const auto result = renderGraph->build(); !result) {
-            Logger::error("Rendergraph build failed: %s", result.error().c_str());
-            exit(EXIT_FAILURE);
-        }
+    renderGraph->addPass(Rendergraph::PassBuilder<Rendergraph::GraphicsPass>("COLOR1")
+            .write({scColor})
+            .bindings({{scColor, 0}})
+            .pipeline(std::move(pipeline))
+            .execute([](Rendergraph::ExecutionContext context) { Logger::debug("Executing COLOR1"); })
+            .build());
 
-        renderGraph->execute();
-    */
+    /* // Build the render graph
+    if (const auto result = renderGraph->build(); !result) {
+        Logger::error("Rendergraph build failed: %s", result.error().c_str());
+        exit(EXIT_FAILURE);
+    }
+
+    renderGraph->execute(); */
+
     device.waitIdle();
     while (!window.shouldClose()) {
         window.pollEvents();
     }
     device.waitIdle();
-
-
-    
 }

@@ -4,7 +4,7 @@
 #include <vector>
 
 #include <hammock/legacy/Buffer.h>
-#include <hammock/resources/Descriptors.h>
+#include <hammock/core/Descriptors.h>
 #include <hammock/legacy/Texture.h>
 
 namespace Hammock {

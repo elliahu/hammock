@@ -1,4 +1,4 @@
-#include "hammock/resources/Descriptors.h"
+#include "hammock/core/Descriptors.h"
 
 // std
 #include <cassert>

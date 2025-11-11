@@ -2,80 +2,72 @@
     "version": 6,
     "configurePresets": [
         {
-            "name": "clang-base-release",
-            "displayName": "Clang Release (Base)",
-            "hidden": true,
+            "name": "debug-windows",
+            "displayName": "Debug (Windows)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/clang-release",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": true
-            }
-        },
-        {
-            "name": "clang-release-windows",
-            "inherits": "clang-base-release",
+            "binaryDir": "${sourceDir}/build/debug",
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_C_COMPILER": "clang.exe",
                 "CMAKE_CXX_COMPILER": "clang++.exe"
             }
         },
         {
-            "name": "clang-release",
-            "inherits": "clang-base-release",
+            "name": "debug-linux",
+            "displayName": "Debug (Linux)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/debug",
             "condition": {
                 "type": "notEquals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_C_COMPILER": "clang",
                 "CMAKE_CXX_COMPILER": "clang++"
             }
         },
-
         {
-            "name": "clang-base-debug",
-            "displayName": "Clang Debug (Base)",
-            "hidden": true,
+            "name": "release-windows",
+            "displayName": "Release (Windows)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/clang-debug",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": true
-            }
-        },
-        {
-            "name": "clang-debug-windows",
-            "inherits": "clang-base-debug",
+            "binaryDir": "${sourceDir}/build/release",
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_C_COMPILER": "clang.exe",
                 "CMAKE_CXX_COMPILER": "clang++.exe"
             }
         },
         {
-            "name": "clang-debug",
-            "inherits": "clang-base-debug",
+            "name": "release-linux",
+            "displayName": "Release (Linux)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/release",
             "condition": {
                 "type": "notEquals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_C_COMPILER": "clang",
                 "CMAKE_CXX_COMPILER": "clang++"
             }
         }
     ]
 }
-
