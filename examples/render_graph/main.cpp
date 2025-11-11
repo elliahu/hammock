@@ -14,10 +14,9 @@ int main() {
     Device device{instance, window.getSurface()};
 
     ResourceManager::initialize(device);
-    ResourceManager& rm = ResourceManager::getInstance();
 
     FrameManager::initialize(window, device);
-    FrameManager& fm = FrameManager::getInstance();
+
 
     DescriptorPool::initialize(device,
         1000,
@@ -56,16 +55,14 @@ int main() {
         .dynamicRendering = {
             .enabled = true,
             .colorAttachmentCount = 1,
-            .colorAttachmentFormats = {fm.getSwapChain()->getSwapChainImageFormat()},
+            .colorAttachmentFormats = {FrameManager::getInstance().getSwapChain()->getSwapChainImageFormat()},
         }});
 
     // Create the rendergraph instance
-    auto renderGraph = std::make_unique<Rendergraph::Graph>(Rendergraph::Graph::CreateInfo{
-        .device = device,
-        .resourceManager = rm,
-    });
+    auto renderGraph = std::make_unique<Rendergraph::Graph>(device);
 
-    auto scColor = renderGraph->useSwapChainImages([&fm]() {
+    auto scColor = renderGraph->useSwapChainImages([]{
+        auto& fm = FrameManager::getInstance();
         return Rendergraph::Graph::SwapChainImage{
             .image = fm.getSwapChain()->getImage(fm.getSwapChainImageIndex()),
             .imageView = fm.getSwapChain()->getImageView(fm.getSwapChainImageIndex()),
@@ -75,7 +72,6 @@ int main() {
 
     renderGraph->addPass(Rendergraph::PassBuilder<Rendergraph::GraphicsPass>("COLOR1")
             .write({scColor})
-            .bindings({{scColor, 0}})
             .pipeline(std::move(pipeline))
             .execute([](Rendergraph::ExecutionContext context) { Logger::debug("Executing COLOR1"); })
             .build());

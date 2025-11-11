@@ -6,28 +6,27 @@
 #include <string>
 
 #include "hammock/core/CommandBuffer.h"
+#include "hammock/core/Descriptors.h"
 #include "hammock/core/Device.h"
 #include "hammock/core/SwapChain.h"
 #include "hammock/core/Types.h"
 #include "hammock/rendergraph/ExecutionContext.h"
 #include "hammock/rendergraph/Pass.h"
 #include "hammock/rendergraph/Resource.h"
-#include "hammock/core/Descriptors.h"
 
-Hammock::Rendergraph::Graph::Graph(const CreateInfo &createInfo)
-    : rm{createInfo.resourceManager}, device(createInfo.device) {
-}
+
+Hammock::Rendergraph::Graph::Graph(Device& device) : device(device) {}
 
 auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std::string> {
     // Create list of all nodes
     std::vector<uint32_hash_t> nodes{};
     nodes.reserve(resources.size() + passes.size());
 
-    for (const auto &pair: resources) {
+    for (const auto& pair : resources) {
         nodes.push_back(pair.first);
     }
 
-    for (const auto &pair: passes) {
+    for (const auto& pair : passes) {
         nodes.push_back(pair.first);
     }
 
@@ -35,12 +34,12 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std
     std::unordered_map<uint32_hash_t, std::vector<uint32_hash_t> > adj{};
     std::unordered_map<uint32_hash_t, uint32_t> indegree{};
 
-    for (const auto &node: nodes) {
+    for (const auto& node : nodes) {
         adj[node];
         indegree[node] = 0u;
     }
 
-    for (const auto &edge: edges) {
+    for (const auto& edge : edges) {
         adj[edge.srcHashName].push_back(edge.dstHashName);
         indegree[edge.dstHashName] += 1;
     }
@@ -48,7 +47,7 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std
     // Initialize queue with nodes that have no incoming edges
     std::queue<uint32_hash_t> queue{};
 
-    for (const auto &node: nodes) {
+    for (const auto& node : nodes) {
         if (indegree[node] == 0) {
             queue.push(node);
         }
@@ -63,7 +62,7 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std
 
         sortedNodes.push_back(node);
 
-        for (const auto &neighbor: adj[node]) {
+        for (const auto& neighbor : adj[node]) {
             indegree[neighbor] -= 1;
             if (indegree[neighbor] == 0) {
                 queue.push(neighbor);
@@ -76,16 +75,16 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std
         return std::unexpected("Cycle detected in render graph");
     }
 
-    return {}; // Success
+    return {};  // Success
 }
 
 auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::string> {
     // Look for resources access by each pass and create edges
     // Build the visited map of resources to purge unused resources from the graph
     std::vector<uint32_hash_t> visitedResources;
-    for (const auto &[passHashName, pass]: passes) {
+    for (const auto& [passHashName, pass] : passes) {
         // Resource reads are incoming edges
-        for (const auto &resourceHashName: pass->to) {
+        for (const auto& resourceHashName : pass->to) {
             const auto expectedResource = findResourceByName(resourceHashName);
             if (!expectedResource) {
                 return std::unexpected(
@@ -93,7 +92,7 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
             }
 
             // Retrieve the value
-            const auto &resource = expectedResource.value();
+            const auto& resource = expectedResource.value();
 
             // Add to visited resources
             visitedResources.push_back(resource->getHashName());
@@ -102,14 +101,14 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
             edges.push_back(Edge{
                 .srcHashName = resource->getHashName(),
                 .dstHashName = pass->getHashName(),
-                .type = Edge::Type::ResourceToPass, // Pass is reading the resource R -> P
+                .type = Edge::Type::ResourceToPass,  // Pass is reading the resource R -> P
             });
 
             pass->incomingEdges.push_back(edges.size() - 1);
         }
 
         // Resource writes are outgoing edges
-        for (const auto &resourceHashName: pass->from) {
+        for (const auto& resourceHashName : pass->from) {
             const auto expectedResource = findResourceByName(resourceHashName);
             if (!expectedResource) {
                 return std::unexpected(
@@ -117,7 +116,7 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
             }
 
             // Retrieve the value
-            const auto &resource = expectedResource.value();
+            const auto& resource = expectedResource.value();
 
             // Add to visited resources
             visitedResources.push_back(resource->getHashName());
@@ -126,7 +125,7 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
             edges.push_back(Edge{
                 .srcHashName = pass->getHashName(),
                 .dstHashName = resource->getHashName(),
-                .type = Edge::Type::PassToResource, // Pass is writing the resource P -> R
+                .type = Edge::Type::PassToResource,  // Pass is writing the resource P -> R
             });
 
             pass->outgoingEdges.push_back(edges.size() - 1);
@@ -135,19 +134,19 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
 
     // Clear unvisited resources
     std::vector<uint32_hash_t> toBeDeletedResource;
-    for (const auto &[resourceHashName, resource]: resources) {
+    for (const auto& [resourceHashName, resource] : resources) {
         if (std::ranges::find(visitedResources, resourceHashName) == visitedResources.end()) {
             toBeDeletedResource.push_back(resourceHashName);
         }
     }
 
-    for (const uint32_hash_t &resourceHashName: toBeDeletedResource) {
+    for (const uint32_hash_t& resourceHashName : toBeDeletedResource) {
         resources.erase(resourceHashName);
     }
 
     // TODO prove that some passes do not contribute to final result and erase those passes
 
-    return {}; // Success
+    return {};  // Success
 }
 
 auto Hammock::Rendergraph::Graph::findResourceByName(uint32_hash_t name)
@@ -179,13 +178,13 @@ auto Hammock::Rendergraph::Graph::execute() -> void {
 
         // Pass type specific actions
         if (pass->getType() == PassType::Graphics) {
-            if (auto *graphics = dynamic_cast<GraphicsPass *>(pass)) {
+            if (auto* graphics = dynamic_cast<GraphicsPass*>(pass)) {
             }
         } else if (pass->getType() == PassType::Compute) {
-            if (auto *compute = dynamic_cast<ComputePass *>(pass)) {
+            if (auto* compute = dynamic_cast<ComputePass*>(pass)) {
             }
         } else if (pass->getType() == PassType::Transfer) {
-            if (auto *transfer = dynamic_cast<TransferPass *>(pass)) {
+            if (auto* transfer = dynamic_cast<TransferPass*>(pass)) {
             }
         }
 
@@ -210,7 +209,7 @@ auto Hammock::Rendergraph::Graph::build() -> std::expected<void, std::string> {
         return result;
     }
 
-    return {}; // Success
+    return {};  // Success
 }
 
 auto Hammock::Rendergraph::Graph::useSwapChainImages(SwapChainImageResolver resolver) -> uint32_hash_t {
@@ -251,7 +250,7 @@ auto Hammock::Rendergraph::Graph::buildCommandBuffers() -> std::expected<void, s
         }
 
         // Create command buffer
-        CommandBuffer commandBuffer(vkCmd); // FIXME possible expensive copy
+        CommandBuffer commandBuffer(vkCmd);  // FIXME possible expensive copy
         commandBuffers.emplace(pass->getHashName(), commandBuffer);
 
         return {};
@@ -265,7 +264,7 @@ auto Hammock::Rendergraph::Graph::buildGraphDescriptors() -> std::expected<void,
         // Create layout
         auto builder = DescriptorSetLayout::Builder(device);
 
-        for (const auto &binding: pass->bindings) {
+        for (const auto& binding : pass->bindings) {
             // Find the resource
             auto expectedResource = findResourceByName(binding.resource);
             if (!expectedResource) return std::unexpected(expectedResource.error());
@@ -287,7 +286,7 @@ auto Hammock::Rendergraph::Graph::buildGraphDescriptors() -> std::expected<void,
 }
 
 auto Hammock::Rendergraph::Graph::forEachPass(std::function<void(PassPtr)> cb) -> void {
-    for (const auto &passHash: sortedNodes) {
+    for (const auto& passHash : sortedNodes) {
         if (isNodePass(passHash)) {
             cb(passes[passHash].get());
         }
@@ -296,17 +295,17 @@ auto Hammock::Rendergraph::Graph::forEachPass(std::function<void(PassPtr)> cb) -
 
 auto Hammock::Rendergraph::Graph::forEachPassExpected(
     std::function<std::expected<void, std::string>(PassPtr)> cb) -> std::expected<void, std::string> {
-    for (const auto &passHash: sortedNodes) {
+    for (const auto& passHash : sortedNodes) {
         if (isNodePass(passHash)) {
             auto result = cb(passes[passHash].get());
-            if (!result) return result; // propagate error upward
+            if (!result) return result;  // propagate error upward
         }
     }
     return {};
 }
 
 auto Hammock::Rendergraph::Graph::forEachResource(std::function<void(std::shared_ptr<Resource>)> cb) -> void {
-    for (const auto &resourceHash: sortedNodes) {
+    for (const auto& resourceHash : sortedNodes) {
         if (isNodeResource(resourceHash)) {
             auto expectedResource = findResourceByName(resourceHash);
             if (expectedResource) {
@@ -320,13 +319,13 @@ auto Hammock::Rendergraph::Graph::forEachResource(std::function<void(std::shared
 auto Hammock::Rendergraph::Graph::forEachResourceExpected(
     std::function<std::expected<void, std::string>(std::shared_ptr<Resource>)> cb)
     -> std::expected<void, std::string> {
-    for (const auto &resourceHash: sortedNodes) {
+    for (const auto& resourceHash : sortedNodes) {
         if (isNodeResource(resourceHash)) {
             auto expectedResource = findResourceByName(resourceHash);
             if (expectedResource) {
                 std::shared_ptr<Resource> resource = expectedResource.value();
                 auto result = cb(resource);
-                if (!result) return result; // propagate error upward
+                if (!result) return result;  // propagate error upward
             }
         }
     }

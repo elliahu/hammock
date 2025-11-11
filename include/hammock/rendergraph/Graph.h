@@ -35,16 +35,12 @@ namespace Hammock {
 
             // Resolver typedef
             typedef std::function<SwapChainImage()> SwapChainImageResolver;
-            struct CreateInfo {
-                Device& device;
-                ResourceManager& resourceManager;
-            };
 
             // Delete default constructor
             Graph() = delete;
 
             // Explicit one-param ctor
-            explicit Graph(const CreateInfo& createInfo);
+            explicit Graph(Device& device);
 
             /// Adds pass to the graph
             /// @param pass Unique pointer to the pass to be added
@@ -98,7 +94,6 @@ namespace Hammock {
             auto execute() -> void;
 
            private:
-            ResourceManager& rm;
             Device& device;
             std::unordered_map<uint32_hash_t, std::unique_ptr<Pass>> passes{};  // Logical passes in the graph
             std::unordered_map<uint32_hash_t, std::shared_ptr<Resource>>
