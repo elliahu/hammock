@@ -8,7 +8,7 @@
 
 namespace Hammock {
     namespace Rendergraph {
-        typedef std::function<ResourceHandle(ResourceManager&, uint32_t frameIndex)> ResourceResolver;
+        typedef std::function<ResourceHandle(uint32_t frameIndex)> ResourceResolver;
 
         /// RenderGraph node representing a resource
         class Resource : public Node {
@@ -24,14 +24,14 @@ namespace Hammock {
             /// @param rm ResourceManager where resource is registered
             /// @param frameIndex Frame index of the resource
             /// @return Returns resolved handle
-            ResourceHandle resolve(ResourceManager& rm, uint32_t frameIndex) {
+            ResourceHandle resolve(uint32_t frameIndex) {
                 if (_isDirty || _cachedHandles.empty()) {
                     _cachedHandles.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
                     _isDirty = false;
                 }
 
                 if (!_cachedHandles[frameIndex].isValid()) {
-                    _cachedHandles[frameIndex] = _resolver(rm, frameIndex);
+                    _cachedHandles[frameIndex] = _resolver(frameIndex);
                 }
 
                 return _cachedHandles[frameIndex];

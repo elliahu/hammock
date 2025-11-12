@@ -8,6 +8,7 @@
 #include "hammock/core/CommandBuffer.h"
 #include "hammock/core/Descriptors.h"
 #include "hammock/core/Device.h"
+#include "hammock/core/GraphicsPipeline.h"
 #include "hammock/core/SwapChain.h"
 #include "hammock/core/Types.h"
 #include "hammock/rendergraph/ExecutionContext.h"
@@ -84,7 +85,7 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
     std::vector<uint32_hash_t> visitedResources;
     for (const auto& [passHashName, pass] : passes) {
         // Resource reads are incoming edges
-        for (const auto& resourceHashName : pass->to) {
+        for (const auto& resourceHashName : pass->getTo()) {
             const auto expectedResource = findResourceByName(resourceHashName);
             if (!expectedResource) {
                 return std::unexpected(
@@ -104,11 +105,11 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
                 .type = Edge::Type::ResourceToPass,  // Pass is reading the resource R -> P
             });
 
-            pass->incomingEdges.push_back(edges.size() - 1);
+            pass->getIncomingEdges().push_back(edges.size() - 1);
         }
 
         // Resource writes are outgoing edges
-        for (const auto& resourceHashName : pass->from) {
+        for (const auto& resourceHashName : pass->getFrom()) {
             const auto expectedResource = findResourceByName(resourceHashName);
             if (!expectedResource) {
                 return std::unexpected(
@@ -128,7 +129,7 @@ auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::strin
                 .type = Edge::Type::PassToResource,  // Pass is writing the resource P -> R
             });
 
-            pass->outgoingEdges.push_back(edges.size() - 1);
+            pass->getOutgoingEdges().push_back(edges.size() - 1);
         }
     }
 
@@ -188,8 +189,6 @@ auto Hammock::Rendergraph::Graph::execute() -> void {
             }
         }
 
-        // Call execution callback
-        pass->execute(context);
     });
 }
 
@@ -257,7 +256,7 @@ auto Hammock::Rendergraph::Graph::buildCommandBuffers() -> std::expected<void, s
     });
 }
 
-auto Hammock::Rendergraph::Graph::buildGraphDescriptors() -> std::expected<void, std::string> {
+auto Hammock::Rendergraph::Graph::buildPipelines() -> std::expected<void, std::string> {
     return forEachPassExpected([this](PassPtr pass) -> std::expected<void, std::string> {
         DescriptorSetsAndLayout setAndLayouts{};
 
@@ -276,10 +275,16 @@ auto Hammock::Rendergraph::Graph::buildGraphDescriptors() -> std::expected<void,
 
         setAndLayouts.layout = std::move(builder.build());
 
-        // Create sets
-        SwapChain::forEachFrameInFlight([&, this](int frame) -> void {
-            // auto writer = DescriptorWriter(setAndLayouts.layout->getDescriptorSetLayout(), )
-        });
+        // Create a pipeline
+        if(pass->getType() == PassType::Graphics){
+            auto pipline = GraphicsPipeline::create({
+                .debugName = std::to_string(pass->getHashName()),
+                .device = device,
+                .vertexShader {pass->vs->spv},
+                .fragmentShader {pass->fs->spv},
+                
+            });
+        }
 
         return {};
     });

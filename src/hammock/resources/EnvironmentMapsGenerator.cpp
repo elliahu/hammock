@@ -197,12 +197,12 @@ Hammock:: DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMa
         .device = device,
         .vertexShader{
             .byteCode = Hammock::Filesystem::readFile(
-                Shader::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
+                ShaderDir::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
             .entryFunc = "main"
         },
         .fragmentShader{
             .byteCode = Hammock::Filesystem::readFile(
-                Shader::getCompiledShaderPath("generate_prefilteredmap.frag.spv").string()),
+                ShaderDir::getCompiledShaderPath("generate_prefilteredmap.frag.spv").string()),
             .entryFunc = "main"
         },
         .descriptorSetLayouts = {
@@ -481,12 +481,12 @@ Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMap
         .device = device,
         .vertexShader{
             .byteCode = Hammock::Filesystem::readFile(
-                Shader::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
+                ShaderDir::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
             .entryFunc = "main"
         },
         .fragmentShader{
             .byteCode = Hammock::Filesystem::readFile(
-                Shader::getCompiledShaderPath("generate_prefilteredmap.frag.spv").string()),
+                ShaderDir::getCompiledShaderPath("generate_prefilteredmap.frag.spv").string()),
             .entryFunc = "main"
         },
         .descriptorSetLayouts = {
@@ -686,12 +686,12 @@ Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMap
         .device = device,
         .vertexShader{
             .byteCode = Hammock::Filesystem::readFile(
-                Shader::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
+                ShaderDir::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
             .entryFunc = "main"
         },
         .fragmentShader{
             .byteCode = Hammock::Filesystem::readFile(
-                Shader::getCompiledShaderPath("generate_irradiancemap.frag.spv").string()),
+                ShaderDir::getCompiledShaderPath("generate_irradiancemap.frag.spv").string()),
             .entryFunc = "main"
         },
         .descriptorSetLayouts = {
@@ -888,11 +888,11 @@ Hammock::DeviceStorageResourceHandle<Hammock::Texture2D> Hammock::EnvironmentMap
         .device = device,
         .vertexShader{
             .byteCode = Hammock::Filesystem::readFile(
-                Shader::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
+                ShaderDir::getCompiledShaderPath("fullscreen_headless.vert.spv").string()),
             .entryFunc = "main"
         },
         .fragmentShader{
-            .byteCode = Hammock::Filesystem::readFile(Shader::getCompiledShaderPath("generate_brdflut.frag.spv").string()),
+            .byteCode = Hammock::Filesystem::readFile(ShaderDir::getCompiledShaderPath("generate_brdflut.frag.spv").string()),
             .entryFunc = "main"
         },
         .descriptorSetLayouts = {

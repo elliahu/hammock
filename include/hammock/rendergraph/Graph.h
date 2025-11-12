@@ -11,12 +11,14 @@
 #include "hammock/core/Buffer.h"
 #include "hammock/core/CommandBuffer.h"
 #include "hammock/core/CoreUtils.h"
+#include "hammock/core/Descriptors.h"
+#include "hammock/core/GraphicsPipeline.h"
 #include "hammock/core/Types.h"
 #include "hammock/core/core.h"
 #include "hammock/rendergraph/Edge.h"
 #include "hammock/rendergraph/Node.h"
 #include "hammock/rendergraph/Pass.h"
-#include "hammock/core/Descriptors.h"
+#include "hammock/rendergraph/Resource.h"
 
 namespace Hammock {
     namespace Rendergraph {
@@ -45,9 +47,9 @@ namespace Hammock {
             /// Adds pass to the graph
             /// @param pass Unique pointer to the pass to be added
             /// @returns hash name of the pass
-            auto addPass(std::unique_ptr<Pass> pass) -> uint32_hash_t {
-                uint32_hash_t hash = pass->getHashName();
-                passes.insert({pass->getHashName(), std::move(pass)});
+            auto addPass(Pass& pass) -> uint32_hash_t {
+                uint32_hash_t hash = pass.getHashName();
+                passes.emplace(hash, std::make_unique<Pass>(std::move(pass)));
                 return hash;
             };
 
@@ -58,14 +60,25 @@ namespace Hammock {
             auto createImage(const std::string& name, ImageDesc desc) -> uint32_hash_t {
                 uint32_hash_t hash = HashName(name.c_str());
                 auto imageResource = std::make_shared<ImageResource>(hash);
-                imageResource->setResolver(
-                    [desc, name](ResourceManager& rm, uint32_t frameIndex) -> ResourceHandle {
-                        return rm.createResource<Image>(name, desc);
-                    });
+                imageResource->setResolver([desc, name](uint32_t frameIndex) -> ResourceHandle {
+                    return ResourceManager::getInstance().createResource<Image>(name, desc);
+                });
 
                 resources[hash] = std::move(imageResource);
                 return hash;
             };
+
+            /// Add external image to the graph
+            /// @param name name of the image
+            /// @param resolver function  that resolves the actual resource handle
+            /// @returns hash name of the created image
+            auto useImage(const std::string& name, ResourceResolver resolver) -> uint32_hash_t {
+                uint32_hash_t hash = HashName(name.c_str());
+                auto imageResource = std::make_shared<ImageResource>(hash);
+                imageResource->setResolver(resolver);
+                resources[hash] = std::move(imageResource);
+                return hash;
+            }
 
             /// Creates buffer resource in the graph
             /// @desc: buffer description
@@ -74,14 +87,25 @@ namespace Hammock {
             auto createBuffer(const std::string& name, BufferDesc desc) -> uint32_hash_t {
                 uint32_hash_t hash = HashName(name.c_str());
                 auto bufferResource = std::make_shared<BufferResource>(hash);
-                bufferResource->setResolver(
-                    [desc, name](ResourceManager& rm, uint32_t frameIndex) -> ResourceHandle {
-                        return rm.createResource<Buffer>(name, desc);
-                    });
+                bufferResource->setResolver([desc, name](uint32_t frameIndex) -> ResourceHandle {
+                    return ResourceManager::getInstance().createResource<Buffer>(name, desc);
+                });
 
                 resources[hash] = std::move(bufferResource);
                 return hash;
             };
+
+            /// Add external buffer to the graph
+            /// @param name name of the buffer
+            /// @param resolver function  that resolves the actual resource handle
+            /// @returns hash name of the created bufferResource
+            auto useBuffer(const std::string& name, ResourceResolver resolver) -> uint32_hash_t {
+                uint32_hash_t hash = HashName(name.c_str());
+                auto bufferResource = std::make_shared<BufferResource>(hash);
+                bufferResource->setResolver(resolver);
+                resources[hash] = std::move(bufferResource);
+                return hash;
+            }
 
             /// Add a resolver to get the swapchain image for the current frame.
             /// @param resolver Function that resolves the swapchain image for a given frame index
@@ -107,6 +131,8 @@ namespace Hammock {
                 commandBuffers{};  // Map of all command buffers allocated by the graph indexed by pass hash
             std::unordered_map<uint32_hash_t, DescriptorSetsAndLayout>
                 descriptors{};  // Map of all descriptor sets allocated by the graph indexed by pass hash
+            std::unordered_map<uint32_hash_t, std::unique_ptr<GraphicsPipeline>> graphicsPipelines;
+            std::unordered_map<uint32_hash_t, std::unique_ptr<ComputePipeline>> computePipelines;
 
             /// Executes a function for each pass in the graph in topological order
             /// @param cb Callback
@@ -155,7 +181,7 @@ namespace Hammock {
             /// Builds graph specific descriptors sets.
             /// These sets are automatically bound for each pass so that the pass can use graph-owned
             /// resources
-            auto buildGraphDescriptors() -> std::expected<void, std::string>;
+            auto buildPipelines() -> std::expected<void, std::string>;
         };
     }  // namespace Rendergraph
 };  // namespace Hammock

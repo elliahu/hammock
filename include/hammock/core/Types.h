@@ -1,7 +1,10 @@
 #pragma once
 #include <variant>
-#include "hammock/core/Device.h"
+
 #include "hammock/core/CoreUtils.h"
+#include "hammock/core/Device.h"
+#include "hammock/scene/Vertex.h"
+
 
 namespace Hammock {
 
@@ -10,30 +13,21 @@ namespace Hammock {
     typedef double float64_t;
     typedef unsigned char uchar8_t;
 
-
     // Define resource types enum
-    enum class ResourceType : uint32_t {
-        Invalid = 0,
-        Image,
-        Sampler,
-        Buffer,
-        MaxTypes
-    };
+    enum class ResourceType : uint32_t { Invalid = 0, Image, Sampler, Buffer, MaxTypes };
 
     // Handle type that stores both resource type and ID
     class ResourceHandle {
-    private:
+       private:
         static constexpr uint64_t TYPE_SHIFT = 56;
         static constexpr uint64_t INDEX_MASK = (1ULL << TYPE_SHIFT) - 1;
         uint64_t packed_handle;
 
-    public:
-        ResourceHandle() : packed_handle(0) {
-        }
+       public:
+        ResourceHandle() : packed_handle(0) {}
 
         // Allow implicit conversion from existing ResourceHandle(uint64_t) constructor
-        ResourceHandle(uint64_t id) : packed_handle(id & INDEX_MASK) {
-        }
+        ResourceHandle(uint64_t id) : packed_handle(id & INDEX_MASK) {}
 
         static ResourceHandle create(ResourceType type, uint64_t resource_id) {
             ResourceHandle handle;
@@ -41,36 +35,27 @@ namespace Hammock {
             return handle;
         }
 
-        ResourceType getType() const {
-            return static_cast<ResourceType>(packed_handle >> TYPE_SHIFT);
-        }
+        ResourceType getType() const { return static_cast<ResourceType>(packed_handle >> TYPE_SHIFT); }
 
-        uint64_t getUid() const {
-            return packed_handle & INDEX_MASK;
-        }
+        uint64_t getUid() const { return packed_handle & INDEX_MASK; }
 
-        bool isValid() const {
-            return packed_handle != 0 && getType() != ResourceType::Invalid;
-        }
+        bool isValid() const { return packed_handle != 0 && getType() != ResourceType::Invalid; }
 
-        bool operator==(const ResourceHandle &other) const {
-            return packed_handle == other.packed_handle;
-        }
+        bool operator==(const ResourceHandle& other) const { return packed_handle == other.packed_handle; }
 
-        bool operator!=(const ResourceHandle &other) const {
-            return packed_handle != other.packed_handle;
-        }
+        bool operator!=(const ResourceHandle& other) const { return packed_handle != other.packed_handle; }
 
         // TODO Helper for debugging
-        const char *getTypeName() const {
+        const char* getTypeName() const {
             switch (getType()) {
-                default: return "Invalid";
+                default:
+                    return "Invalid";
             }
         }
     };
 
     // Type mapping traits
-    template<typename T>
+    template <typename T>
     struct ResourceTypeTraits {
         static constexpr ResourceType type = ResourceType::Invalid;
     };
@@ -78,50 +63,32 @@ namespace Hammock {
     // Base resource class
     // TODO this should be in separate file
     class Resource : public NonCopyable {
-    protected:
-        Device &device;
+       protected:
+        Device& device;
         uint64_t uid;
         std::string debug_name;
         VkDeviceSize size = 0;
-        bool resident; // Whether the resource is currently in GPU memory
+        bool resident;  // Whether the resource is currently in GPU memory
 
-        Resource(Device &device, uint64_t uid, const std::string &name)
-            : uid(uid), debug_name(name), resident(false), device(device) {
-        }
+        Resource(Device& device, uint64_t uid, const std::string& name)
+            : uid(uid), debug_name(name), resident(false), device(device) {}
 
-    public:
-        virtual ~Resource(){}
+       public:
+        virtual ~Resource() {}
 
         virtual void create() = 0;
 
         virtual void release() = 0;
 
         uint64_t getUid() const { return uid; }
-        const std::string &getName() const { return debug_name; }
+        const std::string& getName() const { return debug_name; }
         bool isResident() const { return resident; }
-        VkDeviceSize getSize() const { return size; } // for now
+        VkDeviceSize getSize() const { return size; }  // for now
     };
 
-
     /**
-     * Describes the base for the relative size
+     * Describes general buffer
      */
-    enum class RelativeSize {
-        SwapChainRelative,
-        FrameBufferRelative,
-    };
-
-
-    /**
-    * Describes relative size of a viewport
-    */
-    enum class RelativeViewPortSize {
-        SwapChainRelative,
-        Fixed,
-    };
-    /**
-      * Describes general buffer
-      */
     struct BufferDesc {
         VkDeviceSize instanceSize;
         uint32_t instanceCount;
@@ -134,8 +101,8 @@ namespace Hammock {
     };
 
     /**
-    * Describes general image.
-    */
+     * Describes general image.
+     */
     struct ImageDesc {
         uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
         VkImage image = VK_NULL_HANDLE;
@@ -152,40 +119,34 @@ namespace Hammock {
         VkMemoryPropertyFlags memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
 
-        static inline auto DepthStencil(uint32_t width, uint32_t height) -> ImageDesc{
-            return {
-                .width = width,
+        static inline auto DepthStencil(uint32_t width, uint32_t height) -> ImageDesc {
+            return {.width = width,
                 .height = height,
                 .format = VK_FORMAT_D32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
-            };
+                .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT};
         }
 
-        static inline auto RGBA8(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0) -> ImageDesc{
-            return {
-                .width = width,
+        static inline auto RGBA8(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0) -> ImageDesc {
+            return {.width = width,
                 .height = height,
                 .format = VK_FORMAT_R8G8B8A8_UNORM,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage
-            };
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage};
         }
 
-        static inline auto RGBA16F(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0) -> ImageDesc{
-            return {
-                .width = width,
+        static inline auto RGBA16F(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0)
+            -> ImageDesc {
+            return {.width = width,
                 .height = height,
                 .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage
-            };
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage};
         }
 
-        static inline auto RGBA32F(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0) -> ImageDesc{
-            return {
-                .width = width,
+        static inline auto RGBA32F(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0)
+            -> ImageDesc {
+            return {.width = width,
                 .height = height,
                 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage
-            };
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage};
         }
     };
 
@@ -202,8 +163,10 @@ namespace Hammock {
         float mipLodBias = 0.0f;
     };
 
-
     typedef uint32_t uint32_hash_t;
 
-    
-}
+    struct ShaderModule {
+        const std::vector<char>& spv{};
+    };
+
+}  // namespace Hammock

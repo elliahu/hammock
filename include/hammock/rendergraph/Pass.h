@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "hammock/core/ComputePipeline.h"
+#include "hammock/core/CoreUtils.h"
 #include "hammock/core/FrameManager.h"
 #include "hammock/core/GraphicsPipeline.h"
 #include "hammock/core/ResourceManager.h"
@@ -36,90 +37,81 @@ namespace Hammock {
             VkDescriptorBindingFlags flags = 0;
         };
 
+        /// Pass definition
         class Pass : public Node {
            public:
             Pass(PassType type, const std::string& name) : Node(HashName(name.c_str())), type(type) {}
             virtual ~Pass() = default;
 
+            Pass(Pass&&) noexcept = default;  // enable moving
+            Pass& operator=(Pass&&) noexcept = default;
+
             auto getType() -> PassType { return type; }
 
-            std::vector<PassResourceBinding> bindings{};
+            auto read(std::initializer_list<uint32_hash_t> handles) -> Pass& {
+                for (const auto& handle : handles) {
+                    to.push_back(handle);
+                }
+                return *this;
+            }
 
-            ExecutionCallback execute{nullptr};
+            auto write(std::initializer_list<uint32_hash_t> handles) -> Pass& {
+                for (const auto& handle : handles) {
+                    from.push_back(handle);
+                }
+                return *this;
+            }
 
-           private:
+            auto bind(std::initializer_list<PassResourceBinding> bindingsList) -> Pass& {
+                for (auto& binding : bindingsList) {
+                    bindings.push_back(binding);
+                }
+                return *this;
+            }
+
+            auto execute(ExecutionCallback callback) -> Pass& {
+                exec = std::move(callback);
+                return *this;
+            }
+
+            auto compute(ShaderModule cs) -> Pass& {
+                this->cs = std::make_unique<ShaderModule>(std::move(cs));
+                return *this;
+            }
+
+            auto vertex(ShaderModule vs) -> Pass& {
+                this->vs = std::make_unique<ShaderModule>(std::move(vs));
+                return *this;
+            }
+
+            auto fragment(ShaderModule fs) -> Pass& {
+                this->fs = std::make_unique<ShaderModule>(std::move(fs));
+                return *this;
+            }
+
+            std::unique_ptr<ShaderModule> cs;
+            std::unique_ptr<ShaderModule> vs;
+            std::unique_ptr<ShaderModule> fs;
+
+            ExecutionCallback exec{nullptr};
             PassType type;
+            std::vector<PassResourceBinding> bindings{};
         };
 
+        /// Pass specializations
         class ComputePass : public Pass {
            public:
             ComputePass(const std::string& name) : Pass(PassType::Compute, name) {}
-            std::unique_ptr<ComputePipeline> pipeline;
         };
 
         class GraphicsPass : public Pass {
            public:
             GraphicsPass(const std::string& name) : Pass(PassType::Graphics, name) {}
-            std::unique_ptr<GraphicsPipeline> pipeline;
         };
 
         class TransferPass : public Pass {
            public:
             TransferPass(const std::string& name) : Pass(PassType::Transfer, name) {}
-        };
-
-        template <typename PassT>
-        class PassBuilder {
-            static_assert(std::is_base_of<Pass, PassT>::value, "PassT must derive from Pass");
-
-           private:
-            std::unique_ptr<PassT> pass;
-
-           public:
-            explicit PassBuilder(const std::string& name) : pass(std::make_unique<PassT>(name)) {}
-
-            auto read(std::initializer_list<uint32_hash_t> handles) -> PassBuilder& {
-                for (const auto& handle : handles) {
-                    pass->to.push_back(handle);
-                }
-                return *this;
-            }
-            auto write(std::initializer_list<uint32_hash_t> handles) -> PassBuilder& {
-                for (const auto& handle : handles) {
-                    pass->from.push_back(handle);
-                }
-                return *this;
-            }
-
-            PassBuilder& bindings(std::initializer_list<PassResourceBinding> bindingsList) {
-                for (auto& binding : bindingsList) {
-                    pass->bindings.push_back(binding);
-                }
-                return *this;
-            }
-
-            PassBuilder& execute(ExecutionCallback callback) {
-                pass->execute = std::move(callback);
-                return *this;
-            }
-
-            // Graphics-specific
-            template <typename T = PassT>
-            std::enable_if_t<std::is_same_v<T, GraphicsPass>, PassBuilder&> pipeline(
-                std::unique_ptr<GraphicsPipeline> p) {
-                pass->pipeline = std::move(p);
-                return *this;
-            }
-
-            // Compute-specific
-            template <typename T = PassT>
-            std::enable_if_t<std::is_same_v<T, ComputePass>, PassBuilder&> pipeline(
-                std::unique_ptr<ComputePipeline> p) {
-                pass->pipeline = std::move(p);
-                return *this;
-            }
-
-            std::unique_ptr<PassT> build() { return std::move(pass); }
         };
 
     }  // namespace Rendergraph

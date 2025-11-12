@@ -1,8 +1,9 @@
 #include <hammock/hammock.h>
+
 #include <memory>
 
-
 using namespace Hammock;
+using namespace Rendergraph;
 
 auto getCompiledShaderPath(const std::string& name) -> std::string {
     return std::string(HAMMOCK_BUILD_DIR) + "/spv/" + name;
@@ -16,7 +17,6 @@ int main() {
     ResourceManager::initialize(device);
 
     FrameManager::initialize(window, device);
-
 
     DescriptorPool::initialize(device,
         1000,
@@ -59,22 +59,25 @@ int main() {
         }});
 
     // Create the rendergraph instance
-    auto renderGraph = std::make_unique<Rendergraph::Graph>(device);
+    auto renderGraph = std::make_unique<Graph>(device);
 
-    auto scColor = renderGraph->useSwapChainImages([]{
+    auto OUT_COLOR = renderGraph->useSwapChainImages([] {
         auto& fm = FrameManager::getInstance();
-        return Rendergraph::Graph::SwapChainImage{
+        return Graph::SwapChainImage{
             .image = fm.getSwapChain()->getImage(fm.getSwapChainImageIndex()),
             .imageView = fm.getSwapChain()->getImageView(fm.getSwapChainImageIndex()),
             .format = fm.getSwapChain()->getSwapChainImageFormat(),
         };
     });
 
-    renderGraph->addPass(Rendergraph::PassBuilder<Rendergraph::GraphicsPass>("COLOR1")
-            .write({scColor})
-            .pipeline(std::move(pipeline))
-            .execute([](Rendergraph::ExecutionContext context) { Logger::debug("Executing COLOR1"); })
-            .build());
+    renderGraph->addPass(GraphicsPass("COLOR1")
+            .write({OUT_COLOR})
+            .bind({})
+            .vertex({Filesystem::readFile(getCompiledShaderPath("fullscreen.vert.spv"))})
+            .fragment({Filesystem::readFile(getCompiledShaderPath("fullscreen.frag.spv"))})
+            .execute([](ExecutionContext& context) {
+
+            }));
 
     /* // Build the render graph
     if (const auto result = renderGraph->build(); !result) {
