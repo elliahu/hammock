@@ -11,12 +11,13 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-                "CMAKE_C_COMPILER": "clang.exe",
-                "CMAKE_CXX_COMPILER": "clang++.exe"
-            }
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug",
+            "CMAKE_CXX_STANDARD": "23",
+            "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+            "CMAKE_C_COMPILER": "clang.exe",
+            "CMAKE_CXX_COMPILER": "clang.exe"
+          }
         },
         {
             "name": "debug-linux",
@@ -28,12 +29,13 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_COMPILER": "clang++"
-            }
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Debug",
+            "CMAKE_CXX_STANDARD": "23",
+            "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+            "CMAKE_C_COMPILER": "clang",
+            "CMAKE_CXX_COMPILER": "clang++"
+          }
         },
         {
             "name": "release-windows",
@@ -45,12 +47,13 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-                "CMAKE_C_COMPILER": "clang.exe",
-                "CMAKE_CXX_COMPILER": "clang++.exe"
-            }
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "CMAKE_CXX_STANDARD": "23",
+            "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+            "CMAKE_C_COMPILER": "clang.exe",
+            "CMAKE_CXX_COMPILER": "clang.exe"
+          }
         },
         {
             "name": "release-linux",
@@ -62,12 +65,13 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_COMPILER": "clang++"
-            }
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "CMAKE_CXX_STANDARD": "23",
+            "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+            "CMAKE_C_COMPILER": "clang",
+            "CMAKE_CXX_COMPILER": "clang++"
+          }
         }
     ]
 }

@@ -105,7 +105,7 @@ Hammock::DeviceStorageResourceHandle<Hammock::DescriptorSetLayout> Hammock::Devi
     return handle;
 }
 
-Hammock::DeviceStorageResourceHandle<VkDescriptorSet_T *> Hammock::DeviceStorage::createDescriptorSet(
+Hammock::DeviceStorageResourceHandle<VkDescriptorSet> Hammock::DeviceStorage::createDescriptorSet(
     const DescriptorSetCreateInfo &createInfo) {
     VkDescriptorSet descriptorSet;
 

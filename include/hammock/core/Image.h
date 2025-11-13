@@ -1,4 +1,5 @@
 #pragma once
+#include <vulkan/vulkan.h>
 #include "hammock/core/Types.h"
 #include "hammock/core/CoreUtils.h"
 

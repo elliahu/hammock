@@ -30,6 +30,7 @@ target_include_directories(hammock PUBLIC ${PROJECT_SOURCE_DIR}/external/imgui)
 # Remove the fcking max macro !?
 add_compile_definitions(NOMINMAX)
 
+
 # Add ROOT dir macro
 target_compile_definitions(hammock 
     PUBLIC HAMMOCK_PROJECT_DIR="${PROJECT_SOURCE_DIR}"
@@ -61,7 +62,7 @@ target_link_libraries(hammock PUBLIC Vulkan::Vulkan)
 add_subdirectory(examples)
 
 # And also build tools
-add_subdirectory(tools)
+# add_subdirectory(tools)
 
 
 

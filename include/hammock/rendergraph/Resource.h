@@ -10,12 +10,20 @@ namespace Hammock {
     namespace Rendergraph {
         typedef std::function<ResourceHandle(uint32_t frameIndex)> ResourceResolver;
 
+        class Resource;
+        class ImageResource;
+        class BufferResource;
+
+        typedef Resource* ResourcePtr;
+        typedef ImageResource* ImageResourcePtr;
+        typedef BufferResource* BufferResourcePtr;
+
         /// RenderGraph node representing a resource
         class Resource : public Node {
            public:
             enum class Type { Buffer, Image, SwapChainImage };
 
-            Resource(uint32_hash_t hashName) : Node(hashName) {}
+            Resource(std::string name) : Node(name) {}
 
             /// Returns a type of the resource
             virtual auto getType() -> Type = 0;
@@ -38,15 +46,18 @@ namespace Hammock {
             }
 
             /// Sets resource resolver
-            auto setResolver(ResourceResolver resolver) -> void {
-                _resolver = std::move(resolver);
-            }
+            auto setResolver(ResourceResolver resolver) -> void { _resolver = std::move(resolver); }
+            auto getResover(){return _resolver;}
 
             /// Marks resource as dirty
             auto setDirty() -> void { _isDirty = true; }
 
+            auto setTransient() -> void { _transient = true; }
+
             /// Returns true if resource is frame-local (has one copy per frame-in-flight)
             auto isFrameLocal() -> bool { return _frameLocal_; }
+
+            auto isTransient() -> bool { return _transient; }
 
            private:
             // Resolver is used to resolve the actual resource handle for resources that are buffered
@@ -56,25 +67,26 @@ namespace Hammock {
             // Needs recreation
             bool _isDirty = true;
             bool _frameLocal_ = true;
+            bool _transient = false;
         };
 
         class ImageResource : public Resource {
            public:
-            ImageResource(uint32_hash_t hashName) : Resource(hashName) {}
+            ImageResource(std::string name) : Resource(name) {}
 
             auto getType() -> Type override { return Type::Image; }
         };
 
         class BufferResource : public Resource {
            public:
-            BufferResource(uint32_hash_t hashName) : Resource(hashName) {}
+            BufferResource(std::string name) : Resource(name) {}
 
             auto getType() -> Type override { return Type::Buffer; }
         };
 
         class SwapChainImageResource : public Resource {
            public:
-            SwapChainImageResource(uint32_hash_t hashName) : Resource(hashName) {}
+            SwapChainImageResource(std::string name) : Resource(name) {}
 
             auto getType() -> Type override { return Type::SwapChainImage; }
         };

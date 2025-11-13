@@ -1,0 +1,33 @@
+digraph RenderGraph {
+  rankdir=LR;
+  node [style=filled, fontname="Helvetica"];
+  "2420683666" [
+    shape=record,
+    fillcolor=lightblue,
+    label="{ __swap_chain_image__ | (2420683666) | [Resource] | {[SwapChainContributing]} }"
+  ];
+  "821101375" [
+    shape=record,
+    fillcolor=lightblue,
+    label="{ vBuffer | (821101375) | [Resource] | {[SwapChainContributing]} }"
+  ];
+  "381539056" [
+    shape=record,
+    fillcolor=lightblue,
+    label="{ vBuffer_v2 | (381539056) | [Resource] | {[]} }"
+  ];
+  "4176466865" [
+    shape=Mrecord,
+    fillcolor=lightcoral,
+    label="{ COMPUTE1 | (4176466865) | [Pass] | {[]} }"
+  ];
+  "745658427" [
+    shape=Mrecord,
+    fillcolor=lightcoral,
+    label="{ GRAPHICS1 | (745658427) | [Pass] | {[SwapChainContributing]} }"
+  ];
+  "821101375" -> "4176466865";
+  "4176466865" -> "381539056";
+  "821101375" -> "745658427";
+  "745658427" -> "2420683666";
+}

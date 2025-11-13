@@ -126,28 +126,44 @@ namespace Hammock {
                 .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT};
         }
 
-        static inline auto RGBA8(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0) -> ImageDesc {
+        static inline auto ColorRgba8U(uint32_t width, uint32_t height) -> ImageDesc {
             return {.width = width,
                 .height = height,
                 .format = VK_FORMAT_R8G8B8A8_UNORM,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage};
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT};
         }
 
-        static inline auto RGBA16F(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0)
+        static inline auto ColorRgba16F(uint32_t width, uint32_t height)
             -> ImageDesc {
             return {.width = width,
                 .height = height,
                 .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage};
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT };
         }
 
-        static inline auto RGBA32F(uint32_t width, uint32_t height, VkImageUsageFlags usage = 0)
+        static inline auto ColorRgba32F(uint32_t width, uint32_t height)
             -> ImageDesc {
             return {.width = width,
                 .height = height,
                 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage};
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT};
         }
+
+        static inline auto StorageRgba16F(uint32_t width, uint32_t height) -> ImageDesc {
+            return {.width = width,
+                .height = height,
+                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT};
+        }
+
+        static inline auto StorageRgba32F(uint32_t width, uint32_t height) -> ImageDesc {
+            return {.width = width,
+                .height = height,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT};
+        }
+
+
     };
 
     struct SamplerDesc {
@@ -165,8 +181,6 @@ namespace Hammock {
 
     typedef uint32_t uint32_hash_t;
 
-    struct ShaderModule {
-        const std::vector<char>& spv{};
-    };
+    
 
 }  // namespace Hammock

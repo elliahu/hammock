@@ -47,9 +47,9 @@ namespace Hammock {
             }
         }
 
-        if (swapChain != nullptr) {
+        if (swapChain != VK_NULL_HANDLE) {
             vkDestroySwapchainKHR(device.device(), swapChain, nullptr);
-            swapChain = nullptr;
+            swapChain = VK_NULL_HANDLE;
         }
 
         // cleanup synchronization objects

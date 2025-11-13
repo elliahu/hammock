@@ -102,9 +102,9 @@ namespace Hammock {
 
     public:
         uint32_t width = 0, height = 0;
-        VkFramebuffer framebuffer = nullptr;
-        VkRenderPass renderPass = nullptr;
-        VkSampler sampler = nullptr;
+        VkFramebuffer framebuffer = VK_NULL_HANDLE;
+        VkRenderPass renderPass = VK_NULL_HANDLE;
+        VkSampler sampler = VK_NULL_HANDLE;
         std::vector<FramebufferAttachment> attachments;
         std::vector<FramebufferAttachment> sharedAttachments;
 

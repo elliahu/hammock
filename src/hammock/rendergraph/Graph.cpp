@@ -3,39 +3,39 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include "hammock/core/CommandBuffer.h"
+#include "hammock/core/CoreUtils.h"
 #include "hammock/core/Descriptors.h"
 #include "hammock/core/Device.h"
 #include "hammock/core/GraphicsPipeline.h"
 #include "hammock/core/SwapChain.h"
 #include "hammock/core/Types.h"
+#include "hammock/rendergraph/Edge.h"
 #include "hammock/rendergraph/ExecutionContext.h"
+#include "hammock/rendergraph/Node.h"
 #include "hammock/rendergraph/Pass.h"
 #include "hammock/rendergraph/Resource.h"
-
 
 Hammock::Rendergraph::Graph::Graph(Device& device) : device(device) {}
 
 auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std::string> {
     // Create list of all nodes
-    std::vector<uint32_hash_t> nodes{};
-    nodes.reserve(resources.size() + passes.size());
+    std::vector<uint32_hash_t> allNodes{};
+    allNodes.reserve(resources.size() + passes.size());
 
     for (const auto& pair : resources) {
-        nodes.push_back(pair.first);
+        allNodes.push_back(pair.first);
     }
 
     for (const auto& pair : passes) {
-        nodes.push_back(pair.first);
+        allNodes.push_back(pair.first);
     }
 
     // Create adjacency map and indegree map
-    std::unordered_map<uint32_hash_t, std::vector<uint32_hash_t> > adj{};
-    std::unordered_map<uint32_hash_t, uint32_t> indegree{};
-
-    for (const auto& node : nodes) {
+    for (const auto& node : allNodes) {
         adj[node];
         indegree[node] = 0u;
     }
@@ -48,20 +48,20 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std
     // Initialize queue with nodes that have no incoming edges
     std::queue<uint32_hash_t> queue{};
 
-    for (const auto& node : nodes) {
+    for (const auto& node : allNodes) {
         if (indegree[node] == 0) {
             queue.push(node);
         }
     }
 
     // Initialize the sortedNodes list
-    sortedNodes.clear();
+    nodes.clear();
 
     while (!queue.empty()) {
         auto node = queue.front();
         queue.pop();
 
-        sortedNodes.push_back(node);
+        nodes.push_back(node);
 
         for (const auto& neighbor : adj[node]) {
             indegree[neighbor] -= 1;
@@ -72,80 +72,9 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std
     }
 
     // Detect cycles
-    if (sortedNodes.size() != nodes.size()) {
+    if (nodes.size() != allNodes.size()) {
         return std::unexpected("Cycle detected in render graph");
     }
-
-    return {};  // Success
-}
-
-auto Hammock::Rendergraph::Graph::buildEdges() -> std::expected<void, std::string> {
-    // Look for resources access by each pass and create edges
-    // Build the visited map of resources to purge unused resources from the graph
-    std::vector<uint32_hash_t> visitedResources;
-    for (const auto& [passHashName, pass] : passes) {
-        // Resource reads are incoming edges
-        for (const auto& resourceHashName : pass->getTo()) {
-            const auto expectedResource = findResourceByName(resourceHashName);
-            if (!expectedResource) {
-                return std::unexpected(
-                    "Failed to find the resource with hash " + std::to_string(resourceHashName));
-            }
-
-            // Retrieve the value
-            const auto& resource = expectedResource.value();
-
-            // Add to visited resources
-            visitedResources.push_back(resource->getHashName());
-
-            // Create the edge
-            edges.push_back(Edge{
-                .srcHashName = resource->getHashName(),
-                .dstHashName = pass->getHashName(),
-                .type = Edge::Type::ResourceToPass,  // Pass is reading the resource R -> P
-            });
-
-            pass->getIncomingEdges().push_back(edges.size() - 1);
-        }
-
-        // Resource writes are outgoing edges
-        for (const auto& resourceHashName : pass->getFrom()) {
-            const auto expectedResource = findResourceByName(resourceHashName);
-            if (!expectedResource) {
-                return std::unexpected(
-                    "Failed to find the resource with hash" + std::to_string(resourceHashName));
-            }
-
-            // Retrieve the value
-            const auto& resource = expectedResource.value();
-
-            // Add to visited resources
-            visitedResources.push_back(resource->getHashName());
-
-            // Create the edge
-            edges.push_back(Edge{
-                .srcHashName = pass->getHashName(),
-                .dstHashName = resource->getHashName(),
-                .type = Edge::Type::PassToResource,  // Pass is writing the resource P -> R
-            });
-
-            pass->getOutgoingEdges().push_back(edges.size() - 1);
-        }
-    }
-
-    // Clear unvisited resources
-    std::vector<uint32_hash_t> toBeDeletedResource;
-    for (const auto& [resourceHashName, resource] : resources) {
-        if (std::ranges::find(visitedResources, resourceHashName) == visitedResources.end()) {
-            toBeDeletedResource.push_back(resourceHashName);
-        }
-    }
-
-    for (const uint32_hash_t& resourceHashName : toBeDeletedResource) {
-        resources.erase(resourceHashName);
-    }
-
-    // TODO prove that some passes do not contribute to final result and erase those passes
 
     return {};  // Success
 }
@@ -157,19 +86,6 @@ auto Hammock::Rendergraph::Graph::findResourceByName(uint32_hash_t name)
         return it->second;
     }
     return std::unexpected("Resource with hash " + std::to_string(name) + " not found in render graph.");
-}
-
-auto Hammock::Rendergraph::Graph::getCommandBufferForPass(uint32_t hash)
-    -> std::expected<CommandBuffer, std::string> {
-    if (!isNodePass(hash))
-        return std::unexpected("Resource with hash " + std::to_string(hash) + " is not a pass");
-
-    if (commandBuffers.contains(hash)) {
-        return commandBuffers.at(hash);
-    }
-
-    return std::unexpected(
-        "Could not find command buffer for pass " + std::to_string(hash) + ". This should not happen!");
 }
 
 auto Hammock::Rendergraph::Graph::execute() -> void {
@@ -184,17 +100,13 @@ auto Hammock::Rendergraph::Graph::execute() -> void {
         } else if (pass->getType() == PassType::Compute) {
             if (auto* compute = dynamic_cast<ComputePass*>(pass)) {
             }
-        } else if (pass->getType() == PassType::Transfer) {
-            if (auto* transfer = dynamic_cast<TransferPass*>(pass)) {
-            }
         }
-
     });
 }
 
 auto Hammock::Rendergraph::Graph::build() -> std::expected<void, std::string> {
-    // Build the edges
-    if (const auto result = buildEdges(); !result) {
+    // Resolve dependencies
+    if (const auto result = resolveDependencies(); !result) {
         return result;
     }
 
@@ -203,21 +115,27 @@ auto Hammock::Rendergraph::Graph::build() -> std::expected<void, std::string> {
         return result;
     }
 
-    // Create and asign command buffers
-    if (const auto result = buildCommandBuffers(); !result) {
+    if(const auto result = analyze(); !result){
         return result;
     }
 
     return {};  // Success
 }
 
-auto Hammock::Rendergraph::Graph::useSwapChainImages(SwapChainImageResolver resolver) -> uint32_hash_t {
-    swapChainImageResolver = std::move(resolver);
+auto Hammock::Rendergraph::Graph::importSwapChainImage() -> uint32_hash_t {
+    swapChainImageResolver = [] {
+        auto& fm = FrameManager::getInstance();
+        return Graph::SwapChainImage{
+            .image = fm.getSwapChain()->getImage(fm.getSwapChainImageIndex()),
+            .imageView = fm.getSwapChain()->getImageView(fm.getSwapChainImageIndex()),
+            .format = fm.getSwapChain()->getSwapChainImageFormat(),
+        };
+    };
 
     uint32_hash_t hash = HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
 
     // Create a logical resource that represents a swap chain image
-    auto swapImage = std::make_shared<SwapChainImageResource>(hash);
+    auto swapImage = std::make_shared<SwapChainImageResource>(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
 
     // Add to resources
     resources.insert({hash, std::move(swapImage)});
@@ -225,73 +143,8 @@ auto Hammock::Rendergraph::Graph::useSwapChainImages(SwapChainImageResolver reso
     return hash;
 }
 
-auto Hammock::Rendergraph::Graph::buildCommandBuffers() -> std::expected<void, std::string> {
-    return forEachPassExpected([this](PassPtr pass) -> std::expected<void, std::string> {
-        VkCommandBuffer vkCmd = VK_NULL_HANDLE;
-
-        // Create vulkan command buffer
-        if (pass->getType() == PassType::Graphics) {
-            const auto result = device.createVulkanCommandBuffers<CommandQueueFamily::Graphics>(1);
-            if (!result) return std::unexpected(result.error());
-            vkCmd = result.value()[0];
-        } else if (pass->getType() == PassType::Compute) {
-            const auto result = device.createVulkanCommandBuffers<CommandQueueFamily::Compute>(1);
-            if (!result) return std::unexpected(result.error());
-            vkCmd = result.value()[0];
-        } else if (pass->getType() == PassType::Transfer) {
-            const auto result = device.createVulkanCommandBuffers<CommandQueueFamily::Transfer>(1);
-            if (!result) return std::unexpected(result.error());
-            vkCmd = result.value()[0];
-        }
-
-        if (vkCmd == VK_NULL_HANDLE) {
-            return std::unexpected("Could not create Vulkan command buffers.");
-        }
-
-        // Create command buffer
-        CommandBuffer commandBuffer(vkCmd);  // FIXME possible expensive copy
-        commandBuffers.emplace(pass->getHashName(), commandBuffer);
-
-        return {};
-    });
-}
-
-auto Hammock::Rendergraph::Graph::buildPipelines() -> std::expected<void, std::string> {
-    return forEachPassExpected([this](PassPtr pass) -> std::expected<void, std::string> {
-        DescriptorSetsAndLayout setAndLayouts{};
-
-        // Create layout
-        auto builder = DescriptorSetLayout::Builder(device);
-
-        for (const auto& binding : pass->bindings) {
-            // Find the resource
-            auto expectedResource = findResourceByName(binding.resource);
-            if (!expectedResource) return std::unexpected(expectedResource.error());
-            std::shared_ptr<Resource> resource = expectedResource.value();
-
-            builder.addBinding(
-                binding.binding, binding.descriptorType, binding.stageFlags, binding.count, binding.flags);
-        }
-
-        setAndLayouts.layout = std::move(builder.build());
-
-        // Create a pipeline
-        if(pass->getType() == PassType::Graphics){
-            auto pipline = GraphicsPipeline::create({
-                .debugName = std::to_string(pass->getHashName()),
-                .device = device,
-                .vertexShader {pass->vs->spv},
-                .fragmentShader {pass->fs->spv},
-                
-            });
-        }
-
-        return {};
-    });
-}
-
 auto Hammock::Rendergraph::Graph::forEachPass(std::function<void(PassPtr)> cb) -> void {
-    for (const auto& passHash : sortedNodes) {
+    for (const auto& passHash : nodes) {
         if (isNodePass(passHash)) {
             cb(passes[passHash].get());
         }
@@ -300,7 +153,7 @@ auto Hammock::Rendergraph::Graph::forEachPass(std::function<void(PassPtr)> cb) -
 
 auto Hammock::Rendergraph::Graph::forEachPassExpected(
     std::function<std::expected<void, std::string>(PassPtr)> cb) -> std::expected<void, std::string> {
-    for (const auto& passHash : sortedNodes) {
+    for (const auto& passHash : nodes) {
         if (isNodePass(passHash)) {
             auto result = cb(passes[passHash].get());
             if (!result) return result;  // propagate error upward
@@ -310,7 +163,7 @@ auto Hammock::Rendergraph::Graph::forEachPassExpected(
 }
 
 auto Hammock::Rendergraph::Graph::forEachResource(std::function<void(std::shared_ptr<Resource>)> cb) -> void {
-    for (const auto& resourceHash : sortedNodes) {
+    for (const auto& resourceHash : nodes) {
         if (isNodeResource(resourceHash)) {
             auto expectedResource = findResourceByName(resourceHash);
             if (expectedResource) {
@@ -324,7 +177,7 @@ auto Hammock::Rendergraph::Graph::forEachResource(std::function<void(std::shared
 auto Hammock::Rendergraph::Graph::forEachResourceExpected(
     std::function<std::expected<void, std::string>(std::shared_ptr<Resource>)> cb)
     -> std::expected<void, std::string> {
-    for (const auto& resourceHash : sortedNodes) {
+    for (const auto& resourceHash : nodes) {
         if (isNodeResource(resourceHash)) {
             auto expectedResource = findResourceByName(resourceHash);
             if (expectedResource) {
@@ -334,5 +187,338 @@ auto Hammock::Rendergraph::Graph::forEachResourceExpected(
             }
         }
     }
+    return {};
+};
+auto Hammock::Rendergraph::Graph::resolveDependencies() -> std::expected<void, std::string> {
+    // Look for resources access by each pass and create edges
+    for (const auto& [passHashName, pass] : passes) {
+        // Uniform buffers
+        for (const auto& ub : pass->getUniformBuffers()) {
+            const auto expectedResource = findResourceByName(ub.buffer);
+            if (!expectedResource) {
+                return std::unexpected("Failed to find the resource with hash " + std::to_string(ub.buffer));
+            }
+
+            // Retrieve the value
+            const auto& resource = expectedResource.value();
+
+            BufferDependencyInfo dep{};
+
+            // Create the edge
+            edges.push_back(Edge{
+                .srcHashName = resource->getHashName(),
+                .dstHashName = pass->getHashName(),
+                .type = Edge::Type::ResourceToPass,  // Pass is reading the resource R -> P
+                .bufferDependency = dep,
+            });
+
+            pass->getIncomingEdges().push_back(&edges[edges.size() - 1]);
+        }
+
+        // Storage buffers
+        for (const auto& sb : pass->getStorageBuffers()) {
+            const auto expectedResource = findResourceByName(sb.buffer);
+            if (!expectedResource) {
+                return std::unexpected("Failed to find the resource with hash " + std::to_string(sb.buffer));
+            }
+            // Retrieve the value
+            const auto& resourceRead = expectedResource.value();
+
+            // Here we can both read and write so this would make a cycle (RenderGraph is strictly DAG)
+            // To resolve this we create a copy of the resource to represent one physical resource by two
+            // logical resources
+            const auto& resourceWrite = duplicateResource(sb.buffer);
+
+            // Define the dependency
+            BufferDependencyInfo dep{.stageFlags = sb.stageFlags};
+
+            // Create the read edge
+            Edge readEdge{
+                .srcHashName = resourceRead->getHashName(),
+                .dstHashName = pass->getHashName(),
+                .type = Edge::Type::ResourceToPass,
+                .bufferDependency = dep,
+            };
+
+            // Create the write edge
+            Edge writeEdge{
+                .srcHashName = pass->getHashName(),
+                .dstHashName = resourceWrite->getHashName(),
+                .type = Edge::Type::PassToResource,
+                .bufferDependency = dep,
+            };
+
+            // Push the edges
+            edges.push_back(readEdge);
+            pass->getIncomingEdges().push_back(&edges[edges.size() - 1]);
+            edges.push_back(writeEdge);
+            pass->getOutgoingEdges().push_back(&edges[edges.size() - 1]);
+        }
+
+        // Storage images
+        for (const auto& si : pass->getStorageImages()) {
+            const auto expectedResource = findResourceByName(si.image);
+            if (!expectedResource) {
+                return std::unexpected("Failed to find the resource with hash " + std::to_string(si.image));
+            }
+            // Retrieve the value
+            const auto& resourceRead = expectedResource.value();
+            const auto& resourceWrite = duplicateResource(si.image);
+
+            // Define the dependency
+            ImageDependencyInfo dep{
+                .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                .stageFlags = si.stageFlags,
+            };
+
+            // Create the read edge
+            Edge readEdge{
+                .srcHashName = resourceRead->getHashName(),
+                .dstHashName = pass->getHashName(),
+                .type = Edge::Type::ResourceToPass,
+                .imageDependency = dep,
+            };
+
+            // Create the write edge
+            Edge writeEdge{
+                .srcHashName = pass->getHashName(),
+                .dstHashName = resourceWrite->getHashName(),
+                .type = Edge::Type::PassToResource,
+                .imageDependency = dep,
+            };
+
+            // Push the edges
+            edges.push_back(readEdge);
+            pass->getIncomingEdges().push_back(&edges[edges.size() - 1]);
+            edges.push_back(writeEdge);
+            pass->getOutgoingEdges().push_back(&edges[edges.size() - 1]);
+        }
+
+        // Combined image samplers
+        for (const auto& ci : pass->getCombinedImageSamplers()) {
+            const auto expectedResource = findResourceByName(ci.image);
+            if (!expectedResource) {
+                return std::unexpected("Failed to find the resource with hash " + std::to_string(ci.image));
+            }
+            // Retrieve the value
+            const auto& resource = expectedResource.value();
+
+            // Create the dependency
+            ImageDependencyInfo dep{
+                .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .stageFlags = ci.stageFlags,
+            };
+
+            // Create the edge
+            edges.push_back(Edge{
+                .srcHashName = resource->getHashName(),
+                .dstHashName = pass->getHashName(),
+                .type = Edge::Type::ResourceToPass,
+                .imageDependency = dep,
+            });
+
+            pass->getIncomingEdges().push_back(&edges[edges.size() - 1]);
+        }
+
+        // Compute pass specific
+        if (auto cPass = std::dynamic_pointer_cast<ComputePass>(pass)) {
+        }
+
+        // Graphics pass specific
+        if (auto gPass = std::dynamic_pointer_cast<GraphicsPass>(pass)) {
+            // Color targets
+            for (const auto& ct : gPass->getColorTargets()) {
+                const auto expectedResource = findResourceByName(ct.image);
+                if (!expectedResource) {
+                    return std::unexpected(
+                        "Failed to find the resource with hash " + std::to_string(ct.image));
+                }
+                // Retrieve the value
+                const auto& resource = expectedResource.value();
+
+                // Create the dependency
+                ImageDependencyInfo dep{
+                    .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    .storeOp = ct.storeOp,
+                    .loadOp = ct.loadOp,
+                };
+
+                // Create the edge
+                edges.push_back(Edge{
+                    .srcHashName = pass->getHashName(),
+                    .dstHashName = resource->getHashName(),
+                    .type = Edge::Type::PassToResource,
+                    .imageDependency = dep,
+                });
+
+                pass->getIncomingEdges().push_back(&edges[edges.size() - 1]);
+            }
+
+            if(gPass->hasDepthStencil()){
+                // Depth stencil target
+                const auto& ds = gPass->getDepthStencil();
+                const auto expectedResource = findResourceByName(ds.image);
+                if (!expectedResource) {
+                    return std::unexpected(
+                        "Failed to find the resource with hash " + std::to_string(ds.image));
+                }
+                // Retrieve the value
+                const auto& resource = expectedResource.value();
+
+                // Create the dependency
+                ImageDependencyInfo dep{
+                    .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    .storeOp = ds.storeOp,
+                    .loadOp = ds.loadOp,
+                };
+
+                // Create the edge
+                edges.push_back(Edge{
+                    .srcHashName = pass->getHashName(),
+                    .dstHashName = resource->getHashName(),
+                    .type = Edge::Type::PassToResource,
+                    .imageDependency = dep,
+                });
+
+                pass->getIncomingEdges().push_back(&edges[edges.size() - 1]);
+            }
+        }
+    }
+
+    return {};  // Success
+};
+auto Hammock::Rendergraph::Graph::duplicateResource(uint32_hash_t name) -> std::shared_ptr<Resource> {
+    // First find the resource to be duped
+    const auto expectedResource = findResourceByName(name);
+    if (!expectedResource) {
+        throw std::runtime_error("Failed to find the resource with has name " + std::to_string(name));
+    }
+
+    // TODO check if duplicate already exists and return it 
+
+    // Retrieve the value
+    const auto& resource = expectedResource.value();
+
+    if (resource->getType() == Resource::Type::Buffer) {
+        auto resourceCopy = std::make_shared<BufferResource>(resource->getName() + "_v2");
+        resourceCopy->setResolver(resource->getResover());
+        uint32_hash_t hash = resourceCopy->getHashName();
+        resources[hash] = std::move(resourceCopy);
+
+        return resources.at(hash);
+    } else if (resource->getType() == Resource::Type::Image) {
+        auto resourceCopy = std::make_shared<ImageResource>(resource->getName() + "_v2");
+        resourceCopy->setResolver(resource->getResover());
+        uint32_hash_t hash = resourceCopy->getHashName();
+        resources[hash] = std::move(resourceCopy);
+
+        return resources.at(hash);
+    }
+
+    throw std::runtime_error("Invalid resource type for copy.");
+}
+
+auto Hammock::Rendergraph::Graph::dumpDotfile(const std::string& filename) const -> void {
+    std::ofstream ofs(filename);
+    ofs << "digraph RenderGraph {\n";
+    ofs << "  rankdir=LR;\n";  // Left-to-right layout
+    ofs << "  node [style=filled, fontname=\"Helvetica\"];\n";
+
+    // --- Define nodes ---
+    // Resources: record shape, light blue
+    for (const auto& [hash, resource] : resources) {
+        const std::string flags = resource->flagsToString(); // e.g. "Used | Written"
+        std::string label = "{ " + resource->getName() +
+                            " | (" + std::to_string(hash) + ") | [Resource]";
+        if (!flags.empty()) {
+            label += " | {" + flags + "}";
+        }
+        label += " }";
+
+        ofs << "  \"" << hash << "\" [\n"
+            << "    shape=record,\n"
+            << "    fillcolor=lightblue,\n"
+            << "    label=\"" << label << "\"\n"
+            << "  ];\n";
+    }
+
+    // Passes: Mrecord shape, light coral
+    for (const auto& [hash, pass] : passes) {
+        const std::string flags = pass->flagsToString(); // e.g. "Compute | Async"
+        std::string label = "{ " + pass->getName() +
+                            " | (" + std::to_string(hash) + ") | [Pass]";
+        if (!flags.empty()) {
+            label += " | {" + flags + "}";
+        }
+        label += " }";
+
+        ofs << "  \"" << hash << "\" [\n"
+            << "    shape=Mrecord,\n"
+            << "    fillcolor=lightcoral,\n"
+            << "    label=\"" << label << "\"\n"
+            << "  ];\n";
+    }
+
+    // --- Define edges ---
+    for (const auto& edge : edges) {
+        ofs << "  \"" << edge.srcHashName << "\" -> \"" << edge.dstHashName << "\"";
+        /*if (!edge.flags.empty()) { // if you have metadata for edges
+            ofs << " [label=\"" << edge.flags << "\"]";
+        }*/
+        ofs << ";\n";
+    }
+
+    ofs << "}\n";
+}
+
+
+
+auto Hammock::Rendergraph::Graph::findContributorsTo(uint32_hash_t target)
+    -> std::unordered_set<uint32_hash_t> {
+    // Build reversed graph
+    std::unordered_map<uint32_hash_t, std::vector<uint32_hash_t>> reverseAdj;
+    for (const auto& [src, neighbors] : adj) {
+        for (auto dst : neighbors) {
+            reverseAdj[dst].push_back(src);
+        }
+    }
+
+    // BFS or DFS from target
+    std::unordered_set<uint32_hash_t> reachable;
+    std::queue<uint32_hash_t> q;
+
+    q.push(target);
+    reachable.insert(target);
+
+    while (!q.empty()) {
+        auto node = q.front();
+        q.pop();
+
+        for (auto pred : reverseAdj[node]) {
+            if (reachable.insert(pred).second) {  // not seen before
+                q.push(pred);
+            }
+        }
+    }
+
+    return reachable;
+}
+auto Hammock::Rendergraph::Graph::analyze() -> std::expected<void, std::string> {
+    // Mark all resources that contribute to the swapchain image
+    if(swapChainImageResolver != nullptr){
+        // only if swapchain is used
+        uint32_hash_t sc = HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
+        auto contributors = findContributorsTo(sc);
+
+        for(const auto& contributor : contributors){
+            if(resources.contains(contributor))
+                resources.at(contributor)->setFlag(NodeFlag::SwapChainContributing);
+            else
+                passes.at(contributor)->setFlag(NodeFlag::SwapChainContributing);
+        }
+    }
+
     return {};
 };

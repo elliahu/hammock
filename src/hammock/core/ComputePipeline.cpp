@@ -1,8 +1,6 @@
 #include "hammock/core/ComputePipeline.h"
 
-Hammock::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : device(config.device),
-    pipeline(VK_NULL_HANDLE),
-    computeShaderModule(VK_NULL_HANDLE) {
+Hammock::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : Pipeline(config.device){
     // Create a pipeline layout using the provided descriptor set layouts and push constant ranges.
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -18,13 +16,13 @@ Hammock::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &confi
     }
 
     // Create the compute shader module.
-    createShaderModule(config.computeShader.byteCode, &computeShaderModule);
+    createShaderModule(config.computeShader.byteCode, &shaderModule);
 
     // Set up the compute shader stage.
     VkPipelineShaderStageCreateInfo shaderStageInfo{};
     shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    shaderStageInfo.module = computeShaderModule;
+    shaderStageInfo.module = shaderModule;
     shaderStageInfo.pName = config.computeShader.entryFunc.c_str();
 
     // Create the compute pipeline.
@@ -42,17 +40,6 @@ Hammock::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &confi
 
 Hammock::ComputePipeline::~ComputePipeline() {
     vkDestroyPipeline(device.device(), pipeline, nullptr);
-    vkDestroyShaderModule(device.device(), computeShaderModule, nullptr);
+    vkDestroyShaderModule(device.device(), shaderModule, nullptr);
     vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
-}
-
-void Hammock::ComputePipeline::createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) const {
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
-
-    if (vkCreateShaderModule(device.device(), &createInfo, nullptr, shaderModule) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create shader module");
-    }
 }

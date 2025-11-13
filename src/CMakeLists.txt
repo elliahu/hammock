@@ -1,7 +1,6 @@
 # src/CMakeLists.txt
 add_subdirectory(hammock/core)
 add_subdirectory(hammock/platform)
-add_subdirectory(hammock/resources)
 add_subdirectory(hammock/renderer)
 add_subdirectory(hammock/rendergraph)
 add_subdirectory(hammock/scene)

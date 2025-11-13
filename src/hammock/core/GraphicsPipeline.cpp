@@ -5,20 +5,14 @@ std::unique_ptr<Hammock::GraphicsPipeline> Hammock::GraphicsPipeline::create(
     return std::make_unique<GraphicsPipeline>(createInfo);
 }
 
-void Hammock::GraphicsPipeline::bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint) {
-    vkCmdBindPipeline(commandBuffer, pipelineBindPoint, graphicsPipeline);
-}
-
 Hammock::GraphicsPipeline::~GraphicsPipeline() {
     vkDestroyShaderModule(device.device(), vertShaderModule, nullptr);
     vkDestroyShaderModule(device.device(), fragShaderModule, nullptr);
     vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
-    vkDestroyPipeline(device.device(), graphicsPipeline, nullptr);
+    vkDestroyPipeline(device.device(), pipeline, nullptr);
 }
 
-Hammock::GraphicsPipeline::GraphicsPipeline(Hammock::GraphicsPipeline::GraphicsPipelineCreateInfo &createInfo) : device{
-    createInfo.device
-} {
+Hammock::GraphicsPipeline::GraphicsPipeline(Hammock::GraphicsPipeline::GraphicsPipelineCreateInfo &createInfo) : Pipeline(createInfo.device){
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(createInfo.descriptorSetLayouts.size());
@@ -121,7 +115,7 @@ Hammock::GraphicsPipeline::GraphicsPipeline(Hammock::GraphicsPipeline::GraphicsP
         1,
         &pipelineInfo,
         nullptr,
-        &graphicsPipeline);
+        &pipeline);
 
     if (result !=VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline");
@@ -195,15 +189,4 @@ void Hammock::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipelineConf
     configInfo.dynamicStateInfo.dynamicStateCount =
             static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
     configInfo.dynamicStateInfo.flags = 0;
-}
-
-void Hammock::GraphicsPipeline::createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) const {
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
-
-    if (vkCreateShaderModule(device.device(), &createInfo, nullptr, shaderModule) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create shader module");
-    }
 }

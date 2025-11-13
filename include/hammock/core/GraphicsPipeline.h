@@ -3,11 +3,12 @@
 #include <string>
 #include <vector>
 
+#include "hammock/core/CommandBuffer.h"
 #include "hammock/core/Device.h"
-
+#include "hammock/core/Pipeline.h"
 
 namespace Hammock {
-    class GraphicsPipeline {
+    class GraphicsPipeline : public Pipeline {
         struct GraphicsPipelineConfig {
             GraphicsPipelineConfig() = default;
 
@@ -55,7 +56,8 @@ namespace Hammock {
             } graphicsState;
 
             struct DynamicStateInfo {
-                std::vector<VkDynamicState> dynamicStateEnables{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+                std::vector<VkDynamicState> dynamicStateEnables{
+                    VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
             } dynamicState;
 
             struct DynamicRendering {
@@ -79,18 +81,37 @@ namespace Hammock {
 
         static std::unique_ptr<GraphicsPipeline> create(GraphicsPipelineCreateInfo createInfo);
 
-        void bind(
-            VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
+        void bind(CommandBuffer& commandBuffer,
+            VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS) {
+            vkCmdBindPipeline(commandBuffer.getCommandBuffer(), pipelineBindPoint, pipeline);
+        }
 
-        VkPipelineLayout pipelineLayout;
+        void beginRendering(CommandBuffer& commandBuffer, const VkRenderingInfo* renderingInfo) {
+            vkCmdBeginRendering(commandBuffer.getCommandBuffer(), renderingInfo);
+        }
+
+        void setViewport(CommandBuffer& commandBuffer, float x, float y, float width, float height,
+            float minDepth, float maxDepth) {
+            VkViewport viewport = {x, y, width, height, minDepth, maxDepth};
+            vkCmdSetViewport(commandBuffer.getCommandBuffer(), 0, 1, &viewport);
+        }
+
+        void setScissor(CommandBuffer& commandBuffer, VkOffset2D offset, VkExtent2D extent) {
+            VkRect2D rec{offset, extent};
+            vkCmdSetScissor(commandBuffer.getCommandBuffer(), 0, 1, &rec);
+        }
+
+        void bind(CommandBuffer& commandBuffer) override {
+            vkCmdBindPipeline(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        }
+
+        virtual void bindDescriptorSet(
+            CommandBuffer& commandBuffer, uint32_t firstSet, const VkDescriptorSet* descriptorSet) override {}
+        virtual void pushConstants(CommandBuffer& commandBuffer, VkShaderStageFlags stageFlags,
+            uint32_t offset, uint32_t size, const void* pValues) override {}
 
        private:
         static void defaultRenderPipelineConfig(GraphicsPipelineConfig& configInfo);
-
-        void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule) const;
-
-        Device& device;
-        VkPipeline graphicsPipeline;
         VkShaderModule vertShaderModule;
         VkShaderModule fragShaderModule;
     };
