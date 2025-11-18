@@ -88,3 +88,5 @@ vcpkg_installed/
 
 # visual studio
 .vs
+
+.cache

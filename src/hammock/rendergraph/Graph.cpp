@@ -1,6 +1,6 @@
 #include "hammock/rendergraph/Graph.h"
 
-#include <expected>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -21,7 +21,7 @@
 
 Hammock::Rendergraph::Graph::Graph(Device& device) : device(device) {}
 
-auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std::string> {
+auto Hammock::Rendergraph::Graph::sortTopologically() -> void{
     // Create list of all nodes
     std::vector<uint32_hash_t> allNodes{};
     allNodes.reserve(resources.size() + passes.size());
@@ -73,19 +73,17 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> std::expected<void, std
 
     // Detect cycles
     if (nodes.size() != allNodes.size()) {
-        return std::unexpected("Cycle detected in render graph");
+        throw std::runtime_error("Cycle detected in render graph");
     }
-
-    return {};  // Success
 }
 
 auto Hammock::Rendergraph::Graph::findResourceByName(uint32_hash_t name)
-    -> std::expected<std::shared_ptr<Resource>, std::string> {
+    -> std::shared_ptr<Resource> {
     auto it = resources.find(name);
     if (it != resources.end()) {
         return it->second;
     }
-    return std::unexpected("Resource with hash " + std::to_string(name) + " not found in render graph.");
+    throw std::runtime_error("Resource with hash " + std::to_string(name) + " not found in render graph.");
 }
 
 auto Hammock::Rendergraph::Graph::execute() -> void {
@@ -104,22 +102,23 @@ auto Hammock::Rendergraph::Graph::execute() -> void {
     });
 }
 
-auto Hammock::Rendergraph::Graph::build() -> std::expected<void, std::string> {
+auto Hammock::Rendergraph::Graph::build() -> void {
     // Resolve dependencies
-    if (const auto result = resolveDependencies(); !result) {
-        return result;
+    try{
+        resolveDependencies();
+    } catch(const std::exception& error){
+
     }
 
     // Sort graph topologically
-    if (const auto result = sortTopologically(); !result) {
-        return result;
-    }
+    try{
+        sortTopologically();
+    } catch (const std::exception& error){}
 
-    if(const auto result = analyze(); !result){
-        return result;
-    }
+    try{
+        analyze();
+    } catch(const std::exception& error){}
 
-    return {};  // Success
 }
 
 auto Hammock::Rendergraph::Graph::importSwapChainImage() -> uint32_hash_t {
@@ -151,57 +150,28 @@ auto Hammock::Rendergraph::Graph::forEachPass(std::function<void(PassPtr)> cb) -
     }
 };
 
-auto Hammock::Rendergraph::Graph::forEachPassExpected(
-    std::function<std::expected<void, std::string>(PassPtr)> cb) -> std::expected<void, std::string> {
-    for (const auto& passHash : nodes) {
-        if (isNodePass(passHash)) {
-            auto result = cb(passes[passHash].get());
-            if (!result) return result;  // propagate error upward
-        }
-    }
-    return {};
-}
+
 
 auto Hammock::Rendergraph::Graph::forEachResource(std::function<void(std::shared_ptr<Resource>)> cb) -> void {
     for (const auto& resourceHash : nodes) {
         if (isNodeResource(resourceHash)) {
-            auto expectedResource = findResourceByName(resourceHash);
-            if (expectedResource) {
-                std::shared_ptr<Resource> resource = expectedResource.value();
+            try{
+                auto resource = findResourceByName(resourceHash);
                 cb(resource);
+            }catch(const std::exception& error){
+                throw error;
             }
         }
     }
 };
 
-auto Hammock::Rendergraph::Graph::forEachResourceExpected(
-    std::function<std::expected<void, std::string>(std::shared_ptr<Resource>)> cb)
-    -> std::expected<void, std::string> {
-    for (const auto& resourceHash : nodes) {
-        if (isNodeResource(resourceHash)) {
-            auto expectedResource = findResourceByName(resourceHash);
-            if (expectedResource) {
-                std::shared_ptr<Resource> resource = expectedResource.value();
-                auto result = cb(resource);
-                if (!result) return result;  // propagate error upward
-            }
-        }
-    }
-    return {};
-};
-auto Hammock::Rendergraph::Graph::resolveDependencies() -> std::expected<void, std::string> {
+auto Hammock::Rendergraph::Graph::resolveDependencies() -> void {
     // Look for resources access by each pass and create edges
     for (const auto& [passHashName, pass] : passes) {
         // Uniform buffers
         for (const auto& ub : pass->getUniformBuffers()) {
-            const auto expectedResource = findResourceByName(ub.buffer);
-            if (!expectedResource) {
-                return std::unexpected("Failed to find the resource with hash " + std::to_string(ub.buffer));
-            }
-
-            // Retrieve the value
-            const auto& resource = expectedResource.value();
-
+            const auto resource = findResourceByName(ub.buffer);
+            
             BufferDependencyInfo dep{};
 
             // Create the edge
@@ -217,12 +187,7 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> std::expected<void, s
 
         // Storage buffers
         for (const auto& sb : pass->getStorageBuffers()) {
-            const auto expectedResource = findResourceByName(sb.buffer);
-            if (!expectedResource) {
-                return std::unexpected("Failed to find the resource with hash " + std::to_string(sb.buffer));
-            }
-            // Retrieve the value
-            const auto& resourceRead = expectedResource.value();
+            const auto resourceRead = findResourceByName(sb.buffer);
 
             // Here we can both read and write so this would make a cycle (RenderGraph is strictly DAG)
             // To resolve this we create a copy of the resource to represent one physical resource by two
@@ -257,12 +222,7 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> std::expected<void, s
 
         // Storage images
         for (const auto& si : pass->getStorageImages()) {
-            const auto expectedResource = findResourceByName(si.image);
-            if (!expectedResource) {
-                return std::unexpected("Failed to find the resource with hash " + std::to_string(si.image));
-            }
-            // Retrieve the value
-            const auto& resourceRead = expectedResource.value();
+            const auto resourceRead = findResourceByName(si.image);
             const auto& resourceWrite = duplicateResource(si.image);
 
             // Define the dependency
@@ -297,12 +257,7 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> std::expected<void, s
 
         // Combined image samplers
         for (const auto& ci : pass->getCombinedImageSamplers()) {
-            const auto expectedResource = findResourceByName(ci.image);
-            if (!expectedResource) {
-                return std::unexpected("Failed to find the resource with hash " + std::to_string(ci.image));
-            }
-            // Retrieve the value
-            const auto& resource = expectedResource.value();
+            const auto resource = findResourceByName(ci.image);
 
             // Create the dependency
             ImageDependencyInfo dep{
@@ -330,13 +285,7 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> std::expected<void, s
         if (auto gPass = std::dynamic_pointer_cast<GraphicsPass>(pass)) {
             // Color targets
             for (const auto& ct : gPass->getColorTargets()) {
-                const auto expectedResource = findResourceByName(ct.image);
-                if (!expectedResource) {
-                    return std::unexpected(
-                        "Failed to find the resource with hash " + std::to_string(ct.image));
-                }
-                // Retrieve the value
-                const auto& resource = expectedResource.value();
+                const auto resource = findResourceByName(ct.image);
 
                 // Create the dependency
                 ImageDependencyInfo dep{
@@ -359,13 +308,7 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> std::expected<void, s
             if(gPass->hasDepthStencil()){
                 // Depth stencil target
                 const auto& ds = gPass->getDepthStencil();
-                const auto expectedResource = findResourceByName(ds.image);
-                if (!expectedResource) {
-                    return std::unexpected(
-                        "Failed to find the resource with hash " + std::to_string(ds.image));
-                }
-                // Retrieve the value
-                const auto& resource = expectedResource.value();
+                const auto resource = findResourceByName(ds.image);
 
                 // Create the dependency
                 ImageDependencyInfo dep{
@@ -386,20 +329,10 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> std::expected<void, s
             }
         }
     }
-
-    return {};  // Success
 };
 auto Hammock::Rendergraph::Graph::duplicateResource(uint32_hash_t name) -> std::shared_ptr<Resource> {
     // First find the resource to be duped
-    const auto expectedResource = findResourceByName(name);
-    if (!expectedResource) {
-        throw std::runtime_error("Failed to find the resource with has name " + std::to_string(name));
-    }
-
-    // TODO check if duplicate already exists and return it 
-
-    // Retrieve the value
-    const auto& resource = expectedResource.value();
+    const auto resource = findResourceByName(name);
 
     if (resource->getType() == Resource::Type::Buffer) {
         auto resourceCopy = std::make_shared<BufferResource>(resource->getName() + "_v2");
@@ -505,7 +438,7 @@ auto Hammock::Rendergraph::Graph::findContributorsTo(uint32_hash_t target)
 
     return reachable;
 }
-auto Hammock::Rendergraph::Graph::analyze() -> std::expected<void, std::string> {
+auto Hammock::Rendergraph::Graph::analyze() -> void {
     // Mark all resources that contribute to the swapchain image
     if(swapChainImageResolver != nullptr){
         // only if swapchain is used
@@ -519,6 +452,4 @@ auto Hammock::Rendergraph::Graph::analyze() -> std::expected<void, std::string> 
                 passes.at(contributor)->setFlag(NodeFlag::SwapChainContributing);
         }
     }
-
-    return {};
 };

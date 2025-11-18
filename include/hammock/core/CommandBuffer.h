@@ -1,7 +1,6 @@
 #pragma once
 #include <vulkan/vulkan.h>
 
-#include <expected>
 #include <string>
 #include <vector>
 
@@ -14,9 +13,9 @@ namespace Hammock {
 
         auto signalSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void;
 
-        auto begin() -> std::expected<void, std::string>;
+        auto begin() -> void;
 
-        auto submit(VkQueue queue) -> std::expected<void, std::string>;
+        auto submit(VkQueue queue) -> void;
 
         auto getCommandBuffer() -> VkCommandBuffer { return commandBuffer; }
 

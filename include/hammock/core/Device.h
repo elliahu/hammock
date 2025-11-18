@@ -1,13 +1,14 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+#include <stdexcept>
 
 #include "hammock/core/VulkanInstance.h"
 #include "hammock/platform/Window.h"
 
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
-#include <expected>
 #include <string>
 #include <vector>
 
@@ -107,7 +108,7 @@ namespace Hammock {
 
         template <CommandQueueFamily Queue>
         auto createVulkanCommandBuffers(uint32_t commandBufferCount = 1)
-            -> std::expected<std::vector<VkCommandBuffer>, std::string> {
+            -> std::vector<VkCommandBuffer> {
             VkCommandBufferAllocateInfo allocInfo{};
             allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
             allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -126,28 +127,26 @@ namespace Hammock {
             commandBuffers.reserve(commandBufferCount);
 
             if (vkAllocateCommandBuffers(device_, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
-                return std::unexpected("failed to allocate command buffer");
+                throw std::runtime_error("failed to allocate command buffer");
             }
             return commandBuffers;
         }
 
         // Begins a command buffer
-        auto beginVulkanCommandBuffer(VkCommandBuffer commandBuffer) -> std::expected<void, std::string> {
+        auto beginVulkanCommandBuffer(VkCommandBuffer commandBuffer) -> void {
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
             if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-                return std::unexpected("Failed to begin recording a command buffer");
+                throw std::runtime_error("Failed to begin recording a command buffer");
             }
-
-            return {};  // Success
         }
 
         // Submits and ends command buffers, waits on semaphores and signals semaphores
         auto submitVulkanCommandBuffers(VkQueue queue, uint32_t waitSemaphoreInfoCount,
             const VkSemaphoreSubmitInfo* pWaitSemaphoreInfos, uint32_t commandBufferInfoCount,
             const VkCommandBufferSubmitInfo* pCommandBufferInfos, uint32_t signalSemaphoreInfoCount,
-            const VkSemaphoreSubmitInfo* pSignalSemaphoreInfos) -> std::expected<void, std::string> {
+            const VkSemaphoreSubmitInfo* pSignalSemaphoreInfos) -> void {
             // Create the submit info
             VkSubmitInfo2 submitInfo = {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
@@ -162,15 +161,13 @@ namespace Hammock {
             // End all of the
             for (int i = 0; i < commandBufferInfoCount; i++) {
                 if (vkEndCommandBuffer(pCommandBufferInfos[i].commandBuffer) != VK_SUCCESS) {
-                    return std::unexpected("Failed to end command buffer");
+                    throw std::runtime_error("Failed to end command buffer");
                 }
             }
 
             if (vkQueueSubmit2(queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-                return std::unexpected("Failed to submit command buffers");
+                throw std::runtime_error("Failed to submit command buffers");
             }
-
-            return {};  // Success
         }
 
         // TODO should be encapsed and accessed by getter

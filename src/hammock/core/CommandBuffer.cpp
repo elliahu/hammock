@@ -1,27 +1,25 @@
 #include "hammock/core/CommandBuffer.h"
 #include <cstdint>
-#include <expected>
+#include <stdexcept>
 
-auto Hammock::CommandBuffer::begin() -> std::expected<void, std::string> {
+auto Hammock::CommandBuffer::begin() -> void {
     if (inProgress) {
-        return std::unexpected("Cannot begin commandbuffer that is already in progress");
+        throw std::runtime_error("Cannot begin commandbuffer that is already in progress");
     }
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-        return std::unexpected("Failed to begin recording a command buffer");
+        throw std::runtime_error("Failed to begin recording a command buffer");
     }
 
     inProgress = true;
-
-    return {};  // Success
 }
 
-auto Hammock::CommandBuffer::submit(VkQueue queue) -> std::expected<void, std::string> {
+auto Hammock::CommandBuffer::submit(VkQueue queue) -> void{
     if (!inProgress) {
-        return std::unexpected("Cannot submit commandbuffer that has not started yet (forgot to call begin()?)");
+        throw std::runtime_error("Cannot submit commandbuffer that has not started yet (forgot to call begin()?)");
     }
 
     VkCommandBufferSubmitInfo cmdBufInfo = {
@@ -40,14 +38,12 @@ auto Hammock::CommandBuffer::submit(VkQueue queue) -> std::expected<void, std::s
     };
 
     if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS){
-        return std::unexpected("Failed to end command buffer");
+        throw std::runtime_error("Failed to end command buffer");
     }
 
     if(vkQueueSubmit2(queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS){
-        return std::unexpected("Failed to submit command buffer");
+        throw std::runtime_error("Failed to submit command buffer");
     }
-    
-    return {}; // Success
 }
 
 auto Hammock::CommandBuffer::waitOnSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void {

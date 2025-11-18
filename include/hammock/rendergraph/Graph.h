@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <expected>
 #include <fstream>
 #include <memory>
 #include <queue>
@@ -114,7 +113,7 @@ namespace Hammock {
             auto importSwapChainImage() -> uint32_hash_t;
 
             /// Constructs the graph, makes optimizations.
-            auto build() -> std::expected<void, std::string>;
+            auto build() -> void;
 
             /// Executes the graph in order
             auto execute() -> void;
@@ -136,21 +135,16 @@ namespace Hammock {
             /// Executes a function for each pass in the graph in topological order
             /// @param cb Callback
             auto forEachPass(std::function<void(PassPtr)> cb) -> void;
-            auto forEachPassExpected(std::function<std::expected<void, std::string>(PassPtr)> cb)
-                -> std::expected<void, std::string>;
 
             /// Executes a function for each resource in the graph in topological order
             /// @param cb Callback
             auto forEachResource(std::function<void(std::shared_ptr<Resource>)> cb) -> void;
-            auto forEachResourceExpected(
-                std::function<std::expected<void, std::string>(std::shared_ptr<Resource>)> cb)
-                -> std::expected<void, std::string>;
 
             /// Finds resource by name in the graph.
             /// @param name Name of the resource to be found
             /// @return resource or error
             auto findResourceByName(uint32_hash_t name)
-                -> std::expected<std::shared_ptr<Resource>, std::string>;
+                -> std::shared_ptr<Resource>;
 
             /// Duplicates resource. This is useful when modeling read-write access
             /// @param name name of the resource to be duplicated
@@ -170,10 +164,10 @@ namespace Hammock {
             auto isNodeResource(uint32_hash_t hash) -> bool { return resources.contains(hash); }
 
             /// Sorts the graph topologically.
-            auto sortTopologically() -> std::expected<void, std::string>;
+            auto sortTopologically() -> void;
 
             /// Resolves all dependencies and creates edges
-            auto resolveDependencies() -> std::expected<void, std::string>;
+            auto resolveDependencies() -> void;
 
             /// Finds all nodes contributing to a given target.
             /// @param target target
@@ -181,7 +175,7 @@ namespace Hammock {
             auto findContributorsTo(uint32_hash_t target) -> std::unordered_set<uint32_hash_t>;
 
             /// Analyses the graph by marking nodes with flags
-            auto analyze() -> std::expected<void, std::string>;
+            auto analyze() -> void;
         };
     }  // namespace Rendergraph
 };  // namespace Hammock

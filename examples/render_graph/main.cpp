@@ -57,8 +57,12 @@ auto main() -> int {
     renderGraph->addPass(graphics);
 
     // Build the render graph
-    if (const auto result = renderGraph->build(); !result) {
-        Logger::error("Rendergraph build failed: %s", result.error().c_str());
+    try{
+        // TODO add custom errors
+        renderGraph->build();
+    }
+    catch(const std::exception& error){
+        Logger::error("Rendergraph build failed: %s", error.what());
         exit(EXIT_FAILURE);
     }
 
