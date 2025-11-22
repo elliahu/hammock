@@ -127,8 +127,10 @@ namespace Hammock {
                 resources{};  // resources owned by the graph or external resources accessed by the graph
             SwapChainImageResolver swapChainImageResolver{
                 nullptr};  // The resolver is used to get the current swap chain image for a given frame
-            std::vector<Edge> edges{};           // Edges that connect resources with passes
+            std::vector<std::unique_ptr<Edge>> edges{};           // Edges that connect resources with passes
             std::vector<uint32_hash_t> nodes{};  // Nodes in the graph sorted topologically
+            std::vector<uint32_hash_t> sortedPasses{};
+            std::vector<uint32_hash_t> sortedResources{};
             std::unordered_map<uint32_hash_t, std::vector<uint32_hash_t>> adj{};  // Adjacency map
             std::unordered_map<uint32_hash_t, uint32_t> indegree{};               // Indegree map
 
@@ -145,11 +147,6 @@ namespace Hammock {
             /// @return resource or error
             auto findResourceByName(uint32_hash_t name)
                 -> std::shared_ptr<Resource>;
-
-            /// Duplicates resource. This is useful when modeling read-write access
-            /// @param name name of the resource to be duplicated
-            /// @returns resource duplicate
-            auto duplicateResource(uint32_hash_t name) -> std::shared_ptr<Resource>;
 
             /// Get the Swap Chain Image object (uses the resolver).
             /// @returns SwapChainImage

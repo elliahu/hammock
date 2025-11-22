@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <memory>
 
 #include "hammock/core/Types.h"
 
@@ -26,13 +27,16 @@ namespace Hammock {
         };
 
         struct Edge {
-            uint32_hash_t srcHashName;  // hash name of Pass or Resource node
-            uint32_hash_t dstHashName;  // hash name of Pass or Resource node
 
             enum class Type {
                 PassToResource,  // Pass WRITES to resource
                 ResourceToPass   // Pass READS from resource
-            } type;
+            };
+
+            uint32_hash_t srcHashName;  // hash name of Pass or Resource node
+            uint32_hash_t dstHashName;  // hash name of Pass or Resource node
+
+            Type type;
 
             // Dependency metadata
             ImageDependencyInfo imageDependency;

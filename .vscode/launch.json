@@ -8,14 +8,14 @@
       "program": "${command:cmake.launchTargetPath}",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
+      "cwd": "${command:cmake.getLaunchTargetDirectory}",
       "environment": [
         {
           "name": "PATH",
           "value": "${env:PATH};${command:cmake.getLaunchTargetDirectory}"
         }
       ],
-      "console": "integratedTerminal"
+      "console": "integratedTerminal",
     }
   ]
 }

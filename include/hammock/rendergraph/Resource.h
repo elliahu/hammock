@@ -1,10 +1,13 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <functional>
+#include <limits>
 
+#include "hammock/core/Types.h"
 #include "hammock/core/core.h"
 #include "hammock/rendergraph/Node.h"
-#include "hammock/rendergraph/Pass.h"
 
 namespace Hammock {
     namespace Rendergraph {
@@ -47,7 +50,7 @@ namespace Hammock {
 
             /// Sets resource resolver
             auto setResolver(ResourceResolver resolver) -> void { _resolver = std::move(resolver); }
-            auto getResover(){return _resolver;}
+            auto getResover() { return _resolver; }
 
             /// Marks resource as dirty
             auto setDirty() -> void { _isDirty = true; }
@@ -59,6 +62,11 @@ namespace Hammock {
 
             auto isTransient() -> bool { return _transient; }
 
+            struct{
+                int32_t firstUse = INT32_MAX;
+                int32_t lastUse = -1;
+            } lifetime;
+
            private:
             // Resolver is used to resolve the actual resource handle for resources that are buffered
             ResourceResolver _resolver;
@@ -67,7 +75,7 @@ namespace Hammock {
             // Needs recreation
             bool _isDirty = true;
             bool _frameLocal_ = true;
-            bool _transient = false;
+            bool _transient = false;        
         };
 
         class ImageResource : public Resource {
