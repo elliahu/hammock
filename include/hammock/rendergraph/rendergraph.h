@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Graph.h"
+#include "FrameGraph.h"
 #include "Edge.h"
 #include "Pass.h"
 #include "Resource.h"

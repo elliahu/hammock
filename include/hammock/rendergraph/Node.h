@@ -14,6 +14,8 @@ namespace Hammock {
 
         typedef Node* NodePtr;
 
+        
+
         enum class NodeFlag : int { SwapChainContributing };
 
         /// This interface represents a node in the graph.
@@ -23,7 +25,7 @@ namespace Hammock {
         class Node {
            protected:
             std::vector<NodeFlag> flags{};
-            uint32_hash_t hashName;
+            FrameGraphNodeHandle hashName;
             std::string name;
 
             Node(std::string name) : hashName(HashName(name.c_str())), name(name) {}
@@ -32,10 +34,15 @@ namespace Hammock {
             std::vector<EdgePtr> outgoingEdges;  // indices of edges going out from this node
 
            public:
-            [[nodiscard]] auto getHashName() -> uint32_hash_t const { return hashName; }
+            [[nodiscard]] auto getHashName() -> FrameGraphNodeHandle const { return hashName; }
             [[nodiscard]] auto getName() -> std::string { return name; }
             [[nodiscard]] auto getIncomingEdges() -> std::vector<EdgePtr>& { return incomingEdges; }
             [[nodiscard]] auto getOutgoingEdges() -> std::vector<EdgePtr>& { return outgoingEdges; }
+            [[nodiscard]] auto getAllEdges() -> std::vector<EdgePtr>{
+                std::vector<EdgePtr> edges(incomingEdges);
+                edges.insert(edges.end(), outgoingEdges.begin(), outgoingEdges.end());
+                return edges;
+            }
 
             auto setFlag(NodeFlag flag) { flags.push_back(flag); }
             auto hasFlag(NodeFlag flag) -> bool {

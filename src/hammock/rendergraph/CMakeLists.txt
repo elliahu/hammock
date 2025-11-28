@@ -1,4 +1,4 @@
 set(RENDERGRAPH_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/Graph.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/FrameGraph.cpp
         PARENT_SCOPE
 )

@@ -124,13 +124,14 @@ namespace Hammock {
             }
 
             std::vector<VkCommandBuffer> commandBuffers{};
-            commandBuffers.reserve(commandBufferCount);
+            commandBuffers.resize(commandBufferCount);
 
             if (vkAllocateCommandBuffers(device_, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
                 throw std::runtime_error("failed to allocate command buffer");
             }
             return commandBuffers;
         }
+
 
         // Begins a command buffer
         auto beginVulkanCommandBuffer(VkCommandBuffer commandBuffer) -> void {

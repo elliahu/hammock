@@ -1,4 +1,6 @@
-#include "hammock/rendergraph/Graph.h"
+#include "hammock/rendergraph/FrameGraph.h"
+
+#include <malloc.h>
 
 #include <algorithm>
 #include <exception>
@@ -16,16 +18,17 @@
 #include "hammock/core/Types.h"
 #include "hammock/rendergraph/Edge.h"
 #include "hammock/rendergraph/ExecutionContext.h"
+#include "hammock/rendergraph/FrameGraphNodeHandle.h"
 #include "hammock/rendergraph/Node.h"
 #include "hammock/rendergraph/Pass.h"
 #include "hammock/rendergraph/Resource.h"
 
-Hammock::Rendergraph::Graph::Graph(Device& device) : device(device) {}
+Hammock::Rendergraph::FrameGraph::FrameGraph(Device& device) : device(device) {}
 
-auto Hammock::Rendergraph::Graph::sortTopologically() -> void {
+auto Hammock::Rendergraph::FrameGraph::sortTopologically() -> void {
     // Create list of all nodes
-    std::vector<uint32_hash_t> allNodes{};
-    allNodes.reserve(resources.size() + passes.size());
+    std::vector<FrameGraphNodeHandle> allNodes{};
+    allNodes.resize(resources.size() + passes.size());
 
     for (const auto& pair : resources) {
         allNodes.push_back(pair.first);
@@ -47,7 +50,7 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> void {
     }
 
     // Initialize queue with nodes that have no incoming edges
-    std::queue<uint32_hash_t> queue{};
+    std::queue<FrameGraphNodeHandle> queue{};
 
     for (const auto& node : allNodes) {
         if (indegree[node] == 0) {
@@ -85,7 +88,8 @@ auto Hammock::Rendergraph::Graph::sortTopologically() -> void {
         [this](std::shared_ptr<Resource> resource) { sortedResources.push_back(resource->getHashName()); });
 }
 
-auto Hammock::Rendergraph::Graph::findResourceByName(uint32_hash_t name) -> std::shared_ptr<Resource> {
+auto Hammock::Rendergraph::FrameGraph::findResourceByName(FrameGraphNodeHandle name)
+    -> std::shared_ptr<Resource> {
     auto it = resources.find(name);
     if (it != resources.end()) {
         return it->second;
@@ -93,7 +97,7 @@ auto Hammock::Rendergraph::Graph::findResourceByName(uint32_hash_t name) -> std:
     throw std::runtime_error("Resource with hash " + std::to_string(name) + " not found in render graph.");
 }
 
-auto Hammock::Rendergraph::Graph::execute() -> void {
+auto Hammock::Rendergraph::FrameGraph::execute() -> void {
     forEachPass([this](PassPtr pass) {
         // Create execution context
         ExecutionContext context{};
@@ -109,39 +113,54 @@ auto Hammock::Rendergraph::Graph::execute() -> void {
     });
 }
 
-auto Hammock::Rendergraph::Graph::build() -> void {
+auto Hammock::Rendergraph::FrameGraph::build() -> void {
     // Resolve dependencies
     try {
         resolveDependencies();
     } catch (const std::exception& error) {
-        throw error;
+        throw std::runtime_error("Failed to resolve dependencies: " + std::string(error.what()));
     }
 
     // Sort graph topologically
     try {
         sortTopologically();
     } catch (const std::exception& error) {
-        throw error;
+        throw std::runtime_error("Failed to sort graph topologically: " + std::string(error.what()));
     }
 
+    // Analyze the graph
     try {
         analyze();
     } catch (const std::exception& error) {
-        throw error;
+        throw std::runtime_error("Failed to analyze the graph: " + std::string(error.what()));
+    }
+
+    // Optimize the graph
+    try {
+        optimize();
+    } catch (const std::exception& error) {
+        throw std::runtime_error("Failed to optimize the graph: " + std::string(error.what()));
+    }
+
+    // Allocate resources
+    try {
+        allocate();
+    } catch (const std::exception& error) {
+        throw std::runtime_error("Failed to allocate resources for the graph: " + std::string(error.what()));
     }
 }
 
-auto Hammock::Rendergraph::Graph::importSwapChainImage() -> uint32_hash_t {
+auto Hammock::Rendergraph::FrameGraph::importSwapChainImage() -> FrameGraphNodeHandle {
     swapChainImageResolver = [] {
         auto& fm = FrameManager::getInstance();
-        return Graph::SwapChainImage{
+        return FrameGraph::SwapChainImage{
             .image = fm.getSwapChain()->getImage(fm.getSwapChainImageIndex()),
             .imageView = fm.getSwapChain()->getImageView(fm.getSwapChainImageIndex()),
             .format = fm.getSwapChain()->getSwapChainImageFormat(),
         };
     };
 
-    uint32_hash_t hash = HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
+    FrameGraphNodeHandle hash = HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
 
     // Create a logical resource that represents a swap chain image
     auto swapImage = std::make_shared<SwapChainImageResource>(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
@@ -152,7 +171,7 @@ auto Hammock::Rendergraph::Graph::importSwapChainImage() -> uint32_hash_t {
     return hash;
 }
 
-auto Hammock::Rendergraph::Graph::forEachPass(std::function<void(PassPtr)> cb) -> void {
+auto Hammock::Rendergraph::FrameGraph::forEachPass(std::function<void(PassPtr)> cb) -> void {
     for (const auto& passHash : nodes) {
         if (isNodePass(passHash)) {
             cb(passes[passHash].get());
@@ -160,7 +179,8 @@ auto Hammock::Rendergraph::Graph::forEachPass(std::function<void(PassPtr)> cb) -
     }
 };
 
-auto Hammock::Rendergraph::Graph::forEachResource(std::function<void(std::shared_ptr<Resource>)> cb) -> void {
+auto Hammock::Rendergraph::FrameGraph::forEachResource(std::function<void(std::shared_ptr<Resource>)> cb)
+    -> void {
     for (const auto& resourceHash : nodes) {
         if (isNodeResource(resourceHash)) {
             try {
@@ -173,21 +193,22 @@ auto Hammock::Rendergraph::Graph::forEachResource(std::function<void(std::shared
     }
 };
 
-auto Hammock::Rendergraph::Graph::resolveDependencies() -> void {
+auto Hammock::Rendergraph::FrameGraph::resolveDependencies() -> void {
     // Look for resources access by each pass and create edges
     for (const auto& [passHashName, pass] : passes) {
         // Uniform buffers
         for (const auto& ub : pass->getUniformBuffers()) {
             const auto resource = findResourceByName(ub.buffer);
 
-            BufferDependencyInfo dep{};
+            DependencyInfo dep{};
+            dep.stageFlags = ub.stageFlags;
 
             // Create the edge
             auto edge = std::make_unique<Edge>();
             edge->srcHashName = resource->getHashName();
             edge->dstHashName = pass->getHashName();
             edge->type = Edge::Type::ResourceToPass;  // Pass is reading the resource R -> P
-            edge->bufferDependency = dep;
+            edge->dependency = dep;
 
             pass->getIncomingEdges().push_back(edge.get());
 
@@ -202,14 +223,14 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> void {
             // To resolve this we consider this as a write access (even tho we can read as well)
 
             // Define the dependency
-            BufferDependencyInfo dep{.stageFlags = sb.stageFlags};
+            DependencyInfo dep{.stageFlags = sb.stageFlags};
 
             // Create the write edge
             auto edge = std::make_unique<Edge>();
             edge->srcHashName = pass->getHashName();
             edge->dstHashName = resource->getHashName();
             edge->type = Edge::Type::PassToResource;
-            edge->bufferDependency = dep;
+            edge->dependency = dep;
 
             pass->getOutgoingEdges().push_back(edge.get());
 
@@ -223,16 +244,19 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> void {
             // Define the dependency
             ImageDependencyInfo dep{
                 .requiredLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                .stageFlags = si.stageFlags,
             };
+
+            DependencyInfo dependency{};
+            dependency.stageFlags = si.stageFlags;
+            dependency.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            dependency.imageDependency = dep;
 
             // Create the write edge
             auto edge = std::make_unique<Edge>();
             edge->srcHashName = pass->getHashName();
             edge->dstHashName = resource->getHashName();
             edge->type = Edge::Type::PassToResource;
-            edge->imageDependency = dep;
+            edge->dependency = dependency;
 
             pass->getOutgoingEdges().push_back(edge.get());
 
@@ -246,16 +270,19 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> void {
             // Create the dependency
             ImageDependencyInfo dep{
                 .requiredLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .stageFlags = ci.stageFlags,
             };
+
+            DependencyInfo dependency{};
+            dependency.stageFlags = ci.stageFlags;
+            dependency.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            dependency.imageDependency = dep;
 
             // Create the read edge
             auto edge = std::make_unique<Edge>();
             edge->srcHashName = resource->getHashName();
             edge->dstHashName = pass->getHashName();
             edge->type = Edge::Type::ResourceToPass;
-            edge->imageDependency = dep;
+            edge->dependency = dependency;
 
             pass->getIncomingEdges().push_back(edge.get());
 
@@ -279,12 +306,14 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> void {
                     .loadOp = ct.loadOp,
                 };
 
+                DependencyInfo dependency{.imageDependency = dep};
+
                 // Create the edge
                 auto edge = std::make_unique<Edge>();
                 edge->srcHashName = pass->getHashName();
                 edge->dstHashName = resource->getHashName();
                 edge->type = Edge::Type::PassToResource;
-                edge->imageDependency = dep;
+                edge->dependency = dependency;
 
                 pass->getOutgoingEdges().push_back(edge.get());
 
@@ -303,12 +332,14 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> void {
                     .loadOp = ds.loadOp,
                 };
 
+                DependencyInfo dependency{.imageDependency = dep};
+
                 // Create the edge
                 auto edge = std::make_unique<Edge>();
                 edge->srcHashName = pass->getHashName();
                 edge->dstHashName = resource->getHashName();
                 edge->type = Edge::Type::PassToResource;
-                edge->imageDependency = dep;
+                edge->dependency = dependency;
 
                 pass->getOutgoingEdges().push_back(edge.get());
 
@@ -318,7 +349,7 @@ auto Hammock::Rendergraph::Graph::resolveDependencies() -> void {
     }
 };
 
-auto Hammock::Rendergraph::Graph::dumpDotfile(const std::string& filename) const -> void {
+auto Hammock::Rendergraph::FrameGraph::dumpDotfile(const std::string& filename) const -> void {
     std::ofstream ofs(filename);
     ofs << "digraph RenderGraph {\n";
     ofs << "  rankdir=LR;\n";  // Left-to-right layout
@@ -329,8 +360,9 @@ auto Hammock::Rendergraph::Graph::dumpDotfile(const std::string& filename) const
         auto hash = sortedResources[i];
         const auto& resource = resources.at(hash);
         const std::string flags = resource->flagsToString();  // e.g. "Used | Written"
-        std::string label =
-            "{ " + resource->getName() + " | (" + std::to_string(hash) + ") | [" + std::to_string(resource->lifetime.firstUse) + ", " + std::to_string(resource->lifetime.lastUse) + "]";
+        std::string label = "{ " + resource->getName() + " | (" + std::to_string(hash) + ") | [" +
+                            std::to_string(resource->lifetime.firstUse) + ", " +
+                            std::to_string(resource->lifetime.lastUse) + "]";
         if (!flags.empty()) {
             label += " | {" + flags + "}";
         }
@@ -343,11 +375,12 @@ auto Hammock::Rendergraph::Graph::dumpDotfile(const std::string& filename) const
             << "  ];\n";
     }
 
-    for(int i = 0; i < sortedPasses.size(); i++){
+    for (int i = 0; i < sortedPasses.size(); i++) {
         auto hash = sortedPasses[i];
         const auto& pass = passes.at(hash);
         const std::string flags = pass->flagsToString();  // e.g. "Compute | Async"
-        std::string label = "{ (" + std::to_string(i) + ") " + pass->getName() + " | (" + std::to_string(hash) + ") ";
+        std::string label =
+            "{ (" + std::to_string(i) + ") " + pass->getName() + " | (" + std::to_string(hash) + ") ";
         if (!flags.empty()) {
             label += " | {" + flags + "}";
         }
@@ -372,10 +405,10 @@ auto Hammock::Rendergraph::Graph::dumpDotfile(const std::string& filename) const
     ofs << "}\n";
 }
 
-auto Hammock::Rendergraph::Graph::findContributorsTo(uint32_hash_t target)
-    -> std::unordered_set<uint32_hash_t> {
+auto Hammock::Rendergraph::FrameGraph::findContributorsTo(FrameGraphNodeHandle target)
+    -> std::unordered_set<FrameGraphNodeHandle> {
     // Build reversed graph
-    std::unordered_map<uint32_hash_t, std::vector<uint32_hash_t>> reverseAdj;
+    std::unordered_map<FrameGraphNodeHandle, std::vector<FrameGraphNodeHandle>> reverseAdj;
     for (const auto& [src, neighbors] : adj) {
         for (auto dst : neighbors) {
             reverseAdj[dst].push_back(src);
@@ -383,8 +416,8 @@ auto Hammock::Rendergraph::Graph::findContributorsTo(uint32_hash_t target)
     }
 
     // BFS or DFS from target
-    std::unordered_set<uint32_hash_t> reachable;
-    std::queue<uint32_hash_t> q;
+    std::unordered_set<FrameGraphNodeHandle> reachable;
+    std::queue<FrameGraphNodeHandle> q;
 
     q.push(target);
     reachable.insert(target);
@@ -403,11 +436,11 @@ auto Hammock::Rendergraph::Graph::findContributorsTo(uint32_hash_t target)
     return reachable;
 }
 
-auto Hammock::Rendergraph::Graph::analyze() -> void {
+auto Hammock::Rendergraph::FrameGraph::analyze() -> void {
     // Mark all resources that contribute to the swapchain image
     if (swapChainImageResolver != nullptr) {
         // only if swapchain is used
-        uint32_hash_t sc = HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
+        FrameGraphNodeHandle sc = HashName(SWAP_CHAIN_IMAGE_RESOURCE_NAME);
         auto contributors = findContributorsTo(sc);
 
         for (const auto& contributor : contributors) {
@@ -435,3 +468,83 @@ auto Hammock::Rendergraph::Graph::analyze() -> void {
         }
     }
 };
+
+auto Hammock::Rendergraph::FrameGraph::optimize() -> void {}
+
+auto Hammock::Rendergraph::FrameGraph::allocate() -> void {
+    // For each pass allocate required resources
+    forEachPass([this](PassPtr pass) {
+        // Create allocation entry
+        allocations.insert({pass->getHashName(), std::make_unique<PassAllocation>()});
+        allocations.at(pass->getHashName())->descriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+        // Create descriptor set layout
+        auto builder = DescriptorSetLayout::Builder(device);
+
+        for (const auto& binding : pass->getDescriptorBindings()) {
+            const auto& resource = findResourceByName(binding.resource);
+            // Find which edge connects this resource to the pass
+            for (const auto& edge : pass->getAllEdges()) {
+                if (edge->srcHashName == resource->getHashName() ||
+                    edge->dstHashName == resource->getHashName()) {
+                    builder.addBinding(
+                        binding.binding, edge->dependency.descriptorType, edge->dependency.stageFlags, 1);
+                }
+                break;
+            }
+        }
+
+        allocations.at(pass->getHashName())->descriptorSetLayout = builder.build();
+
+        // Allocate per-frame-in-flight resources
+        SwapChain::forEachFrameInFlight([this, &pass](int frameIdx) {
+            // Command buffers
+            if (pass->getType() == PassType::Graphics) {
+                allocations.at(pass->getHashName())
+                    ->commandBuffers.push_back(CommandBuffer::create<CommandQueueFamily::Graphics>(device));
+            } else if (pass->getType() == PassType::Compute) {
+                allocations.at(pass->getHashName())
+                    ->commandBuffers.push_back(CommandBuffer::create<CommandQueueFamily::Compute>(device));
+            }
+
+            // Descriptor sets
+            const auto& layout = allocations.at(pass->getHashName())->descriptorSetLayout;
+            auto writer = DescriptorWriter(*layout, DescriptorPool::getInstance());
+
+            for (const auto& binding : pass->getDescriptorBindings()) {
+                const auto& resource = findResourceByName(binding.resource);
+                // Find which edge connects this resource to the pass
+                for (const auto& edge : pass->getAllEdges()) {
+                    if (edge->srcHashName == resource->getHashName() ||
+                        edge->dstHashName == resource->getHashName()) {
+                        if (resource->getType() == Resource::Type::Buffer) {
+                            auto bufferResource = std::dynamic_pointer_cast<BufferResource>(resource);
+                            auto handle = bufferResource->resolve(frameIdx);
+                            VkDescriptorBufferInfo bufferInfo =
+                                ResourceManager::getInstance().getResource<Buffer>(handle)->descriptorInfo();
+                            writer.writeBuffer(binding.binding, &bufferInfo);
+
+                        } else if (resource->getType() == Resource::Type::Image) {
+                            auto imageResource = std::dynamic_pointer_cast<ImageResource>(resource);
+                            auto handle = imageResource->resolve(frameIdx);
+                            auto image = ResourceManager::getInstance().getResource<Image>(handle);
+                            if (image->getSampler() == VK_NULL_HANDLE) {
+                                image->createSampler();
+                            }
+                            image->queueImageLayoutTransition(VK_IMAGE_LAYOUT_GENERAL);
+                            VkDescriptorImageInfo imageInfo = image->getDescriptorImageInfo();
+                            writer.writeImage(binding.binding, &imageInfo);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // Wait for pending operations to complete before writing descriptor sets
+            device.waitIdle();
+
+            auto& descriptorSet = allocations.at(pass->getHashName())->descriptorSets[frameIdx];
+            writer.build(descriptorSet);
+        });
+    });
+}

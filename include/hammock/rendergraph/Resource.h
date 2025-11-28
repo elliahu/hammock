@@ -8,6 +8,7 @@
 #include "hammock/core/Types.h"
 #include "hammock/core/core.h"
 #include "hammock/rendergraph/Node.h"
+#include "hammock/rendergraph/FrameGraphNodeHandle.h"
 
 namespace Hammock {
     namespace Rendergraph {

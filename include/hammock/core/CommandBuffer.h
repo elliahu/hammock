@@ -1,13 +1,31 @@
 #pragma once
 #include <vulkan/vulkan.h>
 
+#include <exception>
 #include <string>
 #include <vector>
+
+#include "hammock/core/Device.h"
 
 namespace Hammock {
     class CommandBuffer {
        public:
         CommandBuffer(VkCommandBuffer cmd) : commandBuffer(cmd) {}
+
+        template <CommandQueueFamily Queue>
+        static auto create(Device& device) -> std::unique_ptr<CommandBuffer> {
+            try {
+                auto commandBuffers = device.createVulkanCommandBuffers<Queue>(1);
+
+                if (commandBuffers.empty()) {
+                    throw std::runtime_error("Failed to create Vulkan command buffer.");
+                }
+
+                return std::make_unique<CommandBuffer>(commandBuffers[0]);
+            } catch (std::exception e) {
+                throw;
+            }
+        }
 
         auto waitOnSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void;
 

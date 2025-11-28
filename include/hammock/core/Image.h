@@ -1,11 +1,13 @@
 #pragma once
 #include <vulkan/vulkan.h>
-#include "hammock/core/Types.h"
+
 #include "hammock/core/CoreUtils.h"
+#include "hammock/core/Types.h"
+
 
 namespace Hammock {
     class Image : public Resource {
-    protected:
+       protected:
         // Format and usage
         VkFormat m_format;
         VkImageUsageFlags m_usage;
@@ -33,9 +35,11 @@ namespace Hammock {
 
         VkImageAspectFlags m_aspectFlags;
 
-    public:
-        Image(Device &device, uint64_t id, const std::string &name, const ImageDesc &desc) : Resource(
-            device, id, name) {
+        VkSampler m_sampler = VK_NULL_HANDLE;
+
+       public:
+        Image(Device& device, uint64_t id, const std::string& name, const ImageDesc& desc)
+            : Resource(device, id, name) {
             // Fromat and usage
             m_format = desc.format;
             m_usage = desc.usage;
@@ -60,10 +64,13 @@ namespace Hammock {
             m_clearValue = desc.clearValue;
 
             // queue family indices
-            for (auto &family: desc.queueFamilies) {
-                if (family == CommandQueueFamily::Graphics) m_queueFamilyIndices.push_back(device.getGraphicsQueueFamilyIndex());
-                if (family == CommandQueueFamily::Compute) m_queueFamilyIndices.push_back(device.getComputeQueueFamilyIndex());
-                if (family == CommandQueueFamily::Transfer) m_queueFamilyIndices.push_back(device.getTransferQueueFamilyIndex());
+            for (auto& family : desc.queueFamilies) {
+                if (family == CommandQueueFamily::Graphics)
+                    m_queueFamilyIndices.push_back(device.getGraphicsQueueFamilyIndex());
+                if (family == CommandQueueFamily::Compute)
+                    m_queueFamilyIndices.push_back(device.getComputeQueueFamilyIndex());
+                if (family == CommandQueueFamily::Transfer)
+                    m_queueFamilyIndices.push_back(device.getTransferQueueFamilyIndex());
             }
 
             m_sharingMode = desc.sharingMode;
@@ -72,19 +79,17 @@ namespace Hammock {
 
             m_memoryFlags = desc.memoryFlags;
 
-
             // Check for support
             VkFormatProperties formatProperties;
             vkGetPhysicalDeviceFormatProperties(device.getPhysicalDevice(), m_format, &formatProperties);
 
             ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
-                   "Device does not support flag TRANSFER_DST for selected format!");
+                "Device does not support flag TRANSFER_DST for selected format!");
 
             if (m_type == VK_IMAGE_TYPE_3D) {
                 uint32_t maxImageDimension3D(device.properties.limits.maxImageDimension3D);
-                ASSERT(
-                    m_width <= maxImageDimension3D && m_height <= maxImageDimension3D && m_depth <=
-                    maxImageDimension3D,
+                ASSERT(m_width <= maxImageDimension3D && m_height <= maxImageDimension3D &&
+                           m_depth <= maxImageDimension3D,
                     "Requested 3D texture dimensions are greater than supported 3D texture dimension!");
             }
         }
@@ -105,12 +110,10 @@ namespace Hammock {
         [[nodiscard]] VkExtent3D getExtent() const { return {m_width, m_height, m_depth}; }
 
         [[nodiscard]] VkRenderingAttachmentInfo getRenderingAttachmentInfo() const {
-            return {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            return {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                 .imageView = m_view,
                 .imageLayout = m_layout,
-                .clearValue = m_clearValue
-            };
+                .clearValue = m_clearValue};
         }
 
         [[nodiscard]] VkDescriptorImageInfo getDescriptorImageInfo(VkSampler sampler) const {
@@ -121,10 +124,16 @@ namespace Hammock {
             };
         }
 
+        [[nodiscard]] VkDescriptorImageInfo getDescriptorImageInfo() const {
+            return {
+                .sampler = m_sampler,
+                .imageView = m_view,
+                .imageLayout = m_layout,
+            };
+        }
+
         VkImageAspectFlags getAspectMask() const {
-            return isDepthStencilImage()
-                       ? VK_IMAGE_ASPECT_DEPTH_BIT
-                       : VK_IMAGE_ASPECT_COLOR_BIT;
+            return isDepthStencilImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
         };
 
         [[nodiscard]] VkSampler createAndGetSampler() const {
@@ -140,45 +149,47 @@ namespace Hammock {
             samplerInfo.minLod = 0.0f;
             samplerInfo.maxLod = static_cast<float>(m_mips);
 
-            vkCreateSampler(device.device(), &samplerInfo, nullptr, &sampler);
+            ASSERT(vkCreateSampler(device.device(), &samplerInfo, nullptr, &sampler) == VK_SUCCESS,
+                "Failed to create image sampler!");
 
             return sampler;
         }
 
+        void createSampler() { m_sampler = createAndGetSampler(); }
+
+        [[nodiscard]] VkSampler getSampler() const { return m_sampler; }
+
         /**
-         * Transitions to new layout. Transition is recorder to separate command buffer that is submitted after at the end of the call.
-         * Might cause sync hazard. Do not call in frame.
+         * Transitions to new layout. Transition is recorder to separate command buffer that is submitted
+         * after at the end of the call. Might cause sync hazard. Do not call in frame.
          * @param newLayout New layout
          */
         void queueImageLayoutTransition(VkImageLayout newLayout) {
-            if (newLayout == m_layout) { return; }
-            device.transitionImageLayout(m_image, m_layout, newLayout, m_layers, 0, m_mips, 0, getAspectMask());
+            if (newLayout == m_layout) {
+                return;
+            }
+            device.transitionImageLayout(
+                m_image, m_layout, newLayout, m_layers, 0, m_mips, 0, getAspectMask());
             m_layout = newLayout;
         }
 
-
-        VkImageSubresourceRange getSubresourceRange(uint32_t baseMipLevel = 0, uint32_t baseArrayLayer = 0) const {
-            return {
-                .aspectMask = getAspectMask(),
+        VkImageSubresourceRange getSubresourceRange(
+            uint32_t baseMipLevel = 0, uint32_t baseArrayLayer = 0) const {
+            return {.aspectMask = getAspectMask(),
                 .baseMipLevel = baseMipLevel,
                 .levelCount = m_mips,
                 .baseArrayLayer = baseArrayLayer,
-                .layerCount = m_layers
-            };
+                .layerCount = m_layers};
         }
 
         /**
-        *   Applies a pipeline barrier to the image. New layout is tracked internally. Layout tracking is not thread safe, so do not call this from multiple threads.
-        */
-        void pipelineBarrier(
-            VkCommandBuffer cmd,
-            VkPipelineStageFlags2 srcStageMask,
-            VkAccessFlags2 srcAccessMask,
-            VkPipelineStageFlags2 dstStageMask,
-            VkAccessFlags2 dstAccessMask,
-            VkImageLayout oldLayout,
-            VkImageLayout newLayout,
-            uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex) {
+         *   Applies a pipeline barrier to the image. New layout is tracked internally. Layout tracking is not
+         * thread safe, so do not call this from multiple threads.
+         */
+        void pipelineBarrier(VkCommandBuffer cmd, VkPipelineStageFlags2 srcStageMask,
+            VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask,
+            VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t srcQueueFamilyIndex,
+            uint32_t dstQueueFamilyIndex) {
             // Subresource range
             VkImageSubresourceRange subresourceRange = getSubresourceRange();
 
@@ -189,7 +200,7 @@ namespace Hammock {
                 .dstStageMask = dstStageMask,
                 .dstAccessMask = dstAccessMask,
                 .oldLayout = oldLayout,
-                .newLayout = newLayout, // Optional: layout transition
+                .newLayout = newLayout,  // Optional: layout transition
                 .srcQueueFamilyIndex = srcQueueFamilyIndex,
                 .dstQueueFamilyIndex = dstQueueFamilyIndex,
                 .image = m_image,
@@ -212,21 +223,15 @@ namespace Hammock {
          * @param buffer Buffer to copy from
          */
         void queueCopyFromBuffer(VkBuffer buffer) {
-            device.copyBufferToImage(
-                buffer,
-                m_image,
-                m_width,
-                m_height,
-                m_layers,
-                0, m_depth
-            );
+            device.copyBufferToImage(buffer, m_image, m_width, m_height, m_layers, 0, m_depth);
         }
 
         /**
-         * Creates the resource on device. This is called when ever this resource is requested and is not resident
+         * Creates the resource on device. This is called when ever this resource is requested and is not
+         * resident
          */
         void create() override {
-            Logger::log(LOG_LEVEL_DEBUG, "Creating image %s\n", getName().c_str());
+            Logger::log(LOG_LEVEL_DEBUG, "Creating image %s", getName().c_str());
             // Create the image
             VkImageCreateInfo imageCreateInfo = Init::imageCreateInfo();
             imageCreateInfo.imageType = m_type;
@@ -248,8 +253,8 @@ namespace Hammock {
             allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
             allocInfo.requiredFlags = m_memoryFlags;
 
-            checkResult(vmaCreateImage(device.allocator(), &imageCreateInfo, &allocInfo, &m_image, &m_allocation,
-                                       nullptr));
+            checkResult(vmaCreateImage(
+                device.allocator(), &imageCreateInfo, &allocInfo, &m_image, &m_allocation, nullptr));
 
             // create image view
             VkImageViewCreateInfo viewInfo{};
@@ -269,10 +274,11 @@ namespace Hammock {
         }
 
         /**
-         * Clears the resource from device memory. This is called if the resource is being destroyed ot space is needed in device memory.
+         * Clears the resource from device memory. This is called if the resource is being destroyed ot space
+         * is needed in device memory.
          */
         void release() override {
-            Logger::log(LOG_LEVEL_DEBUG, "Releasing image %s\n", getName().c_str());
+            Logger::log(LOG_LEVEL_DEBUG, "Releasing image %s", getName().c_str());
             if (m_image != VK_NULL_HANDLE) {
                 vmaDestroyImage(device.allocator(), m_image, m_allocation);
             }
@@ -280,6 +286,11 @@ namespace Hammock {
             if (m_view != VK_NULL_HANDLE) {
                 vkDestroyImageView(device.device(), m_view, nullptr);
             }
+
+            if (m_sampler != VK_NULL_HANDLE) {
+                vkDestroySampler(device.device(), m_sampler, nullptr);
+            }
+
             resident = false;
         }
 
@@ -289,13 +300,14 @@ namespace Hammock {
         void generateMips() {
             VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
 
-            transitionImageLayout(commandBuffer, m_image, VK_IMAGE_LAYOUT_UNDEFINED,
-                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, {
-                                      .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                      .baseMipLevel = 0,
-                                      .levelCount = m_mips,
-                                      .layerCount = 1
-                                  });
+            transitionImageLayout(commandBuffer,
+                m_image,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = m_mips,
+                    .layerCount = 1});
 
             VkImageMemoryBarrier barrier{};
             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -318,10 +330,15 @@ namespace Hammock {
                 barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 
                 vkCmdPipelineBarrier(commandBuffer,
-                                     VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                                     0, nullptr,
-                                     0, nullptr,
-                                     1, &barrier);
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    0,
+                    0,
+                    nullptr,
+                    0,
+                    nullptr,
+                    1,
+                    &barrier);
 
                 VkImageBlit blit{};
                 blit.srcOffsets[0] = {0, 0, 0};
@@ -338,10 +355,13 @@ namespace Hammock {
                 blit.dstSubresource.layerCount = 1;
 
                 vkCmdBlitImage(commandBuffer,
-                               m_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                               m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               1, &blit,
-                               VK_FILTER_LINEAR);
+                    m_image,
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    m_image,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1,
+                    &blit,
+                    VK_FILTER_LINEAR);
 
                 barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
                 barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -349,10 +369,15 @@ namespace Hammock {
                 barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
                 vkCmdPipelineBarrier(commandBuffer,
-                                     VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                                     0, nullptr,
-                                     0, nullptr,
-                                     1, &barrier);
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                    0,
+                    0,
+                    nullptr,
+                    0,
+                    nullptr,
+                    1,
+                    &barrier);
 
                 if (mipWidth > 1) mipWidth /= 2;
                 if (mipHeight > 1) mipHeight /= 2;
@@ -367,29 +392,28 @@ namespace Hammock {
             m_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
             vkCmdPipelineBarrier(commandBuffer,
-                                 VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0,
+                0,
+                nullptr,
+                0,
+                nullptr,
+                1,
+                &barrier);
 
             device.endSingleTimeCommands(commandBuffer);
             vkQueueWaitIdle(device.graphicsQueue());
         }
 
-        bool isDepthImage() const {
-            return isDepthFormat(m_format);
-        }
+        bool isDepthImage() const { return isDepthFormat(m_format); }
 
-        bool isSteniclImage() const {
-            return isStencilFormat(m_format);
-        }
+        bool isSteniclImage() const { return isStencilFormat(m_format); }
 
-        bool isDepthStencilImage() const {
-            return isDepthStencil(m_format);
-        }
+        bool isDepthStencilImage() const { return isDepthStencil(m_format); }
     };
 
-    template<>
+    template <>
     struct ResourceTypeTraits<Image> {
         static constexpr ResourceType type = ResourceType::Image;
     };
@@ -408,9 +432,9 @@ namespace Hammock {
         uint32_t mips;
         float mipLodBias;
 
-    public:
-        Sampler(Device &device, uint64_t id, const std::string &name, const SamplerDesc &desc) : Resource(
-            device, id, name) {
+       public:
+        Sampler(Device& device, uint64_t id, const std::string& name, const SamplerDesc& desc)
+            : Resource(device, id, name) {
             magFilter = desc.magFilter;
             minFilter = desc.minFilter;
             addressModeU = desc.addressModeU;
@@ -433,7 +457,7 @@ namespace Hammock {
         }
 
         void create() override {
-            Logger::log(LOG_LEVEL_DEBUG, "Creating sampler %s\n", getName().c_str());
+            Logger::log(LOG_LEVEL_DEBUG, "Creating sampler %s", getName().c_str());
             VkSamplerCreateInfo samplerInfo{};
             samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
             samplerInfo.magFilter = magFilter;
@@ -457,20 +481,18 @@ namespace Hammock {
         }
 
         void release() override {
-            Logger::log(LOG_LEVEL_DEBUG, "Releasing sampler %s\n", getName().c_str());
+            Logger::log(LOG_LEVEL_DEBUG, "Releasing sampler %s", getName().c_str());
             if (m_sampler != VK_NULL_HANDLE) {
                 vkDestroySampler(device.device(), m_sampler, nullptr);
             }
             resident = false;
         }
 
-        [[nodiscard]] VkSampler getSampler() const {
-            return m_sampler;
-        }
+        [[nodiscard]] VkSampler getSampler() const { return m_sampler; }
     };
 
-    template<>
+    template <>
     struct ResourceTypeTraits<Sampler> {
         static constexpr ResourceType type = ResourceType::Sampler;
     };
-}
+}  // namespace Hammock

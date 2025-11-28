@@ -62,13 +62,8 @@ namespace Hammock {
         }
 
         ~Buffer() override {
-            Logger::log(LOG_LEVEL_DEBUG, "Buffer %s is being destroyed ...\n", getName().c_str());
             if (isResident()) {
-                Logger::log(LOG_LEVEL_DEBUG, "Buffer %s is resident, releasing ..\n", getName().c_str());
                 release();
-            }
-            else {
-                Logger::log(LOG_LEVEL_DEBUG, "Buffer %s is not resident\n", getName().c_str());
             }
         }
 
@@ -76,7 +71,7 @@ namespace Hammock {
          * Creates the actual resource and loads it into memory
          */
         void create() override {
-            Logger::log(LOG_LEVEL_DEBUG, "Creating buffer %s of size %d\n", getName().c_str(), m_bufferSize);
+            Logger::log(LOG_LEVEL_DEBUG, "Creating buffer %s of size %d", getName().c_str(), m_bufferSize);
             VkBufferCreateInfo bufferInfo{};
             bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
             bufferInfo.size = m_bufferSize;
@@ -102,7 +97,7 @@ namespace Hammock {
             unmap();
             vmaDestroyBuffer(device.allocator(), m_buffer, m_allocation);
             resident = false;
-            Logger::log(LOG_LEVEL_DEBUG, "Buffer %s of size %d released\n", getName().c_str(), m_bufferSize);
+            Logger::log(LOG_LEVEL_DEBUG, "Buffer %s of size %d released", getName().c_str(), m_bufferSize);
         }
 
         [[nodiscard]] VkBuffer getBuffer() const { return m_buffer; }

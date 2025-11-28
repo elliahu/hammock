@@ -179,8 +179,5 @@ namespace Hammock {
         float mipLodBias = 0.0f;
     };
 
-    typedef uint32_t uint32_hash_t;
-
-    
 
 }  // namespace Hammock

@@ -17,6 +17,7 @@
 #include "hammock/rendergraph/ExecutionContext.h"
 #include "hammock/rendergraph/Node.h"
 #include "hammock/rendergraph/Resource.h"
+#include "hammock/rendergraph/FrameGraphNodeHandle.h"
 
 namespace Hammock {
     namespace Rendergraph {
@@ -34,18 +35,18 @@ namespace Hammock {
         };
 
         struct PassResourceBindingInfo {
-            uint32_hash_t resource;
+            FrameGraphNodeHandle resource;
             uint32_t binding;
         };
 
         struct ColorTargetInfo {
-            uint32_hash_t image;
+            FrameGraphNodeHandle image;
             VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         };
 
         struct DepthStencilInfo {
-            uint32_hash_t image;
+            FrameGraphNodeHandle image;
             VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         };
@@ -57,22 +58,22 @@ namespace Hammock {
         };
 
         struct UniformBufferInfo {
-            uint32_hash_t buffer;
+            FrameGraphNodeHandle buffer;
             VkShaderStageFlags stageFlags = VK_SHADER_STAGE_ALL;
         };
 
         struct StorageBufferInfo {
-            uint32_hash_t buffer;
+            FrameGraphNodeHandle buffer;
             VkShaderStageFlags stageFlags = VK_SHADER_STAGE_ALL;
         };
 
         struct StorageImageInfo {
-            uint32_hash_t image;
+            FrameGraphNodeHandle image;
             VkShaderStageFlags stageFlags = VK_SHADER_STAGE_ALL;
         };
 
         struct CombinedImageSamplerInfo {
-            uint32_hash_t image;
+            FrameGraphNodeHandle image;
             VkShaderStageFlags stageFlags = VK_SHADER_STAGE_ALL;
         };
 
@@ -131,6 +132,7 @@ namespace Hammock {
             auto getStorageBuffers() { return storageBuffers; }
             auto getStorageImages() { return storageImages; }
             auto getCombinedImageSamplers() { return combinedImageSamplers; }
+            auto getDescriptorBindings() { return bindings; }
 
            private:
             PassType type;
@@ -189,7 +191,10 @@ namespace Hammock {
 
             auto frag(ShaderInfo fs) { this->fs = std::make_unique<ShaderInfo>(std::move(fs)); }
 
-            auto execute(ExecutionCallback callback) { exec = std::move(callback); }
+            auto custom(ExecutionCallback callback) { exec = std::move(callback); }
+
+            auto viewport(HmckVec2 pos, HmckVec2 size, HmckVec2 depth) -> void {};
+            auto scissors(HmckVec2 offset, HmckVec2 extent) -> void {};
 
             auto getColorTargets() { return colorTargets; }
             auto hasDepthStencil() { return hasDepthStencil_; }

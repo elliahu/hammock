@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <memory>
 
+#include "hammock/rendergraph/FrameGraph.h"
 #include "hammock/rendergraph/Pass.h"
 
 using namespace Hammock;
@@ -37,11 +38,11 @@ auto main() -> int {
     });
 
     // Create the rendergraph instance
-    auto renderGraph = std::make_unique<Graph>(device);
+    auto graph = std::make_unique<FrameGraph>(device);
 
-    auto outColor = renderGraph->importSwapChainImage();
+    auto outColor = graph->importSwapChainImage();
 
-    auto vBuffer = renderGraph->createImage("vBuffer", ImageDesc::StorageRgba16F(1920, 1080));
+    auto vBuffer = graph->createImage("vBuffer", ImageDesc::StorageRgba16F(1920, 1080));
 
     auto compute = ComputePass::create("COMPUTE1");
     compute->storageImage({vBuffer, VK_SHADER_STAGE_COMPUTE_BIT});
@@ -50,29 +51,29 @@ auto main() -> int {
 
     auto graphics = GraphicsPass::create("GRAPHICS1");
     graphics->combinedImageSampler({vBuffer, VK_SHADER_STAGE_ALL_GRAPHICS});
-    graphics->binding({vBuffer, 0});
+    graphics->binding({{vBuffer, 0}});
     graphics->colorTarget({outColor, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE});
 
-    renderGraph->addPass(compute);
-    renderGraph->addPass(graphics);
+    graph->addPass(compute);
+    graph->addPass(graphics);
 
     // Build the render graph
     try{
-        // TODO add custom errors
-        renderGraph->build();
+        graph->build();
     }
     catch(const std::exception& error){
         Logger::error("Rendergraph build failed: %s", error.what());
         exit(EXIT_FAILURE);
     }
 
-    renderGraph->dumpDotfile("graph.dot");
+    graph->dumpDotfile("graph.dot");
 
-    renderGraph->execute(); 
 
     device.waitIdle();
     while (!window.shouldClose()) {
         window.pollEvents();
+
+        graph->execute();
     }
     device.waitIdle();
 

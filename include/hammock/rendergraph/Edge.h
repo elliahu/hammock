@@ -2,10 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <cstdint>
-#include <memory>
-
-#include "hammock/core/Types.h"
+#include "hammock/rendergraph/FrameGraphNodeHandle.h"
 
 namespace Hammock {
     namespace Rendergraph {
@@ -18,30 +15,33 @@ namespace Hammock {
             VkImageLayout requiredLayout;
             VkAttachmentStoreOp storeOp;
             VkAttachmentLoadOp loadOp;
-            VkDescriptorType descriptorType;
-            VkShaderStageFlags stageFlags = VK_SHADER_STAGE_ALL;
         };
 
-        struct BufferDependencyInfo{
+        struct BufferDependencyInfo {};
+
+        struct DependencyInfo {
+            // Shared fields
             VkShaderStageFlags stageFlags = VK_SHADER_STAGE_ALL;
+            VkDescriptorType descriptorType;
+
+            // Specific fields
+            ImageDependencyInfo imageDependency{};
+            BufferDependencyInfo bufferDependency{};
         };
 
         struct Edge {
-
             enum class Type {
                 PassToResource,  // Pass WRITES to resource
                 ResourceToPass   // Pass READS from resource
             };
 
-            uint32_hash_t srcHashName;  // hash name of Pass or Resource node
-            uint32_hash_t dstHashName;  // hash name of Pass or Resource node
+            FrameGraphNodeHandle srcHashName;  // hash name of Pass or Resource node
+            FrameGraphNodeHandle dstHashName;  // hash name of Pass or Resource node
 
             Type type;
 
             // Dependency metadata
-            ImageDependencyInfo imageDependency;
-
-            BufferDependencyInfo bufferDependency;
+            DependencyInfo dependency;
         };
 
     }  // namespace Rendergraph
