@@ -1,4 +1,0 @@
-set(PLATFORM_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/Window.cpp
-        PARENT_SCOPE
-)
