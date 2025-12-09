@@ -25,6 +25,42 @@ namespace Hammock {
     }
 
 
+    auto Device::beginVulkanCommandBuffer(const VkCommandBuffer commandBuffer) -> void {
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to begin recording a command buffer");
+        }
+    }
+
+    void Device::submitVulkanCommandBuffers(VkQueue queue, uint32_t waitSemaphoreInfoCount,
+                                            const VkSemaphoreSubmitInfo *pWaitSemaphoreInfos, uint32_t commandBufferInfoCount,
+                                            const VkCommandBufferSubmitInfo *pCommandBufferInfos, uint32_t signalSemaphoreInfoCount,
+                                            const VkSemaphoreSubmitInfo *pSignalSemaphoreInfos){
+        // Create the submit info
+        VkSubmitInfo2 submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .waitSemaphoreInfoCount = waitSemaphoreInfoCount,
+            .pWaitSemaphoreInfos = pWaitSemaphoreInfos,
+            .commandBufferInfoCount = commandBufferInfoCount,
+            .pCommandBufferInfos = pCommandBufferInfos,
+            .signalSemaphoreInfoCount = signalSemaphoreInfoCount,
+            .pSignalSemaphoreInfos = pSignalSemaphoreInfos,
+        };
+
+        // End all of the
+        for (int i = 0; i < commandBufferInfoCount; i++) {
+            if (vkEndCommandBuffer(pCommandBufferInfos[i].commandBuffer) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to end command buffer");
+            }
+        }
+
+        if (vkQueueSubmit2(queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to submit command buffers");
+        }
+    }
+
     void Device::pickPhysicalDevice() {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance.getInstance(), &deviceCount, nullptr);

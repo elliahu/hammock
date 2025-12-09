@@ -11,6 +11,7 @@
 
 #include "hammock/core/Buffer.h"
 #include "hammock/core/CommandBuffer.h"
+#include "hammock/core/ComputePipeline.h"
 #include "hammock/core/CoreUtils.h"
 #include "hammock/core/Descriptors.h"
 #include "hammock/core/GraphicsPipeline.h"
@@ -127,6 +128,8 @@ namespace Hammock {
                 std::vector<std::unique_ptr<CommandBuffer>> commandBuffers{};
                 std::vector<DescriptorSet> descriptorSets{};
                 std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{nullptr};
+                std::unique_ptr<GraphicsPipeline> graphicsPipeline{nullptr};
+                std::unique_ptr<ComputePipeline> computePipeline{nullptr};
             };
 
             Device& device;

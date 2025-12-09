@@ -1,18 +1,18 @@
 #pragma once
-#include <hammock/core/HandmadeMath.h>
-#include <hammock/utils/Initializers.h>
 
-#include <algorithm>
+
 #include <cassert>
-#include <cmath>
-#include <cstdarg>
-#include <cstdint>
-#include <cstdio>
+
 #include <cstdlib>  // for abort
 #include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <memory>
+#include <vector>
+
+#include <vulkan/vulkan.h>
+#include <hammock/core/HandmadeMath.h>
 
 #include "stb_image.h"
 
@@ -26,143 +26,132 @@ namespace Hammock {
     };
 
     /**
-     * @brief Static logging class providing level-specific wrappers.
-     */
-    class Logger {
-       public:
-        // Global minimum log level.
-        // Use static inline for C++17 onward to define members within the class header.
+ * @brief Static logging class providing level-specific wrappers.
+ */
+class Logger {
+   public:
+    // Global minimum log level.
 #ifdef NDEBUG
-        // In Release builds, set minimum level to WARNING or ERROR
-        static inline LogLevel hmckMinLogLevel = LOG_LEVEL_WARN;
+    // In Release builds, set minimum level to WARNING or ERROR
+    static inline LogLevel hmckMinLogLevel = LOG_LEVEL_WARN;
 #else
-        // In Debug builds, set minimum level to DEBUG
-        static inline LogLevel hmckMinLogLevel = LOG_LEVEL_DEBUG;
+    // In Debug builds, set minimum level to DEBUG
+    static inline LogLevel hmckMinLogLevel = LOG_LEVEL_DEBUG;
 #endif
 
-        // --- Public Wrapper Functions ---
+    // --- Public Wrapper Functions ---
 
-        /**
-         * @brief New public wrapper for INFO level messages.
-         *
-         * Usage: Logger::info("msg %d", 2);
-         *
-         * @param format The format string (like in printf).
-         * @param ... Variadic arguments to be formatted.
-         */
-        static void info(const char* format, ...) {
-            // Optimization: Check the level first to avoid va_list setup if not needed
-            if (LOG_LEVEL_INFO <= hmckMinLogLevel) {
-                va_list args;
-                va_start(args, format);
-                vlog(LOG_LEVEL_INFO, format, args);
-                va_end(args);
-            }
+    /**
+     * @brief New public wrapper for INFO level messages.
+     *
+     * Usage: Logger::info("msg %d", 2);
+     *
+     * @param format The format string (like in printf).
+     * @param args Variadic arguments to be formatted.
+     */
+    template<typename... Args>
+    static void info(const char* format, Args&&... args) {
+        if (LOG_LEVEL_INFO >= hmckMinLogLevel) {
+            log_impl(LOG_LEVEL_INFO, format, std::forward<Args>(args)...);
+        }
+    }
+
+    /**
+     * @brief New public wrapper for DEBUG level messages.
+     *
+     * Usage: Logger::debug("msg %d", 2);
+     *
+     * @param format The format string (like in printf).
+     * @param args Variadic arguments to be formatted.
+     */
+    template<typename... Args>
+    static void debug(const char* format, Args&&... args) {
+        if (LOG_LEVEL_DEBUG >= hmckMinLogLevel) {
+            log_impl(LOG_LEVEL_DEBUG, format, std::forward<Args>(args)...);
+        }
+    }
+
+    /**
+     * @brief New public wrapper for WARN level messages.
+     *
+     * Usage: Logger::warn("msg %s", "issue");
+     */
+    template<typename... Args>
+    static void warn(const char* format, Args&&... args) {
+        if (LOG_LEVEL_WARN >= hmckMinLogLevel) {
+            log_impl(LOG_LEVEL_WARN, format, std::forward<Args>(args)...);
+        }
+    }
+
+    /**
+     * @brief New public wrapper for ERROR level messages.
+     *
+     * Usage: Logger::error("Failed: %d", -1);
+     */
+    template<typename... Args>
+    static void error(const char* format, Args&&... args) {
+        if (LOG_LEVEL_ERROR >= hmckMinLogLevel) {
+            log_impl(LOG_LEVEL_ERROR, format, std::forward<Args>(args)...);
+        }
+    }
+
+    /**
+     * @brief Original general log function.
+     *
+     * This maintains the original signature for compatibility:
+     * Logger::log(LOG_LEVEL_DEBUG, "msg %d", 2);
+     */
+    template<typename... Args>
+    static void log(const LogLevel level, const char* format, Args&&... args) {
+        if (level >= hmckMinLogLevel) {
+            log_impl(level, format, std::forward<Args>(args)...);
+        }
+    }
+
+   private:
+    /**
+     * @brief Core internal logging function.
+     *
+     * All public logging functions call this function. It contains the actual
+     * prefix generation and output logic.
+     *
+     * @param level The severity level of the log message.
+     * @param format The format string.
+     * @param args The variadic arguments.
+     */
+    template<typename... Args>
+    static void log_impl(const LogLevel level, const char* format, Args&&... args) {
+        const char* prefix = "";
+
+        // Determine the prefix based on the log level
+        switch (level) {
+            case LOG_LEVEL_DEBUG:
+                prefix = "DEBUG: ";
+                break;
+            case LOG_LEVEL_INFO:
+                prefix = "INFO: ";
+                break;
+            case LOG_LEVEL_WARN:
+                prefix = "WARNING: ";
+                break;
+            case LOG_LEVEL_ERROR:
+                prefix = "ERROR: ";
+                break;
+            default:
+                // Do nothing for NONE or unrecognized
+                return;
         }
 
-        /**
-         * @brief New public wrapper for DEBUG level messages.
-         *
-         * Usage: Logger::debug("msg %d", 2);
-         *
-         * @param format The format string (like in printf).
-         * @param ... Variadic arguments to be formatted.
-         */
-        static void debug(const char* format, ...) {
-            if (LOG_LEVEL_DEBUG <= hmckMinLogLevel) {
-                va_list args;
-                va_start(args, format);
-                vlog(LOG_LEVEL_DEBUG, format, args);
-                va_end(args);
-            }
-        }
+        // Print the prefix first
+        std::printf("%s", prefix);
 
-        /**
-         * @brief New public wrapper for WARN level messages.
-         *
-         * Usage: Logger::warn("msg %s", "issue");
-         */
-        static void warn(const char* format, ...) {
-            if (LOG_LEVEL_WARN <= hmckMinLogLevel) {
-                va_list args;
-                va_start(args, format);
-                vlog(LOG_LEVEL_WARN, format, args);
-                va_end(args);
-            }
-        }
+        // Print the formatted message using printf with forwarded arguments
+        std::printf(format, std::forward<Args>(args)...);
 
-        /**
-         * @brief New public wrapper for ERROR level messages.
-         *
-         * Usage: Logger::error("Failed: %d", -1);
-         */
-        static void error(const char* format, ...) {
-            if (LOG_LEVEL_ERROR <= hmckMinLogLevel) {
-                va_list args;
-                va_start(args, format);
-                vlog(LOG_LEVEL_ERROR, format, args);
-                va_end(args);
-            }
-        }
-
-        /**
-         * @brief Original general log function (now calls internal vlog).
-         *
-         * This maintains the original signature for compatibility:
-         * Logger::log(LOG_LEVEL_DEBUG, "msg %d", 2);
-         */
-        static void log(const LogLevel level, const char* format, ...) {
-            if (level <= hmckMinLogLevel) {
-                va_list args;
-                va_start(args, format);
-                vlog(level, format, args);
-                va_end(args);
-            }
-        }
-
-       private:
-        /**
-         * @brief Core internal logging function that handles va_list.
-         *
-         * All public logging functions call this function. It contains the actual
-         * prefix generation and output logic.
-         *
-         * @param level The severity level of the log message.
-         * @param format The format string.
-         * @param args The initialized va_list containing the variadic arguments.
-         */
-        static void vlog(const LogLevel level, const char* format, va_list args) {
-            const char* prefix = "";
-
-            // Determine the prefix based on the log level
-            switch (level) {
-                case LOG_LEVEL_DEBUG:
-                    prefix = "DEBUG: ";
-                    break;
-                case LOG_LEVEL_INFO:
-                    prefix = "INFO: ";
-                    break;
-                case LOG_LEVEL_WARN:
-                    prefix = "WARNING: ";
-                    break;
-                case LOG_LEVEL_ERROR:
-                    prefix = "ERROR: ";
-                    break;
-                default:
-                    // Do nothing for NONE or unrecognized
-                    return;
-            }
-
-            // Print the prefix first
-            std::printf("%s", prefix);
-
-            // Print the formatted message using vprintf (variadic printf)
-            std::vprintf(format, args);
-
-            // Add a newline for clean output
-            std::printf("\n");
-        }
-    };
+        // Add a newline for clean output
+        std::printf("\n");
+    }
+};
 
     namespace AssertUtils {
         // Behavior options for failed assertions
@@ -450,7 +439,7 @@ namespace Hammock {
         uint32_t srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         uint32_t dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED) {
         // Create an image barrier object
-        VkImageMemoryBarrier imageMemoryBarrier = Init::imageMemoryBarrier();
+        VkImageMemoryBarrier imageMemoryBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
         imageMemoryBarrier.oldLayout = oldImageLayout;
         imageMemoryBarrier.newLayout = newImageLayout;
         imageMemoryBarrier.image = image;

@@ -1,5 +1,6 @@
 #include "hammock/core/ResourceManager.h"
 
+#include <algorithm>
 #include <chrono>
 
 void Hammock::ResourceManager::releaseResource(uint64_t id) {

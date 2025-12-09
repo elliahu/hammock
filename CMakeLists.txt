@@ -29,7 +29,7 @@ target_include_directories(hammock PUBLIC ${PROJECT_SOURCE_DIR}/external/imgui)
 
 # Remove the fcking max macro !?
 add_compile_definitions(NOMINMAX)
-
+add_compile_definitions(WIN32_LEAN_AND_MEAN)
 
 # Add ROOT dir macro
 target_compile_definitions(hammock 

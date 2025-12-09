@@ -38,7 +38,6 @@ namespace Hammock {
         }
 
     public:
-
         VkBuffer m_buffer = VK_NULL_HANDLE;
 
         Buffer(Device &device, uint64_t id, const std::string &name, const BufferDesc &desc) : Resource(
@@ -51,10 +50,13 @@ namespace Hammock {
             m_memoryPropertyFlags = desc.allocationFlags;
 
             // queue family indices
-            for (auto& family : desc.queueFamilies) {
-                if (family == CommandQueueFamily::Graphics) m_queueFamilyIndices.push_back(device.getGraphicsQueueFamilyIndex());
-                if (family == CommandQueueFamily::Compute) m_queueFamilyIndices.push_back(device.getComputeQueueFamilyIndex());
-                if (family == CommandQueueFamily::Transfer) m_queueFamilyIndices.push_back(device.getTransferQueueFamilyIndex());
+            for (auto &family: desc.queueFamilies) {
+                if (family == CommandQueueFamily::Graphics) m_queueFamilyIndices.push_back(
+                    device.getGraphicsQueueFamilyIndex());
+                if (family == CommandQueueFamily::Compute) m_queueFamilyIndices.push_back(
+                    device.getComputeQueueFamilyIndex());
+                if (family == CommandQueueFamily::Transfer) m_queueFamilyIndices.push_back(
+                    device.getTransferQueueFamilyIndex());
             }
 
             m_queueFamily = desc.currentQueueFamily;

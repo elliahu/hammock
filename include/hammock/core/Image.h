@@ -138,7 +138,7 @@ namespace Hammock {
 
         [[nodiscard]] VkSampler createAndGetSampler() const {
             VkSampler sampler = VK_NULL_HANDLE;
-            VkSamplerCreateInfo samplerInfo = Init::samplerCreateInfo();
+            VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
             samplerInfo.magFilter = VK_FILTER_LINEAR;
             samplerInfo.minFilter = VK_FILTER_LINEAR;
             samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
@@ -233,7 +233,7 @@ namespace Hammock {
         void create() override {
             Logger::log(LOG_LEVEL_DEBUG, "Creating image %s", getName().c_str());
             // Create the image
-            VkImageCreateInfo imageCreateInfo = Init::imageCreateInfo();
+            VkImageCreateInfo imageCreateInfo {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
             imageCreateInfo.imageType = m_type;
             imageCreateInfo.format = m_format;
             imageCreateInfo.mipLevels = m_mips;

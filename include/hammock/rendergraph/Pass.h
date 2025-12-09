@@ -157,11 +157,12 @@ namespace Hammock {
                 return std::move(std::make_shared<ComputePass>(name));
             }
 
-            auto comp(ShaderInfo cs) { this->cs = std::make_unique<ShaderInfo>(std::move(cs)); }
+            auto computeShader(ShaderInfo cs) { this->cs = std::make_unique<ShaderInfo>(std::move(cs)); }
 
             auto dispatch(const DispatchInfo& dispatchInfo) { this->dispatchInfo = dispatchInfo; };
 
             auto getDispatchInfo() { return dispatchInfo; }
+            auto getComputeShader() { return cs.get(); }
         };
 
         class GraphicsPass : public Pass {
@@ -187,9 +188,9 @@ namespace Hammock {
                 hasDepthStencil_ = true;
             }
 
-            auto vert(ShaderInfo vs) { this->vs = std::make_unique<ShaderInfo>(std::move(vs)); }
+            auto vertexShader(ShaderInfo vs) { this->vs = std::make_unique<ShaderInfo>(std::move(vs)); }
 
-            auto frag(ShaderInfo fs) { this->fs = std::make_unique<ShaderInfo>(std::move(fs)); }
+            auto fragmentShader(ShaderInfo fs) { this->fs = std::make_unique<ShaderInfo>(std::move(fs)); }
 
             auto custom(ExecutionCallback callback) { exec = std::move(callback); }
 
@@ -199,6 +200,9 @@ namespace Hammock {
             auto getColorTargets() { return colorTargets; }
             auto hasDepthStencil() { return hasDepthStencil_; }
             auto getDepthStencil() { return depthStencil_; }
+
+            auto getVertextShader() { return vs.get(); }
+            auto getFragmentShader() { return fs.get(); }
         };
 
     }  // namespace Rendergraph

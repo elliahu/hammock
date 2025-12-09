@@ -4,6 +4,7 @@
 namespace Hammock{
     namespace Rendergraph{
         struct ExecutionContext{
+            CommandBuffer* commandBuffer{nullptr};
             
         };
     }

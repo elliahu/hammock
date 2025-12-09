@@ -30,6 +30,7 @@ namespace Hammock {
         bool presentFamilyHasValue = false;
         bool computeFamilyHasValue = false;
         bool transferFamilyHasValue = false;
+
         [[nodiscard]] bool isComplete() const {
             return graphicsFamilyHasValue && presentFamilyHasValue && computeFamilyHasValue && transferFamilyHasValue;
         }
@@ -38,19 +39,19 @@ namespace Hammock {
     enum class CommandQueueFamily { Ignored, Graphics, Compute, Transfer };
 
     class Device {
-       public:
-        Device(VulkanInstance& instance, VkSurfaceKHR surface);
+    public:
+        Device(VulkanInstance &instance, VkSurfaceKHR surface);
 
         ~Device();
 
         // Not copyable or movable
-        Device(const Device&) = delete;
+        Device(const Device &) = delete;
 
-        Device& operator=(const Device&) = delete;
+        Device &operator=(const Device &) = delete;
 
-        Device(Device&&) = delete;
+        Device(Device &&) = delete;
 
-        Device& operator=(Device&&) = delete;
+        Device &operator=(Device &&) = delete;
 
         [[nodiscard]] VkCommandPool getGraphicsCommandPool() const { return graphicsCommandPool; }
         [[nodiscard]] VkCommandPool getTransferCommandPool() const { return transferCommandPool; }
@@ -72,33 +73,34 @@ namespace Hammock {
             return querySwapChainSupport(physicalDevice);
         }
 
-        uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+        [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
         [[nodiscard]] QueueFamilyIndices findPhysicalQueueFamilies() { return findQueueFamilies(physicalDevice); }
 
-        VkFormat findSupportedFormat(
-            const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
+        [[nodiscard]] VkFormat findSupportedFormat(
+            const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
 
         // Buffer Helper Functions
         void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-            VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
+                          VkBuffer &buffer, VkDeviceMemory &bufferMemory) const;
 
-        VkCommandBuffer beginSingleTimeCommands() const;
+        [[nodiscard]] VkCommandBuffer beginSingleTimeCommands() const;
 
         void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
 
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
 
         void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount,
-            uint32_t baseArrayLayer = 0, uint32_t depth = 1) const;
+                               uint32_t baseArrayLayer = 0, uint32_t depth = 1) const;
 
         // Image helper functionss
-        void createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image,
-            VkDeviceMemory& imageMemory) const;
+        void createImageWithInfo(const VkImageCreateInfo &imageInfo, VkMemoryPropertyFlags properties, VkImage &image,
+                                 VkDeviceMemory &imageMemory) const;
 
         void transitionImageLayout(VkImage image, VkImageLayout layoutOld, VkImageLayout layoutNew,
-            uint32_t layerCount = 1, uint32_t baseLayer = 0, uint32_t levelCount = 1, uint32_t baseLevel = 0,
-            VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) const;
+                                   uint32_t layerCount = 1, uint32_t baseLayer = 0, uint32_t levelCount = 1,
+                                   uint32_t baseLevel = 0,
+                                   VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) const;
 
         // TODO this should be named copyImageToImage
         // only used in env generator atm
@@ -106,9 +108,8 @@ namespace Hammock {
 
         void waitIdle();
 
-        template <CommandQueueFamily Queue>
-        auto createVulkanCommandBuffers(uint32_t commandBufferCount = 1)
-            -> std::vector<VkCommandBuffer> {
+        template<CommandQueueFamily Queue>
+        std::vector<VkCommandBuffer> Device::createVulkanCommandBuffers(const uint32_t commandBufferCount) const {
             VkCommandBufferAllocateInfo allocInfo{};
             allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
             allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -132,49 +133,21 @@ namespace Hammock {
             return commandBuffers;
         }
 
-
         // Begins a command buffer
-        auto beginVulkanCommandBuffer(VkCommandBuffer commandBuffer) -> void {
-            VkCommandBufferBeginInfo beginInfo{};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-            if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-                throw std::runtime_error("Failed to begin recording a command buffer");
-            }
-        }
+        static auto beginVulkanCommandBuffer(VkCommandBuffer commandBuffer) -> void;
 
         // Submits and ends command buffers, waits on semaphores and signals semaphores
-        auto submitVulkanCommandBuffers(VkQueue queue, uint32_t waitSemaphoreInfoCount,
-            const VkSemaphoreSubmitInfo* pWaitSemaphoreInfos, uint32_t commandBufferInfoCount,
-            const VkCommandBufferSubmitInfo* pCommandBufferInfos, uint32_t signalSemaphoreInfoCount,
-            const VkSemaphoreSubmitInfo* pSignalSemaphoreInfos) -> void {
-            // Create the submit info
-            VkSubmitInfo2 submitInfo = {
-                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-                .waitSemaphoreInfoCount = waitSemaphoreInfoCount,
-                .pWaitSemaphoreInfos = pWaitSemaphoreInfos,
-                .commandBufferInfoCount = commandBufferInfoCount,
-                .pCommandBufferInfos = pCommandBufferInfos,
-                .signalSemaphoreInfoCount = signalSemaphoreInfoCount,
-                .pSignalSemaphoreInfos = pSignalSemaphoreInfos,
-            };
-
-            // End all of the
-            for (int i = 0; i < commandBufferInfoCount; i++) {
-                if (vkEndCommandBuffer(pCommandBufferInfos[i].commandBuffer) != VK_SUCCESS) {
-                    throw std::runtime_error("Failed to end command buffer");
-                }
-            }
-
-            if (vkQueueSubmit2(queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-                throw std::runtime_error("Failed to submit command buffers");
-            }
-        }
+        static void submitVulkanCommandBuffers(VkQueue queue, uint32_t waitSemaphoreInfoCount,
+                                               const VkSemaphoreSubmitInfo *pWaitSemaphoreInfos,
+                                               uint32_t commandBufferInfoCount,
+                                               const VkCommandBufferSubmitInfo *pCommandBufferInfos,
+                                               uint32_t signalSemaphoreInfoCount,
+                                               const VkSemaphoreSubmitInfo *pSignalSemaphoreInfos);
 
         // TODO should be encapsed and accessed by getter
         VkPhysicalDeviceProperties properties;
 
-       private:
+    private:
         void pickPhysicalDevice();
 
         void createLogicalDevice();
@@ -192,7 +165,7 @@ namespace Hammock {
 
         SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
 
-        VulkanInstance& instance;
+        VulkanInstance &instance;
         VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
         VkCommandPool graphicsCommandPool;
         VkCommandPool transferCommandPool;
@@ -210,10 +183,10 @@ namespace Hammock {
 
         VmaAllocator allocator_;
 
-        const std::vector<const char*> deviceExtensions = {
+        const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
             VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
         };
     };
-}  // namespace Hammock
+} // namespace Hammock

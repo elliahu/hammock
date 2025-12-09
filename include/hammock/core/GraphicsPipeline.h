@@ -28,7 +28,6 @@ namespace Hammock {
         };
 
         struct GraphicsPipelineCreateInfo {
-            std::string debugName;
             Device& device;
 
             struct ShaderModuleInfo {
@@ -47,11 +46,11 @@ namespace Hammock {
                 VkCompareOp depthTestCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
                 VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
                 VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-                std::vector<VkPipelineColorBlendAttachmentState> blendAtaAttachmentStates;
+                std::vector<VkPipelineColorBlendAttachmentState> blendAtaAttachmentStates{};
 
                 struct VertexBufferBindingsInfo {
-                    std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions;
-                    std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions;
+                    std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions{};
+                    std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions{};
                 } vertexBufferBindings;
             } graphicsState;
 
@@ -80,11 +79,6 @@ namespace Hammock {
         ~GraphicsPipeline();
 
         static std::unique_ptr<GraphicsPipeline> create(GraphicsPipelineCreateInfo createInfo);
-
-        void bind(CommandBuffer& commandBuffer,
-            VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS) {
-            vkCmdBindPipeline(commandBuffer.getCommandBuffer(), pipelineBindPoint, pipeline);
-        }
 
         void beginRendering(CommandBuffer& commandBuffer, const VkRenderingInfo* renderingInfo) {
             vkCmdBeginRendering(commandBuffer.getCommandBuffer(), renderingInfo);

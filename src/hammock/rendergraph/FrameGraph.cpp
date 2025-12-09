@@ -98,16 +98,30 @@ auto Hammock::Rendergraph::FrameGraph::findResourceByName(FrameGraphNodeHandle n
 }
 
 auto Hammock::Rendergraph::FrameGraph::execute() -> void {
+    // For each pass in topological order
     forEachPass([this](PassPtr pass) {
         // Create execution context
-        ExecutionContext context{};
+        auto& alloc = allocations.at(pass->getHashName());
+        CommandBuffer* commandBuffer =
+            alloc->commandBuffers[FrameManager::getInstance().getFrameIndex()].get();
+
+        ExecutionContext context{
+            .commandBuffer = commandBuffer,
+        };
+
+        // Begin command buffer
+        commandBuffer->begin();
 
         // Pass type specific actions
         if (pass->getType() == PassType::Graphics) {
             if (auto* graphics = dynamic_cast<GraphicsPass*>(pass)) {
+                // Bind pipeline
+                alloc->graphicsPipeline->bind(*commandBuffer);
             }
         } else if (pass->getType() == PassType::Compute) {
             if (auto* compute = dynamic_cast<ComputePass*>(pass)) {
+                // Bind pipeline
+                alloc->computePipeline->bind(*commandBuffer);
             }
         }
     });
@@ -476,7 +490,8 @@ auto Hammock::Rendergraph::FrameGraph::allocate() -> void {
     forEachPass([this](PassPtr pass) {
         // Create allocation entry
         allocations.insert({pass->getHashName(), std::make_unique<PassAllocation>()});
-        allocations.at(pass->getHashName())->descriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+        auto& alloc = allocations.at(pass->getHashName());
+        alloc->descriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
         // Create descriptor set layout
         auto builder = DescriptorSetLayout::Builder(device);
@@ -494,21 +509,19 @@ auto Hammock::Rendergraph::FrameGraph::allocate() -> void {
             }
         }
 
-        allocations.at(pass->getHashName())->descriptorSetLayout = builder.build();
+        alloc->descriptorSetLayout = builder.build();
 
         // Allocate per-frame-in-flight resources
-        SwapChain::forEachFrameInFlight([this, &pass](int frameIdx) {
+        SwapChain::forEachFrameInFlight([this, &pass, &alloc](int frameIdx) {
             // Command buffers
             if (pass->getType() == PassType::Graphics) {
-                allocations.at(pass->getHashName())
-                    ->commandBuffers.push_back(CommandBuffer::create<CommandQueueFamily::Graphics>(device));
+                alloc->commandBuffers.push_back(CommandBuffer::create<CommandQueueFamily::Graphics>(device));
             } else if (pass->getType() == PassType::Compute) {
-                allocations.at(pass->getHashName())
-                    ->commandBuffers.push_back(CommandBuffer::create<CommandQueueFamily::Compute>(device));
+                alloc->commandBuffers.push_back(CommandBuffer::create<CommandQueueFamily::Compute>(device));
             }
 
             // Descriptor sets
-            const auto& layout = allocations.at(pass->getHashName())->descriptorSetLayout;
+            const auto& layout = alloc->descriptorSetLayout;
             auto writer = DescriptorWriter(*layout, DescriptorPool::getInstance());
 
             for (const auto& binding : pass->getDescriptorBindings()) {
@@ -543,8 +556,26 @@ auto Hammock::Rendergraph::FrameGraph::allocate() -> void {
             // Wait for pending operations to complete before writing descriptor sets
             device.waitIdle();
 
-            auto& descriptorSet = allocations.at(pass->getHashName())->descriptorSets[frameIdx];
+            auto& descriptorSet = alloc->descriptorSets[frameIdx];
             writer.build(descriptorSet);
         });
+
+        // Create pipelines
+        if (auto graphics = dynamic_cast<GraphicsPass*>(pass)) {
+            // TODO push constant support
+            alloc->graphicsPipeline = GraphicsPipeline::create({
+                .device = device,
+                .vertexShader = {.byteCode = graphics->getVertextShader()->spv},
+                .fragmentShader = {.byteCode = graphics->getFragmentShader()->spv},
+                .descriptorSetLayouts = {alloc->descriptorSetLayout->getDescriptorSetLayout()},
+                
+            });
+        } else if (auto compute = dynamic_cast<ComputePass*>(pass)) {
+            alloc->computePipeline = ComputePipeline::create({
+                .device = device,
+                .computeShader = {.byteCode = compute->getComputeShader()->spv},
+                .descriptorSetLayouts = {alloc->descriptorSetLayout->getDescriptorSetLayout()},
+            });
+        }
     });
 }

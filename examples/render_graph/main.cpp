@@ -47,6 +47,7 @@ auto main() -> int {
     auto compute = ComputePass::create("COMPUTE1");
     compute->storageImage({vBuffer, VK_SHADER_STAGE_COMPUTE_BIT});
     compute->binding({{vBuffer, 0}});
+    compute->computeShader({.spv = Filesystem::readFile(getCompiledShaderPath("compute.comp.spv"))});
     compute->dispatch({{10, 10, 0}});
 
     auto graphics = GraphicsPass::create("GRAPHICS1");
