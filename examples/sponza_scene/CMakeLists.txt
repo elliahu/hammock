@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Bring in editor -> renderer → automatically brings in core
 add_subdirectory(
-        "${CMAKE_CURRENT_LIST_DIR}/../../editor"
+        "${CMAKE_CURRENT_LIST_DIR}/../../src/editor"
         renderer_build
 )
 
