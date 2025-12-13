@@ -1,16 +1,17 @@
+module;
+
+#include <cstdint>
+
 export module hammock.renderer.geometry;
 
 import hammock.renderer.vertex;
 import hammock.renderer.math;
-import std;
+import hammock.core.base_resource;
 
-#include <HandmadeMath.h>
-#include "Types.h"
 
 namespace hammock::renderer {
     export struct Geometry {
-
-        enum VisibilityFlags : int32_t {
+        enum VisibilityFlags : std::int32_t {
             VISIBILITY_NONE = 0,
             VISIBILITY_VISIBLE = 1 << 0,
             VISIBILITY_OPAQUE = 1 << 1,
@@ -20,24 +21,23 @@ namespace hammock::renderer {
         };
 
         struct MeshInstance {
-            typedef int32_t Index;
+            typedef std::int32_t Index;
 
             Mat4 transform;
-            int32_t visibilityFlags;
+            std::int32_t visibilityFlags;
             Vec3 baseColorFactor;
             Vec3 metallicRoughnessAlphaCutOffFactor;
             Index baseColorTextureIndex;
             Index normalTextureIndex;
             Index metallicRoughnessTextureIndex;
             Index occlusionTextureIndex;
-            uint32_t firstIndex;
-            uint32_t indexCount;
+            std::uint32_t firstIndex;
+            std::uint32_t indexCount;
         };
 
         std::vector<MeshInstance> renderMeshes;
         std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
-        std::vector<core::ResourceHandle> textures;
-
+        std::vector<std::uint32_t> indices;
+        std::vector<ResourceHandle> textures;
     };
 }

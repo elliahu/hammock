@@ -1,78 +1,56 @@
-cmake_minimum_required(VERSION 3.29)
-project(hammock_core LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.30)
 
-#
-# Collect module interfaces and implementation files
-#
-file(GLOB CORE_MODULE_IFACES "${CMAKE_CURRENT_SOURCE_DIR}/*.cppm")
-file(GLOB CORE_SOURCES       "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
-
-# Optional legacy headers (only if still needed)
-file(GLOB CORE_HEADERS       "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
-
-#
 # Core library
-#
 add_library(hammock_core)
 
-#
-# Register module interfaces
-#
+# Add module sources
 target_sources(hammock_core
-        PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        ${CORE_MODULE_IFACES}
+    PUBLIC
+        FILE_SET CXX_MODULES TYPE CXX_MODULES
+        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+        FILES
+        "BasePipeline.cppm"
+        "BaseResource.cppm"
+        "BaseSurfaceProvider.cppm"
+        "Buffer.cppm"
+        "CommandBuffer.cppm"
+        "ComputePipeline.cppm"
+        "Descriptor.cppm"
+        "Device.cppm"
+        "FrameManager.cppm"
+        "GraphicsPipeline.cppm"
+        "Image.cppm"
+        "Instance.cppm"
+        "MemoryAllocator.cppm"
+        "ResourceManager.cppm"
+        "SwapChain.cppm"
+        "Utilities.cppm"
+        "Vulkan.cppm"
+    PRIVATE
+        "CommandBuffer.cpp"
+        "ComputePipeline.cpp"
+        "Descriptor.cpp"
+        "Device.cpp"
+        "FrameManager.cpp"
+        "GraphicsPipeline.cpp"
+        "MemoryAllocator.cpp"
+        "ResourceManager.cpp"
+        "SwapChain.cpp"
 )
 
-#
-# Register implementation units and optional headers
-#
-target_sources(hammock_core
-        PRIVATE
-        ${CORE_SOURCES}
-        ${CORE_HEADERS}
-)
-
-#
-# Module search paths
-#
-target_sources(hammock_core
-        PUBLIC
-        FILE_SET cxx_modules BASE_DIRS
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-#
-# Platform-specific definitions
-#
-target_compile_definitions(hammock_core PRIVATE
-        NOMINMAX
-        WIN32_LEAN_AND_MEAN
-)
-
-if (WIN32)
-    target_compile_definitions(hammock_core PRIVATE VK_USE_PLATFORM_WIN32_KHR)
-elseif (UNIX AND NOT APPLE)
-    target_compile_definitions(hammock_core PRIVATE VK_USE_PLATFORM_XLIB_KHR)
-elseif (APPLE)
-    target_compile_definitions(hammock_core PRIVATE VK_USE_PLATFORM_METAL_EXT)
-endif()
-
-#
-# External includes (only needed if legacy headers are included)
-#
+# Include directories for legacy headers
 target_include_directories(hammock_core PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        "${CMAKE_CURRENT_LIST_DIR}/../../external"
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    "${PROJECT_SOURCE_DIR}/external"
 )
 
-#
-# Vulkan
-#
-find_package(Vulkan REQUIRED)
+# Link Vulkan
 target_link_libraries(hammock_core PUBLIC Vulkan::Vulkan)
 
-#
-# C++ features
-#
+# Compiler features
 target_compile_features(hammock_core PUBLIC cxx_std_23)
+
+# Enable automatic module dependency scanning
+set_target_properties(hammock_core PROPERTIES
+        CXX_SCAN_FOR_MODULES ON
+)

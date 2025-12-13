@@ -1,14 +1,20 @@
-#pragma once
-#include <memory>
+module;
+#include <vulkan/vulkan.h>
 #include <string>
 #include <vector>
+#include <memory>
 
-#include "CommandBuffer.h"
-#include "Device.h"
-#include "Pipeline.h"
+
+export module hammock.core.graphics_pipeline;
+
+import hammock.core.command_buffer;
+import hammock.core.device;
+import hammock.core.base_pipeline;
+
+
 
 namespace hammock::core {
-    class GraphicsPipeline : public Pipeline {
+    export class GraphicsPipeline : public BasePipeline {
         struct GraphicsPipelineConfig {
             GraphicsPipelineConfig() = default;
 
@@ -63,7 +69,7 @@ namespace hammock::core {
                 bool enabled = true;
                 uint32_t colorAttachmentCount = 0;
                 std::vector<VkFormat> colorAttachmentFormats{};
-                VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED;
+                VkFormat depthAttachmentFormat = VkFormat::VK_FORMAT_UNDEFINED;
                 VkFormat stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
             } dynamicRendering;
 

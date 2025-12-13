@@ -1,26 +1,21 @@
-#pragma once
-
-
-#include <vulkan/vulkan_core.h>
-#include <stdexcept>
-
-#include "VulkanInstance.h"
-
-#define VMA_STATIC_VULKAN_FUNCTIONS 0
-#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
-#include <string>
+module;
 #include <vector>
+#include <stdexcept>
+#include <vulkan/vulkan.h>
 
-#include "vk_mem_alloc.h"
+export module hammock.core.device;
+
+import hammock.core.instance;
+import hammock.core.memory_allocator;
 
 namespace hammock::core {
-    struct SwapChainSupportDetails {
+    export struct SwapChainSupportDetails {
         VkSurfaceCapabilitiesKHR capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR> presentModes;
     };
 
-    struct QueueFamilyIndices {
+    export struct QueueFamilyIndices {
         uint32_t graphicsFamily;
         uint32_t presentFamily;
         uint32_t computeFamily;
@@ -35,11 +30,11 @@ namespace hammock::core {
         }
     };
 
-    enum class CommandQueueFamily { Ignored, Graphics, Compute, Transfer };
+    export enum class CommandQueueFamily { Ignored, Graphics, Compute, Transfer };
 
-    class Device {
+    export class Device {
     public:
-        Device(VulkanInstance &instance, VkSurfaceKHR surface);
+        Device(Instance &instance, VkSurfaceKHR surface);
 
         ~Device();
 
@@ -56,7 +51,7 @@ namespace hammock::core {
         [[nodiscard]] VkCommandPool getTransferCommandPool() const { return transferCommandPool; }
         [[nodiscard]] VkCommandPool getComputeCommandPool() const { return computeCommandPool; }
         [[nodiscard]] VkDevice device() const { return device_; }
-        [[nodiscard]] VmaAllocator allocator() const { return allocator_; }
+        [[nodiscard]] allocator::Allocator allocator() const { return allocator_; }
         [[nodiscard]] VkInstance getInstance() const { return instance.getInstance(); }
         [[nodiscard]] VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
         [[nodiscard]] VkSurfaceKHR surface() const { return surface_; }
@@ -110,7 +105,7 @@ namespace hammock::core {
         template<CommandQueueFamily Queue>
         std::vector<VkCommandBuffer> Device::createVulkanCommandBuffers(const uint32_t commandBufferCount) const {
             VkCommandBufferAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            allocInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
             allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
             allocInfo.commandBufferCount = commandBufferCount;
             if (Queue == CommandQueueFamily::Graphics) {
@@ -126,7 +121,7 @@ namespace hammock::core {
             std::vector<VkCommandBuffer> commandBuffers{};
             commandBuffers.resize(commandBufferCount);
 
-            if (vkAllocateCommandBuffers(device_, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+            if (vkAllocateCommandBuffers(device_, &allocInfo, commandBuffers.data()) != VkResult::VK_SUCCESS) {
                 throw std::runtime_error("failed to allocate command buffer");
             }
             return commandBuffers;
@@ -164,7 +159,7 @@ namespace hammock::core {
 
         SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
 
-        VulkanInstance &instance;
+        Instance &instance;
         VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
         VkCommandPool graphicsCommandPool;
         VkCommandPool transferCommandPool;
@@ -180,7 +175,7 @@ namespace hammock::core {
         VkQueue computeQueue_;
         uint32_t computeQueueFamilyIndex_;
 
-        VmaAllocator allocator_;
+        allocator::Allocator allocator_;
 
         const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,

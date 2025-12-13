@@ -1,19 +1,45 @@
-#pragma once
-#include <cstring>
-#include "Types.h"
+module;
+#include <stdexcept>
+#include <vulkan/vulkan.h>
+#include <vector>
+#include <string>
+
+export module hammock.core.buffer;
+
+
+import hammock.core.base_resource;
+import hammock.core.device;
+import hammock.core.utilities;
+import hammock.core.memory_allocator;
+
+
 
 namespace hammock::core {
-    class Buffer : public Resource {
+    /**
+    * Describes general buffer
+    */
+    export struct BufferDesc {
+        VkDeviceSize instanceSize;
+        uint32_t instanceCount;
+        VkBufferUsageFlags usageFlags;
+        allocator::AllocationCreateFlags allocationFlags;
+        VkDeviceSize minOffsetAlignment;
+        CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
+        std::vector<CommandQueueFamily> queueFamilies{};
+        VkSharingMode sharingMode = VkSharingMode::VK_SHARING_MODE_EXCLUSIVE;
+    };
+
+    export class Buffer : public BaseResource {
     protected:
         void *m_mapped = nullptr;
-        VmaAllocation m_allocation = VK_NULL_HANDLE;
+        allocator::Allocation m_allocation = VK_NULL_HANDLE;
 
         VkDeviceSize m_alignmentSize;
         VkDeviceSize m_bufferSize;
         uint32_t m_instanceCount;
         VkDeviceSize m_instanceSize;
         VkBufferUsageFlags m_usageFlags;
-        VmaAllocationCreateFlags m_memoryPropertyFlags;
+        allocator::AllocationCreateFlags m_memoryPropertyFlags;
 
         std::vector<uint32_t> m_queueFamilyIndices{};
 
@@ -40,7 +66,7 @@ namespace hammock::core {
     public:
         VkBuffer m_buffer = VK_NULL_HANDLE;
 
-        Buffer(Device &device, uint64_t id, const std::string &name, const BufferDesc &desc) : Resource(
+        Buffer(Device &device, uint64_t id, const std::string &name, const BufferDesc &desc) : BaseResource(
             device, id, name) {
             m_alignmentSize = getAlignment(desc.instanceSize, desc.minOffsetAlignment);
             m_bufferSize = m_alignmentSize * desc.instanceCount;
@@ -82,13 +108,16 @@ namespace hammock::core {
             bufferInfo.queueFamilyIndexCount = m_queueFamilyIndices.size();
             bufferInfo.pQueueFamilyIndices = m_queueFamilyIndices.data();
 
-            VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+            allocator::AllocationCreateInfo allocInfo = {};
+            allocInfo.usage = allocator::MemoryUsage::VMA_MEMORY_USAGE_AUTO;
             allocInfo.flags = m_memoryPropertyFlags;
 
-            ASSERT(
-                vmaCreateBuffer(device.allocator(), &bufferInfo, &allocInfo, &m_buffer, &m_allocation, nullptr) ==
-                VK_SUCCESS, "Could not create buffer!");
+            try {
+                allocator::createBuffer(device.allocator(), &bufferInfo, &allocInfo, &m_buffer, &m_allocation, nullptr);
+            }
+            catch( std::runtime_error &err){
+                throw;
+            }
             resident = true;
         }
 
@@ -97,7 +126,7 @@ namespace hammock::core {
          */
         void release() override {
             unmap();
-            vmaDestroyBuffer(device.allocator(), m_buffer, m_allocation);
+            allocator::destroyBuffer(device.allocator(), m_buffer, m_allocation);
             resident = false;
             Logger::log(LOG_LEVEL_DEBUG, "Buffer %s of size %d released", getName().c_str(), m_bufferSize);
         }
@@ -122,9 +151,12 @@ namespace hammock::core {
         * @return VkResult of the buffer mapping call
         */
         VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) {
-            assert(m_buffer && m_allocation && "Called map on buffer before create");
             if (!m_mapped) {
-                return vmaMapMemory(device.allocator(), m_allocation, &m_mapped);
+                try {
+                    allocator::mapMemory(device.allocator(), m_allocation, &m_mapped);
+                } catch (std::runtime_error &err) {
+                    throw;
+                }
             }
             return VK_SUCCESS;
         }
@@ -136,7 +168,7 @@ namespace hammock::core {
         */
         void unmap() {
             if (m_mapped) {
-                vmaUnmapMemory(device.allocator(), m_allocation);
+                allocator::unmapMemory(device.allocator(), m_allocation);
                 m_mapped = nullptr;
             }
         }
@@ -151,7 +183,9 @@ namespace hammock::core {
         *
         */
         void writeToBuffer(const void *data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const {
-            assert(m_mapped && "Cannot copy to unmapped buffer");
+            if(!m_mapped) {
+                throw std::runtime_error("Cannot copy to unmapped buffer");
+            }
 
             if (size == VK_WHOLE_SIZE) {
                 memcpy(m_mapped, data, m_bufferSize);
@@ -174,7 +208,12 @@ namespace hammock::core {
          * @return VkResult of the flush call
          */
         VkResult flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const {
-            return vmaFlushAllocation(device.allocator(), m_allocation, offset, size);
+            try {
+                allocator::flushAllocation(device.allocator(), m_allocation, offset, size);
+                return VK_SUCCESS;
+            }catch (std::runtime_error &err) {
+                throw;
+            }
         }
 
         /**
@@ -205,7 +244,12 @@ namespace hammock::core {
          * @return VkResult of the invalidate call
          */
         VkResult invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const {
-            return vmaInvalidateAllocation(device.allocator(), m_allocation, offset, size);
+            try {
+                allocator::invalidateAllocation(device.allocator(), m_allocation, offset, size);
+                return VK_SUCCESS;
+            } catch (std::runtime_error &err) {
+                throw;
+            }
         }
 
         /**
@@ -289,7 +333,7 @@ namespace hammock::core {
         }
     };
 
-    template<>
+    export template<>
     struct ResourceTypeTraits<Buffer> {
         static constexpr ResourceType type = ResourceType::Buffer;
     };

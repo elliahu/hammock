@@ -1,23 +1,27 @@
-#pragma once
-
-#include <cassert>
-#include <memory>
+module;
+#include <vulkan/vulkan.h>
+#include <stdexcept>
 #include <vector>
+#include <memory>
+
+export module hammock.core.frame_manager;
+
+import hammock.core.device;
+import hammock.core.utilities;
+import hammock.core.base_surface_provider;
+import hammock.core.base_resource;
+import hammock.core.swapchain;
 
 
-#include "SwapChain.h"
-#include "CoreUtils.h"
-#include "SurfaceProvider.h"
-#include "Device.h"
 
 namespace hammock::core {
-    class FrameManager: public Singleton<FrameManager> {
+    export class FrameManager: public Singleton<FrameManager> {
         friend class Singleton<FrameManager>;
 
        public:
         ~FrameManager();
 
-        static void initialize(SurfaceProvider& i_surfaceProvider, Device& device) {
+        static void initialize(BaseSurfaceProvider& i_surfaceProvider, Device& device) {
             Singleton<FrameManager>::initialize(i_surfaceProvider, device);
         }
 
@@ -30,12 +34,14 @@ namespace hammock::core {
         [[nodiscard]] bool isFrameInProgress() const { return isFrameStarted; }
 
         [[nodiscard]] int getFrameIndex() const {
-            assert(isFrameStarted && "Cannot get frame index when frame not in progress");
+            if(!isFrameStarted)
+                throw std::runtime_error("Cannot get frame index when frame not in progress");
             return currentFrameIndex;
         }
 
         [[nodiscard]] int getSwapChainImageIndex() const {
-            assert(isFrameStarted && "Cannot get image index when frame not in progress");
+            if(!isFrameStarted)
+                throw std::runtime_error("Cannot get image index when frame not in progress");
             return currentImageIndex;
         }
 
@@ -47,11 +53,11 @@ namespace hammock::core {
         void endFrame();
 
        protected:
-        FrameManager(SurfaceProvider& i_surfaceProvider, Device& device);
+        FrameManager(BaseSurfaceProvider& i_surfaceProvider, Device& device);
 
         void recreateSwapChain();
 
-        SurfaceProvider& surfaceProvider;
+        BaseSurfaceProvider& surfaceProvider;
         Device& device;
         std::unique_ptr<SwapChain> swapChain;
         std::vector<ResourceHandle> handlesOfSwapImages;

@@ -1,62 +1,34 @@
-project(hammock_renderer LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.30)
 
-#
-# Add core (which may contain modules)
-#
-add_subdirectory(
-        "${CMAKE_CURRENT_LIST_DIR}/../core"
-        core_build
-)
+# Collect module interfaces and implementation files
+file(GLOB_RECURSE RENDERER_MODULE_IFACES "${CMAKE_CURRENT_SOURCE_DIR}/*.cppm")
+file(GLOB_RECURSE RENDERER_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
-#
-# Collect module interfaces, implementation files
-#
-file(GLOB RENDERER_MODULE_IFACES "${CMAKE_CURRENT_SOURCE_DIR}/*.cppm")
-file(GLOB RENDERER_SOURCES      "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
-
-#
-# Renderer library with module interface file set
-#
+# Renderer library
 add_library(hammock_renderer)
 
-# Register module interfaces
+# Add module sources
 target_sources(hammock_renderer
-        PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        ${RENDERER_MODULE_IFACES}
-)
-
-# Add implementation units
-target_sources(hammock_renderer
-        PRIVATE
+    PUBLIC
+        FILE_SET CXX_MODULES TYPE CXX_MODULES
+        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+        FILES ${RENDERER_MODULE_IFACES}
+    PRIVATE
         ${RENDERER_SOURCES}
 )
 
-#
-# Module search roots (required for module import resolution)
-#
-target_sources(hammock_renderer
-        PUBLIC
-        FILE_SET cxx_modules BASE_DIRS
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-#
-# External includes (only needed if legacy headers are included)
-#
+# Include directories for legacy headers
 target_include_directories(hammock_renderer PUBLIC
-        "${CMAKE_CURRENT_LIST_DIR}/../../external"
+    "${PROJECT_SOURCE_DIR}/external"
 )
 
-#
-# Link core
-#
-target_link_libraries(hammock_renderer
-        PUBLIC
-        hammock_core
-)
+# Link core (which provides Vulkan transitively)
+target_link_libraries(hammock_renderer PUBLIC hammock_core)
 
-#
-# C++ features
-#
+# Compiler features
 target_compile_features(hammock_renderer PUBLIC cxx_std_23)
+
+# Enable automatic module dependency scanning
+set_target_properties(hammock_renderer PROPERTIES
+        CXX_SCAN_FOR_MODULES ON
+)

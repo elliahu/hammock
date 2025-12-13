@@ -4,14 +4,17 @@ module;
 #include <stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
-
-// TODO replace this with modules
-#include "CoreUtils.h"
-#include "Types.h"
+#include <fstream>
+#include <string>
+#include <vector>
+#include <filesystem>
+#include <regex>
 
 export module hammock.renderer.filesystem;
 
-import std;
+import hammock.core.utilities;
+
+
 
 namespace hammock::renderer {
     /// Check if file exists
@@ -125,13 +128,13 @@ namespace hammock::renderer {
         }
     }
 
-    inline uint16_t float32float16(float f) {
-        uint32_t f32 = *(uint32_t *) &f;
-        uint16_t f16 = 0;
+    inline std::uint16_t float32float16(float f) {
+        std::uint32_t f32 = *(std::uint32_t *) &f;
+        std::uint16_t f16 = 0;
 
-        uint32_t sign = (f32 >> 16) & 0x8000; // Extract sign bit
-        uint32_t exponent = ((f32 >> 23) & 0xFF) - 112; // Adjust exponent bias
-        uint32_t mantissa = (f32 & 0x007FFFFF) >> 13; // Truncate mantissa
+        std::uint32_t sign = (f32 >> 16) & 0x8000; // Extract sign bit
+        std::uint32_t exponent = ((f32 >> 23) & 0xFF) - 112; // Adjust exponent bias
+        std::uint32_t mantissa = (f32 & 0x007FFFFF) >> 13; // Truncate mantissa
 
         if (exponent <= 0) {
             // Underflow case (denormals or zero)
@@ -148,15 +151,15 @@ namespace hammock::renderer {
     }
 
     /// Channel flags to select which channel will be used
-    export enum ChannelFlags : uint32_t {
+    export enum ChannelFlags : std::uint32_t {
         CHANNEL_R = 1 << 0, // 0x01
         CHANNEL_G = 1 << 1, // 0x02
         CHANNEL_B = 1 << 2, // 0x04
         CHANNEL_A = 1 << 3 // 0x08
     };
 
-    export const void *readImageHdr32Bit(const std::string &filename, uint32_t channelMask, uint32_t &width,
-                                         uint32_t &height, bool flipY = false) {
+    export const void *readImageHdr32Bit(const std::string &filename, std::uint32_t channelMask, std::uint32_t &width,
+                                         std::uint32_t &height, bool flipY = false) {
         if (flipY) stbi_set_flip_vertically_on_load(true);
         int c, w, h;
         const float *data = stbi_loadf(filename.c_str(), &w, &h, &c, 4);
@@ -169,7 +172,7 @@ namespace hammock::renderer {
         }
 
         // Count how many channels are selected and create mapping
-        uint32_t readChannels = 0;
+        std::uint32_t readChannels = 0;
         int channelMapping[4];
         for (int i = 0; i < 4; ++i) {
             if (channelMask & (1 << i)) {
@@ -187,7 +190,7 @@ namespace hammock::renderer {
         float *processedData = new float[pixelCount * readChannels];
 
         for (size_t i = 0; i < pixelCount; ++i) {
-            for (uint32_t c = 0; c < readChannels; ++c) {
+            for (std::uint32_t c = 0; c < readChannels; ++c) {
                 processedData[i * readChannels + c] = data[i * 4 + channelMapping[c]];
             }
         }
@@ -196,8 +199,8 @@ namespace hammock::renderer {
         return processedData; // 32-bit float buffer
     }
 
-    export const void *readImageHdr16Bit(const std::string &filename, uint32_t channelMask, uint32_t &width,
-                                         uint32_t &height, bool flipY = false) {
+    export const void *readImageHdr16Bit(const std::string &filename, std::uint32_t channelMask, std::uint32_t &width,
+                                         std::uint32_t &height, bool flipY = false) {
         if (flipY) stbi_set_flip_vertically_on_load(true);
         int c, w, h;
         const float *data = stbi_loadf(filename.c_str(), &w, &h, &c, 4);
@@ -210,7 +213,7 @@ namespace hammock::renderer {
         }
 
         // Count how many channels are selected and create mapping
-        uint32_t readChannels = 0;
+        std::uint32_t readChannels = 0;
         int channelMapping[4];
         for (int i = 0; i < 4; ++i) {
             if (channelMask & (1 << i)) {
@@ -225,10 +228,10 @@ namespace hammock::renderer {
 
         size_t pixelCount = static_cast<size_t>(width) * height;
         // Allocate buffer for 16-bit floats
-        uint16_t *processedData = new uint16_t[pixelCount * readChannels];
+        std::uint16_t *processedData = new std::uint16_t[pixelCount * readChannels];
 
         for (size_t i = 0; i < pixelCount; ++i) {
-            for (uint32_t c = 0; c < readChannels; ++c) {
+            for (std::uint32_t c = 0; c < readChannels; ++c) {
                 processedData[i * readChannels + c] = float32float16(data[i * 4 + channelMapping[c]]);
             }
         }
@@ -237,8 +240,8 @@ namespace hammock::renderer {
         return processedData; // 16-bit float buffer
     }
 
-    export const void *readImageSdr8Bit(const std::string &filename, uint32_t channelMask, uint32_t &width,
-                                        uint32_t &height, bool flipY = false) {
+    export const void *readImageSdr8Bit(const std::string &filename, std::uint32_t channelMask, std::uint32_t &width,
+                                        std::uint32_t &height, bool flipY = false) {
         if (flipY) stbi_set_flip_vertically_on_load(true);
         int c, w, h;
         const unsigned char *data = stbi_load(filename.c_str(), &w, &h, &c, 4);
@@ -251,7 +254,7 @@ namespace hammock::renderer {
         }
 
         // Count how many channels are selected and create mapping
-        uint32_t readChannels = 0;
+        std::uint32_t readChannels = 0;
         int channelMapping[4];
         for (int i = 0; i < 4; ++i) {
             if (channelMask & (1 << i)) {
@@ -268,7 +271,7 @@ namespace hammock::renderer {
         unsigned char *processedData = new unsigned char[pixelCount * readChannels];
 
         for (size_t i = 0; i < pixelCount; ++i) {
-            for (uint32_t c = 0; c < readChannels; ++c) {
+            for (std::uint32_t c = 0; c < readChannels; ++c) {
                 processedData[i * readChannels + c] = data[i * 4 + channelMapping[c]];
             }
         }
@@ -277,16 +280,16 @@ namespace hammock::renderer {
         return processedData;
     }
 
-    export const void *readVolumeHdr32Bit(const std::vector<std::string> &filenames, uint32_t channelMask,
-                                          uint32_t &width, uint32_t &height, uint32_t &depth, bool flipY = false) {
+    export const void *readVolumeHdr32Bit(const std::vector<std::string> &filenames, std::uint32_t channelMask,
+                                          std::uint32_t &width, std::uint32_t &height, std::uint32_t &depth, bool flipY = false) {
         if (filenames.empty()) {
             throw std::runtime_error("No images provided for volume texture.");
         }
 
-        depth = static_cast<uint32_t>(filenames.size());
+        depth = static_cast<std::uint32_t>(filenames.size());
 
         // Count how many channels are selected and create mapping
-        uint32_t readChannels = 0;
+        std::uint32_t readChannels = 0;
         int channelMapping[4];
         for (int i = 0; i < 4; ++i) {
             if (channelMask & (1 << i)) {
@@ -318,14 +321,14 @@ namespace hammock::renderer {
 
         // Process first image
         for (size_t i = 0; i < pixelCountPerSlice; ++i) {
-            for (uint32_t c = 0; c < readChannels; ++c) {
+            for (std::uint32_t c = 0; c < readChannels; ++c) {
                 volumeData[i * readChannels + c] = firstData[i * 4 + channelMapping[c]];
             }
         }
         stbi_image_free(const_cast<float *>(firstData));
 
         // Load and process remaining images
-        for (uint32_t sliceIdx = 1; sliceIdx < depth; ++sliceIdx) {
+        for (std::uint32_t sliceIdx = 1; sliceIdx < depth; ++sliceIdx) {
             if (flipY) stbi_set_flip_vertically_on_load(true);
             const float *sliceData = stbi_loadf(filenames[sliceIdx].c_str(), &w, &h, &c, 4);
             stbi_set_flip_vertically_on_load(false);
@@ -345,7 +348,7 @@ namespace hammock::renderer {
             // Copy slice data to volume buffer
             size_t sliceOffset = sliceIdx * pixelCountPerSlice * readChannels;
             for (size_t i = 0; i < pixelCountPerSlice; ++i) {
-                for (uint32_t c = 0; c < readChannels; ++c) {
+                for (std::uint32_t c = 0; c < readChannels; ++c) {
                     volumeData[sliceOffset + i * readChannels + c] = sliceData[i * 4 + channelMapping[c]];
                 }
             }
@@ -356,16 +359,16 @@ namespace hammock::renderer {
         return volumeData;
     }
 
-    export const void *readVolumeHdr16Bit(const std::vector<std::string> &filenames, uint32_t channelMask,
-                                          uint32_t &width, uint32_t &height, uint32_t &depth, bool flipY = false) {
+    export const void *readVolumeHdr16Bit(const std::vector<std::string> &filenames, std::uint32_t channelMask,
+                                          std::uint32_t &width, std::uint32_t &height, std::uint32_t &depth, bool flipY = false) {
         if (filenames.empty()) {
             throw std::runtime_error("No images provided for volume texture.");
         }
 
-        depth = static_cast<uint32_t>(filenames.size());
+        depth = static_cast<std::uint32_t>(filenames.size());
 
         // Count how many channels are selected and create mapping
-        uint32_t readChannels = 0;
+        std::uint32_t readChannels = 0;
         int channelMapping[4];
         for (int i = 0; i < 4; ++i) {
             if (channelMask & (1 << i)) {
@@ -393,18 +396,18 @@ namespace hammock::renderer {
         size_t totalPixelCount = pixelCountPerSlice * depth;
 
         // Allocate buffer for entire volume
-        uint16_t *volumeData = new uint16_t[totalPixelCount * readChannels];
+        std::uint16_t *volumeData = new std::uint16_t[totalPixelCount * readChannels];
 
         // Process first image
         for (size_t i = 0; i < pixelCountPerSlice; ++i) {
-            for (uint32_t c = 0; c < readChannels; ++c) {
+            for (std::uint32_t c = 0; c < readChannels; ++c) {
                 volumeData[i * readChannels + c] = float32float16(firstData[i * 4 + channelMapping[c]]);
             }
         }
         stbi_image_free(const_cast<float *>(firstData));
 
         // Load and process remaining images
-        for (uint32_t sliceIdx = 1; sliceIdx < depth; ++sliceIdx) {
+        for (std::uint32_t sliceIdx = 1; sliceIdx < depth; ++sliceIdx) {
             if (flipY) stbi_set_flip_vertically_on_load(true);
             const float *sliceData = stbi_loadf(filenames[sliceIdx].c_str(), &w, &h, &c, 4);
             stbi_set_flip_vertically_on_load(false);
@@ -424,7 +427,7 @@ namespace hammock::renderer {
             // Copy slice data to volume buffer
             size_t sliceOffset = sliceIdx * pixelCountPerSlice * readChannels;
             for (size_t i = 0; i < pixelCountPerSlice; ++i) {
-                for (uint32_t c = 0; c < readChannels; ++c) {
+                for (std::uint32_t c = 0; c < readChannels; ++c) {
                     volumeData[sliceOffset + i * readChannels + c] = float32float16(
                         sliceData[i * 4 + channelMapping[c]]);
                 }
@@ -436,16 +439,16 @@ namespace hammock::renderer {
         return volumeData;
     }
 
-    export const void *readVolumeSdr8Bit(const std::vector<std::string> &filenames, uint32_t channelMask,
-                                         uint32_t &width, uint32_t &height, uint32_t &depth, bool flipY = false) {
+    export const void *readVolumeSdr8Bit(const std::vector<std::string> &filenames, std::uint32_t channelMask,
+                                         std::uint32_t &width, std::uint32_t &height, std::uint32_t &depth, bool flipY = false) {
         if (filenames.empty()) {
             throw std::runtime_error("No images provided for volume texture.");
         }
 
-        depth = static_cast<uint32_t>(filenames.size());
+        depth = static_cast<std::uint32_t>(filenames.size());
 
         // Count how many channels are selected and create mapping
-        uint32_t readChannels = 0;
+        std::uint32_t readChannels = 0;
         int channelMapping[4];
         for (int i = 0; i < 4; ++i) {
             if (channelMask & (1 << i)) {
@@ -477,14 +480,14 @@ namespace hammock::renderer {
 
         // Process first image
         for (size_t i = 0; i < pixelCountPerSlice; ++i) {
-            for (uint32_t c = 0; c < readChannels; ++c) {
+            for (std::uint32_t c = 0; c < readChannels; ++c) {
                 volumeData[i * readChannels + c] = firstData[i * 4 + channelMapping[c]];
             }
         }
         stbi_image_free(const_cast<unsigned char *>(firstData));
 
         // Load and process remaining images
-        for (uint32_t sliceIdx = 1; sliceIdx < depth; ++sliceIdx) {
+        for (std::uint32_t sliceIdx = 1; sliceIdx < depth; ++sliceIdx) {
             if (flipY) stbi_set_flip_vertically_on_load(true);
             const unsigned char *sliceData = stbi_load(filenames[sliceIdx].c_str(), &w, &h, &c, 4);
             stbi_set_flip_vertically_on_load(false);
@@ -504,7 +507,7 @@ namespace hammock::renderer {
             // Copy slice data to volume buffer
             size_t sliceOffset = sliceIdx * pixelCountPerSlice * readChannels;
             for (size_t i = 0; i < pixelCountPerSlice; ++i) {
-                for (uint32_t c = 0; c < readChannels; ++c) {
+                for (std::uint32_t c = 0; c < readChannels; ++c) {
                     volumeData[sliceOffset + i * readChannels + c] = sliceData[i * 4 + channelMapping[c]];
                 }
             }

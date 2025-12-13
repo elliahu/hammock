@@ -1,9 +1,13 @@
-#include "Descriptors.h"
-
-// std
-#include <cassert>
-#include <stdexcept>
+module;
 #include <vulkan/vulkan_core.h>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+#include <unordered_map>
+
+module hammock.core.descriptor;
+
+
 
 namespace hammock::core {
     // *************** Descriptor Set Layout Builder *********************
@@ -14,7 +18,6 @@ namespace hammock::core {
         const VkShaderStageFlags stageFlags,
         const uint32_t count,
         const VkDescriptorBindingFlags flags) {
-        assert(!bindings.contains(binding)&& "Binding already in use");
         VkDescriptorSetLayoutBinding layoutBinding{};
         layoutBinding.binding = binding;
         layoutBinding.descriptorType = descriptorType;
@@ -47,12 +50,12 @@ namespace hammock::core {
         }
 
         VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo = {};
-        bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        bindingFlagsInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
         bindingFlagsInfo.bindingCount = static_cast<uint32_t>(setLayoutBindingFlags.size());
         bindingFlagsInfo.pBindingFlags = setLayoutBindingFlags.data();
 
         VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
-        descriptorSetLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        descriptorSetLayoutInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
         descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
         descriptorSetLayoutInfo.pNext = &bindingFlagsInfo;
@@ -63,7 +66,7 @@ namespace hammock::core {
                 device.device(),
                 &descriptorSetLayoutInfo,
                 nullptr,
-                &descriptorSetLayout) != VK_SUCCESS) {
+                &descriptorSetLayout) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor set layout!");
         }
     }
@@ -81,14 +84,14 @@ namespace hammock::core {
         const std::vector<VkDescriptorPoolSize> &poolSizes)
         : device{device} {
         VkDescriptorPoolCreateInfo descriptorPoolInfo{};
-        descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        descriptorPoolInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
         descriptorPoolInfo.pPoolSizes = poolSizes.data();
         descriptorPoolInfo.maxSets = maxSets;
         descriptorPoolInfo.flags = poolFlags;
 
         if (vkCreateDescriptorPool(device.device(), &descriptorPoolInfo, nullptr, &descriptorPool) !=
-            VK_SUCCESS) {
+            VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
         }
     }
@@ -100,7 +103,7 @@ namespace hammock::core {
     bool DescriptorPool::allocateDescriptor(
         const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet &descriptor) const {
         VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = descriptorPool;
         allocInfo.pSetLayouts = &descriptorSetLayout;
         allocInfo.descriptorSetCount = 1;
@@ -133,13 +136,14 @@ namespace hammock::core {
 
     DescriptorWriter &DescriptorWriter::writeBuffer(
         const uint32_t binding, const VkDescriptorBufferInfo *bufferInfo) {
-        assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        // TODO use exceptions
+        //assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+
 
         const auto &[_binding, descriptorType, descriptorCount, stageFlags, pImmutableSamplers] = setLayout.bindings[binding];
 
-        assert(
-            descriptorCount == 1 &&
-            "Binding single descriptor info, but binding expects multiple");
+        // TODO use exceptions
+        // assert(descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
 
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -154,7 +158,8 @@ namespace hammock::core {
 
     DescriptorWriter &DescriptorWriter::writeBufferArray(const uint32_t binding,
                                                          const std::vector<VkDescriptorBufferInfo> &bufferInfos) {
-        assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        // TODO use exceptions
+        // assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 
         auto &bindingDescription = setLayout.bindings[binding];
 
@@ -172,13 +177,14 @@ namespace hammock::core {
 
     DescriptorWriter &DescriptorWriter::writeImage(
         uint32_t binding, const VkDescriptorImageInfo *imageInfo) {
-        assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+
+        // TODO use exceptions
+        //assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 
         auto &bindingDescription = setLayout.bindings[binding];
 
-        assert(
-            bindingDescription.descriptorCount == 1 &&
-            "Binding single descriptor info, but binding expects multiple");
+        // TODO use exceptions
+        // assert(bindingDescription.descriptorCount == 1 &&"Binding single descriptor info, but binding expects multiple");
 
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -193,13 +199,14 @@ namespace hammock::core {
 
     DescriptorWriter &DescriptorWriter::writeImageArray(const uint32_t binding,
                                                         const std::vector<VkDescriptorImageInfo> &imageInfos) {
-        assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        // TODO use exceptions
+        // assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 
         auto &[setLayoutBinding, descriptorType, descriptorCount, stageFlags, pImmutableSamplers] = setLayout.bindings[binding];
 
 
         VkWriteDescriptorSet write{};
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.sType = VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorType = descriptorType;
         write.dstBinding = binding;
         write.pImageInfo = imageInfos.data();
@@ -212,13 +219,13 @@ namespace hammock::core {
     DescriptorWriter &DescriptorWriter::writeAccelerationStructure(const uint32_t binding,
                                                                    const VkWriteDescriptorSetAccelerationStructureKHR *
                                                                    accelerationStructureInfo) {
-        assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        // TODO use exceptions
+        //assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 
         auto &bindingDescription = setLayout.bindings[binding];
 
-        assert(
-            bindingDescription.descriptorCount == 1 &&
-            "Binding single descriptor info, but binding expects multiple");
+        // TODO use exceptions
+        // assert(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
 
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

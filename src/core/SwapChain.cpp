@@ -1,15 +1,16 @@
+module;
 
-
-// std
-#include <array>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
+#include <vulkan/vulkan.h>
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
+#include <memory>
+#include <vector>
 
-#include "CoreUtils.h"
-#include "SwapChain.h"
+module hammock.core.swapchain;
+
+import hammock.core.utilities;
+import hammock.core.device;
 
 namespace hammock::core {
     SwapChain::SwapChain(Device& deviceRef, const VkExtent2D extent) : device{deviceRef}, windowExtent{extent} {

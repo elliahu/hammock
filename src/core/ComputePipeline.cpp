@@ -1,9 +1,15 @@
-#include "ComputePipeline.h"
+module;
+#include <vulkan/vulkan.h>
+#include <stdexcept>
 
-hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : Pipeline(config.device){
+module hammock.core.compute_pipeline;
+
+
+
+hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : BasePipeline(config.device){
     // Create a pipeline layout using the provided descriptor set layouts and push constant ranges.
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(config.descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = config.descriptorSetLayouts.empty() ? nullptr : config.descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(config.pushConstantRanges.size());
@@ -11,7 +17,7 @@ hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo 
                                                  ? nullptr
                                                  : config.pushConstantRanges.data();
 
-    if (vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VkResult::VK_SUCCESS) {
         throw std::runtime_error("failed to create compute pipeline layout");
     }
 
@@ -20,20 +26,20 @@ hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo 
 
     // Set up the compute shader stage.
     VkPipelineShaderStageCreateInfo shaderStageInfo{};
-    shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
     shaderStageInfo.module = shaderModule;
     shaderStageInfo.pName = config.computeShader.entryFunc.c_str();
 
     // Create the compute pipeline.
     VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.stage = shaderStageInfo;
     pipelineInfo.layout = pipelineLayout;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex = -1;
 
-    if (vkCreateComputePipelines(device.device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
+    if (vkCreateComputePipelines(device.device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VkResult::VK_SUCCESS) {
         throw std::runtime_error("failed to create compute pipeline");
     }
 }

@@ -1,8 +1,19 @@
-#include "FrameManager.h"
+module;
+#include <vulkan/vulkan.h>
 #include <iostream>
-#include "ResourceManager.h"
+#include <string>
+#include <cassert>
 
-hammock::core::FrameManager::FrameManager(SurfaceProvider& i_surfaceProvider, Device &device) : surfaceProvider{i_surfaceProvider}, device{device}{
+module hammock.core.frame_manager;
+
+import hammock.core.resource_manager;
+import hammock.core.base_surface_provider;
+import hammock.core.base_resource;
+import hammock.core.image;
+
+
+
+hammock::core::FrameManager::FrameManager(BaseSurfaceProvider& i_surfaceProvider, Device &device) : surfaceProvider{i_surfaceProvider}, device{device}{
     recreateSwapChain();
 }
 

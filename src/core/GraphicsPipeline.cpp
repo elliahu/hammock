@@ -1,4 +1,12 @@
-#include "GraphicsPipeline.h"
+module;
+#include <vulkan/vulkan.h>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
+module hammock.core.graphics_pipeline;
+
+
 
 std::unique_ptr<hammock::core::GraphicsPipeline> hammock::core::GraphicsPipeline::create(
     GraphicsPipelineCreateInfo createInfo) {
@@ -12,16 +20,16 @@ hammock::core::GraphicsPipeline::~GraphicsPipeline() {
     vkDestroyPipeline(device.device(), pipeline, nullptr);
 }
 
-hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipeline::GraphicsPipelineCreateInfo &createInfo) : Pipeline(createInfo.device){
+hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipeline::GraphicsPipelineCreateInfo &createInfo) : BasePipeline(createInfo.device){
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(createInfo.descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = createInfo.descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(createInfo.pushConstantRanges.size());
     pipelineLayoutInfo.pPushConstantRanges = createInfo.pushConstantRanges.data();
 
     if (vkCreatePipelineLayout(createInfo.device.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) !=
-        VK_SUCCESS) {
+        VkResult::VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout");
     }
 
@@ -145,7 +153,7 @@ void hammock::core::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipeli
 
     configInfo.multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
-    configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    configInfo.multisampleInfo.rasterizationSamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT;
     configInfo.multisampleInfo.minSampleShading = 1.0f; // Optional
     configInfo.multisampleInfo.pSampleMask = nullptr; // Optional
     configInfo.multisampleInfo.alphaToCoverageEnable = VK_FALSE; // Optional

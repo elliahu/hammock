@@ -4,7 +4,8 @@ module;
 
 export module hammock.renderer.math;
 
-export {
+export namespace hammock::renderer {
+
     using Vec2 = ::HMM_Vec2;
     using Vec3 = ::HMM_Vec3;
     using Vec4 = ::HMM_Vec4;
@@ -18,7 +19,7 @@ export {
         return ::HMM_Perspective_RH_ZO(FOV, AspectRatio, Near, Far);
     }
 
-    inline Mat4 ortographic(float left, float right, float bottom, float top, float near, float far) {
+    inline Mat4 orthographic(float left, float right, float bottom, float top, float near, float far) {
         return ::HMM_Orthographic_RH_ZO(left, right, bottom, top, near, far);
     }
 

@@ -1,6 +1,10 @@
-#include "CommandBuffer.h"
-#include <cstdint>
+module;
+#include <vulkan/vulkan.h>
 #include <stdexcept>
+
+module hammock.core.command_buffer;
+
+
 
 auto hammock::core::CommandBuffer::begin() -> void {
     if (inProgress) {

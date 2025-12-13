@@ -1,15 +1,21 @@
-#pragma once
-#include <CoreUtils.h>
+module;
+#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
+#include <memory>
+#include <unordered_map>
 
-#include "Buffer.h"
-#include "Device.h"
-#include "Image.h"
-#include "Types.h"
-#include "CoreUtils.h"
+export module hammock.core.resource_manager;
+
+import hammock.core.utilities;
+import hammock.core.buffer;
+import hammock.core.image;
+import hammock.core.device;
+import hammock.core.base_resource;
+
 
 
 namespace hammock::core {
-    class ResourceManager;
+    export class ResourceManager;
 
     class ResourceFactory final {
         friend class ResourceManager;
@@ -25,7 +31,7 @@ namespace hammock::core {
         friend class Singleton<ResourceManager>;
 
        private:
-        using ResourceMap = std::unordered_map<uint64_t, std::unique_ptr<Resource> >;
+        using ResourceMap = std::unordered_map<uint64_t, std::unique_ptr<BaseResource> >;
 
         Device& device;
         ResourceMap resources;

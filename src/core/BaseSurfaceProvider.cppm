@@ -1,11 +1,14 @@
-#pragma once
+module;
 #include <vulkan/vulkan.h>
+
+
+export module hammock.core.base_surface_provider;
 
 namespace hammock::core {
 
-    class SurfaceProvider {
+    export class BaseSurfaceProvider {
        public:
-        virtual ~SurfaceProvider() = default;
+        virtual ~BaseSurfaceProvider() = default;
         virtual VkExtent2D getExtent() const = 0;
         virtual VkSurfaceKHR getSurface() const = 0;
         virtual bool wasResized() const = 0;

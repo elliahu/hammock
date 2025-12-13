@@ -1,7 +1,10 @@
-export module hammock.renderer.threadpool;
+module;
 
-import std;
-#include <cstdint>
+#include <mutex>
+#include <functional>
+#include <queue>
+
+export module hammock.renderer.threadpool;
 
 namespace hammock::renderer {
     export class ThreadPool {
@@ -12,7 +15,7 @@ namespace hammock::renderer {
 
         // Sets (or resets) the number of worker threads.
         // If threads already exist, waits for current work, stops them, and spawns new threads.
-        void setThreadCount(uint32_t threadCount) {
+        void setThreadCount(std::uint32_t threadCount) {
             // Stop any existing worker threads.
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
@@ -33,7 +36,7 @@ namespace hammock::renderer {
             }
 
             // Spawn new worker threads.
-            for (uint32_t i = 0; i < threadCount; ++i) {
+            for (std::uint32_t i = 0; i < threadCount; ++i) {
                 threads.emplace_back([this] {
                     while (true) {
                         std::function<void()> job; {

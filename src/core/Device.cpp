@@ -1,15 +1,18 @@
-#include "Device.h"
-
-#include <cstring>
-#include <iostream>
+module;
+#include <stdexcept>
 #include <set>
-#include <unordered_set>
-#include "CoreUtils.h"
+#include <vector>
 
+#include <vulkan/vulkan.h>
+
+module hammock.core.device;
+
+import hammock.core.utilities;
+import hammock.core.memory_allocator;
 
 namespace hammock::core {
     // class member functions
-    Device::Device(VulkanInstance &instance, VkSurfaceKHR surface) : instance{instance}, surface_{surface} {
+    Device::Device(Instance &instance, VkSurfaceKHR surface) : instance{instance}, surface_{surface} {
         pickPhysicalDevice();
         createLogicalDevice();
         createCommandPools();
@@ -17,7 +20,7 @@ namespace hammock::core {
     }
 
     Device::~Device() {
-        vmaDestroyAllocator(allocator_);
+        allocator::destroyAllocator(allocator_);
         vkDestroyCommandPool(device_, graphicsCommandPool, nullptr);
         vkDestroyCommandPool(device_, transferCommandPool, nullptr);
         vkDestroyCommandPool(device_, computeCommandPool, nullptr);
@@ -27,9 +30,9 @@ namespace hammock::core {
 
     auto Device::beginVulkanCommandBuffer(const VkCommandBuffer commandBuffer) -> void {
         VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("Failed to begin recording a command buffer");
         }
     }
@@ -40,7 +43,7 @@ namespace hammock::core {
                                             const VkSemaphoreSubmitInfo *pSignalSemaphoreInfos){
         // Create the submit info
         VkSubmitInfo2 submitInfo = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .sType = VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = waitSemaphoreInfoCount,
             .pWaitSemaphoreInfos = pWaitSemaphoreInfos,
             .commandBufferInfoCount = commandBufferInfoCount,
@@ -51,12 +54,12 @@ namespace hammock::core {
 
         // End all of the
         for (int i = 0; i < commandBufferInfoCount; i++) {
-            if (vkEndCommandBuffer(pCommandBufferInfos[i].commandBuffer) != VK_SUCCESS) {
+            if (vkEndCommandBuffer(pCommandBufferInfos[i].commandBuffer) != VkResult::VK_SUCCESS) {
                 throw std::runtime_error("Failed to end command buffer");
             }
         }
 
-        if (vkQueueSubmit2(queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+        if (vkQueueSubmit2(queue, 1, &submitInfo, VK_NULL_HANDLE) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("Failed to submit command buffers");
         }
     }
@@ -99,7 +102,7 @@ namespace hammock::core {
         float queuePriority = 1.0f;
         for (uint32_t queueFamily: uniqueQueueFamilies) {
             VkDeviceQueueCreateInfo queueCreateInfo = {};
-            queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueCreateInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             queueCreateInfo.queueFamilyIndex = queueFamily;
             queueCreateInfo.queueCount = 1;
             queueCreateInfo.pQueuePriorities = &queuePriority;
@@ -155,7 +158,7 @@ namespace hammock::core {
         createInfo.pNext = &deviceFeatures2; // Pass the device features structure
         createInfo.enabledLayerCount = 0;
 
-        if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device_) != VK_SUCCESS) {
+        if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device_) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to create logical device!");
         }
 
@@ -170,19 +173,19 @@ namespace hammock::core {
                 findPhysicalQueueFamilies();
 
         VkCommandPoolCreateInfo poolInfo = {};
-        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.queueFamilyIndex = queFamilyIndices.graphicsFamily;
         poolInfo.flags =
                 VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        if (vkCreateCommandPool(device_, &poolInfo, nullptr, &graphicsCommandPool) != VK_SUCCESS) {
+        if (vkCreateCommandPool(device_, &poolInfo, nullptr, &graphicsCommandPool) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to create graphics command pool!");
         }
 
         poolInfo.queueFamilyIndex = queFamilyIndices.transferFamily;
         poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        if (vkCreateCommandPool(device_, &poolInfo, nullptr, &transferCommandPool) != VK_SUCCESS) {
+        if (vkCreateCommandPool(device_, &poolInfo, nullptr, &transferCommandPool) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to create transfer command pool!");
         }
 
@@ -194,19 +197,23 @@ namespace hammock::core {
     }
 
     void Device::createMemoryAllocator() {
-        VmaVulkanFunctions vulkanFunctions = {};
+        allocator::VulkanFunctions vulkanFunctions = {};
         vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
         vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
 
-        VmaAllocatorCreateInfo allocatorCreateInfo = {};
-        allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+        allocator::AllocatorCreateInfo allocatorCreateInfo = {};
+        allocatorCreateInfo.flags = allocator::AllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
         allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
         allocatorCreateInfo.physicalDevice = physicalDevice;
         allocatorCreateInfo.device = device_;
         allocatorCreateInfo.instance = instance.getInstance();
         allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
 
-        vmaCreateAllocator(&allocatorCreateInfo, &allocator_);
+        try {
+            allocator::createAllocator(&allocatorCreateInfo, &allocator_);
+        } catch (std::runtime_error &e) {
+            throw;
+        }
     }
 
     bool Device::isDeviceSuitable(VkPhysicalDevice device) {
@@ -390,7 +397,7 @@ namespace hammock::core {
         bufferInfo.usage = usage;
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        if (vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        if (vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to create buffer!");
         }
 
@@ -407,7 +414,7 @@ namespace hammock::core {
         allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
         //allocInfo.pNext = &memoryAllocateFlagsInfo;
 
-        if (vkAllocateMemory(device_, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+        if (vkAllocateMemory(device_, &allocInfo, nullptr, &bufferMemory) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to allocate buffer memory!");
         }
 
@@ -491,7 +498,7 @@ namespace hammock::core {
         const VkMemoryPropertyFlags properties,
         VkImage &image,
         VkDeviceMemory &imageMemory) const {
-        if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to create image!");
         }
 
@@ -503,11 +510,11 @@ namespace hammock::core {
         allocInfo.allocationSize = memRequirements.size;
         allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-        if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to allocate image memory!");
         }
 
-        if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
+        if (vkBindImageMemory(device_, image, imageMemory, 0) != VkResult::VK_SUCCESS) {
             throw std::runtime_error("failed to bind image memory!");
         }
     }

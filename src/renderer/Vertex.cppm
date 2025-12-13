@@ -1,17 +1,18 @@
+module;
+
+#include <vulkan/vulkan.h>
+#include <vector>
+
 export module hammock.renderer.vertex;
 
-import std;
-import renderer.math;
-
-#include <vulkan/vulkan.h>;
-
+import hammock.renderer.math;
 
 namespace hammock::renderer {
     export struct Vertex {
-        Math::Vec3 position{};
-        Math::Vec3 normal{};
-        Math::Vec2 uv{};
-        Math::Vec4 tangent{};
+        Vec3 position{};
+        Vec3 normal{};
+        Vec2 uv{};
+        Vec4 tangent{};
 
         static std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions() {
             return {

@@ -1,16 +1,20 @@
-#pragma once
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <vector>
+module;
 
-#include "CommandBuffer.h"
-#include "Device.h"
-#include "Pipeline.h"
+#include <vulkan/vulkan.h>
+#include <vector>
+#include <string>
+#include <memory>
+
+export module hammock.core.compute_pipeline;
+
+import hammock.core.device;
+import hammock.core.command_buffer;
+import hammock.core.base_pipeline;
+
 
 
 namespace hammock::core {
-    class ComputePipeline : public Pipeline {
+    export class ComputePipeline : public BasePipeline {
         struct ComputePipelineConfig {
             ComputePipelineConfig() = default;
             ComputePipelineConfig(const ComputePipelineConfig&) = delete;

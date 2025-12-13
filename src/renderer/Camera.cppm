@@ -1,9 +1,14 @@
-export module hammock.renderer.camera;
-
-import std;
-import hammock.renderer.math;
+module;
 
 #include <cassert>
+#include <cmath>
+#include <limits>
+
+export module hammock.renderer.camera;
+
+import hammock.renderer.math;
+
+
 
 
 namespace hammock::renderer {

@@ -1,5 +1,33 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.30)
+
+set(CMAKE_CXX_SCAN_FOR_MODULES ON)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 project(hammock LANGUAGES CXX)
 
-# Add all examples
+
+# Platform definitions
+if(WIN32)
+    add_compile_definitions(
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        VK_USE_PLATFORM_WIN32_KHR
+    )
+elseif(UNIX AND NOT APPLE)
+    add_compile_definitions(VK_USE_PLATFORM_XLIB_KHR)
+elseif(APPLE)
+    add_compile_definitions(VK_USE_PLATFORM_METAL_EXT)
+endif()
+
+# Find Vulkan once for the whole project
+find_package(Vulkan REQUIRED)
+
+# Add libraries in dependency order
+add_subdirectory(src/core)
+add_subdirectory(src/renderer)
+add_subdirectory(src/editor)
+
+# Add examples
 add_subdirectory(examples)

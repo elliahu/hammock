@@ -1,7 +1,11 @@
-#include "ResourceManager.h"
-
-#include <algorithm>
+module;
 #include <chrono>
+#include <algorithm>
+#include <vulkan/vulkan.h>
+
+module hammock.core.resource_manager;
+
+
 
 void hammock::core::ResourceManager::releaseResource(uint64_t id) {
     auto it = resources.find(id);

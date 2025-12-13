@@ -1,13 +1,89 @@
-#pragma once
+module;
 #include <vulkan/vulkan.h>
+#include <vector>
+#include <string>
+#include <cassert>
+#include <stdexcept>
 
-#include "Device.h"
-#include "CoreUtils.h"
-#include "Types.h"
+export module hammock.core.image;
+
+import hammock.core.base_resource;
+import hammock.core.device;
+import hammock.core.utilities;
+import hammock.core.memory_allocator;
+
 
 
 namespace hammock::core {
-    class Image : public Resource {
+
+    /**
+     * Describes general image.
+     */
+    export struct ImageDesc {
+        uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
+        VkImage image = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkFormat format;
+        VkImageUsageFlags usage;
+        VkImageType imageType = VK_IMAGE_TYPE_2D;
+        VkImageViewType imageViewType = VK_IMAGE_VIEW_TYPE_2D;
+        VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+        VkClearValue clearValue = {};
+        CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
+        std::vector<CommandQueueFamily> queueFamilies{};
+        VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        VkMemoryPropertyFlags memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+
+        static inline auto DepthStencil(uint32_t width, uint32_t height) -> ImageDesc {
+            return {.width = width,
+                .height = height,
+                .format = VK_FORMAT_D32_SFLOAT,
+                .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT};
+        }
+
+        static inline auto ColorRgba8U(uint32_t width, uint32_t height) -> ImageDesc {
+            return {.width = width,
+                .height = height,
+                .format = VK_FORMAT_R8G8B8A8_UNORM,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT};
+        }
+
+        static inline auto ColorRgba16F(uint32_t width, uint32_t height)
+            -> ImageDesc {
+            return {.width = width,
+                .height = height,
+                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT };
+        }
+
+        static inline auto ColorRgba32F(uint32_t width, uint32_t height)
+            -> ImageDesc {
+            return {.width = width,
+                .height = height,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT};
+        }
+
+        static inline auto StorageRgba16F(uint32_t width, uint32_t height) -> ImageDesc {
+            return {.width = width,
+                .height = height,
+                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT};
+        }
+
+        static inline auto StorageRgba32F(uint32_t width, uint32_t height) -> ImageDesc {
+            return {.width = width,
+                .height = height,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT};
+        }
+
+
+    };
+
+
+    export class Image : public BaseResource {
        protected:
         // Format and usage
         VkFormat m_format;
@@ -22,7 +98,7 @@ namespace hammock::core {
         VkImage m_image = VK_NULL_HANDLE;
         VkImageView m_view = VK_NULL_HANDLE;
         VkImageLayout m_layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        VmaAllocation m_allocation = VK_NULL_HANDLE;
+        allocator::Allocation m_allocation = VK_NULL_HANDLE;
 
         // Attachment
         VkClearValue m_clearValue = {};
@@ -40,7 +116,7 @@ namespace hammock::core {
 
        public:
         Image(Device& device, uint64_t id, const std::string& name, const ImageDesc& desc)
-            : Resource(device, id, name) {
+            : BaseResource(device, id, name) {
             // Fromat and usage
             m_format = desc.format;
             m_usage = desc.usage;
@@ -84,14 +160,12 @@ namespace hammock::core {
             VkFormatProperties formatProperties;
             vkGetPhysicalDeviceFormatProperties(device.getPhysicalDevice(), m_format, &formatProperties);
 
-            ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
-                "Device does not support flag TRANSFER_DST for selected format!");
+            assert(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT);
 
             if (m_type == VK_IMAGE_TYPE_3D) {
                 uint32_t maxImageDimension3D(device.properties.limits.maxImageDimension3D);
-                ASSERT(m_width <= maxImageDimension3D && m_height <= maxImageDimension3D &&
-                           m_depth <= maxImageDimension3D,
-                    "Requested 3D texture dimensions are greater than supported 3D texture dimension!");
+                assert(m_width <= maxImageDimension3D && m_height <= maxImageDimension3D &&
+                           m_depth <= maxImageDimension3D);
             }
         }
 
@@ -133,8 +207,9 @@ namespace hammock::core {
             };
         }
 
+        // FIXME
         VkImageAspectFlags getAspectMask() const {
-            return isDepthStencilImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+            return  VK_IMAGE_ASPECT_COLOR_BIT;
         };
 
         [[nodiscard]] VkSampler createAndGetSampler() const {
@@ -150,8 +225,7 @@ namespace hammock::core {
             samplerInfo.minLod = 0.0f;
             samplerInfo.maxLod = static_cast<float>(m_mips);
 
-            ASSERT(vkCreateSampler(device.device(), &samplerInfo, nullptr, &sampler) == VK_SUCCESS,
-                "Failed to create image sampler!");
+            assert(vkCreateSampler(device.device(), &samplerInfo, nullptr, &sampler) == VK_SUCCESS);
 
             return sampler;
         }
@@ -250,12 +324,15 @@ namespace hammock::core {
             imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             imageCreateInfo.usage = m_usage;
 
-            VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+            allocator::AllocationCreateInfo allocInfo = {};
+            allocInfo.usage = allocator::MemoryUsage::VMA_MEMORY_USAGE_AUTO;
             allocInfo.requiredFlags = m_memoryFlags;
 
-            checkResult(vmaCreateImage(
-                device.allocator(), &imageCreateInfo, &allocInfo, &m_image, &m_allocation, nullptr));
+            try {
+                allocator::createImage(device.allocator(), &imageCreateInfo, &allocInfo, &m_image, &m_allocation, nullptr);
+            } catch (std::runtime_error &err) {
+                throw;
+            }
 
             // create image view
             VkImageViewCreateInfo viewInfo{};
@@ -269,7 +346,9 @@ namespace hammock::core {
             viewInfo.subresourceRange.baseArrayLayer = 0;
             viewInfo.subresourceRange.layerCount = m_layers;
 
-            checkResult(vkCreateImageView(device.device(), &viewInfo, nullptr, &m_view));
+            if(vkCreateImageView(device.device(), &viewInfo, nullptr, &m_view) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create image view");
+            }
 
             resident = true;
         }
@@ -281,7 +360,7 @@ namespace hammock::core {
         void release() override {
             Logger::log(LOG_LEVEL_DEBUG, "Releasing image %s", getName().c_str());
             if (m_image != VK_NULL_HANDLE) {
-                vmaDestroyImage(device.allocator(), m_image, m_allocation);
+                allocator::destroyImage(device.allocator(), m_image, m_allocation);
             }
 
             if (m_view != VK_NULL_HANDLE) {
@@ -297,18 +376,19 @@ namespace hammock::core {
 
         /**
          * Generates mip map chain for this image
+         * FIXME
          */
         void generateMips() {
             VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
 
-            transitionImageLayout(commandBuffer,
+            /*transitionImageLayout(commandBuffer,
                 m_image,
                 VK_IMAGE_LAYOUT_UNDEFINED,
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                     .baseMipLevel = 0,
                     .levelCount = m_mips,
-                    .layerCount = 1});
+                    .layerCount = 1});*/
 
             VkImageMemoryBarrier barrier{};
             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -406,20 +486,27 @@ namespace hammock::core {
             device.endSingleTimeCommands(commandBuffer);
             vkQueueWaitIdle(device.graphicsQueue());
         }
-
-        bool isDepthImage() const { return isDepthFormat(m_format); }
-
-        bool isSteniclImage() const { return isStencilFormat(m_format); }
-
-        bool isDepthStencilImage() const { return isDepthStencil(m_format); }
     };
 
-    template <>
+    export template <>
     struct ResourceTypeTraits<Image> {
         static constexpr ResourceType type = ResourceType::Image;
     };
 
-    class Sampler : public Resource {
+    export struct SamplerDesc {
+        VkFilter magFilter = VK_FILTER_LINEAR;
+        VkFilter minFilter = VK_FILTER_LINEAR;
+        VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        VkBool32 anisotropyEnable = VK_TRUE;
+        VkBorderColor borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        uint32_t mips = 1;
+        float mipLodBias = 0.0f;
+    };
+
+    export class Sampler : public BaseResource {
         VkSampler m_sampler = VK_NULL_HANDLE;
         VkFilter magFilter;
         VkFilter minFilter;
@@ -435,7 +522,7 @@ namespace hammock::core {
 
        public:
         Sampler(Device& device, uint64_t id, const std::string& name, const SamplerDesc& desc)
-            : Resource(device, id, name) {
+            : BaseResource(device, id, name) {
             magFilter = desc.magFilter;
             minFilter = desc.minFilter;
             addressModeU = desc.addressModeU;
@@ -477,7 +564,9 @@ namespace hammock::core {
             samplerInfo.minLod = 0.0;
             samplerInfo.maxLod = mips;
 
-            checkResult(vkCreateSampler(device.device(), &samplerInfo, nullptr, &m_sampler));
+            if(vkCreateSampler(device.device(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to create sampler");
+            }
             resident = true;
         }
 
@@ -492,7 +581,7 @@ namespace hammock::core {
         [[nodiscard]] VkSampler getSampler() const { return m_sampler; }
     };
 
-    template <>
+    export template <>
     struct ResourceTypeTraits<Sampler> {
         static constexpr ResourceType type = ResourceType::Sampler;
     };

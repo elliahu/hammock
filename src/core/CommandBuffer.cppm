@@ -1,15 +1,17 @@
-#pragma once
+module;
 #include <vulkan/vulkan.h>
-
-#include <exception>
 #include <memory>
-#include <string>
+#include <stdexcept>
 #include <vector>
 
-#include "Device.h"
+export module hammock.core.command_buffer;
+
+import hammock.core.device;
+
+
 
 namespace hammock::core {
-    class CommandBuffer {
+    export class CommandBuffer {
        public:
         CommandBuffer(VkCommandBuffer cmd) : commandBuffer(cmd) {}
 

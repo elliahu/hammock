@@ -1,17 +1,22 @@
-#pragma once
-
-#include "Device.h"
-#include "CoreUtils.h"
-
-// std
+module;
+#include <vulkan/vulkan.h>
 #include <memory>
 #include <unordered_map>
-#include <vector>
+export module hammock.core.descriptor;
+
+import hammock.core.device;
+import hammock.core.utilities;
+
+
 
 namespace hammock::core {
-    typedef const uint32_t Binding;
+    export typedef const uint32_t Binding;
 
-    typedef VkDescriptorSet DescriptorSet;
+    export typedef VkDescriptorSet DescriptorSet;
+
+    export class DescriptorSetLayout;
+    export class DescriptorPool;
+    export class DescriptorWriter;
 
     class DescriptorSetLayout {
        public:
@@ -107,7 +112,7 @@ namespace hammock::core {
         std::vector<VkWriteDescriptorSet> writes;
     };
 
-    struct DescriptorSetsAndLayout {
+    export struct DescriptorSetsAndLayout {
         std::vector<DescriptorSet> sets{};
         std::unique_ptr<DescriptorSetLayout> layout{nullptr};
     };

@@ -1,18 +1,20 @@
-#pragma once
+module;
 
 #include <vulkan/vulkan.h>
-#include <functional>
-#include <vector>
 #include <memory>
+#include <functional>
 
-#include "Device.h"
-#include "Types.h"
+export module hammock.core.swapchain;
+
+import hammock.core.device;
 
 
+
+// TODO change this to contexpr
 #define FB_COLOR_FORMAT VK_FORMAT_R8G8B8A8_UNORM
 
 namespace hammock::core {
-    class SwapChain {
+    export class SwapChain {
     public:
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
         static constexpr bool CREATE_SWAPCHAIN_RENDERPASS = true;
