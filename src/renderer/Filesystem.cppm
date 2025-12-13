@@ -1,9 +1,7 @@
 module;
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include "stb_image.h"
+#include "stb_image_write.h"
 #include <fstream>
 #include <string>
 #include <vector>
@@ -13,8 +11,6 @@ module;
 export module hammock.renderer.filesystem;
 
 import hammock.core.utilities;
-
-
 
 namespace hammock::renderer {
     /// Check if file exists

@@ -1,6 +1,7 @@
 module;
 
 #include <cstdint>
+#include <vector>
 
 export module hammock.renderer.geometry;
 
@@ -8,6 +9,7 @@ import hammock.renderer.vertex;
 import hammock.renderer.math;
 import hammock.core.base_resource;
 
+using namespace hammock::renderer::math;
 
 namespace hammock::renderer {
     export struct Geometry {
@@ -38,6 +40,6 @@ namespace hammock::renderer {
         std::vector<MeshInstance> renderMeshes;
         std::vector<Vertex> vertices;
         std::vector<std::uint32_t> indices;
-        std::vector<ResourceHandle> textures;
+        std::vector<core::ResourceHandle> textures;
     };
 }

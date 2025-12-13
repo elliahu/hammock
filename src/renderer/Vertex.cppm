@@ -7,6 +7,8 @@ export module hammock.renderer.vertex;
 
 import hammock.renderer.math;
 
+using namespace hammock::renderer::math;
+
 namespace hammock::renderer {
     export struct Vertex {
         Vec3 position{};

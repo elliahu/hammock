@@ -4,7 +4,7 @@ module;
 
 export module hammock.renderer.math;
 
-export namespace hammock::renderer {
+export namespace hammock::renderer::math {
 
     using Vec2 = ::HMM_Vec2;
     using Vec3 = ::HMM_Vec3;

@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
 
-# Collect module interfaces and implementation files
-file(GLOB_RECURSE RENDERER_MODULE_IFACES "${CMAKE_CURRENT_SOURCE_DIR}/*.cppm")
-file(GLOB_RECURSE RENDERER_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
-
 # Renderer library
 add_library(hammock_renderer)
 
@@ -12,9 +8,15 @@ target_sources(hammock_renderer
     PUBLIC
         FILE_SET CXX_MODULES TYPE CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-        FILES ${RENDERER_MODULE_IFACES}
+        FILES
+        "DeferredRenderer.cppm"
+        "Filesystem.cppm"
+        "Geometry.cppm"
+        "Math.cppm"
+        "ThreadPool.cppm"
+        "Vertex.cppm"
     PRIVATE
-        ${RENDERER_SOURCES}
+        "Filesystem.cpp"
 )
 
 # Include directories for legacy headers
