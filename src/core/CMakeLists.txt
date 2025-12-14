@@ -41,7 +41,7 @@ target_sources(hammock_core
 # Include directories for legacy headers
 target_include_directories(hammock_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-    "${PROJECT_SOURCE_DIR}/external"
+    "${PROJECT_SOURCE_DIR}/third_party"
 )
 
 # Link Vulkan

@@ -10,7 +10,7 @@
   <component name="CidrRootsConfiguration">
     <excludeRoots>
       <file path="$PROJECT_DIR$/data" />
-      <file path="$PROJECT_DIR$/external" />
+      <file path="$PROJECT_DIR$/third_party" />
     </excludeRoots>
   </component>
   <component name="WestSettings">{}</component>

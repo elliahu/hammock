@@ -15,6 +15,12 @@ target_sources(hammock_editor
 
 )
 
+# Include directories for legacy headers
+target_include_directories(hammock_editor PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        "${PROJECT_SOURCE_DIR}/third_party"
+)
+
 # Link renderer (which links core transitively)
 target_link_libraries(hammock_editor PUBLIC hammock_renderer)
 
