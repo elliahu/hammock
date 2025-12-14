@@ -56,10 +56,12 @@ for i in range(1, len(sys.argv), 3):
 
     print(f"Compiling {source_file} -> {output_file} (entry: {entry_point})")
     try:
-        subprocess.check_call([compiler, source_file, '-o', output_file, '-target', 'spirv', '-entry', entry_point],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except subprocess.CalledProcessError:
-        print(f"Failed to compile {source_file} with entry point {entry_point}")
+        subprocess.run([compiler, source_file, '-o', output_file, '-target', 'spirv', '-entry', entry_point],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text= True, check=True )
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to compile {source_file} with entry point {entry_point}: ")
+        print(e.stdout)  # captured stdout
+        print(e.stderr, file=sys.stderr)  # captured stderr
         exit(1)
 
 print("All shaders compiled successfully!")

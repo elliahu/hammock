@@ -12,7 +12,7 @@ export module hammock.renderer.filesystem;
 
 import hammock.core.utilities;
 
-namespace hammock::renderer {
+namespace hammock::renderer::filesystem {
     /// Check if file exists
     export bool fileExists(const std::string &filename) {
         std::ifstream f(filename.c_str());

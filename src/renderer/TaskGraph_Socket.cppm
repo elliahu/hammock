@@ -1,3 +1,8 @@
+module;
+
+#include <string>
+#include <utility>
+
 export module hammock.renderer.task_graph:socket;
 
 import hammock.core.base_resource;
@@ -5,11 +10,12 @@ import hammock.core.base_resource;
 namespace hammock::renderer {
     class ISocket {
         core::ResourceHandle handle;
+        std::string name;
 
     public:
         virtual ~ISocket() = default;
 
-        explicit ISocket(const core::ResourceHandle handle) : handle(handle) {
+        explicit ISocket(std::string name, const core::ResourceHandle handle) : handle(handle), name(std::move(name)) {
         }
     };
 
@@ -24,25 +30,34 @@ namespace hammock::renderer {
         Present // Image will be used as present image
     };
 
+    enum class ImageType {
+        Undefined,
+        Type2D,
+        Type3D,
+    };
+
+    /// Concrete Socket for image
     class ImageSocket final : public ISocket {
-        ImageState state;
+        ImageState state = ImageState::Undefined;
+        ImageType type = ImageType::Undefined;
 
     public:
-        ImageSocket(const core::ResourceHandle handle, const ImageState state) : ISocket(handle), state(state) {
+        ImageSocket(const std::string &name, const core::ResourceHandle handle, const ImageState state) : ISocket(name, handle), state(state) {
         }
     };
 
     enum class BufferState {
         Undefined,
-        UniformBuffer,
-        StorageBuffer,
+        UniformBufferRead,
+        StorageBufferReadWrite,
     };
 
+    /// Concrete socket for buffer
     class BufferSocket final : public ISocket {
         BufferState state;
 
     public:
-        BufferSocket(const core::ResourceHandle handle, const BufferState state) : ISocket(handle), state(state) {
+        BufferSocket(const std::string &name, const core::ResourceHandle handle, const BufferState state) : ISocket(name, handle), state(state) {
         }
     };
 }

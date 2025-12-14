@@ -8,6 +8,7 @@ export module hammock.renderer.task_graph:task;
 import :socket;
 
 namespace hammock::renderer {
+    /// Interface representing general GPU task that has input and outputs (sockets)
     class IGpuTask {
     public:
         virtual ~IGpuTask() = default;
