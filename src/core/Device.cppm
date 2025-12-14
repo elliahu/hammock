@@ -103,18 +103,18 @@ namespace hammock::core {
         void waitIdle();
 
         template<CommandQueueFamily Queue>
-        std::vector<VkCommandBuffer> Device::createVulkanCommandBuffers(const uint32_t commandBufferCount) const {
+        [[nodiscard]] inline std::vector<VkCommandBuffer> createVulkanCommandBuffers(const uint32_t commandBufferCount) const {
             VkCommandBufferAllocateInfo allocInfo{};
             allocInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
             allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
             allocInfo.commandBufferCount = commandBufferCount;
-            if (Queue == CommandQueueFamily::Graphics) {
+            if constexpr (Queue == CommandQueueFamily::Graphics) {
                 allocInfo.commandPool = getGraphicsCommandPool();
             }
-            if (Queue == CommandQueueFamily::Compute) {
+            if constexpr  (Queue == CommandQueueFamily::Compute) {
                 allocInfo.commandPool = getComputeCommandPool();
             }
-            if (Queue == CommandQueueFamily::Transfer) {
+            if constexpr  (Queue == CommandQueueFamily::Transfer) {
                 allocInfo.commandPool = getTransferCommandPool();
             }
 

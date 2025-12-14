@@ -27,6 +27,8 @@ find_package(Vulkan REQUIRED)
 # Add libraries in dependency order
 add_subdirectory(src/core)
 add_subdirectory(src/renderer)
+# This target compiles slang shaders into binary output directory
+add_subdirectory(src/renderer/shaders)
 add_subdirectory(src/editor)
 
 # Add examples

@@ -9,19 +9,25 @@ target_sources(hammock_renderer
         FILE_SET CXX_MODULES TYPE CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
         FILES
+        "SpirvReflection.cppm"
         "DeferredRenderer.cppm"
         "Filesystem.cppm"
         "Geometry.cppm"
         "Math.cppm"
         "ThreadPool.cppm"
         "Vertex.cppm"
+        "BaseRenderer.cppm"
+        "TaskGraph.cppm"
+        "TaskGraph_Task.cppm"
+        "TaskGraph_Socket.cppm"
     PRIVATE
+        "${PROJECT_SOURCE_DIR}/third_party/spirv_reflect/spirv_reflect.cpp" # include spirv_reflect source
         "Filesystem.cpp"
 )
 
 # Include directories for legacy headers
 target_include_directories(hammock_renderer PUBLIC
-    "${PROJECT_SOURCE_DIR}/external"
+    "${PROJECT_SOURCE_DIR}/third_party"
 )
 
 # Link core (which provides Vulkan transitively)

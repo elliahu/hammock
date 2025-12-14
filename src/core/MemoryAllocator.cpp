@@ -5,4 +5,4 @@
 // ReSharper disable once CppUnusedIncludeDirective
 #include <vulkan/vulkan.h>
 // ReSharper disable once CppUnusedIncludeDirective
-#include <vk_mem_alloc.h>
+#include "vk_mem_alloc/vk_mem_alloc.h"

@@ -1,6 +1,6 @@
 module;
 
-#include "HandmadeMath.h"
+#include "HandmadeMath/HandmadeMath.h"
 
 export module hammock.renderer.math;
 
