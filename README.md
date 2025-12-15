@@ -1,14 +1,26 @@
-**Notice:** The renderer is being rewritten in this branch. During tha last few projects, many core ideas and components changed and this branch is trying to implement them.
-This is a breaking change and the core structure of the whole render is going to be different. Many new cool features will be implemented and the whole project is going to be way more suitable for actual use.
-
 # Hammock - modern Vulkan renderer
+Hammock is lightweight Vulkan render with modern features and moder code.
+
+**Notice:** The renderer is being rewritten in this branch. During tha last few projects, I noticed many obstacles in
+the renderer design. The renderer being built here, is gonna be very different than in master branch.
+
+# New (planed) features
+- C++ 23 language standard
+- Fully using c++ modules instead of header files
+- Modular architecture
+- Customizable rendering pipeline 
+- State-of-the-art graphics
+- And much more
 
 
-
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/IBL.png)
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/sponza.png)
+## Old Hammock pics
+![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/atmosphere.png)
+![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/atmosphere2.png)
+![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/clouds.png)
+![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/flight_helmet.png)
 ![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/helmet.png)
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/cloud.png)
+![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/dragon.png)
+![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/volume.png)
 
 About licencing: [https://choosealicense.com/no-permission/](https://choosealicense.com/no-permission/)
 
