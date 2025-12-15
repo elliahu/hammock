@@ -14,13 +14,13 @@ the renderer design. The renderer being built here, is gonna be very different t
 
 
 ## Old Hammock pics
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/atmosphere.png)
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/atmosphere2.png)
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/clouds.png)
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/flight_helmet.png)
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/helmet.png)
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/dragon.png)
-![img](https://raw.githubusercontent.com/elliahu/HammockEngine/master/docs/img/volume.png)
+![img](docs/img/atmosphere.png)
+![img](docs/img/atmosphere2.png)
+![img](docs/img/clouds.png)
+![img](docs/img/flight_helmet.png)
+![img](docs/img/helmet.png)
+![img](docs/img/dragon.png)
+![img](docs/img/volume.png)
 
 About licencing: [https://choosealicense.com/no-permission/](https://choosealicense.com/no-permission/)
 
