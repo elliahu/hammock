@@ -3,6 +3,7 @@
 #include <memory>
 
 import hammock.renderer.spirv_reflection;
+import hammock.renderer.renderer;
 
 int main() {
     try {
@@ -11,6 +12,18 @@ int main() {
 
         // Descriptor bindings
         auto bindings = reflection->getDescriptorBindings();
+
+        // Input variables
+        auto inputVariables = reflection->getInputInterfaceVariables();
+
+        // Output variables
+        auto outputVariables = reflection->getOutputInterfaceVariables();
+
+        // Push blocks
+        auto pushBlocks = reflection->getPushConstantBlocks();
+
+        // Block fields
+        auto fields = reflection->getPushConstantFields(*pushBlocks[0]);
 
     } catch(std::exception &e) {
         std::println("{}", e.what());

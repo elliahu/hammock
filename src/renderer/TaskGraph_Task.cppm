@@ -6,6 +6,7 @@ module;
 export module hammock.renderer.task_graph:task;
 
 import :socket;
+import :push_constants;
 
 namespace hammock::renderer {
     /// Interface representing general GPU task that has input and outputs (sockets)
@@ -15,14 +16,12 @@ namespace hammock::renderer {
 
     private:
         std::vector<std::unique_ptr<ISocket> > sockets; // Direction is implied by the socket state
+        std::vector<std::unique_ptr<PushConstantsBlock> > pushConstantsBlock;
     };
 
     class GraphicsTask : public IGpuTask {
     };
 
     class ComputeTask : public IGpuTask {
-    };
-
-    class TransferTask : public IGpuTask {
     };
 }

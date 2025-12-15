@@ -10,16 +10,18 @@ target_sources(hammock_renderer
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
         FILES
         "SpirvReflection.cppm"
-        "DeferredRenderer.cppm"
+        "Renderer.cppm"
+        "Renderer_Strategy.cppm"
+        "Renderer_DeferredStrategy.cppm"
         "Filesystem.cppm"
         "Geometry.cppm"
         "Math.cppm"
         "ThreadPool.cppm"
         "Vertex.cppm"
-        "BaseRenderer.cppm"
         "TaskGraph.cppm"
         "TaskGraph_Task.cppm"
         "TaskGraph_Socket.cppm"
+        "TaskGraph_PushConstants.cppm"
     PRIVATE
         "${PROJECT_SOURCE_DIR}/third_party/spirv_reflect/spirv_reflect.cpp" # include spirv_reflect source
         "Filesystem.cpp"
