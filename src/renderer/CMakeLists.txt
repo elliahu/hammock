@@ -22,6 +22,7 @@ target_sources(hammock_renderer
         "TaskGraph_Task.cppm"
         "TaskGraph_Socket.cppm"
         "TaskGraph_PushConstants.cppm"
+        "TaskGraph_TaskFactory.cppm"
     PRIVATE
         "${PROJECT_SOURCE_DIR}/third_party/spirv_reflect/spirv_reflect.cpp" # include spirv_reflect source
         "Filesystem.cpp"

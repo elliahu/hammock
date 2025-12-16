@@ -5,25 +5,34 @@ module;
 #include <array>
 #include <cstring>
 #include <cstdint>
+#include <memory>
 
 export module hammock.renderer.task_graph:push_constants;
 
 import hammock.renderer.math;
 
 namespace hammock::renderer {
-
-    enum class PushConstantFieldType {
-        Undefined, Float32,Int32,Uint32
+    /// @enum PushConstantFieldType
+    /// @brief Describes the type of the field
+    export enum class PushConstantFieldType {
+        Undefined, Float, Int, Uint
     };
 
+
     // TODO add support for vectors and matrices
-    struct PushConstantField {
+    /// @class PushConstantField
+    /// @brief Represent single field in a push constant block
+    export class PushConstantField {
         std::string name;
         size_t size = 0;
         size_t paddedSize = 0;
         PushConstantFieldType type = PushConstantFieldType::Undefined;
         alignas(4) std::array<std::byte, 32> storage{};
-        const void* value = nullptr;
+        const void *value = nullptr;
+
+    public:
+        PushConstantField(std::string name, PushConstantFieldType type) : name(std::move(name)), type(type) {
+        }
 
         void setFloat(const float v) {
             static_assert(sizeof(float) == 4);
@@ -32,9 +41,9 @@ namespace hammock::renderer {
             std::memcpy(storage.data(), &v, sizeof(float));
 
             value = storage.data();
-            size  = sizeof(float);
+            size = sizeof(float);
             paddedSize = sizeof(float);
-            type  = PushConstantFieldType::Float32;
+            type = PushConstantFieldType::Float;
         }
 
         void setInt(const int32_t v) {
@@ -44,9 +53,9 @@ namespace hammock::renderer {
             std::memcpy(storage.data(), &v, sizeof(int32_t));
 
             value = storage.data();
-            size  = sizeof(int32_t);
+            size = sizeof(int32_t);
             paddedSize = sizeof(int32_t);
-            type  = PushConstantFieldType::Int32;
+            type = PushConstantFieldType::Int;
         }
 
         void setUint(const uint32_t v) {
@@ -56,23 +65,24 @@ namespace hammock::renderer {
             std::memcpy(storage.data(), &v, sizeof(uint32_t));
 
             value = storage.data();
-            size  = sizeof(uint32_t);
+            size = sizeof(uint32_t);
             paddedSize = sizeof(uint32_t);
-            type  = PushConstantFieldType::Int32;
+            type = PushConstantFieldType::Uint;
         }
-
     };
 
+    /// @class PushConstantsBlock
+    /// @brief Represents single push constant block inside a SPIR-V shader
     export class PushConstantsBlock {
     public:
-        void addField(const std::string& name, PushConstantFieldType type) {
-            fields.push_back({
-                .name = name,
-                .type = type,
-            });
+        /// @brief Add field to the block
+        /// @returns Reference to the added filed
+        std::unique_ptr<PushConstantField> &addField(std::unique_ptr<PushConstantField> &&field) {
+            fields.push_back(std::move(field));
+            return fields.back();
         }
 
     private:
-        std::vector<PushConstantField> fields{};
+        std::vector<std::unique_ptr<PushConstantField>> fields{};
     };
 }

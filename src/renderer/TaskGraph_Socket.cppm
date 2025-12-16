@@ -5,42 +5,67 @@ module;
 #include <memory>
 #include <stdexcept>
 #include <cstdint>
+#include <variant>
 
 export module hammock.renderer.task_graph:socket;
 
 import hammock.core.base_resource;
-import hammock.renderer.spirv_reflection;
 
 namespace hammock::renderer {
 
     /// @enum SocketUsageStage
-    /// Describes the stage at which the
-    enum SocketUsageStage {
+    /// @brief Describes the stage at which the socket is used
+    export enum SocketUsageStage {
         None = 0,
         ComputeShader = 1 << 0,
         VertexShader = 1 << 1,
         FragmentShader = 1 << 2,
     };
 
-    /// @class ISocket
-    /// Base interface for task sockets.
+    /// @struct DescriptorBinding
+    /// @brief Describes descriptor binding
+    export struct DescriptorBinding {
+        std::uint32_t set;
+        std::uint32_t binding;
+        SocketUsageStage usage;
+    };
+
+    /// @struct AttachmentLocation
+    /// @brief Describes attachment location
+    export struct AttachmentLocation {
+        std::uint32_t location; // color attachment index or depth/stencil slot
+    };
+
+    /// @typedef SocketInterface
+    /// @brief Describes what kind of socket we have
+    export using SocketInterface = std::variant<
+        std::monostate,        // no binding info
+        DescriptorBinding,     // descriptor-backed
+        AttachmentLocation     // render pass attachment
+    >;
+
+
+    /// @interface ISocket
+    /// Base interface for resource sockets.
     class ISocket {
         core::ResourceHandle handle;
         std::string name;
-        int usage = SocketUsageStage::None;
+        SocketInterface iface;
 
     public:
         virtual ~ISocket() = default;
 
-        explicit ISocket(std::string name) : name(std::move(name)) {
+        explicit ISocket(const std::string &name, SocketInterface iface = {}) : name(name), iface(iface) {
         }
 
         void assignResource(core::ResourceHandle resource) { handle = resource; }
-        void addUsage(SocketUsageStage flag) { usage |= flag; }
         [[nodiscard]] std::string getName() const { return name; }
     };
 
-    enum class ImageState {
+
+    /// @enum ImageState
+    /// @breif Describes how the image in the socket is used by the task
+    export enum class ImageState {
         Undefined, // Invalid/Initial state
         ColorAttachmentWrite, // Rendering target color
         DepthAttachmentWrite, // Rendering target depth (stencil)
@@ -51,65 +76,41 @@ namespace hammock::renderer {
         Present // Image will be used as present image
     };
 
-    enum class ImageType {
+    /// @enum ImageType
+    /// Describes the type of the image in the socket
+    export enum class ImageType {
         Undefined,
         Type2D,
         Type3D,
     };
 
-
+    /// @class ImageSocket
     /// Concrete Socket for image
-    class ImageSocket final : public ISocket {
+    export class ImageSocket final : public ISocket {
         ImageState state = ImageState::Undefined;
         ImageType type = ImageType::Undefined;
 
     public:
-        ImageSocket(const std::string &name, const ImageState state, const ImageType type) : ISocket(name),
+        ImageSocket(std::string name, const ImageState state, const ImageType type, SocketInterface iface = {}) : ISocket(name, iface),
             state(state), type(type) {
-        }
-
-        /// Create socket from descriptor binding
-        ImageSocket(const reflection::SpvReflectDescriptorBinding *binding) : ISocket(binding->name) {
-            switch (binding->image.dim) {
-                case reflection::SpvDim::SpvDim2D:
-                    type = ImageType::Type2D;
-                    break;
-                case reflection::SpvDim::SpvDim3D:
-                    type = ImageType::Type3D;
-                    break;
-                default:
-                    throw std::invalid_argument("Unsupported image type");
-            }
-
-            switch (binding->descriptor_type) {
-                case reflection::SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                    state = ImageState::SampledRead;
-                    break;
-                case reflection::SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-                    state = ImageState::StorageReadWrite;
-                    break;
-                default:
-                    throw std::invalid_argument("Unsupported image state");
-            }
         }
     };
 
-    enum class BufferState {
+    /// @enum BufferState
+    /// @brief Describes how is buffer accessed
+    export enum class BufferState {
         Undefined,
         UniformBufferRead,
         StorageBufferReadWrite,
     };
 
-    /// Concrete socket for buffer
-    class BufferSocket final : public ISocket {
+    /// @class BufferSocket
+    /// @brief Concrete socket for buffer
+    export class BufferSocket final : public ISocket {
         BufferState state;
 
     public:
-        BufferSocket(const std::string &name, const BufferState state) : ISocket(name), state(state) {
-        }
-
-        /// Create socket from descriptor binding
-        BufferSocket(const reflection::SpvReflectDescriptorBinding *binding) : ISocket(binding->name) {
+        BufferSocket(std::string name, const BufferState state, DescriptorBinding binding) : ISocket(name, binding), state(state) {
         }
     };
 }

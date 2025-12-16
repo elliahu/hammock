@@ -1,7 +1,9 @@
 export module hammock.renderer.task_graph;
 
-import :task;
-import :socket;
+export import :task;
+export import :socket;
+export import :push_constants;
+export import :task_factory;
 
 
 

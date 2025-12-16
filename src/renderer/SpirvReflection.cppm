@@ -5,11 +5,13 @@ module;
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <memory>
 #include <functional>
 
 export module hammock.renderer.spirv_reflection;
 
 import hammock.renderer.filesystem;
+
 
 // TODO abstract SPV_REFLECT types and variables and don't export them outside of this module
 namespace hammock::renderer::reflection {
@@ -18,7 +20,10 @@ namespace hammock::renderer::reflection {
     export using ::SpvReflectDescriptorType;
     export using ::SpvDim;
 
-    export class SpirvReflection {
+    /// @class SpirvReflection
+    /// @brief Helper class for inspecting SPIR-V shader.
+    /// You can use this to create you pipeline objects
+    export class SpirvReflection final{
     public:
         explicit SpirvReflection(const std::string &filename) {
             try {
@@ -138,4 +143,5 @@ namespace hammock::renderer::reflection {
             }
         }
     };
+
 }
