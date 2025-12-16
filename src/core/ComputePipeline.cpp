@@ -4,8 +4,6 @@ module;
 
 module hammock.core.compute_pipeline;
 
-
-
 hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : BasePipeline(config.device){
     // Create a pipeline layout using the provided descriptor set layouts and push constant ranges.
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -22,14 +20,14 @@ hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo 
     }
 
     // Create the compute shader module.
-    createShaderModule(config.computeShader.byteCode, &shaderModule);
+    createShaderModule(config.byteCode, &shaderModule);
 
     // Set up the compute shader stage.
     VkPipelineShaderStageCreateInfo shaderStageInfo{};
     shaderStageInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
     shaderStageInfo.module = shaderModule;
-    shaderStageInfo.pName = config.computeShader.entryFunc.c_str();
+    shaderStageInfo.pName = config.entry.c_str();
 
     // Create the compute pipeline.
     VkComputePipelineCreateInfo pipelineInfo{};

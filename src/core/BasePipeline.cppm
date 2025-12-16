@@ -13,6 +13,9 @@ import hammock.core.device;
 
 namespace hammock::core {
 
+    /// @interface BasePipeline
+    /// Base interface for pipeline objects.
+    /// Pupe virtual - cannot be instanced, only inherited from
     export class BasePipeline {
        public:
         virtual ~BasePipeline() = default;

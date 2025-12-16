@@ -13,6 +13,11 @@ import hammock.renderer.filesystem;
 
 // TODO abstract SPV_REFLECT types and variables and don't export them outside of this module
 namespace hammock::renderer::reflection {
+    export using ::SpvReflectDescriptorBinding;
+    export using ::SpvReflectInterfaceVariable;
+    export using ::SpvReflectDescriptorType;
+    export using ::SpvDim;
+
     export class SpirvReflection {
     public:
         explicit SpirvReflection(const std::string &filename) {

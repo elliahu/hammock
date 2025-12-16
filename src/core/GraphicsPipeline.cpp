@@ -7,7 +7,6 @@ module;
 module hammock.core.graphics_pipeline;
 
 
-
 std::unique_ptr<hammock::core::GraphicsPipeline> hammock::core::GraphicsPipeline::create(
     GraphicsPipelineCreateInfo createInfo) {
     return std::make_unique<GraphicsPipeline>(createInfo);
@@ -20,7 +19,8 @@ hammock::core::GraphicsPipeline::~GraphicsPipeline() {
     vkDestroyPipeline(device.device(), pipeline, nullptr);
 }
 
-hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipeline::GraphicsPipelineCreateInfo &createInfo) : BasePipeline(createInfo.device){
+hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelineCreateInfo &createInfo) : BasePipeline(
+    createInfo.device) {
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(createInfo.descriptorSetLayouts.size());
@@ -35,17 +35,16 @@ hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelin
 
     GraphicsPipelineConfig configInfo{};
     GraphicsPipeline::defaultRenderPipelineConfig(configInfo);
-    if (!createInfo.graphicsState.blendAtaAttachmentStates.empty()) {
-        configInfo.colorBlendInfo.attachmentCount = static_cast<uint32_t>(createInfo.graphicsState.
-            blendAtaAttachmentStates.size());
-        configInfo.colorBlendInfo.pAttachments = createInfo.graphicsState.blendAtaAttachmentStates.data();
+    if (!createInfo.blendAtaAttachmentStates.empty()) {
+        configInfo.colorBlendInfo.attachmentCount = static_cast<uint32_t>(createInfo.blendAtaAttachmentStates.size());
+        configInfo.colorBlendInfo.pAttachments = createInfo.blendAtaAttachmentStates.data();
     }
-    configInfo.depthStencilInfo.depthTestEnable = createInfo.graphicsState.depthTest;
-    configInfo.depthStencilInfo.depthWriteEnable = createInfo.graphicsState.depthTest;
-    configInfo.rasterizationInfo.cullMode = createInfo.graphicsState.cullMode;
-    configInfo.rasterizationInfo.frontFace = createInfo.graphicsState.frontFace;
+    configInfo.depthStencilInfo.depthTestEnable = createInfo.depthTest;
+    configInfo.depthStencilInfo.depthWriteEnable = createInfo.depthTest;
+    configInfo.rasterizationInfo.cullMode = createInfo.cullMode;
+    configInfo.rasterizationInfo.frontFace = createInfo.frontFace;
 
-    configInfo.dynamicStateEnables = createInfo.dynamicState.dynamicStateEnables;
+    configInfo.dynamicStateEnables = createInfo.dynamicStateEnables;
     configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
     configInfo.dynamicStateInfo.dynamicStateCount =
@@ -60,21 +59,21 @@ hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelin
     shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
     shaderStages[0].module = vertShaderModule;
-    shaderStages[0].pName = createInfo.vertexShader.entryFunc.c_str();
+    shaderStages[0].pName = createInfo.vertexShader.entry.c_str();
     shaderStages[0].flags = 0;
     shaderStages[0].pNext = nullptr;
     shaderStages[0].pSpecializationInfo = nullptr;
     shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     shaderStages[1].module = fragShaderModule;
-    shaderStages[1].pName = createInfo.fragmentShader.entryFunc.c_str();
+    shaderStages[1].pName = createInfo.fragmentShader.entry.c_str();
     shaderStages[1].flags = 0;
     shaderStages[1].pNext = nullptr;
     shaderStages[1].pSpecializationInfo = nullptr;
 
 
-    auto &bindingDescriptions = createInfo.graphicsState.vertexBufferBindings.vertexBindingDescriptions;
-    auto &attributeDescriptions = createInfo.graphicsState.vertexBufferBindings.vertexAttributeDescriptions;
+    auto &bindingDescriptions = createInfo.vertexInputBindingDescriptions;
+    auto &attributeDescriptions = createInfo.vertexInputAttributeDescriptions;
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.vertexAttributeDescriptionCount =
@@ -104,15 +103,15 @@ hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelin
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
     VkPipelineRenderingCreateInfoKHR pipelineDynamicrenderingCreateInfo{};
-    if (createInfo.dynamicRendering.enabled) {
+    if (createInfo.renderPass == VK_NULL_HANDLE) {
         // Attachment information for dynamic rendering
         pipelineDynamicrenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-        pipelineDynamicrenderingCreateInfo.colorAttachmentCount = createInfo.dynamicRendering.colorAttachmentCount;
-        pipelineDynamicrenderingCreateInfo.pColorAttachmentFormats = createInfo.dynamicRendering.colorAttachmentFormats.
+        pipelineDynamicrenderingCreateInfo.colorAttachmentCount = static_cast<std::uint32_t>(createInfo.
+            colorAttachmentFormats.size());
+        pipelineDynamicrenderingCreateInfo.pColorAttachmentFormats = createInfo.colorAttachmentFormats.
                 data();
-        pipelineDynamicrenderingCreateInfo.depthAttachmentFormat = createInfo.dynamicRendering.depthAttachmentFormat;
-        pipelineDynamicrenderingCreateInfo.stencilAttachmentFormat = createInfo.dynamicRendering.
-                stencilAttachmentFormat;
+        pipelineDynamicrenderingCreateInfo.depthAttachmentFormat = createInfo.depthAttachmentFormat;
+        pipelineDynamicrenderingCreateInfo.stencilAttachmentFormat = createInfo.stencilAttachmentFormat;
         pipelineInfo.pNext = &pipelineDynamicrenderingCreateInfo;
     }
 
@@ -125,7 +124,7 @@ hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelin
         nullptr,
         &pipeline);
 
-    if (result !=VK_SUCCESS) {
+    if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline");
     }
 }

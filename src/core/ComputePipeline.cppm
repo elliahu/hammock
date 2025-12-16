@@ -10,60 +10,97 @@ export module hammock.core.compute_pipeline;
 import hammock.core.device;
 import hammock.core.command_buffer;
 import hammock.core.base_pipeline;
-
+import hammock.core.descriptor;
 
 
 namespace hammock::core {
-    export class ComputePipeline : public BasePipeline {
-        struct ComputePipelineConfig {
-            ComputePipelineConfig() = default;
-            ComputePipelineConfig(const ComputePipelineConfig&) = delete;
-            ComputePipelineConfig& operator=(const ComputePipelineConfig&) = delete;
+    /// @struct ComputePipelineCreateInfo
+    /// Info struct that describes compute pipeline
+    export struct ComputePipelineCreateInfo {
+        Device &device;
+        std::vector<char> byteCode{};
+        std::string entry{"computeMain"};
+        std::vector<VkDescriptorSetLayout> descriptorSetLayouts{};
+        std::vector<VkPushConstantRange> pushConstantRanges{};
+    };
 
-            // Descriptor set layouts used by the compute pipeline.
-            std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-            // Push constant ranges used by the compute pipeline.
-            std::vector<VkPushConstantRange> pushConstantRanges;
-        };
+    /// @class ComputePipeline
+    /// Class representing async compute pipeline
+    export class ComputePipeline final : public BasePipeline {
+    public:
+        ComputePipeline(const ComputePipelineCreateInfo &config);
 
-        struct ComputePipelineCreateInfo {
-            std::string debugName;
-            Device& device;
-            struct ShaderModuleInfo {
-                const std::vector<char>& byteCode;
-                std::string entryFunc = "main";
-            } computeShader;
-            std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-            std::vector<VkPushConstantRange> pushConstantRanges;
-        };
+        ComputePipeline(const ComputePipeline &) = delete;
 
-       public:
-        ComputePipeline(const ComputePipelineCreateInfo& config);
+        ComputePipeline &operator=(const ComputePipeline &) = delete;
 
-        ComputePipeline(const ComputePipeline&) = delete;
-        ComputePipeline& operator=(const ComputePipeline&) = delete;
+        ~ComputePipeline() override;
 
-        ~ComputePipeline();
-
-        static std::unique_ptr<ComputePipeline> create(const ComputePipelineCreateInfo& createInfo) {
+        static std::unique_ptr<ComputePipeline> create(const ComputePipelineCreateInfo &createInfo) {
             return std::make_unique<ComputePipeline>(createInfo);
         }
-        void dispatch(CommandBuffer& commandBuffer, uint32_t x, uint32_t y, uint32_t z) {
+
+        static void dispatch(CommandBuffer &commandBuffer, uint32_t x, uint32_t y, uint32_t z) {
             vkCmdDispatch(commandBuffer.getCommandBuffer(), x, y, z);
         }
 
-        void bind(CommandBuffer& commandBuffer) override {
+        void bind(CommandBuffer &commandBuffer) override {
             vkCmdBindPipeline(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         }
 
-        virtual void bindDescriptorSet(
-            CommandBuffer& commandBuffer, uint32_t firstSet, const VkDescriptorSet* descriptorSet) override{}
-        virtual void pushConstants(CommandBuffer& commandBuffer, VkShaderStageFlags stageFlags,
-            uint32_t offset, uint32_t size, const void* pValues) override {
+        void bindDescriptorSet(
+            CommandBuffer &commandBuffer, uint32_t firstSet, const VkDescriptorSet *descriptorSet) override {
+            vkCmdBindDescriptorSets(
+                commandBuffer.getCommandBuffer(),
+                VK_PIPELINE_BIND_POINT_COMPUTE,
+                pipelineLayout,
+                firstSet, 1,
+                descriptorSet,
+                0, nullptr
+            );
+        }
 
-            }
+        void pushConstants(CommandBuffer &commandBuffer, VkShaderStageFlags stageFlags,
+                           uint32_t offset, uint32_t size, const void *pValues) override {
+            vkCmdPushConstants(commandBuffer.getCommandBuffer(), pipelineLayout, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                               offset, size, pValues);
+        }
 
-       private:
-         VkShaderModule shaderModule;
+    private:
+        VkShaderModule shaderModule = VK_NULL_HANDLE;
     };
-}  // namespace Hammock
+
+    /// @class ComputePipelineBuilder
+    /// This class can be used to easily build compute pipelines in user-friendly manner
+    export class ComputePipelineBuilder {
+    public:
+        explicit ComputePipelineBuilder(Device &device)
+            : createInfo{device} {
+        }
+
+        ComputePipelineBuilder &addShaderBytecode(const std::vector<char> &bytecode, const std::string& entry = "computeMain") {
+            createInfo.byteCode = bytecode;
+            createInfo.entry= entry;
+            return *this;
+        }
+
+        ComputePipelineBuilder &addDescriptorSetLayout(const std::unique_ptr<DescriptorSetLayout> &descriptorSetLayout) {
+            createInfo.descriptorSetLayouts.push_back(descriptorSetLayout->getDescriptorSetLayout());
+            return *this;
+        }
+
+        ComputePipelineBuilder &addPushConstantRange(VkPushConstantRange pushConstantRange) {
+            createInfo.pushConstantRanges.push_back(pushConstantRange);
+            return *this;
+        }
+
+        std::unique_ptr<ComputePipeline> build() {
+            return std::make_unique<ComputePipeline>(createInfo);
+        }
+
+
+    private:
+        // Default create info that will be updated based on the builder calls
+        ComputePipelineCreateInfo createInfo;
+    };
+} // namespace Hammock

@@ -4,11 +4,12 @@
 
 import hammock.renderer.spirv_reflection;
 import hammock.renderer.renderer;
+import hammock.renderer.filesystem;
 
 int main() {
     try {
-        auto reflection = std::make_unique<hammock::renderer::reflection::SpirvReflection>(
-        "C:/dev/hammock/build-visual-studio/debug/spv/clouds.comp.spv");
+        auto shader = hammock::renderer::filesystem::readFile("C:/dev/hammock/build-visual-studio/debug/spv/clouds.comp.spv");
+        auto reflection = std::make_unique<hammock::renderer::reflection::SpirvReflection>(shader);
 
         // Descriptor bindings
         auto bindings = reflection->getDescriptorBindings();
