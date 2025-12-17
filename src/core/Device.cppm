@@ -35,7 +35,7 @@ namespace hammock::core {
     export class Device {
     public:
         // TODO decouple this from surface to enable headless mode
-        Device(Instance &instance, VkSurfaceKHR surface);
+        Device(Instance &instance, VkSurfaceKHR surface = VK_NULL_HANDLE);
 
         ~Device();
 
@@ -58,7 +58,12 @@ namespace hammock::core {
         [[nodiscard]] VkSurfaceKHR surface() const { return surface_; }
         [[nodiscard]] VkQueue graphicsQueue() const { return graphicsQueue_; }
         [[nodiscard]] uint32_t getGraphicsQueueFamilyIndex() const { return graphicsQueueFamilyIndex_; }
-        [[nodiscard]] VkQueue presentQueue() const { return presentQueue_; }
+        [[nodiscard]] VkQueue presentQueue() const {
+            if (runningHeadless()) {
+                throw std::runtime_error("Present queue unavailable in headless mode");
+            }
+            return presentQueue_;
+        }
         [[nodiscard]] VkQueue computeQueue() const { return computeQueue_; }
         [[nodiscard]] uint32_t getComputeQueueFamilyIndex() const { return computeQueueFamilyIndex_; }
         [[nodiscard]] VkQueue transferQueue() const { return transferQueue_; }
@@ -157,6 +162,8 @@ namespace hammock::core {
         QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
         bool checkDeviceExtensionSupport(VkPhysicalDevice device) const;
+
+        bool runningHeadless() const {return surface_ == VK_NULL_HANDLE;}
 
         SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
 

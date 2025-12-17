@@ -6,6 +6,7 @@ export module hammock.engine.editor;
 
 import :window;
 import hammock.renderer.renderer;
+import hammock.renderer.graphics_context;
 
 
 namespace hammock::engine {
@@ -20,11 +21,14 @@ namespace hammock::engine {
     /// @brief Represents engines editor
     export class Editor final {
     public:
-        Editor(const EngineMode mode) : mode(mode),
-                                        renderer(std::make_unique<renderer::Renderer>(
-                                            std::make_unique<renderer::DeferredRenderingStrategy>())),
-                                        window(std::make_unique<engine::Window>(
-                                            "Hammock", renderer->getInstance(), 1920u, 1080u)) {
+        Editor(const EngineMode mode) : mode(mode) {
+            context = std::make_unique<renderer::GraphicsContext>(renderer::GraphicsContextDesc{
+                .mode = renderer::GraphicsContextMode::Windowed,
+            });
+            window = std::make_unique<Window>("Hammock engine", context->getInstance(), 1920u, 1080u);
+            context->attachSurface(window->getSurface());
+            auto strategy = std::make_unique<renderer::DeferredRenderingStrategy>(*context);
+            renderer = std::make_unique<renderer::Renderer>(*context, std::move(strategy));
         }
 
         ~Editor() {
@@ -42,6 +46,7 @@ namespace hammock::engine {
         }
 
         EngineMode mode;
+        std::unique_ptr<renderer::GraphicsContext> context;
         std::unique_ptr<renderer::Renderer> renderer;
         std::unique_ptr<engine::Window> window;
     };

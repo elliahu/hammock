@@ -12,14 +12,21 @@ import hammock.core.instance;
 namespace hammock::renderer {
     export class Renderer {
     public:
-        explicit Renderer(std::unique_ptr<IRenderingStrategy> &&strategy = {}) : strategy(std::move(strategy)) {}
-
-        void drawFrame() const {
-            strategy->draw();
+        explicit Renderer(GraphicsContext &ctx,
+                          std::unique_ptr<IRenderingStrategy> &&strategy =
+                                  {}) : ctx(ctx), strategy(std::move(strategy)) {
         }
 
-        core::Instance &getInstance() const {return strategy->getInstance();}
+        void drawFrame() const {
+            if (ctx.supportsPresent()) {
+                strategy->draw(ctx, {});
+            } else {
+                strategy->draw(ctx, {});
+            }
+        }
+
     private:
-        std::unique_ptr<IRenderingStrategy> strategy{};
+        GraphicsContext &ctx;
+        std::unique_ptr<IRenderingStrategy> strategy{};;
     };
 };

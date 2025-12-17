@@ -6,6 +6,9 @@ import :strategy;
 namespace hammock::renderer {
     export class DeferredRenderingStrategy : public IRenderingStrategy {
     public:
-        void draw() override{}
+        explicit DeferredRenderingStrategy(GraphicsContext &ctx): IRenderingStrategy() {
+        }
+
+        void draw(GraphicsContext& ctx, const RenderingContext & rctx) override{}
     };
 }

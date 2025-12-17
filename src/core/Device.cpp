@@ -87,6 +87,10 @@ namespace hammock::core {
 
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
         Logger::info("Physical device: %s", properties.deviceName);
+
+        if (runningHeadless()) {
+            Logger::info("Running in headless mode");
+        }
     }
 
     void Device::createLogicalDevice() {
@@ -221,8 +225,8 @@ namespace hammock::core {
 
         bool extensionsSupported = checkDeviceExtensionSupport(device);
 
-        bool swapChainAdequate = false;
-        if (extensionsSupported) {
+        bool swapChainAdequate = runningHeadless();
+        if (extensionsSupported && !runningHeadless()) {
             const auto [capabilities, formats, presentModes] = querySwapChainSupport(device);
             swapChainAdequate = !formats.empty() && !presentModes.empty();
         }
@@ -276,11 +280,15 @@ namespace hammock::core {
 
                 // Present queue
                 VkBool32 presentSupport = false;
-                vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface_, &presentSupport);
-                if (presentSupport) {
-                    indices.presentFamily = i;
-                    indices.presentFamilyHasValue = true;
+                // Only ask for present queue when using surface
+                if (!runningHeadless()) {
+                    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface_, &presentSupport);
+                    if (presentSupport) {
+                        indices.presentFamily = i;
+                        indices.presentFamilyHasValue = true;
+                    }
                 }
+
 
                 // Compute queue (preferably separate from graphics)
                 if ((queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) &&
@@ -330,6 +338,10 @@ namespace hammock::core {
     }
 
     SwapChainSupportDetails Device::querySwapChainSupport(const VkPhysicalDevice device) const {
+        if (runningHeadless()) {
+            throw std::runtime_error("No surface available in headless mode, cannot query SwapChain support");
+        }
+
         SwapChainSupportDetails details;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface_, &details.capabilities);
 
