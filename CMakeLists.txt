@@ -29,7 +29,7 @@ add_subdirectory(src/core)
 add_subdirectory(src/renderer)
 # This target compiles slang shaders into binary output directory
 add_subdirectory(src/renderer/shaders)
-add_subdirectory(src/editor)
+add_subdirectory(src/engine)
 
 # Add examples
 add_subdirectory(examples)

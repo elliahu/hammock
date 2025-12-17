@@ -2,7 +2,7 @@ module;
 
 #include <string>
 #include <utility>
-#include <memory>
+#include <vector>
 #include <stdexcept>
 #include <cstdint>
 #include <variant>
@@ -12,7 +12,6 @@ export module hammock.renderer.task_graph:socket;
 import hammock.core.base_resource;
 
 namespace hammock::renderer {
-
     /// @enum SocketUsageStage
     /// @brief Describes the stage at which the socket is used
     export enum SocketUsageStage {
@@ -28,6 +27,7 @@ namespace hammock::renderer {
         std::uint32_t set;
         std::uint32_t binding;
         SocketUsageStage usage;
+        std::uint32_t count = 1u;
     };
 
     /// @struct AttachmentLocation
@@ -39,16 +39,16 @@ namespace hammock::renderer {
     /// @typedef SocketInterface
     /// @brief Describes what kind of socket we have
     export using SocketInterface = std::variant<
-        std::monostate,        // no binding info
-        DescriptorBinding,     // descriptor-backed
-        AttachmentLocation     // render pass attachment
+        std::monostate, // no binding info
+        DescriptorBinding, // descriptor-backed
+        AttachmentLocation // render pass attachment
     >;
 
 
     /// @interface ISocket
     /// Base interface for resource sockets.
     class ISocket {
-        core::ResourceHandle handle;
+        std::vector<core::ResourceHandle> handles;
         std::string name;
         SocketInterface iface;
 
@@ -56,9 +56,19 @@ namespace hammock::renderer {
         virtual ~ISocket() = default;
 
         explicit ISocket(const std::string &name, SocketInterface iface = {}) : name(name), iface(iface) {
+            if (auto binding = get_if<DescriptorBinding>(&iface)) {
+                handles.resize(binding->count);
+            }
         }
 
-        void assignResource(core::ResourceHandle resource) { handle = resource; }
+        /// @brief Assign resource to specific index in the socket. If socket is not array, leave index = 0
+        void assignResource(core::ResourceHandle resource, std::uint32_t index = 0) {
+            if (index >= handles.size()) {
+                throw std::out_of_range("invalid index");
+            }
+            handles[index] = resource;
+        }
+
         [[nodiscard]] std::string getName() const { return name; }
     };
 
@@ -91,8 +101,9 @@ namespace hammock::renderer {
         ImageType type = ImageType::Undefined;
 
     public:
-        ImageSocket(std::string name, const ImageState state, const ImageType type, SocketInterface iface = {}) : ISocket(name, iface),
-            state(state), type(type) {
+        ImageSocket(std::string name, const ImageState state, const ImageType type,
+                    SocketInterface iface = {}) : ISocket(name, iface),
+                                                  state(state), type(type) {
         }
     };
 
@@ -110,7 +121,8 @@ namespace hammock::renderer {
         BufferState state;
 
     public:
-        BufferSocket(std::string name, const BufferState state, DescriptorBinding binding) : ISocket(name, binding), state(state) {
+        BufferSocket(std::string name, const BufferState state, DescriptorBinding binding) : ISocket(name, binding),
+            state(state) {
         }
     };
 }

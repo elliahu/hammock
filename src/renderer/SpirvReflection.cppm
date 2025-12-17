@@ -19,6 +19,7 @@ namespace hammock::renderer::reflection {
     export using ::SpvReflectInterfaceVariable;
     export using ::SpvReflectDescriptorType;
     export using ::SpvDim;
+    export using ::SpvReflectBlockVariable;
 
     /// @class SpirvReflection
     /// @brief Helper class for inspecting SPIR-V shader.

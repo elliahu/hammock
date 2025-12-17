@@ -34,6 +34,7 @@ namespace hammock::core {
 
     export class Device {
     public:
+        // TODO decouple this from surface to enable headless mode
         Device(Instance &instance, VkSurfaceKHR surface);
 
         ~Device();

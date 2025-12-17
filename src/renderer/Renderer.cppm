@@ -4,7 +4,10 @@ module;
 
 export module hammock.renderer.renderer;
 
-import :strategy;
+export import :strategy;
+export import :deferred_strategy;
+
+import hammock.core.instance;
 
 namespace hammock::renderer {
     export class Renderer {
@@ -14,6 +17,8 @@ namespace hammock::renderer {
         void drawFrame() const {
             strategy->draw();
         }
+
+        core::Instance &getInstance() const {return strategy->getInstance();}
     private:
         std::unique_ptr<IRenderingStrategy> strategy{};
     };
