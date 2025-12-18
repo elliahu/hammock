@@ -25,8 +25,8 @@ namespace hammock::core {
         }
 
         static void dispose() {
-            if (instance_ != nullptr) {
-                instance_ = nullptr;
+            if (instance_) {
+                instance_.reset();
             }
         }
 

@@ -13,14 +13,17 @@ target_sources(hammock_engine
         "Editor.cppm"
         "Engine.cppm"
         "Window.cppm"
+        "Ui.cppm"
+        "RgfwImguiImpl.cppm"
     PRIVATE
-
+        "RgfwImguiImpl.cpp"
 )
 
 # Include directories for legacy headers
 target_include_directories(hammock_engine PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         "${PROJECT_SOURCE_DIR}/third_party"
+        "${PROJECT_SOURCE_DIR}/third_party/imgui"
 )
 
 # Link renderer (which links core transitively)

@@ -8,6 +8,9 @@ export module hammock.renderer.graphics_context;
 
 import hammock.core.instance;
 import hammock.core.device;
+import hammock.core.resource_manager;
+import hammock.core.frame_manager;
+import hammock.core.descriptor;
 
 namespace hammock::renderer {
     export enum class GraphicsContextMode {
@@ -23,9 +26,31 @@ namespace hammock::renderer {
     public:
         explicit GraphicsContext(const GraphicsContextDesc &desc)
             : desc(desc) {
+            core::ResourceManager::initialize(*device);
+            // @formatter:off
+            core::DescriptorPool::initialize(*device, 10000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, {
+                {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+                {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+                {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+                {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000},
+            });
+            // @formatter:on
+        }
+
+        ~GraphicsContext() {
+            core::ResourceManager::dispose();
+            core::DescriptorPool::dispose();
         }
 
         // Windowed extension
+
         void attachSurface(VkSurfaceKHR surface) {
             if (desc.mode != GraphicsContextMode::Windowed) {
                 throw std::runtime_error("Cannot attach surface when not in Windowed context mode");
@@ -47,13 +72,24 @@ namespace hammock::renderer {
             hasPresent = false;
         }
 
-        bool supportsPresent() const { return desc.mode == GraphicsContextMode::Windowed; }
+        bool supportsPresent() const {
+            return desc.mode == GraphicsContextMode::Windowed;
+        }
 
-        core::Instance &getInstance() { return instance; }
-        core::Device &getDevice() { return *device; }
-        VkSurfaceKHR getSurface() const { return surface; }
+        core::Instance &getInstance() {
+            return instance;
+        }
 
-    private:
+        core::Device &getDevice() {
+            return *device;
+        }
+
+        VkSurfaceKHR getSurface() const {
+            return surface;
+        }
+
+    private
+    :
         GraphicsContextDesc desc;
 
         core::Instance instance{};
