@@ -4,6 +4,8 @@ cmake_minimum_required(VERSION 3.30)
 # Editor library
 add_library(hammock_engine)
 
+set(IMGUI_DIR "${PROJECT_SOURCE_DIR}/third_party/imgui")
+
 # Add module sources
 target_sources(hammock_engine
     PUBLIC
@@ -14,9 +16,12 @@ target_sources(hammock_engine
         "Engine.cppm"
         "Window.cppm"
         "Ui.cppm"
-        "RgfwImguiImpl.cppm"
     PRIVATE
-        "RgfwImguiImpl.cpp"
+        "${IMGUI_DIR}/imgui.cpp"
+        "${IMGUI_DIR}/imgui_draw.cpp"
+        "${IMGUI_DIR}/imgui_tables.cpp"
+        "${IMGUI_DIR}/imgui_widgets.cpp"
+        "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp"
 )
 
 # Include directories for legacy headers

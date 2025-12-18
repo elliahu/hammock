@@ -26,22 +26,6 @@ namespace hammock::renderer {
     public:
         explicit GraphicsContext(const GraphicsContextDesc &desc)
             : desc(desc) {
-            core::ResourceManager::initialize(*device);
-            // @formatter:off
-            core::DescriptorPool::initialize(*device, 10000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, {
-                {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-                {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-                {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000},
-            });
-            // @formatter:on
         }
 
         ~GraphicsContext() {
@@ -60,6 +44,7 @@ namespace hammock::renderer {
 
             device.emplace(instance, surface);
             hasPresent = true;
+            initManagers();
         }
 
         // Headless extension
@@ -70,6 +55,7 @@ namespace hammock::renderer {
 
             device.emplace(instance, VK_NULL_HANDLE);
             hasPresent = false;
+            initManagers();
         }
 
         bool supportsPresent() const {
@@ -90,6 +76,25 @@ namespace hammock::renderer {
 
     private
     :
+        void initManagers() {
+            core::ResourceManager::initialize(*device);
+            // @formatter:off
+            core::DescriptorPool::initialize(*device, 10000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, {
+                {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+                {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+                {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+                {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000},
+            });
+            // @formatter:on
+        }
+
         GraphicsContextDesc desc;
 
         core::Instance instance{};

@@ -44,7 +44,7 @@ namespace hammock::engine {
 
             // Only create ui if in Editor mode
             if (mode == EngineMode::Editor) {
-                ui = std::make_unique<Ui>();
+                //ui = std::make_unique<Ui>();
             }
         }
 
@@ -60,7 +60,7 @@ namespace hammock::engine {
     private:
         void loop() const {
             while (!window->shouldClose()) {
-
+                    window->pollEvents();
                 // Draw ui only when in editor mode
                 if (mode == EngineMode::Editor) {
                     //ui->newFrame();

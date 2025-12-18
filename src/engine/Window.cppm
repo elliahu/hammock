@@ -1,6 +1,7 @@
 module;
 
 #include <vulkan/vulkan.h>
+#include <VulkanSurfer/VulkanSurfer.h>
 #include <cstdint>
 #include <string>
 
@@ -18,51 +19,42 @@ namespace hammock::engine {
         Window(const std::string &title, core::Instance &instance, const std::uint32_t width,
                const std::uint32_t height, const std::uint32_t x = 100u,
                const std::uint32_t y = 100u) : instance(instance) {
-            // Create window
-            window = rgfw::createWindow(
-                title.c_str(),
-                static_cast<std::int32_t>(x),
-                static_cast<std::int32_t>(y),
-                static_cast<std::int32_t>(width),
-                static_cast<std::int32_t>(height),
-                (1 << (6))
-            );
 
-            rgfw::setWindowUserPtr(window, this);
+            window = Surfer::Window::createWindow("Hammock engine", width, height, static_cast<std::int32_t>(x),
+                                                  static_cast<std::int32_t>(y));
+
 
             // Create surface
-            rgfw::createVulkanSurface(window, instance.getInstance(), &surface);
+            window->createSurface(instance.getInstance(), &surface);
         }
 
         ~Window() override {
             vkDestroySurfaceKHR(instance.getInstance(), surface, nullptr);
-            rgfw::closeWindow(window);
+            Surfer::Window::destroyWindow(window);
         }
 
         [[nodiscard]] VkSurfaceKHR getSurface() const override { return surface; }
 
         bool shouldClose() {
-            rgfw::checkEvent(window, &event);
-            return event.type == 14; // QUIT
+            return window->shouldClose();
         }
 
-        void pollEvents() const { rgfw::pollEvents(); }
+        void pollEvents() const { window->pollEvents(); }
 
         [[nodiscard]] VkExtent2D getExtent() const override {
-            std::int32_t w, h;
-            rgfw::getWindowSize(window, &w, &h);
-            return VkExtent2D(static_cast<std::uint32_t>(w), static_cast<std::uint32_t>(h));
+            std::uint32_t w, h;
+            window->getWindowSize(w, h);
+            return VkExtent2D(w, h);
         };
 
-        bool wasResized() const override {return resized;}
+        bool wasResized() const override { return resized; }
 
-        void resetResized() override {resized = false;}
+        void resetResized() override { resized = false; }
 
     private:
         bool resized = false;
         core::Instance &instance;
-        rgfw::RGFW_window * window = nullptr;
+        Surfer::Window *window = nullptr;
         VkSurfaceKHR surface = VK_NULL_HANDLE;
-        rgfw::RGFW_event event;
     };
 }
