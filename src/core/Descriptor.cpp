@@ -136,14 +136,16 @@ namespace hammock::core {
 
     DescriptorWriter &DescriptorWriter::writeBuffer(
         const uint32_t binding, const VkDescriptorBufferInfo *bufferInfo) {
-        // TODO use exceptions
-        //assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        if (setLayout.bindings.count(binding) != 1) {
+            throw std::runtime_error("Layout does not contain specified binding");
+        }
 
 
         const auto &[_binding, descriptorType, descriptorCount, stageFlags, pImmutableSamplers] = setLayout.bindings[binding];
 
-        // TODO use exceptions
-        // assert(descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
+        if (descriptorCount != 1) {
+            throw std::runtime_error("Binding single descriptor info, but binding expects multiple");
+        }
 
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -158,8 +160,9 @@ namespace hammock::core {
 
     DescriptorWriter &DescriptorWriter::writeBufferArray(const uint32_t binding,
                                                          const std::vector<VkDescriptorBufferInfo> &bufferInfos) {
-        // TODO use exceptions
-        // assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        if (setLayout.bindings.count(binding) != 1) {
+            throw std::runtime_error("Layout does not contain specified binding");
+        }
 
         auto &bindingDescription = setLayout.bindings[binding];
 
@@ -177,14 +180,15 @@ namespace hammock::core {
 
     DescriptorWriter &DescriptorWriter::writeImage(
         uint32_t binding, const VkDescriptorImageInfo *imageInfo) {
-
-        // TODO use exceptions
-        //assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        if (setLayout.bindings.count(binding) != 1) {
+            throw std::runtime_error("Layout does not contain specified binding");
+        }
 
         auto &bindingDescription = setLayout.bindings[binding];
 
-        // TODO use exceptions
-        // assert(bindingDescription.descriptorCount == 1 &&"Binding single descriptor info, but binding expects multiple");
+        if (bindingDescription.descriptorCount != 1) {
+            throw std::runtime_error("Binding single descriptor info, but binding expects multiple");
+        }
 
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -199,8 +203,9 @@ namespace hammock::core {
 
     DescriptorWriter &DescriptorWriter::writeImageArray(const uint32_t binding,
                                                         const std::vector<VkDescriptorImageInfo> &imageInfos) {
-        // TODO use exceptions
-        // assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        if (setLayout.bindings.count(binding) != 1) {
+            throw std::runtime_error("Layout does not contain specified binding");
+        }
 
         auto &[setLayoutBinding, descriptorType, descriptorCount, stageFlags, pImmutableSamplers] = setLayout.bindings[binding];
 
@@ -219,13 +224,15 @@ namespace hammock::core {
     DescriptorWriter &DescriptorWriter::writeAccelerationStructure(const uint32_t binding,
                                                                    const VkWriteDescriptorSetAccelerationStructureKHR *
                                                                    accelerationStructureInfo) {
-        // TODO use exceptions
-        //assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+        if (setLayout.bindings.count(binding) != 1) {
+            throw std::runtime_error("Layout does not contain specified binding");
+        }
 
         auto &bindingDescription = setLayout.bindings[binding];
 
-        // TODO use exceptions
-        // assert(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
+        if (bindingDescription.descriptorCount != 1) {
+            throw std::runtime_error("Binding single descriptor info, but binding expects multiple");
+        }
 
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

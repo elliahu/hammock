@@ -11,18 +11,27 @@ import hammock.core.semaphore;
 
 
 namespace hammock::core {
-    /// FIXME TODO make this self destructure, now this is really bad
     export class CommandBuffer {
     public:
         CommandBuffer(Device &device, CommandQueueFamily queueFamily) : device(device), queueFamily(queueFamily) {
             try {
-                auto commandBuffers = device.createVulkanCommandBuffers(queueFamily, 1);
-
-                if (commandBuffers.empty()) {
-                    throw std::runtime_error("Failed to create Vulkan command buffer.");
+                VkCommandBufferAllocateInfo allocInfo{};
+                allocInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+                allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+                allocInfo.commandBufferCount = 1;
+                if (queueFamily == CommandQueueFamily::Graphics) {
+                    allocInfo.commandPool = device.getGraphicsCommandPool();
+                }
+                if (queueFamily == CommandQueueFamily::Compute) {
+                    allocInfo.commandPool = device.getComputeCommandPool();
+                }
+                if (queueFamily == CommandQueueFamily::Transfer) {
+                    allocInfo.commandPool = device.getTransferCommandPool();
                 }
 
-                commandBuffer = commandBuffers[0];
+                if (vkAllocateCommandBuffers(device.device(), &allocInfo, &commandBuffer) != VkResult::VK_SUCCESS) {
+                    throw std::runtime_error("failed to allocate command buffer");
+                }
             } catch (std::exception &e) {
                 throw;
             }

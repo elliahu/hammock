@@ -10,6 +10,7 @@ export module hammock.core.image;
 import hammock.core.base_resource;
 import hammock.core.device;
 import hammock.core.utilities;
+import hammock.core.buffer;
 import hammock.core.memory_allocator;
 
 
@@ -171,7 +172,7 @@ namespace hammock::core {
             assert(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT);
 
             if (m_type == VK_IMAGE_TYPE_3D) {
-                uint32_t maxImageDimension3D(device.properties.limits.maxImageDimension3D);
+                uint32_t maxImageDimension3D(device.getPhysicalDeviceProperties().limits.maxImageDimension3D);
                 assert(m_width <= maxImageDimension3D && m_height <= maxImageDimension3D &&
                     m_depth <= maxImageDimension3D);
             }
@@ -217,10 +218,24 @@ namespace hammock::core {
             };
         }
 
-        // FIXME
         VkImageAspectFlags getAspectMask() const {
-            return VK_IMAGE_ASPECT_COLOR_BIT;
-        };
+            switch (m_format) {
+                // Depth-only formats
+                case VK_FORMAT_D16_UNORM:
+                case VK_FORMAT_D32_SFLOAT:
+                    return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+                    // Depth-stencil formats
+                case VK_FORMAT_D16_UNORM_S8_UINT:
+                case VK_FORMAT_D24_UNORM_S8_UINT:
+                case VK_FORMAT_D32_SFLOAT_S8_UINT:
+                    return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+
+                    // Everything else is treated as color
+                default:
+                    return VK_IMAGE_ASPECT_COLOR_BIT;
+            }
+        }
 
         [[nodiscard]] VkSampler createAndGetSampler() const {
             VkSampler sampler = VK_NULL_HANDLE;
@@ -317,8 +332,60 @@ namespace hammock::core {
          * Copy data from buffer into this image
          * @param buffer Buffer to copy from
          */
-        void queueCopyFromBuffer(VkBuffer buffer) {
-            device.copyBufferToImage(buffer, m_image, m_width, m_height, m_layers, 0, m_depth);
+        void queueCopyFromBuffer(Buffer buffer) {
+            VkBufferImageCopy region{};
+            region.bufferOffset = 0;
+            region.bufferRowLength = 0;     // tightly packed
+            region.bufferImageHeight = 0;  // tightly packed
+
+            region.imageSubresource.aspectMask = getAspectMask();
+            region.imageSubresource.mipLevel = 0;
+            region.imageSubresource.baseArrayLayer = 0;
+            region.imageSubresource.layerCount = m_layers;
+
+            region.imageOffset = { 0, 0, 0 };
+            region.imageExtent = { m_width, m_height, m_depth };
+
+            auto cmd = device.beginSingleTimeCommands();
+            vkCmdCopyBufferToImage(
+                cmd,
+                buffer.getBuffer(),
+                m_image,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1,
+                &region
+            );
+            device.endSingleTimeCommands(cmd);
+        }
+
+        void queueCopyFromImage(Image image) {
+            VkImageCopy region{};
+            region.srcSubresource.aspectMask = image.getAspectMask();
+            region.srcSubresource.mipLevel = 0;
+            region.srcSubresource.baseArrayLayer = 0;
+            region.srcSubresource.layerCount = image.getLayerLevel();
+
+            region.srcOffset = { 0, 0, 0 };
+
+            region.dstSubresource.aspectMask = getAspectMask();
+            region.dstSubresource.mipLevel = 0;
+            region.dstSubresource.baseArrayLayer = 0;
+            region.dstSubresource.layerCount = m_layers;
+
+            region.dstOffset = { 0, 0, 0 };
+            region.extent = { m_width, m_height, m_depth };
+
+            auto cmd = device.beginSingleTimeCommands();
+            vkCmdCopyImage(
+                cmd,
+                image.getImage(),
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                m_image,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1,
+                &region
+            );
+            device.endSingleTimeCommands(cmd);
         }
 
         /**
@@ -558,7 +625,7 @@ namespace hammock::core {
             mipLodBias = desc.mipLodBias;
 
             // retrieve max anisotropy from physical device
-            maxAnisotropy = device.properties.limits.maxSamplerAnisotropy;
+            maxAnisotropy = device.getPhysicalDeviceProperties().limits.maxSamplerAnisotropy;
         }
 
         ~Sampler() {

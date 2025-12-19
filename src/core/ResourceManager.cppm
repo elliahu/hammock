@@ -115,9 +115,6 @@ namespace hammock::core {
             return nullptr;
         }
 
-        // Helper to get resource type name
-        const char* getResourceTypeName(ResourceHandle handle) { return handle.getTypeName(); }
-
         void releaseResource(uint64_t id);
 
        private:

@@ -302,9 +302,17 @@ namespace hammock::core {
          * @param src Source buffer
          * @param size Size of the copy region
          */
-        void queuCopyFromBuffer(VkBuffer src, VkDeviceSize size = VK_WHOLE_SIZE) const {
-            device.copyBuffer(src, m_buffer, size);
+        void queuCopyFromBuffer(Buffer buffer,VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0,  VkDeviceSize size = VK_WHOLE_SIZE) const {
+            VkBufferCopy copyRegion{};
+            copyRegion.srcOffset = srcOffset;
+            copyRegion.dstOffset = dstOffset;
+            copyRegion.size = size;
+
+            auto cmd = device.beginSingleTimeCommands();
+            vkCmdCopyBuffer(cmd ,buffer.getBuffer(), m_buffer, 1, &copyRegion);
+            device.endSingleTimeCommands(cmd);
         }
+
 
         /**
          * Copies data from image into this buffer

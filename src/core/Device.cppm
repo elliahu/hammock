@@ -34,7 +34,6 @@ namespace hammock::core {
 
     export class Device {
     public:
-        // TODO decouple this from surface to enable headless mode
         Device(Instance &instance, VkSurfaceKHR surface = VK_NULL_HANDLE);
 
         ~Device();
@@ -58,12 +57,15 @@ namespace hammock::core {
         [[nodiscard]] VkSurfaceKHR surface() const { return surface_; }
         [[nodiscard]] VkQueue graphicsQueue() const { return graphicsQueue_; }
         [[nodiscard]] uint32_t getGraphicsQueueFamilyIndex() const { return graphicsQueueFamilyIndex_; }
+        [[nodiscard]] VkPhysicalDeviceProperties &getPhysicalDeviceProperties() { return physicalDeviceProperties; }
+
         [[nodiscard]] VkQueue presentQueue() const {
             if (runningHeadless()) {
                 throw std::runtime_error("Present queue unavailable in headless mode");
             }
             return presentQueue_;
         }
+
         [[nodiscard]] VkQueue computeQueue() const { return computeQueue_; }
         [[nodiscard]] uint32_t getComputeQueueFamilyIndex() const { return computeQueueFamilyIndex_; }
         [[nodiscard]] VkQueue transferQueue() const { return transferQueue_; }
@@ -80,72 +82,19 @@ namespace hammock::core {
         [[nodiscard]] VkFormat findSupportedFormat(
             const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
 
-        // Buffer Helper Functions
-        void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-                          VkBuffer &buffer, VkDeviceMemory &bufferMemory) const;
 
         [[nodiscard]] VkCommandBuffer beginSingleTimeCommands() const;
 
         void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
 
-        void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
-
-        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount,
-                               uint32_t baseArrayLayer = 0, uint32_t depth = 1) const;
-
-        // Image helper functionss
-        void createImageWithInfo(const VkImageCreateInfo &imageInfo, VkMemoryPropertyFlags properties, VkImage &image,
-                                 VkDeviceMemory &imageMemory) const;
 
         void transitionImageLayout(VkImage image, VkImageLayout layoutOld, VkImageLayout layoutNew,
                                    uint32_t layerCount = 1, uint32_t baseLayer = 0, uint32_t levelCount = 1,
                                    uint32_t baseLevel = 0,
                                    VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) const;
 
-        // TODO this should be named copyImageToImage
-        // only used in env generator atm
-        void copyImageToHostVisibleImage(VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height) const;
 
         void waitIdle();
-
-        [[nodiscard]] inline std::vector<VkCommandBuffer> createVulkanCommandBuffers(
-            CommandQueueFamily queueFamily, const uint32_t commandBufferCount) const {
-            VkCommandBufferAllocateInfo allocInfo{};
-            allocInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            allocInfo.commandBufferCount = commandBufferCount;
-            if (queueFamily == CommandQueueFamily::Graphics) {
-                allocInfo.commandPool = getGraphicsCommandPool();
-            }
-            if (queueFamily == CommandQueueFamily::Compute) {
-                allocInfo.commandPool = getComputeCommandPool();
-            }
-            if (queueFamily == CommandQueueFamily::Transfer) {
-                allocInfo.commandPool = getTransferCommandPool();
-            }
-
-            std::vector<VkCommandBuffer> commandBuffers{};
-            commandBuffers.resize(commandBufferCount);
-
-            if (vkAllocateCommandBuffers(device_, &allocInfo, commandBuffers.data()) != VkResult::VK_SUCCESS) {
-                throw std::runtime_error("failed to allocate command buffer");
-            }
-            return commandBuffers;
-        }
-
-        // Begins a command buffer
-        static auto beginVulkanCommandBuffer(VkCommandBuffer commandBuffer) -> void;
-
-        // Submits and ends command buffers, waits on semaphores and signals semaphores
-        static void submitVulkanCommandBuffers(VkQueue queue, uint32_t waitSemaphoreInfoCount,
-                                               const VkSemaphoreSubmitInfo *pWaitSemaphoreInfos,
-                                               uint32_t commandBufferInfoCount,
-                                               const VkCommandBufferSubmitInfo *pCommandBufferInfos,
-                                               uint32_t signalSemaphoreInfoCount,
-                                               const VkSemaphoreSubmitInfo *pSignalSemaphoreInfos);
-
-        // TODO should be encapsed and accessed by getter
-        VkPhysicalDeviceProperties properties;
 
     private:
         void pickPhysicalDevice();
@@ -156,14 +105,13 @@ namespace hammock::core {
 
         void createMemoryAllocator();
 
-        // helper functions
         bool isDeviceSuitable(VkPhysicalDevice device);
 
         QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
         bool checkDeviceExtensionSupport(VkPhysicalDevice device) const;
 
-        bool runningHeadless() const {return surface_ == VK_NULL_HANDLE;}
+        bool runningHeadless() const { return surface_ == VK_NULL_HANDLE; }
 
         SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
 
@@ -190,5 +138,7 @@ namespace hammock::core {
             VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
             VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
         };
+
+        VkPhysicalDeviceProperties physicalDeviceProperties;
     };
 } // namespace hammock::core

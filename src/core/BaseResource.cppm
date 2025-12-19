@@ -42,14 +42,6 @@ namespace hammock::core {
         bool operator==(const ResourceHandle& other) const { return packed_handle == other.packed_handle; }
 
         bool operator!=(const ResourceHandle& other) const { return packed_handle != other.packed_handle; }
-
-        // TODO Helper for debugging
-        const char* getTypeName() const {
-            switch (getType()) {
-                default:
-                    return "Invalid";
-            }
-        }
     };
 
     // Type mapping traits
