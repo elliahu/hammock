@@ -13,21 +13,46 @@ import hammock.core.utilities;
 import hammock.core.device;
 
 namespace hammock::core {
-    SwapChain::SwapChain(Device &deviceRef, const VkExtent2D extent) : device{deviceRef}, windowExtent{extent} {
+    SwapChain::SwapChain(Device &deviceRef, const VkExtent2D extent)
+        : device{deviceRef}, windowExtent{extent} {
         init();
     }
 
     SwapChain::SwapChain(Device &deviceRef, const VkExtent2D extent, const std::shared_ptr<SwapChain> &previous)
         : device{deviceRef}, windowExtent{extent}, oldSwapChain{previous} {
         init();
-
-        // cleanup old swapchain since it's no longer needed
         oldSwapChain = nullptr;
     }
 
-    VkResult SwapChain::present(uint32_t imageIndex) {
+    VkResult SwapChain::acquireNextImage(uint32_t frameIndex, uint32_t *imageIndex) {
+        auto& syncObjects = frameSyncObjects[frameIndex];
+
+        // Wait for the fence from the previous frame
+        vkWaitForFences(
+            device.device(),
+            1,
+            &syncObjects.inFlightFence,
+            VK_TRUE,
+            UINT64_MAX
+        );
+
+        // Don't reset fence here - let the manager do it after successful acquire
+
+        return vkAcquireNextImageKHR(
+            device.device(),
+            swapChain,
+            UINT64_MAX,
+            syncObjects.imageAvailable->getVulkanSemaphore(),
+            VK_NULL_HANDLE,
+            imageIndex
+        );
+    }
+
+    VkResult SwapChain::present(uint32_t frameIndex, uint32_t imageIndex) {
+        auto& syncObjects = frameSyncObjects[frameIndex];
+
         VkSemaphore signalSemaphores[] = {
-            renderFinishedSemaphores[currentFrame]->getVulkanSemaphore()
+            syncObjects.renderFinished->getVulkanSemaphore()
         };
 
         VkPresentInfoKHR presentInfo{};
@@ -40,18 +65,19 @@ namespace hammock::core {
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &imageIndex;
 
-        VkResult result = vkQueuePresentKHR(
-            device.presentQueue(),
-            &presentInfo
-        );
-
-        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-        return result;
+        return vkQueuePresentKHR(device.presentQueue(), &presentInfo);
     }
 
-    void SwapChain::recordPipelineBarrier(std::uint32_t image,VkCommandBuffer cmd, VkPipelineStageFlags2 srcStageMask,
-        VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask,
-        VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t srcQueueFamilyIndex,
+    void SwapChain::recordPipelineBarrier(
+        std::uint32_t imageIndex,
+        VkCommandBuffer cmd,
+        VkPipelineStageFlags2 srcStageMask,
+        VkAccessFlags2 srcAccessMask,
+        VkPipelineStageFlags2 dstStageMask,
+        VkAccessFlags2 dstAccessMask,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout,
+        uint32_t srcQueueFamilyIndex,
         uint32_t dstQueueFamilyIndex) const {
 
         VkImageSubresourceRange subresourceRange{
@@ -69,10 +95,10 @@ namespace hammock::core {
             .dstStageMask = dstStageMask,
             .dstAccessMask = dstAccessMask,
             .oldLayout = oldLayout,
-            .newLayout = newLayout, // Optional: layout transition
+            .newLayout = newLayout,
             .srcQueueFamilyIndex = srcQueueFamilyIndex,
             .dstQueueFamilyIndex = dstQueueFamilyIndex,
-            .image = swapChainImages[image],
+            .image = swapChainImages[imageIndex],
             .subresourceRange = subresourceRange,
         };
 
@@ -103,33 +129,8 @@ namespace hammock::core {
         }
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroyFence(device.device(), inFlightFences[i], nullptr);
+            vkDestroyFence(device.device(), frameSyncObjects[i].inFlightFence, nullptr);
         }
-    }
-
-    VkResult SwapChain::acquireNextImage(uint32_t *imageIndex) const {
-        vkWaitForFences(
-            device.device(),
-            1,
-            &inFlightFences[currentFrame],
-            VK_TRUE,
-            UINT64_MAX
-        );
-
-        vkResetFences(
-                device.device(),
-                1,
-                &inFlightFences[currentFrame]
-            );
-
-        return vkAcquireNextImageKHR(
-            device.device(),
-            swapChain,
-            UINT64_MAX,
-            imageAvailableSemaphores[currentFrame]->getVulkanSemaphore(),
-            VK_NULL_HANDLE,
-            imageIndex
-        );
     }
 
     void SwapChain::createSwapChain() {
@@ -164,26 +165,20 @@ namespace hammock::core {
             createInfo.pQueueFamilyIndices = queueFamilyIndices;
         } else {
             createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            createInfo.queueFamilyIndexCount = 0; // Optional
-            createInfo.pQueueFamilyIndices = nullptr; // Optional
+            createInfo.queueFamilyIndexCount = 0;
+            createInfo.pQueueFamilyIndices = nullptr;
         }
 
         createInfo.preTransform = capabilities.currentTransform;
         createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-
         createInfo.presentMode = presentMode;
         createInfo.clipped = VK_TRUE;
-
         createInfo.oldSwapchain = oldSwapChain == nullptr ? VK_NULL_HANDLE : oldSwapChain->swapChain;
 
         if (vkCreateSwapchainKHR(device.device(), &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
             throw std::runtime_error("failed to create swap chain!");
         }
 
-        // we only specified a minimum number of images in the swap chain, so the implementation is
-        // allowed to create a swap chain with more. That's why we'll first query the final number of
-        // images with vkGetSwapchainImagesKHR, then resize the container and finally call it again to
-        // retrieve the handles.
         vkGetSwapchainImagesKHR(device.device(), swapChain, &imageCount, nullptr);
         swapChainImages.resize(imageCount);
         vkGetSwapchainImagesKHR(device.device(), swapChain, &imageCount, swapChainImages.data());
@@ -212,20 +207,16 @@ namespace hammock::core {
         }
     }
 
-
     void SwapChain::createSyncObjects() {
-        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-
         VkFenceCreateInfo fenceInfo = {};
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            imageAvailableSemaphores[i] = std::make_unique<Semaphore>(device);
-            renderFinishedSemaphores[i] = std::make_unique<Semaphore>(device);
-            if (vkCreateFence(device.device(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+            frameSyncObjects[i].imageAvailable = std::make_unique<Semaphore>(device);
+            frameSyncObjects[i].renderFinished = std::make_unique<Semaphore>(device);
+
+            if (vkCreateFence(device.device(), &fenceInfo, nullptr, &frameSyncObjects[i].inFlightFence) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create synchronization objects for a frame!");
             }
         }
@@ -238,39 +229,24 @@ namespace hammock::core {
                 return availableFormat;
             }
         }
-
         return availableFormats[0];
     }
 
     VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes) {
-        // available present modes
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPresentModeKHR.html
         for (const auto &availablePresentMode: availablePresentModes) {
-            // Top option - Mailbox
-            // Lowers imput latency but GPU is 100% saturated = high power consumption
-            // not good for mobile
             if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
                 Logger::info("Present mode: Mailbox");
                 return availablePresentMode;
             }
-            // Does NOT perform any vertical synchronization
-            // High GPU and CPU (and power) usage
-            // May result in tearing
-            // For testing max performance
             if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
                 Logger::info("Present mode: Immediate");
                 return availablePresentMode;
             }
-
-            // V-sync that may produce tearing if frame is submitted late
             if (availablePresentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
                 Logger::info("Present mode: V-Sync Relaxed");
                 return availablePresentMode;
             }
         }
-
-        // V-sync on as fallback
-        // always available on all GPUs
         Logger::info("Present mode: V-Sync");
         return VK_PRESENT_MODE_FIFO_KHR;
     }
@@ -281,10 +257,11 @@ namespace hammock::core {
         } else {
             VkExtent2D actualExtent = windowExtent;
             actualExtent.width = std::max(
-                capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
+                capabilities.minImageExtent.width,
+                std::min(capabilities.maxImageExtent.width, actualExtent.width));
             actualExtent.height = std::max(
-                capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
-
+                capabilities.minImageExtent.height,
+                std::min(capabilities.maxImageExtent.height, actualExtent.height));
             return actualExtent;
         }
     }

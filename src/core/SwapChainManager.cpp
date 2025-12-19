@@ -11,12 +11,12 @@ import hammock.core.base_surface_provider;
 import hammock.core.base_resource;
 import hammock.core.image;
 
-
-
-hammock::core::SwapChainManager::SwapChainManager(BaseSurfaceProvider& i_surfaceProvider, Device &device) : surfaceProvider{i_surfaceProvider}, device{device}{
+hammock::core::SwapChainManager::SwapChainManager(
+    BaseSurfaceProvider& i_surfaceProvider,
+    Device &device)
+    : surfaceProvider{i_surfaceProvider}, device{device} {
     recreateSwapChain();
 }
-
 
 void hammock::core::SwapChainManager::recreateSwapChain() {
     auto extent = surfaceProvider.getExtent();
@@ -46,23 +46,10 @@ void hammock::core::SwapChainManager::recreateSwapChain() {
     }
 }
 
-
-
-void hammock::core::SwapChainManager::present() {
-    auto result = swapChain->present(currentImageIndex);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || surfaceProvider.wasResized()) {
-        // Window was resized (resolution was changed)
-        surfaceProvider.resetResized();
-        recreateSwapChain();
-    } else if (result != VK_SUCCESS) {
-        throw std::runtime_error("failed to present swap chain image");
-    }
-}
-
 bool hammock::core::SwapChainManager::beginFrame() {
     assert(!isFrameStarted && "Cannot call beginFrame while already in progress");
 
-    auto result = swapChain->acquireNextImage(&currentImageIndex);
+    auto result = swapChain->acquireNextImage(currentFrameIndex, &currentImageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapChain();
@@ -70,12 +57,30 @@ bool hammock::core::SwapChainManager::beginFrame() {
     }
 
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        throw std::runtime_error("failed to aquire swap chain image!");
+        throw std::runtime_error("failed to acquire swap chain image!");
     }
 
+    // Reset fence after successful acquire
+    auto& syncObjects = swapChain->getSyncObjects(currentFrameIndex);
+    vkResetFences(device.device(), 1, &syncObjects.inFlightFence);
 
     isFrameStarted = true;
     return true;
+}
+
+void hammock::core::SwapChainManager::present() {
+    assert(isFrameStarted && "Cannot call present while frame is not in progress");
+
+    auto result = swapChain->present(currentFrameIndex, currentImageIndex);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR ||
+        result == VK_SUBOPTIMAL_KHR ||
+        surfaceProvider.wasResized()) {
+        surfaceProvider.resetResized();
+        recreateSwapChain();
+    } else if (result != VK_SUCCESS) {
+        throw std::runtime_error("failed to present swap chain image");
+    }
 }
 
 void hammock::core::SwapChainManager::endFrame() {

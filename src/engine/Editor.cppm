@@ -117,16 +117,25 @@ namespace hammock::engine {
         void present() {
             auto &swapChainManager = core::SwapChainManager::getInstance();
             auto &swapChain = swapChainManager.getSwapChain();
-            core::Semaphore &frameFinishedSemaphore = *frameFinishedSemaphores[swapChainManager.getFrameIndex()];
-            auto &commandBuffer = *presentCommandBuffers[swapChainManager.getFrameIndex()];
+
+            // Get current frame's synchronization objects
+            uint32_t frameIndex = swapChainManager.getFrameIndex();
+            uint32_t imageIndex = swapChainManager.getSwapChainImageIndex();
+            auto &syncObjects = swapChain.getSyncObjects(frameIndex);
+
+            // Get user semaphores
+            core::Semaphore &frameFinishedSemaphore = *frameFinishedSemaphores[frameIndex];
+            auto &commandBuffer = *presentCommandBuffers[frameIndex];
 
             // Wait for frame to finish rendering
             commandBuffer.waitOnSemaphore(frameFinishedSemaphore, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
+
             // Wait for available swap chain image
-            commandBuffer.waitOnSemaphore(swapChain.getImageAvailableSemaphore(),
+            commandBuffer.waitOnSemaphore(*syncObjects.imageAvailable,
                                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-            // Signal swap chain
-            commandBuffer.signalSemaphore(swapChain.getRenderFinishedSemaphore());
+
+            // Signal swap chain that rendering is finished
+            commandBuffer.signalSemaphore(*syncObjects.renderFinished);
 
             // Begin present command buffer
             commandBuffer.begin();
@@ -145,11 +154,11 @@ namespace hammock::engine {
                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED
-                );
+            );
 
             // swapchain undefined -> transfer dst
             swapChain.recordPipelineBarrier(
-                swapChainManager.getSwapChainImageIndex(),
+                imageIndex, // Now explicitly use imageIndex, not frameIndex
                 commandBuffer.getCommandBuffer(),
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                 VK_ACCESS_2_NONE,
@@ -161,7 +170,7 @@ namespace hammock::engine {
                 VK_QUEUE_FAMILY_IGNORED
             );
 
-            //  Blit
+            // Blit
             VkImageBlit blit{};
             blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             blit.srcSubresource.mipLevel = 0;
@@ -180,16 +189,15 @@ namespace hammock::engine {
             vkCmdBlitImage(
                 commandBuffer.getCommandBuffer(),
                 target->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                swapChain.getImage(swapChainManager.getSwapChainImageIndex()), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                swapChain.getImage(imageIndex), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1,
                 &blit,
                 VK_FILTER_LINEAR
             );
 
-
             // swapchain Transfer dst -> PRESENT_SRC_KHR
             swapChain.recordPipelineBarrier(
-                swapChainManager.getSwapChainImageIndex(),
+                imageIndex,
                 commandBuffer.getCommandBuffer(),
                 VK_PIPELINE_STAGE_2_TRANSFER_BIT,
                 VK_ACCESS_2_TRANSFER_WRITE_BIT,
@@ -201,8 +209,8 @@ namespace hammock::engine {
                 VK_QUEUE_FAMILY_IGNORED
             );
 
-            // End the command buffer
-            commandBuffer.submit(swapChain.getInFlightFence());
+            // End the command buffer and submit with fence
+            commandBuffer.submit(syncObjects.inFlightFence);
 
             // Present
             swapChainManager.present();
