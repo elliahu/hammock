@@ -57,7 +57,7 @@ namespace hammock::core {
         }
 
         template <typename T, typename... Args>
-        ResourceHandle createResource(Args&&... args) {
+        [[nodiscard]] ResourceHandle createResource(Args&&... args) {
             static_assert(ResourceTypeTraits<T>::type != ResourceType::Invalid,
                 "Resource type not registered in ResourceTypeTraits");
 

@@ -8,7 +8,7 @@ module;
 
 export module hammock.engine.editor:window;
 
-import hammock.core.instance;
+import hammock.core;
 import hammock.core.base_surface_provider;
 
 namespace hammock::engine {
@@ -22,7 +22,6 @@ namespace hammock::engine {
 
             window = Surfer::Window::createWindow("Hammock engine", width, height, static_cast<std::int32_t>(x),
                                                   static_cast<std::int32_t>(y));
-
 
             // Create surface
             window->createSurface(instance.getInstance(), &surface);
@@ -50,6 +49,8 @@ namespace hammock::engine {
         bool wasResized() const override { return resized; }
 
         void resetResized() override { resized = false; }
+
+        Surfer::Window * getWindowPtr() const  {return window;}
 
     private:
         bool resized = false;

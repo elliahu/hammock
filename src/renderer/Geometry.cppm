@@ -9,7 +9,7 @@ import hammock.renderer.vertex;
 import hammock.renderer.math;
 import hammock.core.base_resource;
 
-using namespace hammock::renderer::math;
+using namespace hammock::math;
 
 namespace hammock::renderer {
     export struct Geometry {

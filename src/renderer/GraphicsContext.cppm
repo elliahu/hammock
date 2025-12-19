@@ -9,7 +9,6 @@ export module hammock.renderer.graphics_context;
 import hammock.core.instance;
 import hammock.core.device;
 import hammock.core.resource_manager;
-import hammock.core.frame_manager;
 import hammock.core.descriptor;
 
 namespace hammock::renderer {

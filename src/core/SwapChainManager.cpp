@@ -4,7 +4,7 @@ module;
 #include <string>
 #include <cassert>
 
-module hammock.core.frame_manager;
+module hammock.core.swapchain_manager;
 
 import hammock.core.resource_manager;
 import hammock.core.base_surface_provider;
@@ -13,16 +13,12 @@ import hammock.core.image;
 
 
 
-hammock::core::FrameManager::FrameManager(BaseSurfaceProvider& i_surfaceProvider, Device &device) : surfaceProvider{i_surfaceProvider}, device{device}{
+hammock::core::SwapChainManager::SwapChainManager(BaseSurfaceProvider& i_surfaceProvider, Device &device) : surfaceProvider{i_surfaceProvider}, device{device}{
     recreateSwapChain();
 }
 
-hammock::core::FrameManager::~FrameManager() {
-}
 
-
-
-void hammock::core::FrameManager::recreateSwapChain() {
+void hammock::core::SwapChainManager::recreateSwapChain() {
     auto extent = surfaceProvider.getExtent();
 
     while (extent.width == 0 || extent.height == 0) {
@@ -42,36 +38,18 @@ void hammock::core::FrameManager::recreateSwapChain() {
         }
     }
 
-    // Clear previous images
-    for (auto handle: handlesOfSwapImages) {
-        ResourceManager::getInstance().releaseResource(handle.getUid());
-    }
-
-    handlesOfSwapImages.clear();
-
-    // Track new images
-    for(int i = 0; i < swapChain->imageCount(); i++) {
-
-        ResourceHandle handle = ResourceManager::getInstance().addResource<Image>("SWAPCHAIN_IMAGE_" + std::to_string(i), ImageDesc{
-            .width = extent.width,
-            .height = extent.height,
-            .image = swapChain->getImage(i),
-            .view = swapChain->getImageView(i),
-            .format = swapChain->getSwapChainImageFormat(),
-            .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
-        });
-
-        handlesOfSwapImages.push_back(handle);
+    // Trigger callbacks
+    for (auto &callback : onSwapChainRecreated) {
+        if (callback) {
+            callback(extent.width, extent.height);
+        }
     }
 }
 
 
-void hammock::core::FrameManager::submitPresentCommandBuffer(VkCommandBuffer commandBuffer,  const std::vector<VkSemaphore>& wait, const std::vector<VkPipelineStageFlags>& waitStages) {
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to record command buffer");
-    }
 
-    auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex, wait, waitStages);
+void hammock::core::SwapChainManager::present() {
+    auto result = swapChain->present(currentImageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || surfaceProvider.wasResized()) {
         // Window was resized (resolution was changed)
         surfaceProvider.resetResized();
@@ -81,7 +59,7 @@ void hammock::core::FrameManager::submitPresentCommandBuffer(VkCommandBuffer com
     }
 }
 
-bool hammock::core::FrameManager::beginFrame() {
+bool hammock::core::SwapChainManager::beginFrame() {
     assert(!isFrameStarted && "Cannot call beginFrame while already in progress");
 
     auto result = swapChain->acquireNextImage(&currentImageIndex);
@@ -95,11 +73,12 @@ bool hammock::core::FrameManager::beginFrame() {
         throw std::runtime_error("failed to aquire swap chain image!");
     }
 
+
     isFrameStarted = true;
     return true;
 }
 
-void hammock::core::FrameManager::endFrame() {
+void hammock::core::SwapChainManager::endFrame() {
     assert(isFrameStarted && "Cannot call endFrame while frame is not in progress");
     isFrameStarted = false;
     currentFrameIndex = (currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;

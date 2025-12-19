@@ -33,9 +33,9 @@ namespace hammock::core {
             return handle;
         }
 
-        ResourceType getType() const { return static_cast<ResourceType>(packed_handle >> TYPE_SHIFT); }
+        [[nodiscard]] ResourceType getType() const { return static_cast<ResourceType>(packed_handle >> TYPE_SHIFT); }
 
-        uint64_t getUid() const { return packed_handle & INDEX_MASK; }
+        [[nodiscard]] uint64_t getUid() const { return packed_handle & INDEX_MASK; }
 
         bool isValid() const { return packed_handle != 0 && getType() != ResourceType::Invalid; }
 

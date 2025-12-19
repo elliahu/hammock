@@ -40,7 +40,7 @@ int main() {
         pushBlock->addField(std::move(field))->setFloat(0.5f);
         computeTask->addPushConstantBlock(std::move(pushBlock));
 
-        auto engine = std::make_unique<hammock::engine::Engine>(hammock::engine::EngineMode::Editor);
+        auto engine = std::make_unique<hammock::engine::Engine>(hammock::engine::LaunchMode::Runtime);
         engine->launch();
 
     } catch(std::exception &e) {

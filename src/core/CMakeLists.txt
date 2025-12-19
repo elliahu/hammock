@@ -9,6 +9,7 @@ target_sources(hammock_core
         FILE_SET CXX_MODULES TYPE CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
         FILES
+        "import.cppm"
         "BasePipeline.cppm"
         "BaseResource.cppm"
         "BaseSurfaceProvider.cppm"
@@ -17,7 +18,7 @@ target_sources(hammock_core
         "ComputePipeline.cppm"
         "Descriptor.cppm"
         "Device.cppm"
-        "FrameManager.cppm"
+        "SwapChainManager.cppm"
         "GraphicsPipeline.cppm"
         "Image.cppm"
         "Instance.cppm"
@@ -26,12 +27,13 @@ target_sources(hammock_core
         "SwapChain.cppm"
         "Utilities.cppm"
         "Vulkan.cppm"
+        "Semaphore.cppm"
     PRIVATE
         "CommandBuffer.cpp"
         "ComputePipeline.cpp"
         "Descriptor.cpp"
         "Device.cpp"
-        "FrameManager.cpp"
+        "SwapChainManager.cpp"
         "GraphicsPipeline.cpp"
         "MemoryAllocator.cpp"
         "ResourceManager.cpp"

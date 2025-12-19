@@ -7,6 +7,7 @@ module;
 export module hammock.core.command_buffer;
 
 import hammock.core.device;
+import hammock.core.semaphore;
 
 
 namespace hammock::core {
@@ -39,15 +40,21 @@ namespace hammock::core {
             }
         }
 
-        auto waitOnSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void;
+        auto waitOnSemaphore(Semaphore& semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void;
 
-        auto signalSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void;
+        auto signalSemaphore(Semaphore& semaphore) -> void;
 
+        /// @brief begin command buffer recording
         auto begin() -> void;
 
-        auto submit(VkQueue queue) -> void;
+        /// @brief Call this function when you only need to END the command buffer
+        /// To both end and submit call `submit()`
+        auto end() -> void;
 
-        auto getCommandBuffer() -> VkCommandBuffer { return commandBuffer; }
+        /// @brief This function ENDS and SUBMITS the command buffer
+        auto submit(VkFence fence = VK_NULL_HANDLE) -> void;
+
+        auto getCommandBuffer() const -> VkCommandBuffer { return commandBuffer; }
 
     private:
         Device &device;

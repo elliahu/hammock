@@ -1,32 +1,31 @@
 module;
 
 #include <memory>
+#include <stdexcept>
 
 export module hammock.renderer.renderer;
 
 export import :strategy;
 export import :deferred_strategy;
 
-import hammock.core.instance;
+import hammock.core;
 
 namespace hammock::renderer {
     export class Renderer {
     public:
-        explicit Renderer(GraphicsContext &ctx,
-                          std::unique_ptr<IRenderingStrategy> &&strategy =
-                                  {}) : ctx(ctx), strategy(std::move(strategy)) {
+        explicit Renderer(std::unique_ptr<IRenderingStrategy> &&strategy =
+                                  {}) : strategy(std::move(strategy)) {
         }
 
-        void drawFrame() const {
-            if (ctx.supportsPresent()) {
-                strategy->draw(ctx, {});
-            } else {
-                strategy->draw(ctx, {});
+        void drawFrame(core::ResourceHandle target, core::Semaphore &wait, core::Semaphore &signal) const {
+            if (!target.isValid() || target.getType() != core::ResourceType::Image) {
+                throw std::runtime_error("Invalid rendering target");
             }
+
+            strategy->draw(target, wait, signal);
         }
 
     private:
-        GraphicsContext &ctx;
         std::unique_ptr<IRenderingStrategy> strategy{};;
     };
 };

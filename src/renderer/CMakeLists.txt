@@ -9,6 +9,7 @@ target_sources(hammock_renderer
         FILE_SET CXX_MODULES TYPE CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
         FILES
+        "import.cppm"
         "SpirvReflection.cppm"
         "Renderer.cppm"
         "Renderer_Strategy.cppm"

@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.30)
 # Editor library
 add_library(hammock_engine)
 
+# Imgui is compiled with this target
 set(IMGUI_DIR "${PROJECT_SOURCE_DIR}/third_party/imgui")
 
 # Add module sources
@@ -14,8 +15,9 @@ target_sources(hammock_engine
         FILES
         "Editor.cppm"
         "Engine.cppm"
-        "Window.cppm"
+        "Editor_Window.cppm"
         "Ui.cppm"
+        "Editor_Framebuffer.cppm"
     PRIVATE
         "${IMGUI_DIR}/imgui.cpp"
         "${IMGUI_DIR}/imgui_draw.cpp"

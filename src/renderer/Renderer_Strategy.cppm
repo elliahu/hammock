@@ -3,23 +3,20 @@ module;
 
 export module hammock.renderer.renderer:strategy;
 
-import hammock.core.instance;
-import hammock.core.device;
-import hammock.core.resource_manager;
+import hammock.core;
 import hammock.renderer.graphics_context;
 
 namespace hammock::renderer {
-
-    export class RenderingContext {
-
-    };
-
     export class IRenderingStrategy {
     public:
-        IRenderingStrategy() = default;
-        virtual ~IRenderingStrategy() = default;
-        virtual void draw(GraphicsContext& gctx, const RenderingContext& rctx) = 0;
+        IRenderingStrategy(GraphicsContext &context) : ctx(context) {
+        }
 
-    private:
+        virtual ~IRenderingStrategy() = default;
+
+        virtual void draw(core::ResourceHandle target,core::Semaphore &wait, core::Semaphore &semaphore) = 0;
+
+    protected:
+        GraphicsContext &ctx;
     };
 }

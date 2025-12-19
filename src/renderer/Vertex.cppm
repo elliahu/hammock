@@ -7,7 +7,7 @@ export module hammock.renderer.vertex;
 
 import hammock.renderer.math;
 
-using namespace hammock::renderer::math;
+using namespace hammock::math;
 
 namespace hammock::renderer {
     export struct Vertex {

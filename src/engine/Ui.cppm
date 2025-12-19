@@ -1,27 +1,48 @@
 module;
 
 #include "imgui/backends/imgui_impl_vulkan.h"
+#include "imgui_imp_vulkansurfer.h"
 #include "imgui/imgui.h"
 
 
 export module hammock.engine.ui;
 
 import hammock.core.command_buffer;
+import hammock.core.descriptor;
+import hammock.renderer.graphics_context;
 
 namespace hammock::engine {
     export class Ui {
     public:
-        Ui() = default;
+        Ui(Surfer::Window * window, renderer::GraphicsContext * ctx){
+            IMGUI_CHECKVERSION();
+            ImGui::CreateContext();
+            ImGui_ImplVulkanSurfer_Init(window);
+
+            ImGui_ImplVulkan_InitInfo init_info = {};
+            init_info.Instance = ctx->getInstance().getInstance();
+            init_info.PhysicalDevice = ctx->getDevice().getPhysicalDevice();
+            init_info.Device = ctx->getDevice().device();
+            init_info.QueueFamily = ctx->getDevice().getGraphicsQueueFamilyIndex();
+            init_info.Queue = ctx->getDevice().graphicsQueue();
+            init_info.DescriptorPool = core::DescriptorPool::getInstance().descriptorPool;
+            init_info.MinImageCount = 3; // Usually 2 or 3
+            init_info.ImageCount = 3;
+
+            ImGui_ImplVulkan_Init(&init_info);
+        }
         ~Ui() {
             ImGui_ImplVulkan_Shutdown();
-           //TODO shutdown
+            ImGui_ImplVulkanSurfer_Shutdown();
             ImGui::DestroyContext();
         }
 
         void newFrame() {
-            ImGui::NewFrame();
-            // TODO new frame
             ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplVulkanSurfer_NewFrame();
+            ImGui::NewFrame();
+
+            draw();
         }
 
         void renderFrame(core::CommandBuffer& commandBuffer) {
@@ -49,5 +70,6 @@ namespace hammock::engine {
             ImGui::Text("counter = %d", counter);
             ImGui::End();
         }
+
     };
 }

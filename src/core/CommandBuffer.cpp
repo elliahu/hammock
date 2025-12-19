@@ -4,7 +4,7 @@ module;
 
 module hammock.core.command_buffer;
 
-
+import hammock.core.semaphore;
 
 auto hammock::core::CommandBuffer::begin() -> void {
     if (inProgress) {
@@ -21,14 +21,26 @@ auto hammock::core::CommandBuffer::begin() -> void {
     inProgress = true;
 }
 
-auto hammock::core::CommandBuffer::submit(VkQueue queue) -> void{
+auto hammock::core::CommandBuffer::end() -> void {
     if (!inProgress) {
-        throw std::runtime_error("Cannot submit commandbuffer that has not started yet (forgot to call begin()?)");
+        throw std::runtime_error("Cannot end command buffer that has not started yet (forgot to call begin()?)");
+    }
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to end command buffer");
+    }
+
+    inProgress = false;
+}
+
+auto hammock::core::CommandBuffer::submit(VkFence fence) -> void {
+    if (!inProgress) {
+        throw std::runtime_error("Cannot submit command buffer that has not started yet (forgot to call begin()?)");
     }
 
     VkCommandBufferSubmitInfo cmdBufInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-        .commandBuffer =commandBuffer,
+        .commandBuffer = commandBuffer,
     };
 
     VkSubmitInfo2 submitInfo = {
@@ -41,27 +53,49 @@ auto hammock::core::CommandBuffer::submit(VkQueue queue) -> void{
         .pSignalSemaphoreInfos = signalSemaphoreSubmitInfos.data(),
     };
 
-    if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS){
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to end command buffer");
     }
 
-    if(vkQueueSubmit2(queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS){
+    // find queue
+    VkQueue queue = VK_NULL_HANDLE;
+    switch (queueFamily) {
+        case CommandQueueFamily::Graphics:
+            queue = device.graphicsQueue();
+            break;
+        case CommandQueueFamily::Compute:
+            queue = device.computeQueue();
+            break;
+        case CommandQueueFamily::Transfer:
+            queue = device.transferQueue();
+            break;
+        default:
+            throw std::runtime_error("Unknown queue family");
+    }
+
+    if (vkQueueSubmit2(queue, 1, &submitInfo, fence) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit command buffer");
     }
+
+    waitSemaphoreSubmitInfos.clear();
+    signalSemaphoreSubmitInfos.clear();
+
+    inProgress = false;
 }
 
-auto hammock::core::CommandBuffer::waitOnSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void {
+auto hammock::core::CommandBuffer::waitOnSemaphore(Semaphore &semaphore,
+                                                   VkPipelineStageFlagBits2 stageFlagBits) -> void {
     waitSemaphoreSubmitInfos.push_back({
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = semaphore,
+        .semaphore = semaphore.getVulkanSemaphore(),
         .stageMask = stageFlagBits,
     });
 }
 
-auto hammock::core::CommandBuffer::signalSemaphore(VkSemaphore semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void {
+auto hammock::core::CommandBuffer::signalSemaphore(Semaphore &semaphore) -> void {
     signalSemaphoreSubmitInfos.push_back({
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = semaphore,
-        .stageMask = stageFlagBits,
+        .semaphore = semaphore.getVulkanSemaphore(),
+        .stageMask = 0,
     });
 }

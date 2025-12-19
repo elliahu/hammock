@@ -7,7 +7,7 @@ module;
 export module hammock.core.swapchain;
 
 import hammock.core.device;
-
+import hammock.core.semaphore;
 
 
 // TODO change this to contexpr
@@ -17,7 +17,6 @@ namespace hammock::core {
     export class SwapChain {
     public:
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-        static constexpr bool CREATE_SWAPCHAIN_RENDERPASS = true;
 
         SwapChain(Device &deviceRef, VkExtent2D windowExtent);
 
@@ -34,29 +33,51 @@ namespace hammock::core {
         [[nodiscard]] size_t imageCount() const { return swapChainImages.size(); }
         [[nodiscard]] VkFormat getSwapChainImageFormat() const { return swapChainImageFormat; }
         [[nodiscard]] VkExtent2D getSwapChainExtent() const { return swapChainExtent; }
-        [[nodiscard]] uint32_t width() const { return swapChainExtent.width; }
-        [[nodiscard]] uint32_t height() const { return swapChainExtent.height; }
-        [[nodiscard]] VkRenderPass getRenderPass() const { return renderPass; }
-        [[nodiscard]] VkFramebuffer getFramebuffer(uint32_t index) const { return swapChainFramebuffers[index]; }
-        [[nodiscard]] float extentAspectRatio() const {
-            return static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
-        }
 
-        VkFormat findDepthFormat() const;
+        [[nodiscard]] VkFormat getSupportedDepthFormat() const;
 
         VkResult acquireNextImage(uint32_t *imageIndex) const;
-
-        VkResult submitCommandBuffers(const VkCommandBuffer *buffers, const uint32_t *imageIndex, const std::vector<VkSemaphore>& waitForSemaphore, const std::vector<VkPipelineStageFlags>& waitStages);
 
         [[nodiscard]] bool compareSwapFormats(const SwapChain &swapChain) const {
             return swapChain.swapChainImageFormat == swapChainImageFormat;
         }
 
-        static void forEachFrameInFlight(std::function<void(int frame)> cb){
-            for(int frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++){
+        static void forEachFrameInFlight(const std::function<void(int frame)> &cb) {
+            for (int frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++) {
                 cb(frame);
             }
         }
+
+        [[nodiscard]] Semaphore &getImageAvailableSemaphore() const {
+            return *imageAvailableSemaphores[currentFrame];
+        }
+
+        [[nodiscard]] Semaphore &getRenderFinishedSemaphore() const {
+            return *renderFinishedSemaphores[currentFrame];
+        }
+
+        [[nodiscard]] VkFence getInFlightFence() const {
+            return inFlightFences[currentFrame];
+        }
+
+        [[nodiscard]] uint32_t getCurrentFrame() const {
+            return currentFrame;
+        }
+
+        VkResult present(uint32_t imageIndex);
+
+        void recordPipelineBarrier(
+            std::uint32_t image,
+            VkCommandBuffer cmd,
+            VkPipelineStageFlags2 srcStageMask,
+            VkAccessFlags2 srcAccessMask,
+            VkPipelineStageFlags2 dstStageMask,
+            VkAccessFlags2 dstAccessMask,
+            VkImageLayout oldLayout,
+            VkImageLayout newLayout,
+            uint32_t srcQueueFamilyIndex,
+            uint32_t dstQueueFamilyIndex
+        ) const;
 
     private:
         void init();
@@ -64,10 +85,6 @@ namespace hammock::core {
         void createSwapChain();
 
         void createImageViews();
-
-        void createRenderPass();
-
-        void createFramebuffers();
 
         void createSyncObjects();
 
@@ -83,9 +100,6 @@ namespace hammock::core {
         VkFormat swapChainImageFormat;
         VkExtent2D swapChainExtent;
 
-        std::vector<VkFramebuffer> swapChainFramebuffers;
-        VkRenderPass renderPass;
-
 
         std::vector<VkImage> swapChainImages;
         std::vector<VkImageView> swapChainImageViews;
@@ -97,8 +111,8 @@ namespace hammock::core {
         VkSwapchainKHR swapChain;
         std::shared_ptr<SwapChain> oldSwapChain;
 
-        std::vector<VkSemaphore> imageAvailableSemaphores;
-        std::vector<VkSemaphore> renderFinishedSemaphores;
+        std::vector<std::unique_ptr<Semaphore> > imageAvailableSemaphores;
+        std::vector<std::unique_ptr<Semaphore> > renderFinishedSemaphores;
         std::vector<VkFence> inFlightFences;
         size_t currentFrame = 0;
     };
