@@ -222,8 +222,12 @@ namespace hammock::engine {
             // Create new one
             auto &sc = core::SwapChainManager::getInstance();
             auto format = sc.getSwapChain().getSwapChainImageFormat();
+            auto extent = sc.getSwapChain().getSwapChainExtent();
             framebuffer = std::make_unique<Framebuffer>(context.getDevice(), core::SwapChain::MAX_FRAMES_IN_FLIGHT,
-                                                        math::Vec2{1920.f, 1080.f}, format);
+                                                        math::Vec2{
+                                                            static_cast<float>(extent.width),
+                                                            static_cast<float>(extent.height)
+                                                        }, format);
         }
 
         LaunchMode mode;
