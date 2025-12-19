@@ -11,6 +11,7 @@ import hammock.core.semaphore;
 
 
 // TODO change this to contexpr
+// TODO wierd coupling between swap chain manager and swap chain, change that
 #define FB_COLOR_FORMAT VK_FORMAT_R8G8B8A8_UNORM
 
 namespace hammock::core {

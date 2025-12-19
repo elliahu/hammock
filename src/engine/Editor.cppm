@@ -87,7 +87,7 @@ namespace hammock::engine {
                 auto &swapChainManager = core::SwapChainManager::getInstance();
 
                 // Begin frame (also resets SwapChain fences)
-                if (swapChainManager.beginFrame()) { // FIXME hangs on a start of the third frame
+                if (swapChainManager.beginFrame()) {
                     // Swap images
                     framebuffer->swapImages();
 
