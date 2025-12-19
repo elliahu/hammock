@@ -1,5 +1,5 @@
 module;
-#include <vulkan/vulkan.h>
+//#include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
 #include <cassert>
@@ -12,6 +12,7 @@ import hammock.core.device;
 import hammock.core.utilities;
 import hammock.core.buffer;
 import hammock.core.memory_allocator;
+import vulkan_hpp;
 
 
 namespace hammock::core {
@@ -20,108 +21,52 @@ namespace hammock::core {
      */
     export struct ImageDesc {
         uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
-        VkImage image = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkFormat format;
-        VkImageUsageFlags usage;
-        VkImageType imageType = VK_IMAGE_TYPE_2D;
-        VkImageViewType imageViewType = VK_IMAGE_VIEW_TYPE_2D;
-        VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-        VkClearValue clearValue = {};
+        vk::Image image{};
+        vk::ImageView view{};
+        vk::Format format;
+        vk::ImageUsageFlags usage;
+        vk::ImageType imageType;
+        vk::ImageViewType imageViewType;
+        vk::ImageAspectFlags aspectFlags;
+        vk::ClearValue clearValue{};
         CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
         std::vector<CommandQueueFamily> queueFamilies{};
-        VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        VkMemoryPropertyFlags memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
-
-        static inline auto DepthStencil(uint32_t width, uint32_t height) -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_D32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
-            };
-        }
-
-        static inline auto ColorRgba8U(uint32_t width, uint32_t height) -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R8G8B8A8_UNORM,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-            };
-        }
-
-        static inline auto ColorRgba16F(uint32_t width, uint32_t height)
-            -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-            };
-        }
-
-        static inline auto ColorRgba32F(uint32_t width, uint32_t height)
-            -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-            };
-        }
-
-        static inline auto StorageRgba16F(uint32_t width, uint32_t height) -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
-            };
-        }
-
-        static inline auto StorageRgba32F(uint32_t width, uint32_t height) -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
-            };
-        }
+        vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
+        vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        vk::ImageTiling tiling = vk::ImageTiling::eOptimal;
     };
 
 
     export class Image : public BaseResource {
     protected:
         // Format and usage
-        VkFormat m_format;
-        VkImageUsageFlags m_usage;
-        VkImageType m_type;
-        VkImageViewType m_viewType;
+        vk::Format m_format;
+        vk::ImageUsageFlags m_usage;
+        vk::ImageType m_type;
+        vk::ImageViewType m_viewType;
 
         // Image dimensions
         uint32_t m_width, m_height, m_channels, m_depth = 1, m_layers = 1, m_mips = 1;
 
         // Vulkan handles
-        VkImage m_image = VK_NULL_HANDLE;
-        VkImageView m_view = VK_NULL_HANDLE;
-        VkImageLayout m_layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        allocator::Allocation m_allocation = VK_NULL_HANDLE;
+        vk::Image m_image{};
+        vk::ImageView m_view{};
+        vk::ImageLayout m_layout;
+        allocator::Allocation m_allocation = nullptr;
 
         // Attachment
-        VkClearValue m_clearValue = {};
+        vk::ClearValue m_clearValue = {};
 
         CommandQueueFamily m_queueFamily;
         std::vector<uint32_t> m_queueFamilyIndices{};
-        VkSharingMode m_sharingMode;
+        vk::SharingMode m_sharingMode;
 
-        VkImageTiling m_tiling;
-        VkMemoryPropertyFlags m_memoryFlags;
+        vk::ImageTiling m_tiling;
+        vk::MemoryPropertyFlags m_memoryFlags;
 
-        VkImageAspectFlags m_aspectFlags;
+        vk::ImageAspectFlags m_aspectFlags;
 
-        VkSampler m_sampler = VK_NULL_HANDLE;
+        vk::Sampler m_sampler{};
 
     public:
         Image(Device &device, uint64_t id, const std::string &name, const ImageDesc &desc)
@@ -166,7 +111,7 @@ namespace hammock::core {
             m_memoryFlags = desc.memoryFlags;
 
             // Check for support
-            VkFormatProperties formatProperties;
+            vk::FormatProperties formatProperties;
             vkGetPhysicalDeviceFormatProperties(device.getPhysicalDevice(), m_format, &formatProperties);
 
             assert(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT);

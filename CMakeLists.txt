@@ -24,6 +24,13 @@ endif()
 # Find Vulkan once for the whole project
 find_package(Vulkan REQUIRED)
 
+# Require Vulkan version ≥ 1.3.256 (earliest version when the Vulkan module was available)
+if( ${Vulkan_VERSION} VERSION_LESS "1.3.296" )
+    message( FATAL_ERROR "Minimum required Vulkan version 1.3.256. "
+            "Found ${Vulkan_VERSION}."
+    )
+endif()
+
 # Add libraries in dependency order
 add_subdirectory(src/core)
 add_subdirectory(src/renderer)
