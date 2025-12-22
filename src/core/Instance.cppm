@@ -1,52 +1,25 @@
 module;
 
-#include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
 
 export module hammock.core.instance;
 
 import hammock.core.utilities;
+import vulkan_hpp;
 
 
 
 namespace hammock::core {
     // local callback functions
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT messageType,
-        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-        void *pUserData) {
+    static vk::Bool32 debugCallback(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    vk::DebugUtilsMessageTypeFlagsEXT messageType,
+    const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData)
+    {
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
-
-        return VK_FALSE;
-    }
-
-    VkResult CreateDebugUtilsMessengerEXT(
-        const VkInstance instance,
-        const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-        const VkAllocationCallbacks *pAllocator,
-        VkDebugUtilsMessengerEXT *pDebugMessenger) {
-        const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(
-            instance,
-            "vkCreateDebugUtilsMessengerEXT"));
-        if (func != nullptr) {
-            return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-        } else {
-            return VK_ERROR_EXTENSION_NOT_PRESENT;
-        }
-    }
-
-    void DestroyDebugUtilsMessengerEXT(
-        const VkInstance instance,
-        const VkDebugUtilsMessengerEXT debugMessenger,
-        const VkAllocationCallbacks *pAllocator) {
-        const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(
-            instance,
-            "vkDestroyDebugUtilsMessengerEXT"));
-        if (func != nullptr) {
-            func(instance, debugMessenger, pAllocator);
-        }
+        return vk::False;
     }
 
     export class Instance {
@@ -63,81 +36,82 @@ namespace hammock::core {
         }
 
         ~Instance() {
-            if (enableValidationLayers) {
-                DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+            if (enableValidationLayers && debugMessenger) {
+                instance.destroyDebugUtilsMessengerEXT(debugMessenger);
             }
-            vkDestroyInstance(instance, nullptr);
+            if (instance) {
+                instance.destroy();
+            }
         }
 
-        [[nodiscard]] VkInstance getInstance() const { return instance; };
+        [[nodiscard]] vk::Instance getInstance() const { return instance; };
 
     private:
         void setupDebugMessenger() {
-            if (!enableValidationLayers) return;
-            VkDebugUtilsMessengerCreateInfoEXT createInfo;
-            populateDebugMessengerCreateInfo(createInfo);
-            if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-                throw std::runtime_error("failed to set up debug messenger!");
+            if (!enableValidationLayers) {
+                return;
             }
+
+            vk::DebugUtilsMessengerCreateInfoEXT createInfo =
+                populateDebugMessengerCreateInfo();
+
+            debugMessenger =
+                instance.createDebugUtilsMessengerEXT(createInfo);
         }
 
         void createInstance() {
             if (enableValidationLayers && !validationLayersSupported()) {
-                Logger::log(LOG_LEVEL_WARN,
-                            "Validation layers requested, but not available. Validation layers not used!");
+                Logger::log(
+                    LOG_LEVEL_WARN,
+                    "Validation layers requested, but not available. Validation layers not used!");
                 enableValidationLayers = false;
             }
 
-            VkApplicationInfo appInfo = {};
-            appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-            appInfo.pApplicationName = "hammock::core Engine App";
-            appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-            appInfo.pEngineName = "hammock::core Engine";
-            appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-            appInfo.apiVersion = VK_API_VERSION_1_3;
+            vk::ApplicationInfo appInfo{
+                "hammock::core Engine App",
+                vk::makeVersion( 1, 0, 0),
+                "hammock::core Engine",
+                vk::makeVersion( 1, 0, 0),
+                vk::makeApiVersion(0,1,3,0)
+            };
 
-            VkInstanceCreateInfo createInfo = {};
-            createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-            createInfo.pApplicationInfo = &appInfo;
-
-
-            // Extensions
             auto extensions = getRequiredExtensions();
-            createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-            createInfo.ppEnabledExtensionNames = extensions.data();
 
-            VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+            vk::InstanceCreateInfo createInfo{
+                    {},
+                    &appInfo,
+                    enableValidationLayers
+                        ? static_cast<uint32_t>(validationLayers.size())
+                        : 0,
+                    enableValidationLayers
+                        ? validationLayers.data()
+                        : nullptr,
+                    static_cast<uint32_t>(extensions.size()),
+                    extensions.data()
+                };
+
+            vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
             if (enableValidationLayers) {
                 Logger::log(LOG_LEVEL_INFO, "Validation layers available");
-
-                createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-                createInfo.ppEnabledLayerNames = validationLayers.data();
-
-                populateDebugMessengerCreateInfo(debugCreateInfo);
-                createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *) &debugCreateInfo;
+                debugCreateInfo = populateDebugMessengerCreateInfo();
+                createInfo.pNext = &debugCreateInfo;
             } else {
                 Logger::log(LOG_LEVEL_INFO, "Validation layers unavailable");
-                createInfo.enabledLayerCount = 0;
                 createInfo.pNext = nullptr;
             }
 
-            if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-                throw std::runtime_error("failed to create instance!");
-            }
+            instance = vk::createInstance(createInfo);
         }
 
         [[nodiscard]] bool validationLayersSupported() const {
-            uint32_t layerCount;
-            vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+            auto availableLayers =
+                vk::enumerateInstanceLayerProperties();
 
-            std::vector<VkLayerProperties> availableLayers(layerCount);
-            vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-            for (const char *layerName: validationLayers) {
+            for (const char* layerName : validationLayers) {
                 bool layerFound = false;
 
-                for (const auto &layerProperties: availableLayers) {
-                    if (strcmp(layerName, layerProperties.layerName) == 0) {
+                for (const auto& layerProperties : availableLayers) {
+                    if (std::strcmp(layerName, layerProperties.layerName) == 0) {
                         layerFound = true;
                         break;
                     }
@@ -155,37 +129,39 @@ namespace hammock::core {
             std::vector<const char *> extensions;
 
             // Common extension for all platforms
-            extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+            extensions.push_back(vk::KHRSurfaceExtensionName);
 
 #if defined(_WIN32)
             // Add Win32-specific extension
-            extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+            extensions.push_back(vk::KHRWin32SurfaceExtensionName);
 #elif defined(__linux__)
             // We use X11 on linux as Wayland is a dumpster fire and pain to develop for
-            extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+            extensions.push_back(vk::KhrXlibSurfaceExtensionName);
 #endif
 
             if (enableValidationLayers) {
-                extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+                extensions.push_back(vk::EXTDebugUtilsExtensionName);
             }
 
             return extensions;
         }
 
-        static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
-            createInfo = {};
-            createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-            createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                                         VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-            createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-            createInfo.pfnUserCallback = debugCallback;
-            createInfo.pUserData = nullptr; // Optional
+        static vk::DebugUtilsMessengerCreateInfoEXT
+        populateDebugMessengerCreateInfo() {
+            return vk::DebugUtilsMessengerCreateInfoEXT{
+                    {},
+                    vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                    vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+                    vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                    vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                    vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
+                    debugCallback,
+                    nullptr
+                };
         }
 
-        VkInstance instance = VK_NULL_HANDLE;
-        VkDebugUtilsMessengerEXT debugMessenger;
+        vk::Instance instance{};
+        vk::DebugUtilsMessengerEXT debugMessenger;
         const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     };
 }

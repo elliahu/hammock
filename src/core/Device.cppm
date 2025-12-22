@@ -91,7 +91,7 @@ namespace hammock::core {
         void transitionImageLayout(vk::Image image, vk::ImageLayout layoutOld, vk::ImageLayout layoutNew,
                                    uint32_t layerCount = 1, uint32_t baseLayer = 0, uint32_t levelCount = 1,
                                    uint32_t baseLevel = 0,
-                                   VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) const;
+                                   vk::ImageAspectFlags aspectMask = vk::ImageAspectFlagBits::eColor) const;
 
 
         void waitIdle();
@@ -105,40 +105,40 @@ namespace hammock::core {
 
         void createMemoryAllocator();
 
-        bool isDeviceSuitable(VkPhysicalDevice device);
+        bool isDeviceSuitable(vk::PhysicalDevice device);
 
-        QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+        QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 
-        bool checkDeviceExtensionSupport(VkPhysicalDevice device) const;
+        bool checkDeviceExtensionSupport(vk::PhysicalDevice device) const;
 
-        bool runningHeadless() const { return surface_ == VK_NULL_HANDLE; }
+        bool runningHeadless() const { return surface_ == vk::SurfaceKHR{}; }
 
-        SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
+        SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device) const;
 
         Instance &instance;
-        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-        VkCommandPool graphicsCommandPool;
-        VkCommandPool transferCommandPool;
-        VkCommandPool computeCommandPool;
+        vk::PhysicalDevice physicalDevice;
+        vk::CommandPool graphicsCommandPool;
+        vk::CommandPool transferCommandPool;
+        vk::CommandPool computeCommandPool;
 
-        VkDevice device_;
-        VkSurfaceKHR surface_;
-        VkQueue graphicsQueue_;
+        vk::Device device_;
+        vk::SurfaceKHR surface_;
+        vk::Queue graphicsQueue_;
         uint32_t graphicsQueueFamilyIndex_;
-        VkQueue presentQueue_;
-        VkQueue transferQueue_;
+        vk::Queue presentQueue_;
+        vk::Queue transferQueue_;
         uint32_t transferQueueFamilyIndex_;
-        VkQueue computeQueue_;
+        vk::Queue computeQueue_;
         uint32_t computeQueueFamilyIndex_;
 
         allocator::Allocator allocator_;
 
         const std::vector<const char *> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-            VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-            VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+            vk::KHRSwapchainExtensionName,
+            vk::KHRDynamicRenderingExtensionName,
+            vk::EXTDescriptorIndexingExtensionName
         };
 
-        VkPhysicalDeviceProperties physicalDeviceProperties;
+        vk::PhysicalDeviceProperties physicalDeviceProperties;
     };
 } // namespace hammock::core

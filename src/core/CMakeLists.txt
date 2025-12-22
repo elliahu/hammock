@@ -46,9 +46,6 @@ target_include_directories(hammock_core PUBLIC
     "${PROJECT_SOURCE_DIR}/third_party"
 )
 
-# Link Vulkan (vulkan.h)
-# target_link_libraries(hammock_core PUBLIC Vulkan::Vulkan)
-
 # set up Vulkan C++ module as a library
 add_library( VulkanHppModule )
 target_sources( VulkanHppModule PRIVATE
@@ -59,6 +56,8 @@ target_sources( VulkanHppModule PRIVATE
 target_compile_features( VulkanHppModule PUBLIC cxx_std_20 )
 target_link_libraries( VulkanHppModule PUBLIC Vulkan::Vulkan )
 
+add_compile_definitions(VULKAN_HPP_NO_CONSTRUCTORS)
+
 # Compiler features
 target_compile_features(hammock_core PUBLIC cxx_std_23)
 
@@ -66,3 +65,5 @@ target_compile_features(hammock_core PUBLIC cxx_std_23)
 set_target_properties(hammock_core PROPERTIES
         CXX_SCAN_FOR_MODULES ON
 )
+
+target_link_libraries(hammock_core PRIVATE VulkanHppModule)
