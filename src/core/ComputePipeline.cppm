@@ -1,6 +1,5 @@
 module;
 
-#include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
 #include <memory>
@@ -11,6 +10,7 @@ import hammock.core.device;
 import hammock.core.command_buffer;
 import hammock.core.base_pipeline;
 import hammock.core.descriptor;
+import vulkan_hpp;
 
 
 namespace hammock::core {
@@ -20,8 +20,8 @@ namespace hammock::core {
         Device &device;
         std::vector<char> byteCode{};
         std::string entry{"computeMain"};
-        std::vector<VkDescriptorSetLayout> descriptorSetLayouts{};
-        std::vector<VkPushConstantRange> pushConstantRanges{};
+        std::vector<vk::DescriptorSetLayout> descriptorSetLayouts{};
+        std::vector<vk::PushConstantRange> pushConstantRanges{};
     };
 
     /// @class ComputePipeline
@@ -40,19 +40,18 @@ namespace hammock::core {
             return std::make_unique<ComputePipeline>(createInfo);
         }
 
-        static void dispatch(CommandBuffer &commandBuffer, uint32_t x, uint32_t y, uint32_t z) {
-            vkCmdDispatch(commandBuffer.getCommandBuffer(), x, y, z);
+        void dispatch(CommandBuffer &commandBuffer, uint32_t x, uint32_t y, uint32_t z) {
+            commandBuffer.getCommandBuffer().dispatch(x,y,z);
         }
 
         void bind(CommandBuffer &commandBuffer) override {
-            vkCmdBindPipeline(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+            commandBuffer.getCommandBuffer().bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
         }
 
         void bindDescriptorSet(
-            CommandBuffer &commandBuffer, uint32_t firstSet, const VkDescriptorSet *descriptorSet) override {
-            vkCmdBindDescriptorSets(
-                commandBuffer.getCommandBuffer(),
-                VK_PIPELINE_BIND_POINT_COMPUTE,
+            CommandBuffer &commandBuffer, uint32_t firstSet, const vk::DescriptorSet *descriptorSet) override {
+            commandBuffer.getCommandBuffer().bindDescriptorSets(
+                vk::PipelineBindPoint::eCompute,
                 pipelineLayout,
                 firstSet, 1,
                 descriptorSet,
@@ -60,14 +59,14 @@ namespace hammock::core {
             );
         }
 
-        void pushConstants(CommandBuffer &commandBuffer, VkShaderStageFlags stageFlags,
+        void pushConstants(CommandBuffer &commandBuffer, vk::ShaderStageFlags stageFlags,
                            uint32_t offset, uint32_t size, const void *pValues) override {
-            vkCmdPushConstants(commandBuffer.getCommandBuffer(), pipelineLayout, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            commandBuffer.getCommandBuffer().pushConstants(pipelineLayout, vk::ShaderStageFlagBits::eCompute,
                                offset, size, pValues);
         }
 
     private:
-        VkShaderModule shaderModule = VK_NULL_HANDLE;
+        vk::ShaderModule shaderModule;
     };
 
     /// @class ComputePipelineBuilder
@@ -89,7 +88,7 @@ namespace hammock::core {
             return *this;
         }
 
-        ComputePipelineBuilder &addPushConstantRange(VkPushConstantRange pushConstantRange) {
+        ComputePipelineBuilder &addPushConstantRange(vk::PushConstantRange pushConstantRange) {
             createInfo.pushConstantRanges.push_back(pushConstantRange);
             return *this;
         }

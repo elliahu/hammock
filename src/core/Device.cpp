@@ -28,8 +28,6 @@ namespace hammock::core {
     }
 
 
-
-
     void Device::pickPhysicalDevice() {
         std::vector<vk::PhysicalDevice> devices = instance.getInstance().enumeratePhysicalDevices();
 
@@ -135,7 +133,6 @@ namespace hammock::core {
         poolInfo.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
 
-
         if (device_.createCommandPool(&poolInfo, nullptr, &graphicsCommandPool) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create graphics command pool!");
         }
@@ -155,10 +152,9 @@ namespace hammock::core {
     }
 
     void Device::createMemoryAllocator() {
-
         allocator::AllocatorCreateInfo allocatorCreateInfo = {};
         allocatorCreateInfo.flags = allocator::AllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-        allocatorCreateInfo.vulkanApiVersion = vk::makeApiVersion(0, 1,3,0);
+        allocatorCreateInfo.vulkanApiVersion = vk::makeApiVersion(0, 1, 3, 0);
         allocatorCreateInfo.physicalDevice = physicalDevice;
         allocatorCreateInfo.device = device_;
         allocatorCreateInfo.instance = instance.getInstance();
@@ -375,165 +371,162 @@ namespace hammock::core {
             barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
             vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            vk::PipelineStageFlags destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eTransfer;
 
-            CmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+
+            commandBuffer.pipelineBarrier(sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr,
+                                          1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
                    vk::ImageLayout::eTransferSrcOptimal) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+            barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
             vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            vk::PipelineStageFlags destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eTransfer;
 
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
                    vk::ImageLayout::eGeneral) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+            barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite;
 
             vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            vk::PipelineStageFlags destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eComputeShader;
 
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
                    vk::ImageLayout::eColorAttachmentOptimal) {
             // Transition for a color attachment:
             // - No previous accesses.
             // - Destination will be written as a color attachment.
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+            barrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
             // The aspect mask is already set to VK_IMAGE_ASPECT_COLOR_BIT.
-            VkPipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
                    vk::ImageLayout::eDepthStencilAttachmentOptimal) {
             // Transition for a depth/stencil attachment:
             // - No previous accesses.
             // - Destination will be read and written as a depth/stencil attachment.
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+            barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead |
+                                    vk::AccessFlagBits::eDepthStencilAttachmentWrite;
             // Change the aspect mask to depth (and optionally stencil).
             // If your format has a stencil component, you might OR in VK_IMAGE_ASPECT_STENCIL_BIT.
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-            VkPipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+            vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
                    vk::ImageLayout::eShaderReadOnlyOptimal) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+            barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-            VkPipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
 
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal && layoutNew ==
                    vk::ImageLayout::eColorAttachmentOptimal) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            barrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 
-            VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTransfer;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal && layoutNew ==
                    vk::ImageLayout::eShaderReadOnlyOptimal) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-            VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTransfer;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
 
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal && layoutNew ==
                    vk::ImageLayout::eGeneral) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT | VK_ACCESS_HOST_WRITE_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            barrier.dstAccessMask = vk::AccessFlagBits::eHostRead | vk::AccessFlagBits::eHostWrite;
 
-            VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_HOST_BIT;
+            vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTransfer;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eHost;
 
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eColorAttachmentOptimal && layoutNew ==
                    vk::ImageLayout::eShaderReadOnlyOptimal) {
-            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+            barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-            VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
 
             // Transition from color attachment to shader read-only
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal && layoutNew ==
                    vk::ImageLayout::eShaderReadOnlyOptimal) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
+            barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;;
 
-            VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTransfer;
+            vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
 
-            vkCmdPipelineBarrier(commandBuffer,
-                                 sourceStage, destinationStage,
-                                 0,
-                                 0, nullptr,
-                                 0, nullptr,
-                                 1, &barrier);
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage,
+                vk::DependencyFlags{},
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
         } else {
             throw std::invalid_argument("Unsupported layout transition!");
         }
@@ -543,6 +536,6 @@ namespace hammock::core {
 
 
     void Device::waitIdle() {
-        vkDeviceWaitIdle(device());
+        device().waitIdle();
     }
 }
