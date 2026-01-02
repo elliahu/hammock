@@ -1,6 +1,6 @@
 module;
-#include <vulkan/vulkan.h>
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 module hammock.core.command_buffer;
 
@@ -11,10 +11,9 @@ auto hammock::core::CommandBuffer::begin() -> void {
         throw std::runtime_error("Cannot begin commandbuffer that is already in progress");
     }
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    vk::CommandBufferBeginInfo beginInfo{};
 
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+    if (commandBuffer.begin(&beginInfo) != vk::Result::eSuccess) {
         throw std::runtime_error("Failed to begin recording a command buffer");
     }
 
@@ -26,25 +25,21 @@ auto hammock::core::CommandBuffer::end() -> void {
         throw std::runtime_error("Cannot end command buffer that has not started yet (forgot to call begin()?)");
     }
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to end command buffer");
-    }
+    commandBuffer.end();
 
     inProgress = false;
 }
 
-auto hammock::core::CommandBuffer::submit(VkFence fence) -> void {
+auto hammock::core::CommandBuffer::submit(vk::Fence fence) -> void {
     if (!inProgress) {
         throw std::runtime_error("Cannot submit command buffer that has not started yet (forgot to call begin()?)");
     }
 
-    VkCommandBufferSubmitInfo cmdBufInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+    vk::CommandBufferSubmitInfo cmdBufInfo = {
         .commandBuffer = commandBuffer,
     };
 
-    VkSubmitInfo2 submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+    vk::SubmitInfo2 submitInfo = {
         .waitSemaphoreInfoCount = static_cast<uint32_t>(waitSemaphoreSubmitInfos.size()),
         .pWaitSemaphoreInfos = waitSemaphoreSubmitInfos.data(),
         .commandBufferInfoCount = 1,
@@ -53,12 +48,10 @@ auto hammock::core::CommandBuffer::submit(VkFence fence) -> void {
         .pSignalSemaphoreInfos = signalSemaphoreSubmitInfos.data(),
     };
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to end command buffer");
-    }
+    commandBuffer.end();
 
     // find queue
-    VkQueue queue = VK_NULL_HANDLE;
+    vk::Queue queue;
     switch (queueFamily) {
         case CommandQueueFamily::Graphics:
             queue = device.graphicsQueue();
@@ -73,7 +66,7 @@ auto hammock::core::CommandBuffer::submit(VkFence fence) -> void {
             throw std::runtime_error("Unknown queue family");
     }
 
-    if (vkQueueSubmit2(queue, 1, &submitInfo, fence) != VK_SUCCESS) {
+    if (queue.submit2(1, &submitInfo, fence) != vk::Result::eSuccess) {
         throw std::runtime_error("Failed to submit command buffer");
     }
 
@@ -84,18 +77,15 @@ auto hammock::core::CommandBuffer::submit(VkFence fence) -> void {
 }
 
 auto hammock::core::CommandBuffer::waitOnSemaphore(Semaphore &semaphore,
-                                                   VkPipelineStageFlagBits2 stageFlagBits) -> void {
-    waitSemaphoreSubmitInfos.push_back({
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                                                   vk::PipelineStageFlagBits2 stageFlagBits) -> void {
+    waitSemaphoreSubmitInfos.push_back(vk::SemaphoreSubmitInfo{
         .semaphore = semaphore.getVulkanSemaphore(),
         .stageMask = stageFlagBits,
     });
 }
 
 auto hammock::core::CommandBuffer::signalSemaphore(Semaphore &semaphore) -> void {
-    signalSemaphoreSubmitInfos.push_back({
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+    signalSemaphoreSubmitInfos.push_back(vk::SemaphoreSubmitInfo{
         .semaphore = semaphore.getVulkanSemaphore(),
-        .stageMask = 0,
     });
 }

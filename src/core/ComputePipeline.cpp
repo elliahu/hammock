@@ -1,13 +1,12 @@
 module;
-#include <vulkan/vulkan.h>
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 module hammock.core.compute_pipeline;
 
-hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : BasePipeline(config.device){
+hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : BasePipeline(config.device) {
     // Create a pipeline layout using the provided descriptor set layouts and push constant ranges.
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(config.descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = config.descriptorSetLayouts.empty() ? nullptr : config.descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(config.pushConstantRanges.size());
@@ -15,7 +14,7 @@ hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo 
                                                  ? nullptr
                                                  : config.pushConstantRanges.data();
 
-    if (vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VkResult::VK_SUCCESS) {
+    if (device.device().createPipelineLayout(&pipelineLayoutInfo, nullptr, &pipelineLayout) != vk::Result::eSuccess) {
         throw std::runtime_error("failed to create compute pipeline layout");
     }
 
@@ -23,27 +22,24 @@ hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo 
     createShaderModule(config.byteCode, &shaderModule);
 
     // Set up the compute shader stage.
-    VkPipelineShaderStageCreateInfo shaderStageInfo{};
-    shaderStageInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    vk::PipelineShaderStageCreateInfo shaderStageInfo{};
+    shaderStageInfo.stage = vk::ShaderStageFlagBits::eCompute;
     shaderStageInfo.module = shaderModule;
     shaderStageInfo.pName = config.entry.c_str();
 
     // Create the compute pipeline.
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    vk::ComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.stage = shaderStageInfo;
     pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex = -1;
 
-    if (vkCreateComputePipelines(device.device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VkResult::VK_SUCCESS) {
+    if (device.device().createComputePipelines({}, 1, &pipelineInfo, nullptr, &pipeline) != vk::Result::eSuccess) {
         throw std::runtime_error("failed to create compute pipeline");
     }
 }
 
 hammock::core::ComputePipeline::~ComputePipeline() {
-    vkDestroyPipeline(device.device(), pipeline, nullptr);
-    vkDestroyShaderModule(device.device(), shaderModule, nullptr);
-    vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
+    device.device().destroyPipeline(pipeline, nullptr);
+    device.device().destroyShaderModule(shaderModule, nullptr);
+    device.device().destroyPipelineLayout(pipelineLayout, nullptr);
 }

@@ -5,8 +5,10 @@ module;
 #include "vk_mem_alloc/vk_mem_alloc.h"
 
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.memory_allocator;
+
 
 export namespace hammock::core::allocator {
     using Allocator = ::VmaAllocator;
@@ -20,6 +22,7 @@ export namespace hammock::core::allocator {
     using AllocatorCreateInfo = ::VmaAllocatorCreateInfo;
     using AllocatorCreateFlags = ::VmaAllocatorCreateFlags;
     using AllocatorCreateFlagBits = ::VmaAllocatorCreateFlagBits;
+    using VulkanFunctions = ::VmaVulkanFunctions;
 
     /// Create memory allocator
     void createAllocator(AllocatorCreateInfo * allocatorInfo, Allocator * allocator) {
@@ -34,17 +37,23 @@ export namespace hammock::core::allocator {
     }
 
     /// Create Vulkan buffer handle
-    void createBuffer(Allocator allocator, VkBufferCreateInfo *bufferCreateInfo,
-                      AllocationCreateInfo *allocationCreateInfo, VkBuffer *buffer, Allocation *allocation,
-                      AllocationInfo *allocInfo) {
-        if (auto result = vmaCreateBuffer(allocator, bufferCreateInfo, allocationCreateInfo, buffer, allocation,
+    void createBuffer(Allocator allocator, vk::BufferCreateInfo bufferCreateInfo,
+                      AllocationCreateInfo *allocationCreateInfo, vk::Buffer &buffer, Allocation *allocation,
+                      AllocationInfo *allocInfo = nullptr) {
+
+        auto bufferInfo = static_cast<VkBufferCreateInfo>(bufferCreateInfo);
+        VkBuffer rawBuffer = VK_NULL_HANDLE;
+
+        if (auto result = vmaCreateBuffer(allocator, &bufferInfo, allocationCreateInfo, &rawBuffer, allocation,
                                           allocInfo); result != VK_SUCCESS) {
             throw std::runtime_error("failed to create buffer, code: " + result);
         }
+
+        buffer = vk::Buffer(rawBuffer);
     }
 
     /// Destroy Vulkan buffer handle
-    void destroyBuffer(Allocator allocator, VkBuffer buffer, Allocation allocation) {
+    void destroyBuffer(Allocator allocator, vk::Buffer &buffer, Allocation allocation) {
         vmaDestroyBuffer(allocator, buffer, allocation);
     }
 
@@ -61,30 +70,34 @@ export namespace hammock::core::allocator {
     }
 
     /// Flush memory
-    void flushAllocation(Allocator allocator, Allocation allocation, VkDeviceSize offset, VkDeviceSize size) {
+    void flushAllocation(Allocator allocator, Allocation allocation, vk::DeviceSize offset, vk::DeviceSize size) {
         if (auto result = vmaFlushAllocation(allocator, allocation, offset, size); result != VK_SUCCESS) {
             throw std::runtime_error("failed to flush memory, code: " + result);
         }
     }
 
     /// Invalidate allocation to make it visible to the host
-    void invalidateAllocation(Allocator allocator, Allocation allocation, VkDeviceSize offset, VkDeviceSize size) {
+    void invalidateAllocation(Allocator allocator, Allocation allocation, vk::DeviceSize offset, vk::DeviceSize size) {
         if (auto result = vmaInvalidateAllocation(allocator, allocation, offset, size); result != VK_SUCCESS) {
             throw std::runtime_error("failed to invalidate memory, code: " + result);
         }
     }
 
     /// Create vulkan image
-    void createImage(Allocator allocator, VkImageCreateInfo *imageCreateInfo,
-                     AllocationCreateInfo *allocationCreateInfo, VkImage *image, Allocation *allocation,
+    void createImage(Allocator allocator, vk::ImageCreateInfo imageCreateInfo,
+                     AllocationCreateInfo *allocationCreateInfo, vk::Image &image, Allocation *allocation,
                      AllocationInfo *allocInfo) {
-        if (auto result = vmaCreateImage(allocator, imageCreateInfo, allocationCreateInfo, image, allocation, allocInfo); result != VK_SUCCESS) {
+        VkImageCreateInfo imageInfo = static_cast<VkImageCreateInfo>(imageCreateInfo);
+        VkImage rawImage = VK_NULL_HANDLE;
+        if (auto result = vmaCreateImage(allocator, &imageInfo, allocationCreateInfo, &rawImage, allocation, allocInfo); result != VK_SUCCESS) {
             throw std::runtime_error("failed to create image, code: " + result);
         }
+
+        image = vk::Image(rawImage);
     }
 
     /// Destroy vulkan image
-    void destroyImage(Allocator allocator, VkImage image, Allocation allocation) {
+    void destroyImage(Allocator allocator, vk::Image image, Allocation allocation) {
         vmaDestroyImage(allocator, image, allocation);
     }
 }

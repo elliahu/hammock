@@ -2,7 +2,7 @@ module;
 
 #include <memory>
 #include <array>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.engine.editor;
 
@@ -128,11 +128,11 @@ namespace hammock::engine {
             auto &commandBuffer = *presentCommandBuffers[frameIndex];
 
             // Wait for frame to finish rendering
-            commandBuffer.waitOnSemaphore(frameFinishedSemaphore, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
+            commandBuffer.waitOnSemaphore(frameFinishedSemaphore, vk::PipelineStageFlagBits2::eTopOfPipe);
 
             // Wait for available swap chain image
             commandBuffer.waitOnSemaphore(*syncObjects.imageAvailable,
-                                          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+                                          vk::PipelineStageFlagBits2::eColorAttachmentOutput);
 
             // Signal swap chain that rendering is finished
             commandBuffer.signalSemaphore(*syncObjects.renderFinished);
@@ -146,67 +146,66 @@ namespace hammock::engine {
             // target color attachment -> transfer src
             target->recordPipelineBarrier(
                 commandBuffer.getCommandBuffer(),
-                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                VK_ACCESS_2_TRANSFER_READ_BIT,
-                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED
+                vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                vk::AccessFlagBits2::eColorAttachmentWrite,
+                vk::PipelineStageFlagBits2::eTransfer,
+                vk::AccessFlagBits2::eTransferRead,
+                vk::ImageLayout::eColorAttachmentOptimal,
+                vk::ImageLayout::eTransferSrcOptimal,
+                vk::QueueFamilyIgnored,
+                vk::QueueFamilyIgnored
             );
 
             // swapchain undefined -> transfer dst
             swapChain.recordPipelineBarrier(
                 imageIndex, // Now explicitly use imageIndex, not frameIndex
                 commandBuffer.getCommandBuffer(),
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                VK_ACCESS_2_NONE,
-                VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_ACCESS_TRANSFER_WRITE_BIT,
-                VK_IMAGE_LAYOUT_UNDEFINED,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED
+                vk::PipelineStageFlagBits2::eTopOfPipe,
+                vk::AccessFlagBits2::eNone,
+                vk::PipelineStageFlagBits2::eTransfer,
+                vk::AccessFlagBits2::eTransferWrite,
+                vk::ImageLayout::eUndefined,
+                vk::ImageLayout::eTransferDstOptimal,
+                vk::QueueFamilyIgnored,
+                vk::QueueFamilyIgnored
             );
 
             // Blit
-            VkImageBlit blit{};
-            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            vk::ImageBlit blit{};
+            blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
             blit.srcSubresource.mipLevel = 0;
             blit.srcSubresource.baseArrayLayer = 0;
             blit.srcSubresource.layerCount = 1;
             blit.srcOffsets[0] = {0, 0, 0};
             blit.srcOffsets[1] = {1920, 1080, 1};
 
-            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
             blit.dstSubresource.mipLevel = 0;
             blit.dstSubresource.baseArrayLayer = 0;
             blit.dstSubresource.layerCount = 1;
             blit.dstOffsets[0] = {0, 0, 0};
             blit.dstOffsets[1] = {1920, 1080, 1};
 
-            vkCmdBlitImage(
-                commandBuffer.getCommandBuffer(),
-                target->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                swapChain.getImage(imageIndex), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            commandBuffer.getCommandBuffer().blitImage(
+                target->getImage(), vk::ImageLayout::eTransferSrcOptimal,
+                swapChain.getImage(imageIndex), vk::ImageLayout::eTransferDstOptimal,
                 1,
                 &blit,
-                VK_FILTER_LINEAR
+                vk::Filter::eLinear
             );
 
             // swapchain Transfer dst -> PRESENT_SRC_KHR
             swapChain.recordPipelineBarrier(
                 imageIndex,
                 commandBuffer.getCommandBuffer(),
-                VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
-                VK_ACCESS_2_NONE,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED
+                vk::PipelineStageFlagBits2::eTransfer,
+                vk::AccessFlagBits2::eTransferWrite,
+                vk::PipelineStageFlagBits2::eBottomOfPipe,
+                vk::AccessFlagBits2::eNone,
+                vk::ImageLayout::eTransferDstOptimal,
+                vk::ImageLayout::ePresentSrcKHR,
+                vk::QueueFamilyIgnored,
+                vk::QueueFamilyIgnored
             );
 
             // End the command buffer and submit with fence

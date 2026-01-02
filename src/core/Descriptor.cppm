@@ -1,7 +1,9 @@
 module;
-#include <vulkan/vulkan.h>
 #include <memory>
 #include <unordered_map>
+#include <vulkan/vulkan.hpp>
+
+
 export module hammock.core.descriptor;
 
 import hammock.core.device;
@@ -9,10 +11,11 @@ import hammock.core.utilities;
 
 
 
+
 namespace hammock::core {
     export typedef const uint32_t Binding;
 
-    export typedef VkDescriptorSet DescriptorSet;
+    export typedef vk::DescriptorSet DescriptorSet;
 
     export class DescriptorSetLayout;
     export class DescriptorPool;
@@ -24,20 +27,20 @@ namespace hammock::core {
            public:
             explicit Builder(Device& device) : device{device} {}
 
-            Builder& addBinding(uint32_t binding, VkDescriptorType descriptorType,
-                VkShaderStageFlags stageFlags, uint32_t count = 1, VkDescriptorBindingFlags flags = 0);
+            Builder& addBinding(uint32_t binding, vk::DescriptorType descriptorType,
+                vk::ShaderStageFlags stageFlags, uint32_t count = 1, vk::DescriptorBindingFlags flags = {});
 
             std::unique_ptr<DescriptorSetLayout> build() const;
 
            private:
             Device& device;
-            std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings{};
-            std::unordered_map<uint32_t, VkDescriptorBindingFlags> bindingFlags{};
+            std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> bindings{};
+            std::unordered_map<uint32_t, vk::DescriptorBindingFlags> bindingFlags{};
         };
 
         DescriptorSetLayout(Device& device,
-            const std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding>& bindings,
-            const std::unordered_map<uint32_t, VkDescriptorBindingFlags>& flags);
+            const std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding>& bindings,
+            const std::unordered_map<uint32_t, vk::DescriptorBindingFlags>& flags);
 
         ~DescriptorSetLayout();
 
@@ -45,12 +48,12 @@ namespace hammock::core {
 
         DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
 
-        VkDescriptorSetLayout getDescriptorSetLayout() const { return descriptorSetLayout; }
+        vk::DescriptorSetLayout getDescriptorSetLayout() const { return descriptorSetLayout; }
 
        private:
         Device& device;
-        VkDescriptorSetLayout descriptorSetLayout;
-        std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings;
+        vk::DescriptorSetLayout descriptorSetLayout;
+        std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> bindings;
 
         friend class DescriptorWriter;
     };
@@ -65,22 +68,22 @@ namespace hammock::core {
 
         ~DescriptorPool();
 
-        static void initialize(Device& device, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags,
-            const std::vector<VkDescriptorPoolSize>& poolSizes) {
+        static void initialize(Device& device, uint32_t maxSets, vk::DescriptorPoolCreateFlags poolFlags,
+            const std::vector<vk::DescriptorPoolSize>& poolSizes) {
             Singleton<DescriptorPool>::initialize(device, maxSets, poolFlags, poolSizes);
         }
 
-        bool allocateDescriptor(VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor) const;
+        bool allocateDescriptor(vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor) const;
 
-        void freeDescriptors(const std::vector<VkDescriptorSet>& descriptors) const;
+        void freeDescriptors(const std::vector<vk::DescriptorSet>& descriptors) const;
 
         void resetPool() const;
 
-        VkDescriptorPool descriptorPool;
+        vk::DescriptorPool descriptorPool;
 
        protected:
-        DescriptorPool(Device& device, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags,
-            const std::vector<VkDescriptorPoolSize>& poolSizes);
+        DescriptorPool(Device& device, uint32_t maxSets, vk::DescriptorPoolCreateFlags poolFlags,
+            const std::vector<vk::DescriptorPoolSize>& poolSizes);
 
         Device& device;
     };
@@ -89,27 +92,27 @@ namespace hammock::core {
        public:
         DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool& pool);
 
-        DescriptorWriter& writeBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo);
+        DescriptorWriter& writeBuffer(uint32_t binding, const vk::DescriptorBufferInfo* bufferInfo);
 
         DescriptorWriter& writeBufferArray(
-            uint32_t binding, const std::vector<VkDescriptorBufferInfo>& bufferInfos);
+            uint32_t binding, const std::vector<vk::DescriptorBufferInfo>& bufferInfos);
 
-        DescriptorWriter& writeImage(uint32_t binding, const VkDescriptorImageInfo* imageInfo);
+        DescriptorWriter& writeImage(uint32_t binding, const vk::DescriptorImageInfo* imageInfo);
 
         DescriptorWriter& writeImageArray(
-            uint32_t binding, const std::vector<VkDescriptorImageInfo>& imageInfos);
+            uint32_t binding, const std::vector<vk::DescriptorImageInfo>& imageInfos);
 
         DescriptorWriter& writeAccelerationStructure(
-            uint32_t binding, const VkWriteDescriptorSetAccelerationStructureKHR* accelerationStructureInfo);
+            uint32_t binding, const vk::WriteDescriptorSetAccelerationStructureKHR* accelerationStructureInfo);
 
-        bool build(VkDescriptorSet& set);
+        bool build(vk::DescriptorSet& set);
 
-        void overwrite(VkDescriptorSet& set);
+        void overwrite(vk::DescriptorSet& set);
 
        private:
         DescriptorSetLayout& setLayout;
         DescriptorPool& pool;
-        std::vector<VkWriteDescriptorSet> writes;
+        std::vector<vk::WriteDescriptorSet> writes;
     };
 
     export struct DescriptorSetsAndLayout {

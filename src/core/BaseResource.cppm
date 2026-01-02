@@ -1,12 +1,11 @@
 module;
-#include <vulkan/vulkan.h>
 #include <string>
 #include <cstdint>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.base_resource;
 
 import hammock.core.device;
-
 
 
 namespace hammock::core {
@@ -56,7 +55,7 @@ namespace hammock::core {
         Device& device;
         uint64_t uid;
         std::string debug_name;
-        VkDeviceSize size = 0;
+        vk::DeviceSize size = 0;
         bool resident;  // Whether the resource is currently in GPU memory
 
         BaseResource(Device& device, std::uint64_t uid, const std::string& name)
@@ -75,9 +74,9 @@ namespace hammock::core {
 
         virtual void release() = 0;
 
-        std::uint64_t getUid() const { return uid; }
-        const std::string& getName() const { return debug_name; }
+        [[nodiscard]] std::uint64_t getUid() const { return uid; }
+        [[nodiscard]] const std::string& getName() const { return debug_name; }
         bool isResident() const { return resident; }
-        VkDeviceSize getSize() const { return size; }  // for now
+        [[nodiscard]] vk::DeviceSize getSize() const { return size; }  // for now
     };
 }

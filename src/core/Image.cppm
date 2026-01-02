@@ -1,9 +1,9 @@
 module;
-#include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
 #include <cassert>
 #include <stdexcept>
+#include "vulkan/vulkan.hpp"
 
 export module hammock.core.image;
 
@@ -14,114 +14,59 @@ import hammock.core.buffer;
 import hammock.core.memory_allocator;
 
 
+
 namespace hammock::core {
     /**
      * Describes general image.
      */
     export struct ImageDesc {
         uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
-        VkImage image = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkFormat format;
-        VkImageUsageFlags usage;
-        VkImageType imageType = VK_IMAGE_TYPE_2D;
-        VkImageViewType imageViewType = VK_IMAGE_VIEW_TYPE_2D;
-        VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-        VkClearValue clearValue = {};
+        vk::Image image{};
+        vk::ImageView view{};
+        vk::Format format;
+        vk::ImageUsageFlags usage;
+        vk::ImageType imageType;
+        vk::ImageViewType imageViewType;
+        vk::ImageAspectFlags aspectFlags;
+        vk::ClearValue clearValue{};
         CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
         std::vector<CommandQueueFamily> queueFamilies{};
-        VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        VkMemoryPropertyFlags memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
-
-        static inline auto DepthStencil(uint32_t width, uint32_t height) -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_D32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
-            };
-        }
-
-        static inline auto ColorRgba8U(uint32_t width, uint32_t height) -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R8G8B8A8_UNORM,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-            };
-        }
-
-        static inline auto ColorRgba16F(uint32_t width, uint32_t height)
-            -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-            };
-        }
-
-        static inline auto ColorRgba32F(uint32_t width, uint32_t height)
-            -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-            };
-        }
-
-        static inline auto StorageRgba16F(uint32_t width, uint32_t height) -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
-            };
-        }
-
-        static inline auto StorageRgba32F(uint32_t width, uint32_t height) -> ImageDesc {
-            return {
-                .width = width,
-                .height = height,
-                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
-            };
-        }
+        vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
+        vk::MemoryPropertyFlagBits memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        vk::ImageTiling tiling = vk::ImageTiling::eOptimal;
     };
 
 
     export class Image : public BaseResource {
     protected:
         // Format and usage
-        VkFormat m_format;
-        VkImageUsageFlags m_usage;
-        VkImageType m_type;
-        VkImageViewType m_viewType;
+        vk::Format m_format;
+        vk::ImageUsageFlags m_usage;
+        vk::ImageType m_type;
+        vk::ImageViewType m_viewType;
 
         // Image dimensions
         uint32_t m_width, m_height, m_channels, m_depth = 1, m_layers = 1, m_mips = 1;
 
         // Vulkan handles
-        VkImage m_image = VK_NULL_HANDLE;
-        VkImageView m_view = VK_NULL_HANDLE;
-        VkImageLayout m_layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        allocator::Allocation m_allocation = VK_NULL_HANDLE;
+        vk::Image m_image{};
+        vk::ImageView m_view{};
+        vk::ImageLayout m_layout;
+        allocator::Allocation m_allocation = nullptr;
 
         // Attachment
-        VkClearValue m_clearValue = {};
+        vk::ClearValue m_clearValue = {};
 
         CommandQueueFamily m_queueFamily;
         std::vector<uint32_t> m_queueFamilyIndices{};
-        VkSharingMode m_sharingMode;
+        vk::SharingMode m_sharingMode;
 
-        VkImageTiling m_tiling;
-        VkMemoryPropertyFlags m_memoryFlags;
+        vk::ImageTiling m_tiling;
+        vk::MemoryPropertyFlags m_memoryFlags;
 
-        VkImageAspectFlags m_aspectFlags;
+        vk::ImageAspectFlags m_aspectFlags;
 
-        VkSampler m_sampler = VK_NULL_HANDLE;
+        vk::Sampler m_sampler{};
 
     public:
         Image(Device &device, uint64_t id, const std::string &name, const ImageDesc &desc)
@@ -166,12 +111,11 @@ namespace hammock::core {
             m_memoryFlags = desc.memoryFlags;
 
             // Check for support
-            VkFormatProperties formatProperties;
-            vkGetPhysicalDeviceFormatProperties(device.getPhysicalDevice(), m_format, &formatProperties);
+            vk::FormatProperties formatProperties = device.getPhysicalDevice().getFormatProperties(m_format);
 
-            assert(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT);
+            assert(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eTransferDst);
 
-            if (m_type == VK_IMAGE_TYPE_3D) {
+            if (m_type == vk::ImageType::e3D) {
                 uint32_t maxImageDimension3D(device.getPhysicalDeviceProperties().limits.maxImageDimension3D);
                 assert(m_width <= maxImageDimension3D && m_height <= maxImageDimension3D &&
                     m_depth <= maxImageDimension3D);
@@ -184,25 +128,24 @@ namespace hammock::core {
             }
         }
 
-        [[nodiscard]] VkImageLayout getLayout() const { return m_layout; }
-        [[nodiscard]] VkImage getImage() const { return m_image; }
-        [[nodiscard]] VkImageView getView() const { return m_view; }
-        [[nodiscard]] VkFormat getFormat() const { return m_format; }
+        [[nodiscard]] vk::ImageLayout getLayout() const { return m_layout; }
+        [[nodiscard]] vk::Image getImage() const { return m_image; }
+        [[nodiscard]] vk::ImageView getView() const { return m_view; }
+        [[nodiscard]] vk::Format getFormat() const { return m_format; }
         [[nodiscard]] uint32_t getMipLevel() const { return m_mips; }
         [[nodiscard]] uint32_t getLayerLevel() const { return m_layers; }
         [[nodiscard]] CommandQueueFamily getQueueFamily() const { return m_queueFamily; }
-        [[nodiscard]] VkExtent3D getExtent() const { return {m_width, m_height, m_depth}; }
+        [[nodiscard]] vk::Extent3D getExtent() const { return {m_width, m_height, m_depth}; }
 
-        [[nodiscard]] VkRenderingAttachmentInfo getRenderingAttachmentInfo() const {
+        [[nodiscard]] vk::RenderingAttachmentInfo getRenderingAttachmentInfo() const {
             return {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                 .imageView = m_view,
                 .imageLayout = m_layout,
                 .clearValue = m_clearValue
             };
         }
 
-        [[nodiscard]] VkDescriptorImageInfo getDescriptorImageInfo(VkSampler sampler) const {
+        [[nodiscard]] vk::DescriptorImageInfo getDescriptorImageInfo(vk::Sampler sampler) const {
             return {
                 .sampler = sampler,
                 .imageView = m_view,
@@ -210,7 +153,7 @@ namespace hammock::core {
             };
         }
 
-        [[nodiscard]] VkDescriptorImageInfo getDescriptorImageInfo() const {
+        [[nodiscard]] vk::DescriptorImageInfo getDescriptorImageInfo() const {
             return {
                 .sampler = m_sampler,
                 .imageView = m_view,
@@ -218,53 +161,55 @@ namespace hammock::core {
             };
         }
 
-        VkImageAspectFlags getAspectMask() const {
+        vk::ImageAspectFlags getAspectMask() const {
             switch (m_format) {
                 // Depth-only formats
-                case VK_FORMAT_D16_UNORM:
-                case VK_FORMAT_D32_SFLOAT:
-                    return VK_IMAGE_ASPECT_DEPTH_BIT;
+                case vk::Format::eD16Unorm:
+                case vk::Format::eD32Sfloat:
+                    return vk::ImageAspectFlagBits::eDepth;
 
                     // Depth-stencil formats
-                case VK_FORMAT_D16_UNORM_S8_UINT:
-                case VK_FORMAT_D24_UNORM_S8_UINT:
-                case VK_FORMAT_D32_SFLOAT_S8_UINT:
-                    return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+                case vk::Format::eD16UnormS8Uint:
+                case vk::Format::eD24UnormS8Uint:
+                case vk::Format::eD32SfloatS8Uint:
+                    return vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
 
                     // Everything else is treated as color
                 default:
-                    return VK_IMAGE_ASPECT_COLOR_BIT;
+                    return vk::ImageAspectFlagBits::eColor;
             }
         }
 
-        [[nodiscard]] VkSampler createAndGetSampler() const {
-            VkSampler sampler = VK_NULL_HANDLE;
-            VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-            samplerInfo.magFilter = VK_FILTER_LINEAR;
-            samplerInfo.minFilter = VK_FILTER_LINEAR;
-            samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-            samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        [[nodiscard]] vk::Sampler createAndGetSampler() const {
+            vk::Sampler sampler = nullptr;
+            vk::SamplerCreateInfo samplerInfo{};
+            samplerInfo.magFilter = vk::Filter::eLinear;
+            samplerInfo.minFilter = vk::Filter::eLinear;
+            samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+            samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
+            samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
+            samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
+            samplerInfo.borderColor = vk::BorderColor::eIntOpaqueWhite;
             samplerInfo.minLod = 0.0f;
             samplerInfo.maxLod = static_cast<float>(m_mips);
 
-            assert(vkCreateSampler(device.device(), &samplerInfo, nullptr, &sampler) == VK_SUCCESS);
+            if(device.device().createSampler(&samplerInfo, nullptr, &sampler) != vk::Result::eSuccess) {
+                throw std::runtime_error("failed to create sampler!");
+            };
 
             return sampler;
         }
 
         void createSampler() { m_sampler = createAndGetSampler(); }
 
-        [[nodiscard]] VkSampler getSampler() const { return m_sampler; }
+        [[nodiscard]] vk::Sampler getSampler() const { return m_sampler; }
 
         /**
          * Transitions to new layout. Transition is recorder to separate command buffer that is submitted
          * after at the end of the call. Might cause sync hazard. Do not call in frame.
          * @param newLayout New layout
          */
-        void queueImageLayoutTransition(VkImageLayout newLayout) {
+        void queueImageLayoutTransition(vk::ImageLayout newLayout) {
             if (newLayout == m_layout) {
                 return;
             }
@@ -273,7 +218,7 @@ namespace hammock::core {
             m_layout = newLayout;
         }
 
-        VkImageSubresourceRange getSubresourceRange(
+        vk::ImageSubresourceRange getSubresourceRange(
             uint32_t baseMipLevel = 0,
             uint32_t baseArrayLayer = 0) const {
             return {
@@ -290,20 +235,19 @@ namespace hammock::core {
          * thread safe, so do not call this from multiple threads.
          */
         void recordPipelineBarrier(
-            VkCommandBuffer cmd,
-            VkPipelineStageFlags2 srcStageMask,
-            VkAccessFlags2 srcAccessMask,
-            VkPipelineStageFlags2 dstStageMask,
-            VkAccessFlags2 dstAccessMask,
-            VkImageLayout oldLayout,
-            VkImageLayout newLayout,
+            vk::CommandBuffer cmd,
+            vk::PipelineStageFlags2 srcStageMask,
+            vk::AccessFlags2 srcAccessMask,
+            vk::PipelineStageFlags2 dstStageMask,
+            vk::AccessFlags2 dstAccessMask,
+            vk::ImageLayout oldLayout,
+            vk::ImageLayout newLayout,
             uint32_t srcQueueFamilyIndex,
             uint32_t dstQueueFamilyIndex) {
             // Subresource range
-            VkImageSubresourceRange subresourceRange = getSubresourceRange();
+            vk::ImageSubresourceRange subresourceRange = getSubresourceRange();
 
-            VkImageMemoryBarrier2 imageBarrier = {
-                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            vk::ImageMemoryBarrier2 imageBarrier = {
                 .srcStageMask = srcStageMask,
                 .srcAccessMask = srcAccessMask,
                 .dstStageMask = dstStageMask,
@@ -316,13 +260,12 @@ namespace hammock::core {
                 .subresourceRange = subresourceRange,
             };
 
-            VkDependencyInfo depInfo = {
-                .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            vk::DependencyInfo depInfo = {
                 .imageMemoryBarrierCount = 1,
                 .pImageMemoryBarriers = &imageBarrier,
             };
 
-            vkCmdPipelineBarrier2(cmd, &depInfo);
+            cmd.pipelineBarrier2(&depInfo);
 
             m_layout = newLayout;
         }
@@ -333,7 +276,7 @@ namespace hammock::core {
          * @param buffer Buffer to copy from
          */
         void queueCopyFromBuffer(Buffer buffer) {
-            VkBufferImageCopy region{};
+            vk::BufferImageCopy region{};
             region.bufferOffset = 0;
             region.bufferRowLength = 0;     // tightly packed
             region.bufferImageHeight = 0;  // tightly packed
@@ -347,11 +290,10 @@ namespace hammock::core {
             region.imageExtent = { m_width, m_height, m_depth };
 
             auto cmd = device.beginSingleTimeCommands();
-            vkCmdCopyBufferToImage(
-                cmd,
+            cmd.copyBufferToImage(
                 buffer.getBuffer(),
                 m_image,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                vk::ImageLayout::eTransferDstOptimal,
                 1,
                 &region
             );
@@ -359,7 +301,7 @@ namespace hammock::core {
         }
 
         void queueCopyFromImage(Image image) {
-            VkImageCopy region{};
+            vk::ImageCopy region{};
             region.srcSubresource.aspectMask = image.getAspectMask();
             region.srcSubresource.mipLevel = 0;
             region.srcSubresource.baseArrayLayer = 0;
@@ -376,12 +318,11 @@ namespace hammock::core {
             region.extent = { m_width, m_height, m_depth };
 
             auto cmd = device.beginSingleTimeCommands();
-            vkCmdCopyImage(
-                cmd,
+            cmd.copyImage(
                 image.getImage(),
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                vk::ImageLayout::eTransferSrcOptimal,
                 m_image,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                vk::ImageLayout::eTransferDstOptimal,
                 1,
                 &region
             );
@@ -395,12 +336,12 @@ namespace hammock::core {
         void create() override {
             Logger::log(LOG_LEVEL_DEBUG, "Creating image %s", getName().c_str());
             // Create the image
-            VkImageCreateInfo imageCreateInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+            vk::ImageCreateInfo imageCreateInfo{};
             imageCreateInfo.imageType = m_type;
             imageCreateInfo.format = m_format;
             imageCreateInfo.mipLevels = m_mips;
             imageCreateInfo.arrayLayers = m_layers;
-            imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+            imageCreateInfo.samples = vk::SampleCountFlagBits::e1;
             imageCreateInfo.tiling = m_tiling;
             imageCreateInfo.sharingMode = m_sharingMode;
             imageCreateInfo.queueFamilyIndexCount = m_queueFamilyIndices.size();
@@ -408,33 +349,32 @@ namespace hammock::core {
             imageCreateInfo.extent.width = m_width;
             imageCreateInfo.extent.height = m_height;
             imageCreateInfo.extent.depth = m_depth;
-            imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            imageCreateInfo.initialLayout = vk::ImageLayout::eUndefined;
             imageCreateInfo.usage = m_usage;
 
             allocator::AllocationCreateInfo allocInfo = {};
             allocInfo.usage = allocator::MemoryUsage::VMA_MEMORY_USAGE_AUTO;
-            allocInfo.requiredFlags = m_memoryFlags;
+            allocInfo.requiredFlags = static_cast<std::uint32_t>(m_memoryFlags); // FIXME
 
             try {
-                allocator::createImage(device.allocator(), &imageCreateInfo, &allocInfo, &m_image, &m_allocation,
+                allocator::createImage(device.allocator(), imageCreateInfo, &allocInfo, m_image, &m_allocation,
                                        nullptr);
             } catch (std::runtime_error &err) {
                 throw;
             }
 
             // create image view
-            VkImageViewCreateInfo viewInfo{};
-            viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            vk::ImageViewCreateInfo viewInfo{};
             viewInfo.image = m_image;
             viewInfo.viewType = m_viewType;
             viewInfo.format = m_format;
-            viewInfo.subresourceRange.aspectMask = m_aspectFlags;
+            viewInfo.subresourceRange.aspectMask = getAspectMask();
             viewInfo.subresourceRange.baseMipLevel = 0;
             viewInfo.subresourceRange.levelCount = m_mips;
             viewInfo.subresourceRange.baseArrayLayer = 0;
             viewInfo.subresourceRange.layerCount = m_layers;
 
-            if (vkCreateImageView(device.device(), &viewInfo, nullptr, &m_view) != VK_SUCCESS) {
+            if (device.device().createImageView(&viewInfo, nullptr, &m_view) != vk::Result::eSuccess) {
                 throw std::runtime_error("failed to create image view");
             }
 
@@ -447,16 +387,16 @@ namespace hammock::core {
          */
         void release() override {
             Logger::log(LOG_LEVEL_DEBUG, "Releasing image %s", getName().c_str());
-            if (m_image != VK_NULL_HANDLE) {
+            if (m_image != nullptr) {
                 allocator::destroyImage(device.allocator(), m_image, m_allocation);
             }
 
-            if (m_view != VK_NULL_HANDLE) {
-                vkDestroyImageView(device.device(), m_view, nullptr);
+            if (m_view != nullptr) {
+                device.device().destroyImageView(m_view, nullptr);
             }
 
-            if (m_sampler != VK_NULL_HANDLE) {
-                vkDestroySampler(device.device(), m_sampler, nullptr);
+            if (m_sampler != nullptr) {
+                device.device().destroySampler(m_sampler, nullptr);
             }
 
             resident = false;
@@ -466,26 +406,25 @@ namespace hammock::core {
          * Generates mip map chain for this image
          */
         void generateMips() {
-            VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
+            vk::CommandBuffer commandBuffer = device.beginSingleTimeCommands();
 
             recordPipelineBarrier(
                 commandBuffer,
-                VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-                VK_ACCESS_2_NONE,
-                VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                VK_IMAGE_LAYOUT_UNDEFINED,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED
+                vk::PipelineStageFlagBits2::eTopOfPipe,
+                vk::AccessFlagBits2::eNone,
+                vk::PipelineStageFlagBits2::eTransfer,
+                vk::AccessFlagBits2::eTransferWrite,
+                vk::ImageLayout::eUndefined,
+                vk::ImageLayout::eTransferDstOptimal,
+                vk::QueueFamilyIgnored,
+                vk::QueueFamilyIgnored
             );
 
-            VkImageMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            vk::ImageMemoryBarrier barrier{};
             barrier.image = m_image;
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
+            barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
+            barrier.subresourceRange.aspectMask = getAspectMask();
             barrier.subresourceRange.baseArrayLayer = 0;
             barrier.subresourceRange.layerCount = 1;
             barrier.subresourceRange.levelCount = 1;
@@ -495,15 +434,15 @@ namespace hammock::core {
 
             for (uint32_t i = 1; i < m_mips; i++) {
                 barrier.subresourceRange.baseMipLevel = i - 1;
-                barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-                barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+                barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+                barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+                barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
-                vkCmdPipelineBarrier(commandBuffer,
-                                     VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                     VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                     0,
+                commandBuffer.pipelineBarrier(
+                                     vk::PipelineStageFlagBits::eTransfer,
+                                     vk::PipelineStageFlagBits::eTransfer,
+                                     {},
                                      0,
                                      nullptr,
                                      0,
@@ -511,38 +450,38 @@ namespace hammock::core {
                                      1,
                                      &barrier);
 
-                VkImageBlit blit{};
+                vk::ImageBlit blit{};
                 blit.srcOffsets[0] = {0, 0, 0};
                 blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
-                blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                blit.srcSubresource.aspectMask = getAspectMask();
                 blit.srcSubresource.mipLevel = i - 1;
                 blit.srcSubresource.baseArrayLayer = 0;
                 blit.srcSubresource.layerCount = 1;
                 blit.dstOffsets[0] = {0, 0, 0};
                 blit.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
-                blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                blit.dstSubresource.aspectMask = getAspectMask();
                 blit.dstSubresource.mipLevel = i;
                 blit.dstSubresource.baseArrayLayer = 0;
                 blit.dstSubresource.layerCount = 1;
 
-                vkCmdBlitImage(commandBuffer,
+                commandBuffer.blitImage(
                                m_image,
-                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               vk::ImageLayout::eTransferSrcOptimal,
                                m_image,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               vk::ImageLayout::eTransferDstOptimal,
                                1,
                                &blit,
-                               VK_FILTER_LINEAR);
+                               vk::Filter::eLinear);
 
-                barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-                barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-                barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+                barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
+                barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+                barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+                barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-                vkCmdPipelineBarrier(commandBuffer,
-                                     VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                     0,
+                commandBuffer.pipelineBarrier(
+                                     vk::PipelineStageFlagBits::eTransfer,
+                                     vk::PipelineStageFlagBits::eFragmentShader,
+                                     {},
                                      0,
                                      nullptr,
                                      0,
@@ -555,17 +494,17 @@ namespace hammock::core {
             }
 
             barrier.subresourceRange.baseMipLevel = m_mips - 1;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+            barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+            barrier.srcAccessMask =  vk::AccessFlagBits::eTransferWrite;
+            barrier.dstAccessMask =  vk::AccessFlagBits::eShaderRead;
 
-            m_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            m_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-            vkCmdPipelineBarrier(commandBuffer,
-                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                 0,
+            commandBuffer.pipelineBarrier(
+                                 vk::PipelineStageFlagBits::eTransfer,
+                                 vk::PipelineStageFlagBits::eFragmentShader,
+                                 {},
                                  0,
                                  nullptr,
                                  0,
@@ -574,7 +513,7 @@ namespace hammock::core {
                                  &barrier);
 
             device.endSingleTimeCommands(commandBuffer);
-            vkQueueWaitIdle(device.graphicsQueue());
+            device.waitIdle();
         }
     };
 
@@ -584,29 +523,29 @@ namespace hammock::core {
     };
 
     export struct SamplerDesc {
-        VkFilter magFilter = VK_FILTER_LINEAR;
-        VkFilter minFilter = VK_FILTER_LINEAR;
-        VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        VkBool32 anisotropyEnable = VK_TRUE;
-        VkBorderColor borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        vk::Filter magFilter = vk::Filter::eLinear;
+        vk::Filter minFilter = vk::Filter::eLinear;
+        vk::SamplerAddressMode addressModeU = vk::SamplerAddressMode::eRepeat;
+        vk::SamplerAddressMode addressModeV = vk::SamplerAddressMode::eRepeat;
+        vk::SamplerAddressMode addressModeW = vk::SamplerAddressMode::eRepeat;
+        vk::Bool32 anisotropyEnable = true;
+        vk::BorderColor borderColor = vk::BorderColor::eIntOpaqueBlack;
+        vk::SamplerMipmapMode mipmapMode = vk::SamplerMipmapMode::eLinear;
         uint32_t mips = 1;
         float mipLodBias = 0.0f;
     };
 
     export class Sampler : public BaseResource {
-        VkSampler m_sampler = VK_NULL_HANDLE;
-        VkFilter magFilter;
-        VkFilter minFilter;
-        VkSamplerAddressMode addressModeU;
-        VkSamplerAddressMode addressModeV;
-        VkSamplerAddressMode addressModeW;
-        VkBool32 anisotropyEnable;
+        vk::Sampler m_sampler = nullptr;
+        vk::Filter magFilter;
+        vk::Filter minFilter;
+        vk::SamplerAddressMode addressModeU;
+        vk::SamplerAddressMode addressModeV;
+        vk::SamplerAddressMode addressModeW;
+        vk::Bool32 anisotropyEnable;
         float maxAnisotropy;
-        VkBorderColor borderColor;
-        VkSamplerMipmapMode mipmapMode;
+        vk::BorderColor borderColor;
+        vk::SamplerMipmapMode mipmapMode;
         uint32_t mips;
         float mipLodBias;
 
@@ -636,8 +575,7 @@ namespace hammock::core {
 
         void create() override {
             Logger::log(LOG_LEVEL_DEBUG, "Creating sampler %s", getName().c_str());
-            VkSamplerCreateInfo samplerInfo{};
-            samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+            vk::SamplerCreateInfo samplerInfo{};
             samplerInfo.magFilter = magFilter;
             samplerInfo.minFilter = minFilter;
             samplerInfo.addressModeU = addressModeU;
@@ -646,15 +584,15 @@ namespace hammock::core {
             samplerInfo.anisotropyEnable = anisotropyEnable;
             samplerInfo.maxAnisotropy = maxAnisotropy;
             samplerInfo.borderColor = borderColor;
-            samplerInfo.unnormalizedCoordinates = VK_FALSE;
-            samplerInfo.compareEnable = VK_FALSE;
-            samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+            samplerInfo.unnormalizedCoordinates = false;
+            samplerInfo.compareEnable = false;
+            samplerInfo.compareOp = vk::CompareOp::eAlways;
             samplerInfo.mipmapMode = mipmapMode;
             samplerInfo.mipLodBias = mipLodBias;
             samplerInfo.minLod = 0.0;
             samplerInfo.maxLod = mips;
 
-            if (vkCreateSampler(device.device(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+            if (device.device().createSampler(&samplerInfo, nullptr, &m_sampler) != vk::Result::eSuccess) {
                 throw std::runtime_error("Failed to create sampler");
             }
             resident = true;

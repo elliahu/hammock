@@ -5,19 +5,20 @@ module;
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.engine.editor:framebuffer;
 
 import hammock.core;
 import hammock.renderer;
 
+
 namespace hammock::engine {
     /// @class Framebuffer
     /// @brief This class represents offscreen framebuffer used by the engine editor
     export class Framebuffer final {
     public:
-        Framebuffer(core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, VkFormat format) : device(device), framesInFlight(
+        Framebuffer(core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, vk::Format format) : device(device), framesInFlight(
             framesInFlight) {
             createImages(resolution, format);
             createCommandBuffers();
@@ -48,14 +49,14 @@ namespace hammock::engine {
 
             image->recordPipelineBarrier(
                 commandBuffer.getCommandBuffer(),
-                VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-                VK_ACCESS_2_NONE,
-                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                VK_IMAGE_LAYOUT_UNDEFINED,
-                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED
+                vk::PipelineStageFlagBits2::eTopOfPipe,
+                vk::AccessFlagBits2::eNone,
+                vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                vk::AccessFlagBits2::eColorAttachmentWrite,
+                vk::ImageLayout::eUndefined,
+                vk::ImageLayout::eColorAttachmentOptimal,
+                vk::QueueFamilyIgnored,
+                vk::QueueFamilyIgnored
             );
 
             commandBuffer.submit();
@@ -88,7 +89,7 @@ namespace hammock::engine {
         }
 
     private:
-        void createImages(math::Vec2 resolution, VkFormat format) {
+        void createImages(math::Vec2 resolution, vk::Format format) {
             auto &rm = core::ResourceManager::getInstance();
             for (int i = 0; i < framesInFlight; i++) {
                 auto handle = rm.createResource<core::Image>("swapimage-" + std::to_string(i), core::ImageDesc{
@@ -99,13 +100,10 @@ namespace hammock::engine {
                                                                  .layers = 1,
                                                                  .mips = 1,
                                                                  .format = format,
-                                                                 .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                                                                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                                                                 .imageType = VK_IMAGE_TYPE_2D,
-                                                                 .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
-                                                                 .clearValue = VkClearColorValue{
-                                                                     0.0f, 0.0f, 0.0f, 0.0f
-                                                                 },
+                                                                 .usage = vk::ImageUsageFlagBits::eColorAttachment |
+                                                                          vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst,
+                                                                 .imageType = vk::ImageType::e2D,
+                                                                 .imageViewType = vk::ImageViewType::e2D,
                                                              });
 
                 images.push_back(handle);

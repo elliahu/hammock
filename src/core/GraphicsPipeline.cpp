@@ -1,10 +1,11 @@
 module;
-#include <vulkan/vulkan.h>
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <vulkan/vulkan.hpp>
 
 module hammock.core.graphics_pipeline;
+
 
 
 std::unique_ptr<hammock::core::GraphicsPipeline> hammock::core::GraphicsPipeline::create(
@@ -13,23 +14,22 @@ std::unique_ptr<hammock::core::GraphicsPipeline> hammock::core::GraphicsPipeline
 }
 
 hammock::core::GraphicsPipeline::~GraphicsPipeline() {
-    vkDestroyShaderModule(device.device(), vertShaderModule, nullptr);
-    vkDestroyShaderModule(device.device(), fragShaderModule, nullptr);
-    vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
-    vkDestroyPipeline(device.device(), pipeline, nullptr);
+    device.device().destroyShaderModule(vertShaderModule, nullptr);
+    device.device().destroyShaderModule(fragShaderModule, nullptr);
+    device.device().destroyPipelineLayout(pipelineLayout, nullptr);
+    device.device().destroyPipeline(pipeline, nullptr);
 }
 
 hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelineCreateInfo &createInfo) : BasePipeline(
     createInfo.device) {
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(createInfo.descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = createInfo.descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(createInfo.pushConstantRanges.size());
     pipelineLayoutInfo.pPushConstantRanges = createInfo.pushConstantRanges.data();
 
-    if (vkCreatePipelineLayout(createInfo.device.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) !=
-        VkResult::VK_SUCCESS) {
+    if (createInfo.device.device().createPipelineLayout(&pipelineLayoutInfo, nullptr, &pipelineLayout) !=
+        vk::Result::eSuccess) {
         throw std::runtime_error("failed to create pipeline layout");
     }
 
@@ -45,45 +45,40 @@ hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelin
     configInfo.rasterizationInfo.frontFace = createInfo.frontFace;
 
     configInfo.dynamicStateEnables = createInfo.dynamicStateEnables;
-    configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
     configInfo.dynamicStateInfo.dynamicStateCount =
             static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
-    configInfo.dynamicStateInfo.flags = 0;
+    configInfo.dynamicStateInfo.flags = {};
 
-    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
     shaderStages.resize(2);
 
     createShaderModule(createInfo.vertexShader.byteCode, &vertShaderModule);
     createShaderModule(createInfo.fragmentShader.byteCode, &fragShaderModule);
-    shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shaderStages[0].stage = vk::ShaderStageFlagBits::eVertex;
     shaderStages[0].module = vertShaderModule;
     shaderStages[0].pName = createInfo.vertexShader.entry.c_str();
-    shaderStages[0].flags = 0;
+    shaderStages[0].flags = {};
     shaderStages[0].pNext = nullptr;
     shaderStages[0].pSpecializationInfo = nullptr;
-    shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shaderStages[1].stage = vk::ShaderStageFlagBits::eFragment;
     shaderStages[1].module = fragShaderModule;
     shaderStages[1].pName = createInfo.fragmentShader.entry.c_str();
-    shaderStages[1].flags = 0;
+    shaderStages[1].flags = {};
     shaderStages[1].pNext = nullptr;
     shaderStages[1].pSpecializationInfo = nullptr;
 
 
     auto &bindingDescriptions = createInfo.vertexInputBindingDescriptions;
     auto &attributeDescriptions = createInfo.vertexInputAttributeDescriptions;
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.vertexAttributeDescriptionCount =
             static_cast<uint32_t>(attributeDescriptions.size());
     vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
     vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
     vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    vk::GraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.stageCount = shaderStages.size();
     pipelineInfo.pStages = shaderStages.data();
     pipelineInfo.pVertexInputState = &vertexInputInfo;
@@ -100,12 +95,11 @@ hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelin
     pipelineInfo.subpass = 0;
 
     pipelineInfo.basePipelineIndex = -1;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.basePipelineHandle = nullptr;
 
-    VkPipelineRenderingCreateInfoKHR pipelineDynamicrenderingCreateInfo{};
-    if (createInfo.renderPass == VK_NULL_HANDLE) {
+    vk::PipelineRenderingCreateInfoKHR pipelineDynamicrenderingCreateInfo{};
+    if (createInfo.renderPass == nullptr) {
         // Attachment information for dynamic rendering
-        pipelineDynamicrenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
         pipelineDynamicrenderingCreateInfo.colorAttachmentCount = static_cast<std::uint32_t>(createInfo.
             colorAttachmentFormats.size());
         pipelineDynamicrenderingCreateInfo.pColorAttachmentFormats = createInfo.colorAttachmentFormats.
@@ -116,62 +110,52 @@ hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelin
     }
 
 
-    VkResult result = vkCreateGraphicsPipelines(
-        createInfo.device.device(),
-        VK_NULL_HANDLE,
-        1,
-        &pipelineInfo,
-        nullptr,
-        &pipeline);
-
-    if (result != VK_SUCCESS) {
+    if (createInfo.device.device().createGraphicsPipelines(
+            nullptr,
+            1,
+            &pipelineInfo,
+            nullptr,
+            &pipeline) != vk::Result::eSuccess) {
         throw std::runtime_error("failed to create graphics pipeline");
     }
 }
 
 
 void hammock::core::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipelineConfig &configInfo) {
-    configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+    configInfo.inputAssemblyInfo.topology = vk::PrimitiveTopology::eTriangleList;
+    configInfo.inputAssemblyInfo.primitiveRestartEnable = vk::False;
 
-    configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     configInfo.viewportInfo.viewportCount = 1;
     configInfo.viewportInfo.pViewports = nullptr;
     configInfo.viewportInfo.scissorCount = 1;
     configInfo.viewportInfo.pScissors = nullptr;
 
-    configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;
-    configInfo.rasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
-    configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL; // VK_POLYGON_MODE_LINE VK_POLYGON_MODE_FILL;
+    configInfo.rasterizationInfo.depthClampEnable = vk::False;
+    configInfo.rasterizationInfo.rasterizerDiscardEnable = vk::False;
+    configInfo.rasterizationInfo.polygonMode = vk::PolygonMode::eFill; // VK_POLYGON_MODE_LINE VK_POLYGON_MODE_FILL;
     configInfo.rasterizationInfo.lineWidth = 1.0f;
-    configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-    configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    configInfo.rasterizationInfo.depthBiasEnable = VK_TRUE;
+    configInfo.rasterizationInfo.cullMode = vk::CullModeFlagBits::eBack;
+    configInfo.rasterizationInfo.frontFace = vk::FrontFace::eClockwise;
+    configInfo.rasterizationInfo.depthBiasEnable = true;
 
-    configInfo.multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
-    configInfo.multisampleInfo.rasterizationSamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT;
+    configInfo.multisampleInfo.sampleShadingEnable = false;
+    configInfo.multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
     configInfo.multisampleInfo.minSampleShading = 1.0f; // Optional
     configInfo.multisampleInfo.pSampleMask = nullptr; // Optional
-    configInfo.multisampleInfo.alphaToCoverageEnable = VK_FALSE; // Optional
-    configInfo.multisampleInfo.alphaToOneEnable = VK_FALSE; // Optional
+    configInfo.multisampleInfo.alphaToCoverageEnable = false; // Optional
+    configInfo.multisampleInfo.alphaToOneEnable = false; // Optional
 
-    configInfo.colorBlendAttachment.colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-            VK_COLOR_COMPONENT_A_BIT;
-    configInfo.colorBlendAttachment.blendEnable = VK_FALSE;
-    configInfo.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    configInfo.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    configInfo.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
-    configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
+    configInfo.colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    configInfo.colorBlendAttachment.blendEnable = false;
+    configInfo.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eOne; // Optional
+    configInfo.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eZero; // Optional
+    configInfo.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd; // Optional
+    configInfo.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne; // Optional
+    configInfo.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero; // Optional
+    configInfo.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd; // Optional
 
-    configInfo.colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    configInfo.colorBlendInfo.logicOpEnable = VK_FALSE;
-    configInfo.colorBlendInfo.logicOp = VK_LOGIC_OP_COPY; // Optional
+    configInfo.colorBlendInfo.logicOpEnable = false;
+    configInfo.colorBlendInfo.logicOp = vk::LogicOp::eCopy; // Optional
     configInfo.colorBlendInfo.attachmentCount = 1;
     configInfo.colorBlendInfo.pAttachments = &configInfo.colorBlendAttachment;
     configInfo.colorBlendInfo.blendConstants[0] = 0.0f; // Optional
@@ -179,21 +163,19 @@ void hammock::core::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipeli
     configInfo.colorBlendInfo.blendConstants[2] = 0.0f; // Optional
     configInfo.colorBlendInfo.blendConstants[3] = 0.0f; // Optional
 
-    configInfo.depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    configInfo.depthStencilInfo.depthTestEnable = VK_TRUE;
-    configInfo.depthStencilInfo.depthWriteEnable = VK_TRUE;
-    configInfo.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    configInfo.depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
+    configInfo.depthStencilInfo.depthTestEnable = true;
+    configInfo.depthStencilInfo.depthWriteEnable = true;
+    configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eLessOrEqual;
+    configInfo.depthStencilInfo.depthBoundsTestEnable = false;
     configInfo.depthStencilInfo.minDepthBounds = 0.0f; // Optional
     configInfo.depthStencilInfo.maxDepthBounds = 1.0f; // Optional
-    configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
+    configInfo.depthStencilInfo.stencilTestEnable = false;
     configInfo.depthStencilInfo.front = {}; // Optional
     configInfo.depthStencilInfo.back = {}; // Optional
 
-    configInfo.dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    configInfo.dynamicStateEnables = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
     configInfo.dynamicStateInfo.dynamicStateCount =
             static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
-    configInfo.dynamicStateInfo.flags = 0;
+    configInfo.dynamicStateInfo.flags = {};
 }

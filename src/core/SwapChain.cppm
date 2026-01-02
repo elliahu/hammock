@@ -1,9 +1,9 @@
 module;
 
-#include <vulkan/vulkan.h>
 #include <memory>
 #include <functional>
 #include <array>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.swapchain;
 
@@ -17,27 +17,27 @@ namespace hammock::core {
     export struct FrameSyncObjects {
         std::unique_ptr<Semaphore> imageAvailable;
         std::unique_ptr<Semaphore> renderFinished;
-        VkFence inFlightFence;
+        vk::Fence inFlightFence;
     };
 
     export class SwapChain {
     public:
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-        SwapChain(Device &deviceRef, VkExtent2D windowExtent);
-        SwapChain(Device &deviceRef, VkExtent2D windowExtent, const std::shared_ptr<SwapChain> &previous);
+        SwapChain(Device &deviceRef, vk::Extent2D windowExtent);
+        SwapChain(Device &deviceRef, vk::Extent2D windowExtent, const std::shared_ptr<SwapChain> &previous);
         ~SwapChain();
 
         SwapChain(const SwapChain &) = delete;
         SwapChain &operator=(const SwapChain &) = delete;
 
         // Image accessors
-        [[nodiscard]] VkImage getImage(const int index) const { return swapChainImages[index]; }
-        [[nodiscard]] VkImageView getImageView(const int index) const { return swapChainImageViews[index]; }
+        [[nodiscard]] vk::Image getImage(const int index) const { return swapChainImages[index]; }
+        [[nodiscard]] vk::ImageView getImageView(const int index) const { return swapChainImageViews[index]; }
         [[nodiscard]] size_t imageCount() const { return swapChainImages.size(); }
-        [[nodiscard]] VkFormat getSwapChainImageFormat() const { return swapChainImageFormat; }
-        [[nodiscard]] VkExtent2D getSwapChainExtent() const { return swapChainExtent; }
-        [[nodiscard]] VkFormat getSupportedDepthFormat() const;
+        [[nodiscard]] vk::Format getSwapChainImageFormat() const { return swapChainImageFormat; }
+        [[nodiscard]] vk::Extent2D getSwapChainExtent() const { return swapChainExtent; }
+        [[nodiscard]] vk::Format getSupportedDepthFormat() const;
 
         // Synchronization accessors - now takes frame index as parameter
         [[nodiscard]] FrameSyncObjects& getSyncObjects(uint32_t frameIndex) {
@@ -49,21 +49,21 @@ namespace hammock::core {
         }
 
         // Acquire next image for rendering
-        VkResult acquireNextImage(uint32_t frameIndex, uint32_t *imageIndex);
+        vk::Result acquireNextImage(uint32_t frameIndex, uint32_t *imageIndex);
 
         // Present the rendered image
-        VkResult present(uint32_t frameIndex, uint32_t imageIndex);
+        vk::Result present(uint32_t frameIndex, uint32_t imageIndex);
 
         // Pipeline barrier helper
         void recordPipelineBarrier(
             std::uint32_t imageIndex,
-            VkCommandBuffer cmd,
-            VkPipelineStageFlags2 srcStageMask,
-            VkAccessFlags2 srcAccessMask,
-            VkPipelineStageFlags2 dstStageMask,
-            VkAccessFlags2 dstAccessMask,
-            VkImageLayout oldLayout,
-            VkImageLayout newLayout,
+            vk::CommandBuffer cmd,
+            vk::PipelineStageFlags2 srcStageMask,
+            vk::AccessFlags2 srcAccessMask,
+            vk::PipelineStageFlags2 dstStageMask,
+            vk::AccessFlags2 dstAccessMask,
+            vk::ImageLayout oldLayout,
+            vk::ImageLayout newLayout,
             uint32_t srcQueueFamilyIndex,
             uint32_t dstQueueFamilyIndex
         ) const;
@@ -85,21 +85,21 @@ namespace hammock::core {
         void createSyncObjects();
 
         // Helper functions
-        static VkSurfaceFormatKHR chooseSwapSurfaceFormat(
-            const std::vector<VkSurfaceFormatKHR> &availableFormats);
-        static VkPresentModeKHR chooseSwapPresentMode(
-            const std::vector<VkPresentModeKHR> &availablePresentModes);
-        VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) const;
+        static vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
+            const std::vector<vk::SurfaceFormatKHR> &availableFormats);
+        static vk::PresentModeKHR chooseSwapPresentMode(
+            const std::vector<vk::PresentModeKHR> &availablePresentModes);
+        vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabilities) const;
 
         // SwapChain resources
-        VkFormat swapChainImageFormat;
-        VkExtent2D swapChainExtent;
-        std::vector<VkImage> swapChainImages;
-        std::vector<VkImageView> swapChainImageViews;
+        vk::Format swapChainImageFormat;
+        vk::Extent2D swapChainExtent;
+        std::vector<vk::Image> swapChainImages;
+        std::vector<vk::ImageView> swapChainImageViews;
 
         Device &device;
-        VkExtent2D windowExtent;
-        VkSwapchainKHR swapChain;
+        vk::Extent2D windowExtent;
+        vk::SwapchainKHR swapChain;
         std::shared_ptr<SwapChain> oldSwapChain;
 
         // Per-frame synchronization objects (indexed by frame, not by SwapChain)

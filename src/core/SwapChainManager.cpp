@@ -1,8 +1,8 @@
 module;
-#include <vulkan/vulkan.h>
 #include <iostream>
 #include <string>
 #include <cassert>
+#include <vulkan/vulkan.hpp>
 
 module hammock.core.swapchain_manager;
 
@@ -10,6 +10,7 @@ import hammock.core.resource_manager;
 import hammock.core.base_surface_provider;
 import hammock.core.base_resource;
 import hammock.core.image;
+
 
 hammock::core::SwapChainManager::SwapChainManager(
     BaseSurfaceProvider& i_surfaceProvider,
@@ -25,7 +26,8 @@ void hammock::core::SwapChainManager::recreateSwapChain() {
         extent = surfaceProvider.getExtent();
         std::cout << "Window resized\n";
     }
-    vkDeviceWaitIdle(device.device());
+
+    device.waitIdle();
 
     if (swapChain == nullptr) {
         swapChain = std::make_unique<SwapChain>(device, extent);
@@ -51,18 +53,20 @@ bool hammock::core::SwapChainManager::beginFrame() {
 
     auto result = swapChain->acquireNextImage(currentFrameIndex, &currentImageIndex);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (result == vk::Result::eErrorOutOfDateKHR) {
         recreateSwapChain();
         return false;
     }
 
-    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
     // Reset fence after successful acquire
     auto& syncObjects = swapChain->getSyncObjects(currentFrameIndex);
-    vkResetFences(device.device(), 1, &syncObjects.inFlightFence);
+    if (device.device().resetFences(1, &syncObjects.inFlightFence) != vk::Result::eSuccess) {
+        throw std::runtime_error("failed to reset in flight fences");
+    }
 
     isFrameStarted = true;
     return true;
@@ -73,12 +77,12 @@ void hammock::core::SwapChainManager::present() {
 
     auto result = swapChain->present(currentFrameIndex, currentImageIndex);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR ||
-        result == VK_SUBOPTIMAL_KHR ||
+    if (result == vk::Result::eErrorOutOfDateKHR ||
+        result == vk::Result::eSuboptimalKHR ||
         surfaceProvider.wasResized()) {
         surfaceProvider.resetResized();
         recreateSwapChain();
-    } else if (result != VK_SUCCESS) {
+    } else if (result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to present swap chain image");
     }
 }

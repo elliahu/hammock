@@ -1,8 +1,8 @@
 module;
-#include <vulkan/vulkan.h>
 #include <vector>
 #include <cstdint>
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.base_pipeline;
 
@@ -27,26 +27,25 @@ namespace hammock::core {
 
         
         virtual void bindDescriptorSet(
-            CommandBuffer& commandBuffer, std::uint32_t firstSet, const VkDescriptorSet* descriptorSet) = 0;
-        virtual void pushConstants(CommandBuffer& commandBuffer, VkShaderStageFlags stageFlags,
+            CommandBuffer& commandBuffer, std::uint32_t firstSet, const vk::DescriptorSet* descriptorSet) = 0;
+        virtual void pushConstants(CommandBuffer& commandBuffer, vk::ShaderStageFlags stageFlags,
             std::uint32_t offset, std::uint32_t size, const void* pValues) = 0;
 
-        VkPipelineLayout getPipelineLayout() const { return pipelineLayout; }
+        vk::PipelineLayout getPipelineLayout() const { return pipelineLayout; }
 
        protected:
-        void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule) const {
-            VkShaderModuleCreateInfo createInfo{};
-            createInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        void createShaderModule(const std::vector<char>& code, vk::ShaderModule* shaderModule) const {
+            vk::ShaderModuleCreateInfo createInfo{};
             createInfo.codeSize = code.size();
             createInfo.pCode = reinterpret_cast<const std::uint32_t*>(code.data());
 
-            if (vkCreateShaderModule(device.device(), &createInfo, nullptr, shaderModule) != VkResult::VK_SUCCESS) {
+            if (device.device().createShaderModule(&createInfo, nullptr, shaderModule) != vk::Result::eSuccess) {
                 throw std::runtime_error("failed to create shader module");
             }
         }
 
         Device& device;
-        VkPipeline pipeline = VK_NULL_HANDLE;
-        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+        vk::Pipeline pipeline;
+        vk::PipelineLayout pipelineLayout;
     };
 }  // namespace hammock::core

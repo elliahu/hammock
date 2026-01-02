@@ -1,8 +1,8 @@
 module;
 #include <stdexcept>
-#include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.buffer;
 
@@ -12,39 +12,37 @@ import hammock.core.device;
 import hammock.core.utilities;
 import hammock.core.memory_allocator;
 
-
-
 namespace hammock::core {
     /**
     * Describes general buffer
     */
     export struct BufferDesc {
-        VkDeviceSize instanceSize;
+        vk::DeviceSize instanceSize;
         uint32_t instanceCount;
-        VkBufferUsageFlags usageFlags;
+        vk::BufferUsageFlags usageFlags;
         allocator::AllocationCreateFlags allocationFlags;
-        VkDeviceSize minOffsetAlignment;
+        vk::DeviceSize minOffsetAlignment;
         CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
         std::vector<CommandQueueFamily> queueFamilies{};
-        VkSharingMode sharingMode = VkSharingMode::VK_SHARING_MODE_EXCLUSIVE;
+        vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
     };
 
     export class Buffer : public BaseResource {
     protected:
         void *m_mapped = nullptr;
-        allocator::Allocation m_allocation = VK_NULL_HANDLE;
+        allocator::Allocation m_allocation = nullptr;
 
-        VkDeviceSize m_alignmentSize;
-        VkDeviceSize m_bufferSize;
+        vk::DeviceSize m_alignmentSize;
+        vk::DeviceSize m_bufferSize;
         uint32_t m_instanceCount;
-        VkDeviceSize m_instanceSize;
-        VkBufferUsageFlags m_usageFlags;
+        vk::DeviceSize m_instanceSize;
+        vk::BufferUsageFlags m_usageFlags;
         allocator::AllocationCreateFlags m_memoryPropertyFlags;
 
         std::vector<uint32_t> m_queueFamilyIndices{};
 
         CommandQueueFamily m_queueFamily;
-        VkSharingMode m_sharingMode;
+        vk::SharingMode m_sharingMode;
 
 
         /**
@@ -56,7 +54,7 @@ namespace hammock::core {
              *
              * @return VkResult of the buffer mapping call
              */
-        VkDeviceSize getAlignment(const VkDeviceSize instanceSize, const VkDeviceSize minOffsetAlignment) {
+        vk::DeviceSize getAlignment(const vk::DeviceSize instanceSize, const vk::DeviceSize minOffsetAlignment) {
             if (minOffsetAlignment > 0) {
                 return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
             }
@@ -64,7 +62,7 @@ namespace hammock::core {
         }
 
     public:
-        VkBuffer m_buffer = VK_NULL_HANDLE;
+        vk::Buffer m_buffer = nullptr;
 
         Buffer(Device &device, uint64_t id, const std::string &name, const BufferDesc &desc) : BaseResource(
             device, id, name) {
@@ -100,8 +98,7 @@ namespace hammock::core {
          */
         void create() override {
             Logger::log(LOG_LEVEL_DEBUG, "Creating buffer %s of size %d", getName().c_str(), m_bufferSize);
-            VkBufferCreateInfo bufferInfo{};
-            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            vk::BufferCreateInfo bufferInfo{};
             bufferInfo.size = m_bufferSize;
             bufferInfo.usage = m_usageFlags;
             bufferInfo.sharingMode = m_sharingMode;
@@ -113,7 +110,7 @@ namespace hammock::core {
             allocInfo.flags = m_memoryPropertyFlags;
 
             try {
-                allocator::createBuffer(device.allocator(), &bufferInfo, &allocInfo, &m_buffer, &m_allocation, nullptr);
+                allocator::createBuffer(device.allocator(), bufferInfo, &allocInfo, m_buffer, &m_allocation, nullptr);
             }
             catch( std::runtime_error &err){
                 throw;
@@ -131,14 +128,14 @@ namespace hammock::core {
             Logger::log(LOG_LEVEL_DEBUG, "Buffer %s of size %d released", getName().c_str(), m_bufferSize);
         }
 
-        [[nodiscard]] VkBuffer getBuffer() const { return m_buffer; }
+        [[nodiscard]] vk::Buffer getBuffer() const { return m_buffer; }
         [[nodiscard]] void *getMappedMemory() const { return m_mapped; }
         [[nodiscard]] uint32_t getInstanceCount() const { return m_instanceCount; }
-        [[nodiscard]] VkDeviceSize getInstanceSize() const { return m_instanceSize; }
-        [[nodiscard]] VkDeviceSize getAlignmentSize() const { return m_alignmentSize; }
-        [[nodiscard]] VkBufferUsageFlags getUsageFlags() const { return m_usageFlags; }
-        [[nodiscard]] VkMemoryPropertyFlags getMemoryPropertyFlags() const { return m_memoryPropertyFlags; }
-        [[nodiscard]] VkDeviceSize getBufferSize() const { return m_bufferSize; }
+        [[nodiscard]] vk::DeviceSize getInstanceSize() const { return m_instanceSize; }
+        [[nodiscard]] vk::DeviceSize getAlignmentSize() const { return m_alignmentSize; }
+        [[nodiscard]] vk::BufferUsageFlags getUsageFlags() const { return m_usageFlags; }
+        [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const { return vk::MemoryPropertyFlags(m_memoryPropertyFlags); }
+        [[nodiscard]] vk::DeviceSize getBufferSize() const { return m_bufferSize; }
         [[nodiscard]] CommandQueueFamily getQueueFamily() const { return m_queueFamily; }
 
         /**
@@ -150,7 +147,7 @@ namespace hammock::core {
         *
         * @return VkResult of the buffer mapping call
         */
-        VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) {
+        vk::Result map(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0) {
             if (!m_mapped) {
                 try {
                     allocator::mapMemory(device.allocator(), m_allocation, &m_mapped);
@@ -158,7 +155,7 @@ namespace hammock::core {
                     throw;
                 }
             }
-            return VK_SUCCESS;
+            return vk::Result::eSuccess;
         }
 
         /**
@@ -182,12 +179,12 @@ namespace hammock::core {
         * @param offset (Optional) Byte offset from beginning of mapped region
         *
         */
-        void writeToBuffer(const void *data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const {
+        void writeToBuffer(const void *data, vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0) const {
             if(!m_mapped) {
                 throw std::runtime_error("Cannot copy to unmapped buffer");
             }
 
-            if (size == VK_WHOLE_SIZE) {
+            if (size == vk::WholeSize) {
                 memcpy(m_mapped, data, m_bufferSize);
             } else {
                 char *memOffset = static_cast<char *>(m_mapped);
@@ -207,10 +204,10 @@ namespace hammock::core {
          *
          * @return VkResult of the flush call
          */
-        VkResult flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const {
+        vk::Result flush(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0) const {
             try {
                 allocator::flushAllocation(device.allocator(), m_allocation, offset, size);
-                return VK_SUCCESS;
+                return vk::Result::eSuccess;
             }catch (std::runtime_error &err) {
                 throw;
             }
@@ -224,8 +221,8 @@ namespace hammock::core {
          *
          * @return VkDescriptorBufferInfo of specified offset and range
          */
-        VkDescriptorBufferInfo descriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const {
-            return VkDescriptorBufferInfo{
+        vk::DescriptorBufferInfo descriptorInfo(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0) const {
+            return vk::DescriptorBufferInfo{
                 m_buffer,
                 offset,
                 size,
@@ -243,10 +240,10 @@ namespace hammock::core {
          *
          * @return VkResult of the invalidate call
          */
-        VkResult invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const {
+        vk::Result invalidate(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0) const {
             try {
                 allocator::invalidateAllocation(device.allocator(), m_allocation, offset, size);
-                return VK_SUCCESS;
+                return vk::Result::eSuccess;
             } catch (std::runtime_error &err) {
                 throw;
             }
@@ -269,7 +266,7 @@ namespace hammock::core {
         * @param index Used in offset calculation
         *
         */
-        VkResult flushIndex(int index) const {
+        vk::Result flushIndex(int index) const {
             return flush(m_alignmentSize, index * m_alignmentSize);
         }
 
@@ -280,7 +277,7 @@ namespace hammock::core {
         *
         * @return VkDescriptorBufferInfo for instance at index
          */
-        VkDescriptorBufferInfo descriptorInfoForIndex(int index) const {
+        vk::DescriptorBufferInfo descriptorInfoForIndex(int index) const {
             return descriptorInfo(m_alignmentSize, index * m_alignmentSize);
         }
 
@@ -293,7 +290,7 @@ namespace hammock::core {
         *
         * @return VkResult of the invalidate call
         */
-        VkResult invalidateIndex(int index) const {
+        vk::Result invalidateIndex(int index) const {
             return invalidate(m_alignmentSize, index * m_alignmentSize);
         }
 
@@ -302,14 +299,14 @@ namespace hammock::core {
          * @param src Source buffer
          * @param size Size of the copy region
          */
-        void queuCopyFromBuffer(Buffer buffer,VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0,  VkDeviceSize size = VK_WHOLE_SIZE) const {
-            VkBufferCopy copyRegion{};
+        void queuCopyFromBuffer(Buffer buffer,vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0,  vk::DeviceSize size = vk::WholeSize) const {
+            vk::BufferCopy copyRegion{};
             copyRegion.srcOffset = srcOffset;
             copyRegion.dstOffset = dstOffset;
             copyRegion.size = size;
 
             auto cmd = device.beginSingleTimeCommands();
-            vkCmdCopyBuffer(cmd ,buffer.getBuffer(), m_buffer, 1, &copyRegion);
+            cmd.copyBuffer(buffer.getBuffer(), m_buffer, 1, &copyRegion);
             device.endSingleTimeCommands(cmd);
         }
 
@@ -324,20 +321,20 @@ namespace hammock::core {
          * @param layerCount layer count
          * @param offset offset
          */
-        void copyFromImage(VkCommandBuffer commandBuffer, VkImage src, VkExtent3D extent, uint32_t mipLevel = 0,
-                           uint32_t baseArrayLayer = 0, uint32_t layerCount = 1, VkOffset3D offset = {0, 0, 0}) {
-            VkBufferImageCopy region = {};
+        void copyFromImage(vk::CommandBuffer commandBuffer, vk::Image src, vk::Extent3D extent, uint32_t mipLevel = 0,
+                           uint32_t baseArrayLayer = 0, uint32_t layerCount = 1, vk::Offset3D offset = {0, 0, 0}) {
+            vk::BufferImageCopy region = {};
             region.bufferOffset = 0;
             region.bufferRowLength = 0;
             region.bufferImageHeight = 0;
-            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
             region.imageSubresource.mipLevel = mipLevel;
             region.imageSubresource.baseArrayLayer = baseArrayLayer;
             region.imageSubresource.layerCount = layerCount;
             region.imageOffset = offset;
             region.imageExtent = extent;
 
-            vkCmdCopyImageToBuffer(commandBuffer, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_buffer, 1, &region);
+            commandBuffer.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, m_buffer, 1, &region);
         }
     };
 

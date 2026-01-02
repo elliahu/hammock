@@ -1,8 +1,8 @@
 module;
-#include <vulkan/vulkan.h>
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.command_buffer;
 
@@ -15,9 +15,8 @@ namespace hammock::core {
     public:
         CommandBuffer(Device &device, CommandQueueFamily queueFamily) : device(device), queueFamily(queueFamily) {
             try {
-                VkCommandBufferAllocateInfo allocInfo{};
-                allocInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-                allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+                vk::CommandBufferAllocateInfo allocInfo{};
+                allocInfo.level = vk::CommandBufferLevel::ePrimary;
                 allocInfo.commandBufferCount = 1;
                 if (queueFamily == CommandQueueFamily::Graphics) {
                     allocInfo.commandPool = device.getGraphicsCommandPool();
@@ -29,7 +28,7 @@ namespace hammock::core {
                     allocInfo.commandPool = device.getTransferCommandPool();
                 }
 
-                if (vkAllocateCommandBuffers(device.device(), &allocInfo, &commandBuffer) != VkResult::VK_SUCCESS) {
+                if (device.device().allocateCommandBuffers(&allocInfo, &commandBuffer) != vk::Result::eSuccess) {
                     throw std::runtime_error("failed to allocate command buffer");
                 }
             } catch (std::exception &e) {
@@ -38,18 +37,18 @@ namespace hammock::core {
         }
 
         ~CommandBuffer() {
-            if (commandBuffer != VK_NULL_HANDLE) {
+            if (commandBuffer) {
                 if (queueFamily == CommandQueueFamily::Graphics) {
-                    vkFreeCommandBuffers(device.device(), device.getGraphicsCommandPool(), 1, &commandBuffer);
+                    device.device().freeCommandBuffers( device.getGraphicsCommandPool(), 1, &commandBuffer);
                 } else if (queueFamily == CommandQueueFamily::Compute) {
-                    vkFreeCommandBuffers(device.device(), device.getComputeCommandPool(), 1, &commandBuffer);
+                    device.device().freeCommandBuffers(device.getComputeCommandPool(), 1, &commandBuffer);
                 } else if (queueFamily == CommandQueueFamily::Transfer) {
-                    vkFreeCommandBuffers(device.device(), device.getTransferCommandPool(), 1, &commandBuffer);
+                    device.device().freeCommandBuffers(device.getTransferCommandPool(), 1, &commandBuffer);
                 }
             }
         }
 
-        auto waitOnSemaphore(Semaphore& semaphore, VkPipelineStageFlagBits2 stageFlagBits) -> void;
+        auto waitOnSemaphore(Semaphore& semaphore, vk::PipelineStageFlagBits2 stageFlagBits) -> void;
 
         auto signalSemaphore(Semaphore& semaphore) -> void;
 
@@ -61,16 +60,16 @@ namespace hammock::core {
         auto end() -> void;
 
         /// @brief This function ENDS and SUBMITS the command buffer
-        auto submit(VkFence fence = VK_NULL_HANDLE) -> void;
+        auto submit(vk::Fence fence = vk::Fence{}) -> void;
 
-        auto getCommandBuffer() const -> VkCommandBuffer { return commandBuffer; }
+        auto getCommandBuffer() const -> vk::CommandBuffer { return commandBuffer; }
 
     private:
         Device &device;
         CommandQueueFamily queueFamily;
-        VkCommandBuffer commandBuffer;
-        std::vector<VkSemaphoreSubmitInfo> waitSemaphoreSubmitInfos;
-        std::vector<VkSemaphoreSubmitInfo> signalSemaphoreSubmitInfos;
+        vk::CommandBuffer commandBuffer;
+        std::vector<vk::SemaphoreSubmitInfo> waitSemaphoreSubmitInfos;
+        std::vector<vk::SemaphoreSubmitInfo> signalSemaphoreSubmitInfos;
         bool inProgress{false};
     };
 } // namespace Hammock
