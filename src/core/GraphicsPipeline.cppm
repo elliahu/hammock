@@ -1,5 +1,6 @@
 module;
-#include <vulkan/vulkan.h>
+#include <compare>
+#include <vulkan/vulkan.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -14,23 +15,22 @@ import hammock.core.base_pipeline;
 import hammock.core.descriptor;
 
 
+
 namespace hammock::core {
     /// Helper function for constructing VkPipelineColorBlendAttachmentState struct
-    export VkPipelineColorBlendAttachmentState graphicsPipelineColorBlendAttachmentState(
-        VkColorComponentFlags colorWriteMask,
-        VkBool32 blendEnable) {
-        VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState{};
+    export vk::PipelineColorBlendAttachmentState graphicsPipelineColorBlendAttachmentState(
+        vk::ColorComponentFlags colorWriteMask,
+        vk::Bool32 blendEnable) {
+        vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState{};
         pipelineColorBlendAttachmentState.colorWriteMask = colorWriteMask;
         pipelineColorBlendAttachmentState.blendEnable = blendEnable;
-        pipelineColorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        pipelineColorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        pipelineColorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-        pipelineColorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        pipelineColorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-        pipelineColorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
-        pipelineColorBlendAttachmentState.colorWriteMask =
-                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                VK_COLOR_COMPONENT_A_BIT;
+        pipelineColorBlendAttachmentState.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+        pipelineColorBlendAttachmentState.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+        pipelineColorBlendAttachmentState.colorBlendOp = vk::BlendOp::eAdd;
+        pipelineColorBlendAttachmentState.srcAlphaBlendFactor = vk::BlendFactor::eOne;;
+        pipelineColorBlendAttachmentState.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+        pipelineColorBlendAttachmentState.alphaBlendOp = vk::BlendOp::eAdd;
+        pipelineColorBlendAttachmentState.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
         return pipelineColorBlendAttachmentState;
     }
 
@@ -47,30 +47,30 @@ namespace hammock::core {
         ShaderModuleInfo vertexShader{};
         ShaderModuleInfo fragmentShader{};
 
-        std::vector<VkDescriptorSetLayout> descriptorSetLayouts{};
-        std::vector<VkPushConstantRange> pushConstantRanges{};
+        std::vector<vk::DescriptorSetLayout> descriptorSetLayouts{};
+        std::vector<vk::PushConstantRange> pushConstantRanges{};
 
         // Graphics state
-        VkBool32 depthTest = VK_TRUE;
-        VkCompareOp depthTestCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-        VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
-        VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        std::vector<VkPipelineColorBlendAttachmentState> blendAtaAttachmentStates{};
-        std::vector<VkVertexInputBindingDescription> vertexInputBindingDescriptions{};
-        std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions{};
+        vk::Bool32 depthTest = vk::True;
+        vk::CompareOp depthTestCompareOp = vk::CompareOp::eLessOrEqual;
+        vk::CullModeFlags cullMode = vk::CullModeFlagBits::eBack;
+        vk::FrontFace frontFace = vk::FrontFace::eCounterClockwise;
+        std::vector<vk::PipelineColorBlendAttachmentState> blendAtaAttachmentStates{};
+        std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions{};
+        std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions{};
 
         // Dynamic state
-        std::vector<VkDynamicState> dynamicStateEnables{
-            VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR
+        std::vector<vk::DynamicState> dynamicStateEnables{
+            vk::DynamicState::eViewport, vk::DynamicState::eScissor
         };
 
         // Dynamic rendering
-        std::vector<VkFormat> colorAttachmentFormats{};
-        VkFormat depthAttachmentFormat = VkFormat::VK_FORMAT_UNDEFINED;
-        VkFormat stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+        std::vector<vk::Format> colorAttachmentFormats{};
+        vk::Format depthAttachmentFormat = vk::Format::eUndefined;
+        vk::Format stencilAttachmentFormat = vk::Format::eUndefined;
 
         // Normal rendering for backwards compatibility or if you need to use render pass for some reason
-        VkRenderPass renderPass = VK_NULL_HANDLE;
+        vk::RenderPass renderPass = nullptr;
     };
 
     /// @class GraphicsPipeline
@@ -84,15 +84,15 @@ namespace hammock::core {
 
             GraphicsPipelineConfig &operator=(const GraphicsPipelineConfig &) = delete;
 
-            VkPipelineViewportStateCreateInfo viewportInfo;
-            VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
-            VkPipelineRasterizationStateCreateInfo rasterizationInfo;
-            VkPipelineMultisampleStateCreateInfo multisampleInfo;
-            VkPipelineColorBlendAttachmentState colorBlendAttachment;
-            VkPipelineColorBlendStateCreateInfo colorBlendInfo;
-            VkPipelineDepthStencilStateCreateInfo depthStencilInfo;
-            std::vector<VkDynamicState> dynamicStateEnables;
-            VkPipelineDynamicStateCreateInfo dynamicStateInfo;
+            vk::PipelineViewportStateCreateInfo viewportInfo;
+            vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
+            vk::PipelineRasterizationStateCreateInfo rasterizationInfo;
+            vk::PipelineMultisampleStateCreateInfo multisampleInfo;
+            vk::PipelineColorBlendAttachmentState colorBlendAttachment;
+            vk::PipelineColorBlendStateCreateInfo colorBlendInfo;
+            vk::PipelineDepthStencilStateCreateInfo depthStencilInfo;
+            std::vector<vk::DynamicState> dynamicStateEnables;
+            vk::PipelineDynamicStateCreateInfo dynamicStateInfo;
         };
 
     public:
@@ -106,34 +106,33 @@ namespace hammock::core {
 
         static std::unique_ptr<GraphicsPipeline> create(GraphicsPipelineCreateInfo createInfo);
 
-        static void beginRendering(CommandBuffer &commandBuffer, const VkRenderingInfo *renderingInfo) {
-            vkCmdBeginRendering(commandBuffer.getCommandBuffer(), renderingInfo);
+        static void beginRendering(CommandBuffer &commandBuffer, const vk::RenderingInfo *renderingInfo) {
+            commandBuffer.getCommandBuffer().beginRendering(renderingInfo);
         }
 
         static void endRendering(CommandBuffer &commandBuffer) {
-            vkCmdEndRendering(commandBuffer.getCommandBuffer());
+            commandBuffer.getCommandBuffer().endRendering();
         }
 
         static void setViewport(CommandBuffer &commandBuffer, float x, float y, float width, float height,
                                 float minDepth, float maxDepth) {
-            VkViewport viewport = {x, y, width, height, minDepth, maxDepth};
-            vkCmdSetViewport(commandBuffer.getCommandBuffer(), 0, 1, &viewport);
+            vk::Viewport viewport = {x, y, width, height, minDepth, maxDepth};
+            commandBuffer.getCommandBuffer().setViewport(0, 1, &viewport);
         }
 
-        static void setScissor(CommandBuffer &commandBuffer, VkOffset2D offset, VkExtent2D extent) {
-            VkRect2D rec{offset, extent};
-            vkCmdSetScissor(commandBuffer.getCommandBuffer(), 0, 1, &rec);
+        static void setScissor(CommandBuffer &commandBuffer, vk::Offset2D offset, vk::Extent2D extent) {
+            vk::Rect2D rec{offset, extent};
+            commandBuffer.getCommandBuffer().setScissor(0, 1, &rec);
         }
 
         void bind(CommandBuffer &commandBuffer) override {
-            vkCmdBindPipeline(commandBuffer.getCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+            commandBuffer.getCommandBuffer().bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
         }
 
         void bindDescriptorSet(
-            CommandBuffer &commandBuffer, uint32_t firstSet, const VkDescriptorSet *descriptorSet) override {
-            vkCmdBindDescriptorSets(
-                commandBuffer.getCommandBuffer(),
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
+            CommandBuffer &commandBuffer, uint32_t firstSet, const vk::DescriptorSet *descriptorSet) override {
+            commandBuffer.getCommandBuffer().bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
                 pipelineLayout,
                 firstSet, 1,
                 descriptorSet,
@@ -141,16 +140,16 @@ namespace hammock::core {
             );
         }
 
-        void pushConstants(CommandBuffer &commandBuffer, VkShaderStageFlags stageFlags,
+        void pushConstants(CommandBuffer &commandBuffer, vk::ShaderStageFlags stageFlags,
                            uint32_t offset, uint32_t size, const void *pValues) override {
-            vkCmdPushConstants(commandBuffer.getCommandBuffer(), pipelineLayout, stageFlags, offset, size, pValues);
+            commandBuffer.getCommandBuffer().pushConstants(pipelineLayout, stageFlags, offset, size, pValues);
         }
 
     private:
         static void defaultRenderPipelineConfig(GraphicsPipelineConfig &configInfo);
 
-        VkShaderModule vertShaderModule;
-        VkShaderModule fragShaderModule;
+        vk::ShaderModule vertShaderModule;
+        vk::ShaderModule fragShaderModule;
     };
 
     /// @class GraphicsPipelineBuilder
@@ -180,63 +179,63 @@ namespace hammock::core {
             return *this;
         }
 
-        GraphicsPipelineBuilder &addPushConstantRange(VkPushConstantRange pushConstantRange) {
+        GraphicsPipelineBuilder &addPushConstantRange(vk::PushConstantRange pushConstantRange) {
             createInfo.pushConstantRanges.push_back(pushConstantRange);
             return *this;
         }
 
-        GraphicsPipelineBuilder &setDepthTest(VkBool32 depthTest = VK_TRUE,
-                                              VkCompareOp compareOp = VK_COMPARE_OP_LESS_OR_EQUAL) {
+        GraphicsPipelineBuilder &setDepthTest(vk::Bool32 depthTest = vk::True,
+                                              vk::CompareOp compareOp = vk::CompareOp::eLessOrEqual) {
             createInfo.depthTest = depthTest;
             createInfo.depthTestCompareOp = compareOp;
             return *this;
         }
 
-        GraphicsPipelineBuilder &setCullMode(VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT,
-                                             VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE) {
+        GraphicsPipelineBuilder &setCullMode(vk::CullModeFlags cullMode = vk::CullModeFlagBits::eBack,
+                                             vk::FrontFace frontFace = vk::FrontFace::eCounterClockwise) {
             createInfo.cullMode = cullMode;
             createInfo.frontFace = frontFace;
             return *this;
         }
 
-        GraphicsPipelineBuilder &addBlendAttachmentState(VkColorComponentFlags colorWriteMask = 0xf,
-                                                         VkBool32 blendEnable = VK_FALSE) {
+        GraphicsPipelineBuilder &addBlendAttachmentState(vk::ColorComponentFlags colorWriteMask,
+                                                         vk::Bool32 blendEnable) {
             createInfo.blendAtaAttachmentStates.push_back(
                 graphicsPipelineColorBlendAttachmentState(colorWriteMask, blendEnable));
             return *this;
         }
 
         GraphicsPipelineBuilder &setVertexInputAttributeDescriptions(
-            std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions) {
+            std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions) {
             createInfo.vertexInputAttributeDescriptions = std::move(vertexInputAttributeDescriptions);
             return *this;
         }
 
         GraphicsPipelineBuilder &addVertexInputAttributeDescription(std::uint32_t location, std::uint32_t binding,
-                                                                    VkFormat format, std::uint32_t offset) {
+                                                                    vk::Format format, std::uint32_t offset) {
             createInfo.vertexInputAttributeDescriptions.push_back({location, binding, format, offset});
             return *this;
         }
 
         GraphicsPipelineBuilder &setVertexInputBindingDescriptions(
-            std::vector<VkVertexInputBindingDescription> vertexInputBindingDescriptions) {
+            std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions) {
             createInfo.vertexInputBindingDescriptions = std::move(vertexInputBindingDescriptions);
             return *this;
         }
 
         GraphicsPipelineBuilder &addVertexInputBindingDescription(std::uint32_t binding, std::uint32_t stride,
-                                                                  VkVertexInputRate inputRate) {
+                                                                  vk::VertexInputRate inputRate) {
             createInfo.vertexInputBindingDescriptions.push_back({binding, stride, inputRate});
             return *this;
         }
 
-        GraphicsPipelineBuilder &addColorAttachmentFormat(VkFormat format) {
+        GraphicsPipelineBuilder &addColorAttachmentFormat(vk::Format format) {
             createInfo.colorAttachmentFormats.push_back(format);
             return *this;
         }
 
-        GraphicsPipelineBuilder &setDepthStencilAttachmentFormat(VkFormat depth = VK_FORMAT_UNDEFINED,
-                                                                 VkFormat stencil = VK_FORMAT_UNDEFINED) {
+        GraphicsPipelineBuilder &setDepthStencilAttachmentFormat(vk::Format depth = vk::Format::eUndefined,
+                                                                 vk::Format stencil = vk::Format::eUndefined) {
             createInfo.depthAttachmentFormat = depth;
             createInfo.stencilAttachmentFormat = stencil;
             return *this;
@@ -244,7 +243,7 @@ namespace hammock::core {
 
         /// @brief Set vulkan render pass.
         /// @note Setting render pass will disable dynamic rendering for this pipeline and dynamic rendering related settings will be ignored
-        GraphicsPipelineBuilder &setRenderPass(VkRenderPass renderPass) {
+        GraphicsPipelineBuilder &setRenderPass(vk::RenderPass renderPass) {
             createInfo.renderPass = renderPass;
             return *this;
         }

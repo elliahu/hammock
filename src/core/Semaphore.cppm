@@ -1,30 +1,19 @@
 module;
 
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.semaphore;
 
 import hammock.core.device;
-import vulkan_hpp;
 
 namespace hammock::core {
     export class Semaphore final {
     public:
-        explicit Semaphore(Device &device) : device(device) {
-            vk::SemaphoreCreateInfo semaphoreCreateInfo = {};
-            if (auto result = device.device().createSemaphore(&semaphoreCreateInfo, nullptr, &semaphore);
-                result != vk::Result::eSuccess) {
-                throw std::runtime_error("failed to create semaphore");
-            }
-        }
+        explicit Semaphore(Device &device);
+        ~Semaphore();
 
-        ~Semaphore() {
-            device.device().destroySemaphore(semaphore);
-        }
-
-        [[nodiscard]] vk::Semaphore getVulkanSemaphore() const {
-            return semaphore;
-        }
+        [[nodiscard]] vk::Semaphore getVulkanSemaphore() const;
 
     private:
         Device &device;

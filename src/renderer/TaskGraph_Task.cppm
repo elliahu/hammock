@@ -5,6 +5,8 @@ module;
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <vulkan/vulkan.hpp>
+
 
 export module hammock.renderer.task_graph:task;
 
@@ -14,6 +16,7 @@ import hammock.renderer.spirv_reflection;
 import hammock.core.graphics_pipeline;
 import hammock.core.compute_pipeline;
 import hammock.core.command_buffer;
+
 
 namespace hammock::renderer {
     /// @interface IGpuTask

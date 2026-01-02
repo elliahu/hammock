@@ -1,10 +1,10 @@
 module;
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 module hammock.core.command_buffer;
 
 import hammock.core.semaphore;
-import vulkan_hpp;
 
 auto hammock::core::CommandBuffer::begin() -> void {
     if (inProgress) {

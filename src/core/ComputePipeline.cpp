@@ -1,8 +1,8 @@
 module;
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 module hammock.core.compute_pipeline;
-import vulkan_hpp;
 
 hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : BasePipeline(config.device) {
     // Create a pipeline layout using the provided descriptor set layouts and push constant ranges.

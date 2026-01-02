@@ -1,7 +1,7 @@
 module;
 #include <chrono>
 #include <algorithm>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 module hammock.core.resource_manager;
 
@@ -28,7 +28,7 @@ uint64_t hammock::core::ResourceManager::getCurrentTimestamp() {
     return static_cast<uint64_t>(duration.count());
 }
 
-void hammock::core::ResourceManager::evictResources(VkDeviceSize requiredSize) {
+void hammock::core::ResourceManager::evictResources(vk::DeviceSize requiredSize) {
     // Sort resources by last used time and use count
     std::vector<std::pair<uint64_t, CacheEntry> > sortedCache;
     for (const auto &entry: resourceCache) {
@@ -43,7 +43,7 @@ void hammock::core::ResourceManager::evictResources(VkDeviceSize requiredSize) {
               });
 
     // Unload resources until we have enough space
-    VkDeviceSize freedMemory = 0;
+    vk::DeviceSize freedMemory = 0;
     for (const auto &entry: sortedCache) {
         auto *resource = resources[entry.first].get();
         if (resource->isResident()) {

@@ -5,9 +5,10 @@ module;
 #include "vk_mem_alloc/vk_mem_alloc.h"
 
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.memory_allocator;
-import vulkan_hpp;
+
 
 export namespace hammock::core::allocator {
     using Allocator = ::VmaAllocator;
@@ -21,6 +22,7 @@ export namespace hammock::core::allocator {
     using AllocatorCreateInfo = ::VmaAllocatorCreateInfo;
     using AllocatorCreateFlags = ::VmaAllocatorCreateFlags;
     using AllocatorCreateFlagBits = ::VmaAllocatorCreateFlagBits;
+    using VulkanFunctions = ::VmaVulkanFunctions;
 
     /// Create memory allocator
     void createAllocator(AllocatorCreateInfo * allocatorInfo, Allocator * allocator) {

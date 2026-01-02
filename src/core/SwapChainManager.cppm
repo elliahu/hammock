@@ -1,5 +1,4 @@
 module;
-#include <vulkan/vulkan.h>
 #include <stdexcept>
 #include <vector>
 #include <memory>
@@ -64,7 +63,7 @@ namespace hammock::core {
         Device &device;
         std::unique_ptr<SwapChain> swapChain;
 
-        uint32_t currentImageIndex;
+        std::uint32_t currentImageIndex;
         int currentFrameIndex{0};
         bool isFrameStarted{false};
 

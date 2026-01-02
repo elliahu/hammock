@@ -1,8 +1,8 @@
 module;
 
 #include <optional>
-#include <vulkan/vulkan.h>
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.renderer.graphics_context;
 
@@ -10,6 +10,7 @@ import hammock.core.instance;
 import hammock.core.device;
 import hammock.core.resource_manager;
 import hammock.core.descriptor;
+
 
 namespace hammock::renderer {
     export enum class GraphicsContextMode {
@@ -34,7 +35,7 @@ namespace hammock::renderer {
 
         // Windowed extension
 
-        void attachSurface(VkSurfaceKHR surface) {
+        void attachSurface(vk::SurfaceKHR surface) {
             if (desc.mode != GraphicsContextMode::Windowed) {
                 throw std::runtime_error("Cannot attach surface when not in Windowed context mode");
             }
@@ -52,7 +53,7 @@ namespace hammock::renderer {
                 throw std::runtime_error("Cannot create headless device when not in Headless context mode");
             }
 
-            device.emplace(instance, VK_NULL_HANDLE);
+            device.emplace(instance, nullptr);
             hasPresent = false;
             initManagers();
         }
@@ -69,7 +70,7 @@ namespace hammock::renderer {
             return *device;
         }
 
-        VkSurfaceKHR getSurface() const {
+        vk::SurfaceKHR getSurface() const {
             return surface;
         }
 
@@ -78,18 +79,18 @@ namespace hammock::renderer {
         void initManagers() {
             core::ResourceManager::initialize(*device);
             // @formatter:off
-            core::DescriptorPool::initialize(*device, 10000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, {
-                {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-                {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-                {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000},
+            core::DescriptorPool::initialize(*device, 10000, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, {
+                {vk::DescriptorType::eSampler, 1000},
+                {vk::DescriptorType::eCombinedImageSampler, 1000},
+                {vk::DescriptorType::eSampledImage, 1000},
+                {vk::DescriptorType::eStorageImage, 1000},
+                {vk::DescriptorType::eUniformTexelBuffer, 1000},
+                {vk::DescriptorType::eStorageTexelBuffer, 1000},
+                {vk::DescriptorType::eUniformBuffer, 1000},
+                {vk::DescriptorType::eStorageBuffer, 1000},
+                {vk::DescriptorType::eUniformBufferDynamic, 1000},
+                {vk::DescriptorType::eStorageBufferDynamic, 1000},
+                {vk::DescriptorType::eInputAttachment, 1000},
             });
             // @formatter:on
         }
@@ -99,7 +100,7 @@ namespace hammock::renderer {
         core::Instance instance{};
         std::optional<core::Device> device;
 
-        VkSurfaceKHR surface = VK_NULL_HANDLE;
+        vk::SurfaceKHR surface = nullptr;
         bool hasPresent = false;
     };
 }

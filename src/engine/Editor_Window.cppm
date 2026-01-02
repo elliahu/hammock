@@ -1,15 +1,15 @@
 module;
-
-#include <vulkan/vulkan.h>
 #include <VulkanSurfer/VulkanSurfer.h>
 #include <cstdint>
 #include <string>
+#include <vulkan/vulkan.hpp>
 
 
 export module hammock.engine.editor:window;
 
 import hammock.core;
 import hammock.core.base_surface_provider;
+
 
 namespace hammock::engine {
     /// @class Window
@@ -24,15 +24,17 @@ namespace hammock::engine {
                                                   static_cast<std::int32_t>(y));
 
             // Create surface
-            window->createSurface(instance.getInstance(), &surface);
+            VkSurfaceKHR cSurface;
+            window->createSurface(instance.getInstance(), &cSurface);
+            surface = vk::SurfaceKHR(cSurface);
         }
 
         ~Window() override {
-            vkDestroySurfaceKHR(instance.getInstance(), surface, nullptr);
+            instance.getInstance().destroySurfaceKHR(surface, nullptr);
             Surfer::Window::destroyWindow(window);
         }
 
-        [[nodiscard]] VkSurfaceKHR getSurface() const override { return surface; }
+        [[nodiscard]] vk::SurfaceKHR getSurface() const override { return surface; }
 
         bool shouldClose() {
             return window->shouldClose();
@@ -40,10 +42,10 @@ namespace hammock::engine {
 
         void pollEvents() const { window->pollEvents(); }
 
-        [[nodiscard]] VkExtent2D getExtent() const override {
+        [[nodiscard]] vk::Extent2D getExtent() const override {
             std::uint32_t w, h;
             window->getWindowSize(w, h);
-            return VkExtent2D(w, h);
+            return vk::Extent2D(w, h);
         };
 
         bool wasResized() const override { return resized; }
@@ -56,6 +58,6 @@ namespace hammock::engine {
         bool resized = false;
         core::Instance &instance;
         Surfer::Window *window = nullptr;
-        VkSurfaceKHR surface = VK_NULL_HANDLE;
+        vk::SurfaceKHR surface = nullptr;
     };
 }

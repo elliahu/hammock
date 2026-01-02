@@ -2,11 +2,11 @@ module;
 #include <stdexcept>
 #include <set>
 #include <vector>
+#include <vulkan/vulkan.hpp>
 
 
 module hammock.core.device;
 
-import vulkan_hpp;
 import hammock.core.utilities;
 import hammock.core.memory_allocator;
 
@@ -152,12 +152,17 @@ namespace hammock::core {
     }
 
     void Device::createMemoryAllocator() {
+        allocator::VulkanFunctions vulkanFunctions = {};
+        vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+        vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+
         allocator::AllocatorCreateInfo allocatorCreateInfo = {};
         allocatorCreateInfo.flags = allocator::AllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
         allocatorCreateInfo.vulkanApiVersion = vk::makeApiVersion(0, 1, 3, 0);
         allocatorCreateInfo.physicalDevice = physicalDevice;
         allocatorCreateInfo.device = device_;
         allocatorCreateInfo.instance = instance.getInstance();
+        allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
 
         try {
             allocator::createAllocator(&allocatorCreateInfo, &allocator_);

@@ -1,11 +1,11 @@
 module;
 #include <string>
 #include <cstdint>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.base_resource;
 
 import hammock.core.device;
-import vulkan_hpp;
 
 
 namespace hammock::core {

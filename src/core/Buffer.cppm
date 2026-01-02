@@ -2,6 +2,7 @@ module;
 #include <stdexcept>
 #include <vector>
 #include <string>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.buffer;
 
@@ -10,9 +11,6 @@ import hammock.core.base_resource;
 import hammock.core.device;
 import hammock.core.utilities;
 import hammock.core.memory_allocator;
-import vulkan_hpp;
-
-
 
 namespace hammock::core {
     /**

@@ -3,6 +3,7 @@ module;
 #include <vector>
 #include <string>
 #include <memory>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.compute_pipeline;
 
@@ -10,7 +11,7 @@ import hammock.core.device;
 import hammock.core.command_buffer;
 import hammock.core.base_pipeline;
 import hammock.core.descriptor;
-import vulkan_hpp;
+
 
 
 namespace hammock::core {

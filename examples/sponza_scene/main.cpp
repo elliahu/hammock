@@ -13,7 +13,7 @@ using namespace hammock::renderer;
 
 int main() {
     try {
-        auto shader = hammock::renderer::filesystem::readFile("C:/dev/hammock/build-visual-studio/debug/spv/clouds.comp.spv");
+        auto shader = hammock::renderer::filesystem::readFile("C:/dev/hammock/build-debug-clang/spv/clouds.comp.spv");
         auto reflection = std::make_unique<hammock::renderer::reflection::SpirvReflection>(shader);
 
         // Descriptor bindings

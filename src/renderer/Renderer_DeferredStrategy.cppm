@@ -2,7 +2,7 @@ module;
 
 #include <memory>
 #include <vector>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.renderer.renderer:deferred_strategy;
 
@@ -24,7 +24,7 @@ namespace hammock::renderer {
             auto frame = sc.getFrameIndex();
             auto &commandBuffer = *commandBuffers[frame];
             commandBuffer.signalSemaphore(signal);
-            commandBuffer.waitOnSemaphore(wait, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
+            commandBuffer.waitOnSemaphore(wait, vk::PipelineStageFlagBits2::eFragmentShader);
 
             commandBuffer.begin();
 

@@ -111,7 +111,7 @@ namespace hammock::renderer::reflection {
             return pushConstantBlocks;
         }
 
-        static [[nodiscard]] std::vector<const SpvReflectBlockVariable *> getPushConstantFields(
+        static std::vector<const SpvReflectBlockVariable *> getPushConstantFields(
             const SpvReflectBlockVariable &block) {
             std::vector<const SpvReflectBlockVariable *> fields;
 

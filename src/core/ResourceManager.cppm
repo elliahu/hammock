@@ -1,7 +1,7 @@
 module;
-#include <vulkan/vulkan.h>
 #include <memory>
 #include <unordered_map>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.resource_manager;
 
@@ -10,7 +10,6 @@ import hammock.core.buffer;
 import hammock.core.image;
 import hammock.core.device;
 import hammock.core.base_resource;
-
 
 
 namespace hammock::core {
@@ -35,8 +34,8 @@ namespace hammock::core {
         Device& device;
         ResourceMap resources;
 
-        VkDeviceSize totalMemoryUsed;
-        VkDeviceSize memoryBudget;
+        vk::DeviceSize totalMemoryUsed;
+        vk::DeviceSize memoryBudget;
         uint64_t nextId;
 
         // Cache for frequently used resources
@@ -47,12 +46,12 @@ namespace hammock::core {
 
         std::unordered_map<uint64_t, CacheEntry> resourceCache;
 
-        explicit ResourceManager(Device& device, VkDeviceSize memoryBudget = 6ULL * 1024 * 1024 * 1024)
+        explicit ResourceManager(Device& device, vk::DeviceSize memoryBudget = 6ULL * 1024 * 1024 * 1024)
             // 6GB default
             : device(device), totalMemoryUsed(0), memoryBudget(memoryBudget), nextId(1) {}
 
        public:
-        static void initialize(Device& device, VkDeviceSize memoryBudget = 6ULL * 1024 * 1024 * 1024) {
+        static void initialize(Device& device, vk::DeviceSize memoryBudget = 6ULL * 1024 * 1024 * 1024) {
             Singleton<ResourceManager>::initialize(device, memoryBudget);
         }
 
@@ -120,6 +119,6 @@ namespace hammock::core {
        private:
         uint64_t getCurrentTimestamp();
 
-        void evictResources(VkDeviceSize requiredSize);
+        void evictResources(vk::DeviceSize requiredSize);
     };
 }  // namespace hammock::core

@@ -31,6 +31,7 @@ target_include_directories(hammock_engine PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         "${PROJECT_SOURCE_DIR}/third_party"
         "${PROJECT_SOURCE_DIR}/third_party/imgui"
+        "${Vulkan_INCLUDE_DIR}" # imgui needs vulkan.h
 )
 
 # Link renderer (which links core transitively)

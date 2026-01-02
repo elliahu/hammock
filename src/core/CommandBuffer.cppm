@@ -2,12 +2,12 @@ module;
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.command_buffer;
 
 import hammock.core.device;
 import hammock.core.semaphore;
-import vulkan_hpp;
 
 
 namespace hammock::core {

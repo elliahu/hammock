@@ -1,9 +1,9 @@
 module;
 
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.base_surface_provider;
 
-import vulkan_hpp;
 
 namespace hammock::core {
 

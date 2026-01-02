@@ -1,12 +1,12 @@
 module;
 #include <vector>
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.device;
 
 import hammock.core.instance;
 import hammock.core.memory_allocator;
-import vulkan_hpp;
 
 namespace hammock::core {
     export struct SwapChainSupportDetails {

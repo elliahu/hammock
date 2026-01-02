@@ -2,12 +2,13 @@ module;
 #include <vector>
 #include <cstdint>
 #include <stdexcept>
+#include <vulkan/vulkan.hpp>
 
 export module hammock.core.base_pipeline;
 
 import hammock.core.command_buffer;
 import hammock.core.device;
-import vulkan_hpp;
+
 
 
 namespace hammock::core {

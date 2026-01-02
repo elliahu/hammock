@@ -26,7 +26,6 @@ target_sources(hammock_core
         "ResourceManager.cppm"
         "SwapChain.cppm"
         "Utilities.cppm"
-        "Vulkan.cppm"
         "Semaphore.cppm"
     PRIVATE
         "CommandBuffer.cpp"
@@ -38,23 +37,17 @@ target_sources(hammock_core
         "MemoryAllocator.cpp"
         "ResourceManager.cpp"
         "SwapChain.cpp"
+        "Semaphore.cpp"
 )
 
 # Include directories for legacy headers
 target_include_directories(hammock_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     "${PROJECT_SOURCE_DIR}/third_party"
+    "${Vulkan_INCLUDE_DIR}"
 )
 
-# set up Vulkan C++ module as a library
-add_library( VulkanHppModule )
-target_sources( VulkanHppModule PRIVATE
-        FILE_SET CXX_MODULES
-        BASE_DIRS ${Vulkan_INCLUDE_DIR}
-        FILES ${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm
-)
-target_compile_features( VulkanHppModule PUBLIC cxx_std_20 )
-target_link_libraries( VulkanHppModule PUBLIC Vulkan::Vulkan )
+target_link_libraries(hammock_core PUBLIC Vulkan::Vulkan)
 
 add_compile_definitions(VULKAN_HPP_NO_CONSTRUCTORS)
 
@@ -65,5 +58,3 @@ target_compile_features(hammock_core PUBLIC cxx_std_23)
 set_target_properties(hammock_core PROPERTIES
         CXX_SCAN_FOR_MODULES ON
 )
-
-target_link_libraries(hammock_core PRIVATE VulkanHppModule)
