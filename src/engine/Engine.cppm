@@ -11,23 +11,13 @@ import hammock.renderer;
 namespace hammock::engine {
     export class Engine final {
     public:
-        Engine(LaunchMode mode) {
-            // Create graphics context
-            context = std::make_unique<renderer::GraphicsContext>(renderer::GraphicsContextDesc{
-                .mode = renderer::GraphicsContextMode::Windowed,
-            });
+        explicit Engine(LaunchMode mode);
 
-            // Create editor
-            editor = std::make_unique<Editor>(mode, *context);
-        }
-
-        void launch() const {
-            editor->launch();
-        }
+        void launch() const;
 
     private:
-        std::unique_ptr<renderer::GraphicsContext> context;
-        std::unique_ptr<renderer::Renderer> renderer;
-        std::unique_ptr<Editor> editor;
+        std::unique_ptr<renderer::GraphicsContext> context_;
+        std::unique_ptr<renderer::Renderer> renderer_;
+        std::unique_ptr<Editor> editor_;
     };
 }

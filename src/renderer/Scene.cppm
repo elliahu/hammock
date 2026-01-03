@@ -12,7 +12,8 @@ import hammock.core.base_resource;
 using namespace hammock::math;
 
 namespace hammock::renderer {
-    export struct Geometry {
+
+    export struct MeshInstance {
         enum VisibilityFlags : std::int32_t {
             VISIBILITY_NONE = 0,
             VISIBILITY_VISIBLE = 1 << 0,
@@ -22,21 +23,21 @@ namespace hammock::renderer {
             VISIBILITY_RECEIVES_SHADOW = 1 << 4,
         };
 
-        struct MeshInstance {
-            typedef std::int32_t Index;
+        typedef std::int32_t Index;
 
-            Mat4 transform;
-            std::int32_t visibilityFlags;
-            Vec3 baseColorFactor;
-            Vec3 metallicRoughnessAlphaCutOffFactor;
-            Index baseColorTextureIndex;
-            Index normalTextureIndex;
-            Index metallicRoughnessTextureIndex;
-            Index occlusionTextureIndex;
-            std::uint32_t firstIndex;
-            std::uint32_t indexCount;
-        };
+        Mat4 transform;
+        std::int32_t visibilityFlags;
+        Vec3 baseColorFactor;
+        Vec3 metallicRoughnessAlphaCutOffFactor;
+        Index baseColorTextureIndex;
+        Index normalTextureIndex;
+        Index metallicRoughnessTextureIndex;
+        Index occlusionTextureIndex;
+        std::uint32_t firstIndex;
+        std::uint32_t indexCount;
+    };
 
+    export struct Scene {
         std::vector<MeshInstance> renderMeshes;
         std::vector<Vertex> vertices;
         std::vector<std::uint32_t> indices;

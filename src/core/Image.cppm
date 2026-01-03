@@ -32,7 +32,7 @@ namespace hammock::core {
         vk::ClearValue clearValue{};
         CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
         std::vector<CommandQueueFamily> queueFamilies{};
-        vk::SharingMode sharingMode = vk::SharingMode::eConcurrent;
+        vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
         vk::MemoryPropertyFlagBits memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
         vk::ImageTiling tiling = vk::ImageTiling::eOptimal;
     };

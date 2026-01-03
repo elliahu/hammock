@@ -25,83 +25,35 @@ namespace hammock::renderer {
 
     export class GraphicsContext {
     public:
-        explicit GraphicsContext(const GraphicsContextDesc &desc)
-            : desc(desc) {
-        }
+        explicit GraphicsContext(const GraphicsContextDesc &desc);
 
-        ~GraphicsContext() {
-            core::ResourceManager::dispose();
-            core::DescriptorPool::dispose();
-        }
+        ~GraphicsContext();
 
         // Windowed extension
 
-        void attachSurface(vk::SurfaceKHR surface) {
-            if (desc.mode != GraphicsContextMode::Windowed) {
-                throw std::runtime_error("Cannot attach surface when not in Windowed context mode");
-            }
-
-            this->surface = surface;
-
-            device.emplace(instance, surface);
-            hasPresent = true;
-            initManagers();
-        }
+        void attachSurface(vk::SurfaceKHR surface);
 
         // Headless extension
-        void createHeadlessDevice() {
-            if (desc.mode != GraphicsContextMode::Headless) {
-                throw std::runtime_error("Cannot create headless device when not in Headless context mode");
-            }
+        void createHeadlessDevice();
 
-            device.emplace(instance, nullptr);
-            hasPresent = false;
-            initManagers();
-        }
+        bool supportsPresent() const;
 
-        bool supportsPresent() const {
-            return desc.mode == GraphicsContextMode::Windowed;
-        }
+        core::Instance &getInstance() { return instance_; }
 
-        core::Instance &getInstance() {
-            return instance;
-        }
+        core::Device &getDevice() { return *device_; }
 
-        core::Device &getDevice() {
-            return *device;
-        }
-
-        vk::SurfaceKHR getSurface() const {
-            return surface;
-        }
+        vk::SurfaceKHR getSurface() const { return surface_; }
 
     private
     :
-        void initManagers() {
-            core::ResourceManager::initialize(*device);
-            // @formatter:off
-            core::DescriptorPool::initialize(*device, 10000, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, {
-                {vk::DescriptorType::eSampler, 1000},
-                {vk::DescriptorType::eCombinedImageSampler, 1000},
-                {vk::DescriptorType::eSampledImage, 1000},
-                {vk::DescriptorType::eStorageImage, 1000},
-                {vk::DescriptorType::eUniformTexelBuffer, 1000},
-                {vk::DescriptorType::eStorageTexelBuffer, 1000},
-                {vk::DescriptorType::eUniformBuffer, 1000},
-                {vk::DescriptorType::eStorageBuffer, 1000},
-                {vk::DescriptorType::eUniformBufferDynamic, 1000},
-                {vk::DescriptorType::eStorageBufferDynamic, 1000},
-                {vk::DescriptorType::eInputAttachment, 1000},
-            });
-            // @formatter:on
-        }
+        void initManagers();
 
-        GraphicsContextDesc desc;
+        GraphicsContextDesc desc_;
 
-        core::Instance instance{};
-        std::optional<core::Device> device;
+        core::Instance instance_{};
+        std::optional<core::Device> device_;
 
-        vk::SurfaceKHR surface = nullptr;
-        bool hasPresent = false;
+        vk::SurfaceKHR surface_ = nullptr;
+        bool hasPresent_ = false;
     };
 }

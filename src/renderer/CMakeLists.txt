@@ -12,10 +12,10 @@ target_sources(hammock_renderer
         "import.cppm"
         "SpirvReflection.cppm"
         "Renderer.cppm"
-        "Renderer_Strategy.cppm"
-        "Renderer_DeferredStrategy.cppm"
+        "RenderingStrategy.cppm"
+        "DeferredRenderingStrategy.cppm"
         "Filesystem.cppm"
-        "Geometry.cppm"
+        "Scene.cppm"
         "Math.cppm"
         "ThreadPool.cppm"
         "Vertex.cppm"
@@ -28,6 +28,9 @@ target_sources(hammock_renderer
     PRIVATE
         "${PROJECT_SOURCE_DIR}/third_party/spirv_reflect/spirv_reflect.cpp" # include spirv_reflect source
         "Filesystem.cpp"
+        "GraphicsContext.cpp"
+        "Renderer.cpp"
+        "DeferredRenderingStrategy.cpp"
 )
 
 # Include directories for legacy headers

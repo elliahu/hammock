@@ -3,18 +3,7 @@
         "Rendergraph"
     ],
     "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 0, NamespaceIndentation: All}",
-    "C_Cpp.intelliSenseEngine": "disabled",
     "C_Cpp.default.cppStandard": "c++23",
-    "files.watcherExclude": {
-        "cmake-build-*/**": true,
-        "build/**": true,
-        "external/**": true
-    },
-    "search.exclude": {
-        "cmake-build-*/**": true,
-        "build/**": true,
-        "external/**": true
-    },
     "files.associations": {
         "unordered_map": "cpp",
         "xstring": "cpp",

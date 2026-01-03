@@ -15,10 +15,15 @@ target_sources(hammock_engine
         FILES
         "Editor.cppm"
         "Engine.cppm"
-        "Editor_Window.cppm"
+        "Window.cppm"
         "Ui.cppm"
-        "Editor_Framebuffer.cppm"
+        "Framebuffer.cppm"
     PRIVATE
+        "Editor.cpp"
+        "Engine.cpp"
+        "Framebuffer.cpp"
+        "Ui.cpp"
+        "Window.cpp"
         "${IMGUI_DIR}/imgui.cpp"
         "${IMGUI_DIR}/imgui_draw.cpp"
         "${IMGUI_DIR}/imgui_tables.cpp"

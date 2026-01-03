@@ -1,7 +1,4 @@
 module;
-
-#include <compare>
-
 export module hammock.renderer.task_graph;
 
 export import :task;
