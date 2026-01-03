@@ -5,6 +5,7 @@ module;
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 

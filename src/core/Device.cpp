@@ -2,6 +2,7 @@ module;
 #include <stdexcept>
 #include <set>
 #include <vector>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 

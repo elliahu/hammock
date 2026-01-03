@@ -1,6 +1,7 @@
 module;
 
 #include <vector>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.renderer.vertex;

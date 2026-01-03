@@ -1,21 +1,25 @@
 module;
 #include <chrono>
 #include <algorithm>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 module hammock.core.resource_manager;
 
 
+void hammock::core::ResourceManager::initialize(Device &device, vk::DeviceSize memoryBudget) {
+    Singleton<ResourceManager>::initialize(device, memoryBudget);
+}
 
 void hammock::core::ResourceManager::releaseResource(uint64_t id) {
-    auto it = resources.find(id);
-    if (it != resources.end()) {
+    auto it = resources_.find(id);
+    if (it != resources_.end()) {
         if (it->second->isResident()) {
-            totalMemoryUsed -= it->second->getSize();
+            totalMemoryUsed_ -= it->second->getSize();
             it->second->release();
         }
-        resources.erase(it);
-        resourceCache.erase(id);
+        resources_.erase(it);
+        resourceCache_.erase(id);
     }
 }
 
@@ -31,7 +35,7 @@ uint64_t hammock::core::ResourceManager::getCurrentTimestamp() {
 void hammock::core::ResourceManager::evictResources(vk::DeviceSize requiredSize) {
     // Sort resources by last used time and use count
     std::vector<std::pair<uint64_t, CacheEntry> > sortedCache;
-    for (const auto &entry: resourceCache) {
+    for (const auto &entry: resourceCache_) {
         sortedCache.push_back(entry);
     }
 
@@ -45,11 +49,11 @@ void hammock::core::ResourceManager::evictResources(vk::DeviceSize requiredSize)
     // Unload resources until we have enough space
     vk::DeviceSize freedMemory = 0;
     for (const auto &entry: sortedCache) {
-        auto *resource = resources[entry.first].get();
+        auto *resource = resources_[entry.first].get();
         if (resource->isResident()) {
             resource->release();
             freedMemory += resource->getSize();
-            totalMemoryUsed -= resource->getSize();
+            totalMemoryUsed_ -= resource->getSize();
 
             if (freedMemory >= requiredSize) {
                 break;

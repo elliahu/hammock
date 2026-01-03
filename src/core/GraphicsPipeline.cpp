@@ -2,6 +2,7 @@ module;
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 module hammock.core.graphics_pipeline;
@@ -13,9 +14,50 @@ std::unique_ptr<hammock::core::GraphicsPipeline> hammock::core::GraphicsPipeline
     return std::make_unique<GraphicsPipeline>(createInfo);
 }
 
+void hammock::core::GraphicsPipeline::beginRendering(CommandBuffer &commandBuffer,
+    const vk::RenderingInfo *renderingInfo) {
+    commandBuffer.getCommandBuffer().beginRendering(renderingInfo);
+}
+
+void hammock::core::GraphicsPipeline::endRendering(CommandBuffer &commandBuffer) {
+    commandBuffer.getCommandBuffer().endRendering();
+}
+
+void hammock::core::GraphicsPipeline::setViewport(CommandBuffer &commandBuffer, float x, float y, float width,
+    float height, float minDepth, float maxDepth) {
+    vk::Viewport viewport = {x, y, width, height, minDepth, maxDepth};
+    commandBuffer.getCommandBuffer().setViewport(0, 1, &viewport);
+}
+
+void hammock::core::GraphicsPipeline::
+setScissor(CommandBuffer &commandBuffer, vk::Offset2D offset, vk::Extent2D extent) {
+    vk::Rect2D rec{offset, extent};
+    commandBuffer.getCommandBuffer().setScissor(0, 1, &rec);
+}
+
+void hammock::core::GraphicsPipeline::bind(CommandBuffer &commandBuffer) {
+    commandBuffer.getCommandBuffer().bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+}
+
+void hammock::core::GraphicsPipeline::bindDescriptorSet(CommandBuffer &commandBuffer, uint32_t firstSet,
+    const vk::DescriptorSet *descriptorSet) {
+    commandBuffer.getCommandBuffer().bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics,
+        pipelineLayout,
+        firstSet, 1,
+        descriptorSet,
+        0, nullptr
+    );
+}
+
+void hammock::core::GraphicsPipeline::pushConstants(CommandBuffer &commandBuffer, vk::ShaderStageFlags stageFlags,
+    uint32_t offset, uint32_t size, const void *pValues) {
+    commandBuffer.getCommandBuffer().pushConstants(pipelineLayout, stageFlags, offset, size, pValues);
+}
+
 hammock::core::GraphicsPipeline::~GraphicsPipeline() {
-    device.device().destroyShaderModule(vertShaderModule, nullptr);
-    device.device().destroyShaderModule(fragShaderModule, nullptr);
+    device.device().destroyShaderModule(vertShaderModule_, nullptr);
+    device.device().destroyShaderModule(fragShaderModule_, nullptr);
     device.device().destroyPipelineLayout(pipelineLayout, nullptr);
     device.device().destroyPipeline(pipeline, nullptr);
 }
@@ -53,16 +95,16 @@ hammock::core::GraphicsPipeline::GraphicsPipeline(hammock::core::GraphicsPipelin
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
     shaderStages.resize(2);
 
-    createShaderModule(createInfo.vertexShader.byteCode, &vertShaderModule);
-    createShaderModule(createInfo.fragmentShader.byteCode, &fragShaderModule);
+    createShaderModule(createInfo.vertexShader.byteCode, &vertShaderModule_);
+    createShaderModule(createInfo.fragmentShader.byteCode, &fragShaderModule_);
     shaderStages[0].stage = vk::ShaderStageFlagBits::eVertex;
-    shaderStages[0].module = vertShaderModule;
+    shaderStages[0].module = vertShaderModule_;
     shaderStages[0].pName = createInfo.vertexShader.entry.c_str();
     shaderStages[0].flags = {};
     shaderStages[0].pNext = nullptr;
     shaderStages[0].pSpecializationInfo = nullptr;
     shaderStages[1].stage = vk::ShaderStageFlagBits::eFragment;
-    shaderStages[1].module = fragShaderModule;
+    shaderStages[1].module = fragShaderModule_;
     shaderStages[1].pName = createInfo.fragmentShader.entry.c_str();
     shaderStages[1].flags = {};
     shaderStages[1].pNext = nullptr;
@@ -178,4 +220,94 @@ void hammock::core::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipeli
     configInfo.dynamicStateInfo.dynamicStateCount =
             static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
     configInfo.dynamicStateInfo.flags = {};
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::setVertexShader(
+    const std::vector<char> &byteCode, const std::string &entry) {
+    createInfo.vertexShader.byteCode = byteCode;
+    createInfo.vertexShader.entry = entry;
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::setFragmentShader(
+    const std::vector<char> &byteCode, const std::string &entry) {
+    createInfo.fragmentShader.byteCode = byteCode;
+    createInfo.fragmentShader.entry = entry;
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::addDescriptorSetLayout(
+    const std::unique_ptr<DescriptorSetLayout> &descriptorSetLayout) {
+    createInfo.descriptorSetLayouts.push_back(descriptorSetLayout->getDescriptorSetLayout());
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::addPushConstantRange(
+    vk::PushConstantRange pushConstantRange) {
+    createInfo.pushConstantRanges.push_back(pushConstantRange);
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::setDepthTest(vk::Bool32 depthTest,
+    vk::CompareOp compareOp) {
+    createInfo.depthTest = depthTest;
+    createInfo.depthTestCompareOp = compareOp;
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::setCullMode(vk::CullModeFlags cullMode,
+    vk::FrontFace frontFace) {
+    createInfo.cullMode = cullMode;
+    createInfo.frontFace = frontFace;
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::addBlendAttachmentState(
+    vk::ColorComponentFlags colorWriteMask, vk::Bool32 blendEnable) {
+    createInfo.blendAtaAttachmentStates.push_back(
+        graphicsPipelineColorBlendAttachmentState(colorWriteMask, blendEnable));
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::setVertexInputAttributeDescriptions(
+    std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions) {
+    createInfo.vertexInputAttributeDescriptions = std::move(vertexInputAttributeDescriptions);
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::addVertexInputAttributeDescription(
+    std::uint32_t location, std::uint32_t binding, vk::Format format, std::uint32_t offset) {
+    createInfo.vertexInputAttributeDescriptions.push_back({location, binding, format, offset});
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::setVertexInputBindingDescriptions(
+    std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions) {
+    createInfo.vertexInputBindingDescriptions = std::move(vertexInputBindingDescriptions);
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::addVertexInputBindingDescription(
+    std::uint32_t binding, std::uint32_t stride, vk::VertexInputRate inputRate) {
+    createInfo.vertexInputBindingDescriptions.push_back({binding, stride, inputRate});
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::addColorAttachmentFormat(
+    vk::Format format) {
+    createInfo.colorAttachmentFormats.push_back(format);
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::setDepthStencilAttachmentFormat(
+    vk::Format depth, vk::Format stencil) {
+    createInfo.depthAttachmentFormat = depth;
+    createInfo.stencilAttachmentFormat = stencil;
+    return *this;
+}
+
+hammock::core::GraphicsPipelineBuilder & hammock::core::GraphicsPipelineBuilder::setRenderPass(
+    vk::RenderPass renderPass) {
+    createInfo.renderPass = renderPass;
+    return *this;
 }

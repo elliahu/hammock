@@ -2,6 +2,7 @@ module;
 
 #include <memory>
 #include <vector>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.renderer.renderer:deferred_strategy;

@@ -5,6 +5,7 @@ module;
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.engine.editor:framebuffer;

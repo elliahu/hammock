@@ -2,6 +2,7 @@ module;
 
 #include <optional>
 #include <stdexcept>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.renderer.graphics_context;

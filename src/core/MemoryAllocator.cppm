@@ -5,11 +5,16 @@ module;
 #include "vk_mem_alloc/vk_mem_alloc.h"
 
 #include <stdexcept>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.core.memory_allocator;
 
 
+/// @namespace hammock::core::allocator
+/// This namespace contains wrapper functions around vulkan memory allocator library
+/// The VMA is written for C API and hammock uses c++ API so there need to be some translations here and there
+/// @note Work in progress
 export namespace hammock::core::allocator {
     using Allocator = ::VmaAllocator;
     using Allocation = ::VmaAllocation;

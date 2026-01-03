@@ -25,7 +25,7 @@ namespace hammock::engine {
             init_info.Device = ctx->getDevice().device();
             init_info.QueueFamily = ctx->getDevice().getGraphicsQueueFamilyIndex();
             init_info.Queue = ctx->getDevice().graphicsQueue();
-            init_info.DescriptorPool = core::DescriptorPool::getInstance().descriptorPool;
+            init_info.DescriptorPool = core::DescriptorPool::getInstance().getDescriptorPool();
             init_info.MinImageCount = 3; // Usually 2 or 3
             init_info.ImageCount = 3;
 

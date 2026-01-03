@@ -5,6 +5,8 @@ module;
 #include <stdexcept>
 #include <memory>
 #include <vector>
+#include <functional>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 module hammock.core.swapchain;
@@ -14,21 +16,21 @@ import hammock.core.device;
 
 namespace hammock::core {
     SwapChain::SwapChain(Device &deviceRef, vk::SurfaceKHR surface, const vk::Extent2D extent)
-        : device{deviceRef}, surface{surface}, windowExtent{extent} {
+        : device_{deviceRef}, surface_{surface}, windowExtent_{extent} {
         init();
     }
 
     SwapChain::SwapChain(Device &deviceRef, vk::SurfaceKHR surface, const vk::Extent2D extent, const std::shared_ptr<SwapChain> &previous)
-        : device{deviceRef}, surface{surface}, windowExtent{extent}, oldSwapChain{previous} {
+        : device_{deviceRef}, surface_{surface}, windowExtent_{extent}, oldSwapChain_{previous} {
         init();
-        oldSwapChain = nullptr;
+        oldSwapChain_ = nullptr;
     }
 
     vk::Result SwapChain::acquireNextImage(uint32_t frameIndex, uint32_t *imageIndex) {
-        auto& syncObjects = frameSyncObjects[frameIndex];
+        auto& syncObjects = frameSyncObjects_[frameIndex];
 
         // Wait for the fence from the previous frame
-        if (device.device().waitForFences(
+        if (device_.device().waitForFences(
             1,
             &syncObjects.inFlightFence,
             true,
@@ -39,8 +41,8 @@ namespace hammock::core {
 
         // Don't reset fence here - let the manager do it after successful acquire
 
-        return device.device().acquireNextImageKHR(
-            swapChain,
+        return device_.device().acquireNextImageKHR(
+            swapChain_,
             UINT64_MAX,
             syncObjects.imageAvailable->getVulkanSemaphore(),
             nullptr,
@@ -49,7 +51,7 @@ namespace hammock::core {
     }
 
     vk::Result SwapChain::present(uint32_t frameIndex, uint32_t imageIndex) {
-        auto& syncObjects = frameSyncObjects[frameIndex];
+        auto& syncObjects = frameSyncObjects_[frameIndex];
 
         vk::Semaphore signalSemaphores[] = {
             syncObjects.renderFinished->getVulkanSemaphore()
@@ -59,12 +61,12 @@ namespace hammock::core {
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
 
-        vk::SwapchainKHR swapChains[] = {swapChain};
+        vk::SwapchainKHR swapChains[] = {swapChain_};
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &imageIndex;
 
-        return device.getPresentQueue().presentKHR(&presentInfo);
+        return device_.getPresentQueue().presentKHR(&presentInfo);
     }
 
     void SwapChain::recordPipelineBarrier(
@@ -96,7 +98,7 @@ namespace hammock::core {
             .newLayout = newLayout,
             .srcQueueFamilyIndex = srcQueueFamilyIndex,
             .dstQueueFamilyIndex = dstQueueFamilyIndex,
-            .image = swapChainImages[imageIndex],
+            .image = swapChainImages_[imageIndex],
             .subresourceRange = subresourceRange,
         };
 
@@ -108,6 +110,16 @@ namespace hammock::core {
         cmd.pipelineBarrier2(&depInfo);
     }
 
+    bool SwapChain::compareSwapFormats(const SwapChain &swapChain) const {
+        return swapChain.swapChainImageFormat_ == swapChainImageFormat_;
+    }
+
+    void SwapChain::forEachFrameInFlight(const std::function<void(int frame)> &cb) {
+        for (int frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++) {
+            cb(frame);
+        }
+    }
+
     void SwapChain::init() {
         createSwapChain();
         createImageViews();
@@ -115,23 +127,23 @@ namespace hammock::core {
     }
 
     SwapChain::~SwapChain() {
-        for (const auto imageView: swapChainImageViews) {
-            device.device().destroyImageView(imageView, nullptr);
+        for (const auto imageView: swapChainImageViews_) {
+            device_.device().destroyImageView(imageView, nullptr);
         }
-        swapChainImageViews.clear();
+        swapChainImageViews_.clear();
 
-        if (swapChain != nullptr) {
-            device.device().destroySwapchainKHR(swapChain, nullptr);
-            swapChain = nullptr;
+        if (swapChain_ != nullptr) {
+            device_.device().destroySwapchainKHR(swapChain_, nullptr);
+            swapChain_ = nullptr;
         }
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            device.device().destroyFence(frameSyncObjects[i].inFlightFence, nullptr);
+            device_.device().destroyFence(frameSyncObjects_[i].inFlightFence, nullptr);
         }
     }
 
     void SwapChain::createSwapChain() {
-        const auto [capabilities, formats, presentModes] = device.getSwapChainSupport();
+        const auto [capabilities, formats, presentModes] = device_.getSwapChainSupport();
 
         auto [format, colorSpace] = chooseSwapSurfaceFormat(formats);
         const vk::PresentModeKHR presentMode = chooseSwapPresentMode(presentModes);
@@ -143,7 +155,7 @@ namespace hammock::core {
         }
 
         vk::SwapchainCreateInfoKHR createInfo = {};
-        createInfo.surface = surface;
+        createInfo.surface = surface_;
 
         createInfo.minImageCount = imageCount;
         createInfo.imageFormat = format;
@@ -152,7 +164,7 @@ namespace hammock::core {
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst;
 
-        QueueFamilyIndices indices = device.getPhysicalQueueFamilies();
+        QueueFamilyIndices indices = device_.getPhysicalQueueFamilies();
         uint32_t queueFamilyIndices[] = {indices.graphicsFamily, indices.presentFamily};
 
         if (indices.graphicsFamily != indices.presentFamily) {
@@ -169,32 +181,32 @@ namespace hammock::core {
         createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
         createInfo.presentMode = presentMode;
         createInfo.clipped = true;
-        createInfo.oldSwapchain = oldSwapChain == nullptr ? nullptr : oldSwapChain->swapChain;
+        createInfo.oldSwapchain = oldSwapChain_ == nullptr ? nullptr : oldSwapChain_->swapChain_;
 
-        if (device.device().createSwapchainKHR(&createInfo, nullptr, &swapChain) != vk::Result::eSuccess) {
+        if (device_.device().createSwapchainKHR(&createInfo, nullptr, &swapChain_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create swap chain!");
         }
 
-        swapChainImages = device.device().getSwapchainImagesKHR(swapChain);
+        swapChainImages_ = device_.device().getSwapchainImagesKHR(swapChain_);
 
-        swapChainImageFormat = format;
-        swapChainExtent = extent;
+        swapChainImageFormat_ = format;
+        swapChainExtent_ = extent;
     }
 
     void SwapChain::createImageViews() {
-        swapChainImageViews.resize(swapChainImages.size());
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
+        swapChainImageViews_.resize(swapChainImages_.size());
+        for (size_t i = 0; i < swapChainImages_.size(); i++) {
             vk::ImageViewCreateInfo viewInfo{};
-            viewInfo.image = swapChainImages[i];
+            viewInfo.image = swapChainImages_[i];
             viewInfo.viewType = vk::ImageViewType::e2D;
-            viewInfo.format = swapChainImageFormat;
+            viewInfo.format = swapChainImageFormat_;
             viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
             viewInfo.subresourceRange.baseMipLevel = 0;
             viewInfo.subresourceRange.levelCount = 1;
             viewInfo.subresourceRange.baseArrayLayer = 0;
             viewInfo.subresourceRange.layerCount = 1;
 
-            if (device.device().createImageView(&viewInfo, nullptr, &swapChainImageViews[i]) != vk::Result::eSuccess) {
+            if (device_.device().createImageView(&viewInfo, nullptr, &swapChainImageViews_[i]) != vk::Result::eSuccess) {
                 throw std::runtime_error("failed to create texture image view!");
             }
         }
@@ -205,10 +217,10 @@ namespace hammock::core {
         fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            frameSyncObjects[i].imageAvailable = std::make_unique<Semaphore>(device);
-            frameSyncObjects[i].renderFinished = std::make_unique<Semaphore>(device);
+            frameSyncObjects_[i].imageAvailable = std::make_unique<Semaphore>(device_);
+            frameSyncObjects_[i].renderFinished = std::make_unique<Semaphore>(device_);
 
-            if (device.device().createFence(&fenceInfo, nullptr, &frameSyncObjects[i].inFlightFence) != vk::Result::eSuccess) {
+            if (device_.device().createFence(&fenceInfo, nullptr, &frameSyncObjects_[i].inFlightFence) != vk::Result::eSuccess) {
                 throw std::runtime_error("failed to create synchronization objects for a frame!");
             }
         }
@@ -247,7 +259,7 @@ namespace hammock::core {
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
         } else {
-            vk::Extent2D actualExtent = windowExtent;
+            vk::Extent2D actualExtent = windowExtent_;
             actualExtent.width = std::max(
                 capabilities.minImageExtent.width,
                 std::min(capabilities.maxImageExtent.width, actualExtent.width));
@@ -259,9 +271,17 @@ namespace hammock::core {
     }
 
     vk::Format SwapChain::getSupportedDepthFormat() const {
-        return device.findSupportedFormat(
+        return device_.findSupportedFormat(
             {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
             vk::ImageTiling::eOptimal,
             vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+    }
+
+    FrameSyncObjects & SwapChain::getSyncObjects(const uint32_t frameIndex) {
+        return frameSyncObjects_[frameIndex];
+    }
+
+    const FrameSyncObjects & SwapChain::getSyncObjects(const uint32_t frameIndex) const {
+        return frameSyncObjects_[frameIndex];
     }
 } // namespace hammock::core

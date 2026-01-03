@@ -14,35 +14,28 @@ import hammock.core.swapchain;
 
 
 namespace hammock::core {
+    /// @brief SwapChain recreated callback type
     export using OnSwapChainRecreatedCallback = std::function<void(std::uint32_t, std::uint32_t)>;
 
-    export class SwapChainManager : public Singleton<SwapChainManager> {
+    /// @class SwapChainManager
+    /// @brief Manager responsible for manipulation the SwapChain
+    export class SwapChainManager final : public Singleton<SwapChainManager> {
         friend class Singleton<SwapChainManager>;
 
     public:
-        static void initialize(BaseSurfaceProvider &i_surfaceProvider, Device &device) {
-            Singleton<SwapChainManager>::initialize(i_surfaceProvider, device);
-        }
+        static void initialize(BaseSurfaceProvider &i_surfaceProvider, Device &device);
 
         // delete copy constructor and copy destructor
         SwapChainManager(const SwapChainManager &) = delete;
 
         SwapChainManager &operator=(const SwapChainManager &) = delete;
 
-        [[nodiscard]] SwapChain &getSwapChain() const { return *swapChain; };
-        [[nodiscard]] bool isFrameInProgress() const { return isFrameStarted; }
+        [[nodiscard]] SwapChain &getSwapChain() const { return *swapChain_; };
+        [[nodiscard]] bool isFrameInProgress() const { return isFrameStarted_; }
 
-        [[nodiscard]] int getFrameIndex() const {
-            if (!isFrameStarted)
-                throw std::runtime_error("Cannot get frame index when frame not in progress");
-            return currentFrameIndex;
-        }
+        [[nodiscard]] int getFrameIndex() const;
 
-        [[nodiscard]] int getSwapChainImageIndex() const {
-            if (!isFrameStarted)
-                throw std::runtime_error("Cannot get image index when frame not in progress");
-            return currentImageIndex;
-        }
+        [[nodiscard]] int getSwapChainImageIndex() const;
 
         void present();
 
@@ -50,23 +43,21 @@ namespace hammock::core {
 
         void endFrame();
 
-        void registerOnSwapChainRecreatedCallback(const OnSwapChainRecreatedCallback &callback) {
-            onSwapChainRecreated.push_back(std::move(callback));
-        }
+        void registerOnSwapChainRecreatedCallback(const OnSwapChainRecreatedCallback &callback);
 
     protected:
         SwapChainManager(BaseSurfaceProvider &i_surfaceProvider, Device &device);
 
         void recreateSwapChain();
 
-        BaseSurfaceProvider &surfaceProvider;
-        Device &device;
-        std::unique_ptr<SwapChain> swapChain;
+        BaseSurfaceProvider &surfaceProvider_;
+        Device &device_;
+        std::unique_ptr<SwapChain> swapChain_;
 
-        std::uint32_t currentImageIndex;
-        int currentFrameIndex{0};
-        bool isFrameStarted{false};
+        std::uint32_t currentImageIndex_;
+        int currentFrameIndex_{0};
+        bool isFrameStarted_{false};
 
-        std::vector<OnSwapChainRecreatedCallback> onSwapChainRecreated{};
+        std::vector<OnSwapChainRecreatedCallback> onSwapChainRecreated_{};
     };
 } // namespace hammock::core

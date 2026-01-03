@@ -1,6 +1,7 @@
 module;
 #include <string>
 #include <cstdint>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.core.base_resource;

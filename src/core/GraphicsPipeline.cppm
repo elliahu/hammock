@@ -14,10 +14,9 @@ import hammock.core.device;
 import hammock.core.base_pipeline;
 import hammock.core.descriptor;
 
-
-
 namespace hammock::core {
-    /// Helper function for constructing VkPipelineColorBlendAttachmentState struct
+
+    /// @brief Helper function for constructing VkPipelineColorBlendAttachmentState struct
     export vk::PipelineColorBlendAttachmentState graphicsPipelineColorBlendAttachmentState(
         vk::ColorComponentFlags colorWriteMask,
         vk::Bool32 blendEnable) {
@@ -104,52 +103,38 @@ namespace hammock::core {
 
         ~GraphicsPipeline() override;
 
+        /// @brief Create the graphics pipeline unique ptr
         static std::unique_ptr<GraphicsPipeline> create(GraphicsPipelineCreateInfo createInfo);
 
-        static void beginRendering(CommandBuffer &commandBuffer, const vk::RenderingInfo *renderingInfo) {
-            commandBuffer.getCommandBuffer().beginRendering(renderingInfo);
-        }
+        /// @brief Begin dynamic rendering
+        static void beginRendering(CommandBuffer &commandBuffer, const vk::RenderingInfo *renderingInfo);
 
-        static void endRendering(CommandBuffer &commandBuffer) {
-            commandBuffer.getCommandBuffer().endRendering();
-        }
+        /// @brief End dynamic rendering
+        static void endRendering(CommandBuffer &commandBuffer);
 
+        /// @brief Set Viewport (requires dynamic state enabled for viewport)
         static void setViewport(CommandBuffer &commandBuffer, float x, float y, float width, float height,
-                                float minDepth, float maxDepth) {
-            vk::Viewport viewport = {x, y, width, height, minDepth, maxDepth};
-            commandBuffer.getCommandBuffer().setViewport(0, 1, &viewport);
-        }
+                                float minDepth, float maxDepth);
 
-        static void setScissor(CommandBuffer &commandBuffer, vk::Offset2D offset, vk::Extent2D extent) {
-            vk::Rect2D rec{offset, extent};
-            commandBuffer.getCommandBuffer().setScissor(0, 1, &rec);
-        }
+        /// @brief Set scissor (requires dynamic state enabled for scissor)
+        static void setScissor(CommandBuffer &commandBuffer, vk::Offset2D offset, vk::Extent2D extent);
 
-        void bind(CommandBuffer &commandBuffer) override {
-            commandBuffer.getCommandBuffer().bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
-        }
+        /// @brief Bind this pipeline as active
+        void bind(CommandBuffer &commandBuffer) override;
 
+        /// @brief Bind descriptor set
         void bindDescriptorSet(
-            CommandBuffer &commandBuffer, uint32_t firstSet, const vk::DescriptorSet *descriptorSet) override {
-            commandBuffer.getCommandBuffer().bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                pipelineLayout,
-                firstSet, 1,
-                descriptorSet,
-                0, nullptr
-            );
-        }
+            CommandBuffer &commandBuffer, uint32_t firstSet, const vk::DescriptorSet *descriptorSet) override;
 
+        /// @brief Push constant range
         void pushConstants(CommandBuffer &commandBuffer, vk::ShaderStageFlags stageFlags,
-                           uint32_t offset, uint32_t size, const void *pValues) override {
-            commandBuffer.getCommandBuffer().pushConstants(pipelineLayout, stageFlags, offset, size, pValues);
-        }
+                           uint32_t offset, uint32_t size, const void *pValues) override;
 
     private:
         static void defaultRenderPipelineConfig(GraphicsPipelineConfig &configInfo);
 
-        vk::ShaderModule vertShaderModule;
-        vk::ShaderModule fragShaderModule;
+        vk::ShaderModule vertShaderModule_;
+        vk::ShaderModule fragShaderModule_;
     };
 
     /// @class GraphicsPipelineBuilder
@@ -159,94 +144,54 @@ namespace hammock::core {
         explicit GraphicsPipelineBuilder(Device &device) : createInfo{device} {
         }
 
+        /// @brief Set vertex shader bytecode
         GraphicsPipelineBuilder &setVertexShader(const std::vector<char> &byteCode,
-                                                 const std::string &entry = "vertMain") {
-            createInfo.vertexShader.byteCode = byteCode;
-            createInfo.vertexShader.entry = entry;
-            return *this;
-        }
+                                                 const std::string &entry = "vertMain");
 
+        /// @brief Set fragment shader bytecode
         GraphicsPipelineBuilder &setFragmentShader(const std::vector<char> &byteCode,
-                                                   const std::string &entry = "fragMain") {
-            createInfo.fragmentShader.byteCode = byteCode;
-            createInfo.fragmentShader.entry = entry;
-            return *this;
-        }
+                                                   const std::string &entry = "fragMain");
 
+        /// @brief Add descriptor set layout (call this for each layout)
         GraphicsPipelineBuilder &
-        addDescriptorSetLayout(const std::unique_ptr<DescriptorSetLayout> &descriptorSetLayout) {
-            createInfo.descriptorSetLayouts.push_back(descriptorSetLayout->getDescriptorSetLayout());
-            return *this;
-        }
+        addDescriptorSetLayout(const std::unique_ptr<DescriptorSetLayout> &descriptorSetLayout);
 
-        GraphicsPipelineBuilder &addPushConstantRange(vk::PushConstantRange pushConstantRange) {
-            createInfo.pushConstantRanges.push_back(pushConstantRange);
-            return *this;
-        }
+        /// @brief Add push constant range
+        GraphicsPipelineBuilder &addPushConstantRange(vk::PushConstantRange pushConstantRange);
 
+        /// @brief Setup the depth testing
         GraphicsPipelineBuilder &setDepthTest(vk::Bool32 depthTest = vk::True,
-                                              vk::CompareOp compareOp = vk::CompareOp::eLessOrEqual) {
-            createInfo.depthTest = depthTest;
-            createInfo.depthTestCompareOp = compareOp;
-            return *this;
-        }
+                                              vk::CompareOp compareOp = vk::CompareOp::eLessOrEqual);
 
+        /// @brief Setup (back/front) face culling
         GraphicsPipelineBuilder &setCullMode(vk::CullModeFlags cullMode = vk::CullModeFlagBits::eBack,
-                                             vk::FrontFace frontFace = vk::FrontFace::eCounterClockwise) {
-            createInfo.cullMode = cullMode;
-            createInfo.frontFace = frontFace;
-            return *this;
-        }
+                                             vk::FrontFace frontFace = vk::FrontFace::eCounterClockwise);
 
+        /// @brief Add blend attachment state
         GraphicsPipelineBuilder &addBlendAttachmentState(vk::ColorComponentFlags colorWriteMask,
-                                                         vk::Bool32 blendEnable) {
-            createInfo.blendAtaAttachmentStates.push_back(
-                graphicsPipelineColorBlendAttachmentState(colorWriteMask, blendEnable));
-            return *this;
-        }
+                                                         vk::Bool32 blendEnable);
 
+        /// @brief Set vertex input attribute descriptions
         GraphicsPipelineBuilder &setVertexInputAttributeDescriptions(
-            std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions) {
-            createInfo.vertexInputAttributeDescriptions = std::move(vertexInputAttributeDescriptions);
-            return *this;
-        }
+            std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions);
 
         GraphicsPipelineBuilder &addVertexInputAttributeDescription(std::uint32_t location, std::uint32_t binding,
-                                                                    vk::Format format, std::uint32_t offset) {
-            createInfo.vertexInputAttributeDescriptions.push_back({location, binding, format, offset});
-            return *this;
-        }
+                                                                    vk::Format format, std::uint32_t offset);
 
         GraphicsPipelineBuilder &setVertexInputBindingDescriptions(
-            std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions) {
-            createInfo.vertexInputBindingDescriptions = std::move(vertexInputBindingDescriptions);
-            return *this;
-        }
+            std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions);
 
         GraphicsPipelineBuilder &addVertexInputBindingDescription(std::uint32_t binding, std::uint32_t stride,
-                                                                  vk::VertexInputRate inputRate) {
-            createInfo.vertexInputBindingDescriptions.push_back({binding, stride, inputRate});
-            return *this;
-        }
+                                                                  vk::VertexInputRate inputRate);
 
-        GraphicsPipelineBuilder &addColorAttachmentFormat(vk::Format format) {
-            createInfo.colorAttachmentFormats.push_back(format);
-            return *this;
-        }
+        GraphicsPipelineBuilder &addColorAttachmentFormat(vk::Format format);
 
         GraphicsPipelineBuilder &setDepthStencilAttachmentFormat(vk::Format depth = vk::Format::eUndefined,
-                                                                 vk::Format stencil = vk::Format::eUndefined) {
-            createInfo.depthAttachmentFormat = depth;
-            createInfo.stencilAttachmentFormat = stencil;
-            return *this;
-        }
+                                                                 vk::Format stencil = vk::Format::eUndefined);
 
         /// @brief Set vulkan render pass.
         /// @note Setting render pass will disable dynamic rendering for this pipeline and dynamic rendering related settings will be ignored
-        GraphicsPipelineBuilder &setRenderPass(vk::RenderPass renderPass) {
-            createInfo.renderPass = renderPass;
-            return *this;
-        }
+        GraphicsPipelineBuilder &setRenderPass(vk::RenderPass renderPass);
 
         std::unique_ptr<GraphicsPipeline> build() {
             return std::make_unique<GraphicsPipeline>(createInfo);

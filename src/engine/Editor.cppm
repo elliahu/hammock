@@ -2,6 +2,7 @@ module;
 
 #include <memory>
 #include <array>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.engine.editor;

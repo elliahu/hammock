@@ -28,6 +28,9 @@ target_sources(hammock_core
         "Utilities.cppm"
         "Semaphore.cppm"
     PRIVATE
+        "Buffer.cpp"
+        "Image.cpp"
+        "Instance.cpp"
         "CommandBuffer.cpp"
         "ComputePipeline.cpp"
         "Descriptor.cpp"

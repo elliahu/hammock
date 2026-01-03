@@ -2,6 +2,7 @@ module;
 #include <VulkanSurfer/VulkanSurfer.h>
 #include <cstdint>
 #include <string>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 

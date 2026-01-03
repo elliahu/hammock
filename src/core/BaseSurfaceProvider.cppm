@@ -1,5 +1,6 @@
 module;
 
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.core.base_surface_provider;

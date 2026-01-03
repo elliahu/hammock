@@ -2,6 +2,7 @@ module;
 #include <vector>
 #include <cstdint>
 #include <stdexcept>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.core.base_pipeline;

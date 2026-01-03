@@ -178,6 +178,7 @@ namespace hammock::core {
 
             // Add a newline for clean output
             std::printf("\n");
+            std::fflush(stdout);
         }
     };
 

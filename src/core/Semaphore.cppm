@@ -1,6 +1,7 @@
 module;
 
 #include <stdexcept>
+#include <compare>
 #include <vulkan/vulkan.hpp>
 
 export module hammock.core.semaphore;
@@ -8,6 +9,9 @@ export module hammock.core.semaphore;
 import hammock.core.device;
 
 namespace hammock::core {
+    /// @class Semaphore
+    /// @brief Wrapper around vulkan semaphore.
+    /// Used for GPU to GPU sync
     export class Semaphore final {
     public:
         explicit Semaphore(Device &device);
@@ -16,7 +20,7 @@ namespace hammock::core {
         [[nodiscard]] vk::Semaphore getVulkanSemaphore() const;
 
     private:
-        Device &device;
-        vk::Semaphore semaphore;
+        Device &device_;
+        vk::Semaphore semaphore_;
     };
 }
