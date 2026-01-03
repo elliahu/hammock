@@ -30,10 +30,10 @@ void hammock::core::SwapChainManager::recreateSwapChain() {
     device.waitIdle();
 
     if (swapChain == nullptr) {
-        swapChain = std::make_unique<SwapChain>(device, extent);
+        swapChain = std::make_unique<SwapChain>(device, surfaceProvider.getSurface(), extent);
     } else {
         std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
-        swapChain = std::make_unique<SwapChain>(device, extent, oldSwapChain);
+        swapChain = std::make_unique<SwapChain>(device, surfaceProvider.getSurface(), extent, oldSwapChain);
 
         if (!oldSwapChain->compareSwapFormats(*swapChain.get())) {
             throw std::runtime_error("SwapChain image format has changed");

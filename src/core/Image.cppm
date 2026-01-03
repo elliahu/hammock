@@ -213,7 +213,7 @@ namespace hammock::core {
             if (newLayout == m_layout) {
                 return;
             }
-            device.transitionImageLayout(
+            device.queueImageLayoutTransition(
                 m_image, m_layout, newLayout, m_layers, 0, m_mips, 0, getAspectMask());
             m_layout = newLayout;
         }

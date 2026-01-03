@@ -57,10 +57,10 @@ auto hammock::core::CommandBuffer::submit(vk::Fence fence) -> void {
             queue = device.graphicsQueue();
             break;
         case CommandQueueFamily::Compute:
-            queue = device.computeQueue();
+            queue = device.getComputeQueue();
             break;
         case CommandQueueFamily::Transfer:
-            queue = device.transferQueue();
+            queue = device.getTransferQueue();
             break;
         default:
             throw std::runtime_error("Unknown queue family");

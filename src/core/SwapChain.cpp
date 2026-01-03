@@ -13,13 +13,13 @@ import hammock.core.utilities;
 import hammock.core.device;
 
 namespace hammock::core {
-    SwapChain::SwapChain(Device &deviceRef, const vk::Extent2D extent)
-        : device{deviceRef}, windowExtent{extent} {
+    SwapChain::SwapChain(Device &deviceRef, vk::SurfaceKHR surface, const vk::Extent2D extent)
+        : device{deviceRef}, surface{surface}, windowExtent{extent} {
         init();
     }
 
-    SwapChain::SwapChain(Device &deviceRef, const vk::Extent2D extent, const std::shared_ptr<SwapChain> &previous)
-        : device{deviceRef}, windowExtent{extent}, oldSwapChain{previous} {
+    SwapChain::SwapChain(Device &deviceRef, vk::SurfaceKHR surface, const vk::Extent2D extent, const std::shared_ptr<SwapChain> &previous)
+        : device{deviceRef}, surface{surface}, windowExtent{extent}, oldSwapChain{previous} {
         init();
         oldSwapChain = nullptr;
     }
@@ -64,7 +64,7 @@ namespace hammock::core {
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &imageIndex;
 
-        return device.presentQueue().presentKHR(&presentInfo);
+        return device.getPresentQueue().presentKHR(&presentInfo);
     }
 
     void SwapChain::recordPipelineBarrier(
@@ -143,7 +143,7 @@ namespace hammock::core {
         }
 
         vk::SwapchainCreateInfoKHR createInfo = {};
-        createInfo.surface = device.surface();
+        createInfo.surface = surface;
 
         createInfo.minImageCount = imageCount;
         createInfo.imageFormat = format;
@@ -152,7 +152,7 @@ namespace hammock::core {
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst;
 
-        QueueFamilyIndices indices = device.findPhysicalQueueFamilies();
+        QueueFamilyIndices indices = device.getPhysicalQueueFamilies();
         uint32_t queueFamilyIndices[] = {indices.graphicsFamily, indices.presentFamily};
 
         if (indices.graphicsFamily != indices.presentFamily) {

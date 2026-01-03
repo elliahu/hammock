@@ -176,15 +176,15 @@ namespace hammock::engine {
             blit.srcSubresource.mipLevel = 0;
             blit.srcSubresource.baseArrayLayer = 0;
             blit.srcSubresource.layerCount = 1;
-            blit.srcOffsets[0] = {0, 0, 0};
-            blit.srcOffsets[1] = {1920, 1080, 1};
+            blit.srcOffsets[0] = vk::Offset3D{0, 0, 0};
+            blit.srcOffsets[1] = vk::Offset3D{1920, 1080, 1};
 
             blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
             blit.dstSubresource.mipLevel = 0;
             blit.dstSubresource.baseArrayLayer = 0;
             blit.dstSubresource.layerCount = 1;
-            blit.dstOffsets[0] = {0, 0, 0};
-            blit.dstOffsets[1] = {1920, 1080, 1};
+            blit.dstOffsets[0] = vk::Offset3D{0, 0, 0};
+            blit.dstOffsets[1] = vk::Offset3D{1920, 1080, 1};
 
             commandBuffer.getCommandBuffer().blitImage(
                 target->getImage(), vk::ImageLayout::eTransferSrcOptimal,

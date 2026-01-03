@@ -11,8 +11,7 @@ import hammock.core.utilities;
 import hammock.core.memory_allocator;
 
 namespace hammock::core {
-    // class member functions
-    Device::Device(Instance &instance, vk::SurfaceKHR surface) : instance{instance}, surface_{surface} {
+    Device::Device(Instance &instance, vk::SurfaceKHR surface) : instance_{instance}, surface_{surface} {
         pickPhysicalDevice();
         createLogicalDevice();
         createCommandPools();
@@ -21,29 +20,29 @@ namespace hammock::core {
 
     Device::~Device() {
         allocator::destroyAllocator(allocator_);
-        device_.destroyCommandPool(graphicsCommandPool);
-        device_.destroyCommandPool(transferCommandPool);
-        device_.destroyCommandPool(computeCommandPool);
+        device_.destroyCommandPool(graphicsCommandPool_);
+        device_.destroyCommandPool(transferCommandPool_);
+        device_.destroyCommandPool(computeCommandPool_);
         device_.destroy();
     }
 
 
     void Device::pickPhysicalDevice() {
-        std::vector<vk::PhysicalDevice> devices = instance.getInstance().enumeratePhysicalDevices();
+        std::vector<vk::PhysicalDevice> devices = instance_.getInstance().enumeratePhysicalDevices();
 
         for (const auto &device: devices) {
             if (isDeviceSuitable(device)) {
-                physicalDevice = device;
+                physicalDevice_ = device;
                 break;
             }
         }
 
-        if (!physicalDevice) {
+        if (!physicalDevice_) {
             throw std::runtime_error("failed to find a suitable GPU!");
         }
 
-        physicalDeviceProperties = physicalDevice.getProperties();
-        Logger::info("Physical device: %s", physicalDeviceProperties.deviceName);
+        physicalDeviceProperties_ = physicalDevice_.getProperties();
+        Logger::info("Physical device: %s", physicalDeviceProperties_.deviceName);
 
         if (runningHeadless()) {
             Logger::info("Running in headless mode");
@@ -52,7 +51,7 @@ namespace hammock::core {
 
     void Device::createLogicalDevice() {
         auto queFamilyIndices = findQueueFamilies(
-            physicalDevice);
+            physicalDevice_);
 
         std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
         std::set<uint32_t> uniqueQueueFamilies = {
@@ -108,13 +107,13 @@ namespace hammock::core {
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.pEnabledFeatures = nullptr;
         // Ensure no enabled features from previous Vulkan versions are left active
-        createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-        createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions_.size());
+        createInfo.ppEnabledExtensionNames = deviceExtensions_.data();
         createInfo.pNext = &deviceFeatures2; // Pass the device features structure
         createInfo.enabledLayerCount = 0;
 
 
-        if (physicalDevice.createDevice(&createInfo, nullptr, &device_) != vk::Result::eSuccess) {
+        if (physicalDevice_.createDevice(&createInfo, nullptr, &device_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create logical device!");
         }
 
@@ -126,27 +125,27 @@ namespace hammock::core {
 
     void Device::createCommandPools() {
         auto queFamilyIndices =
-                findPhysicalQueueFamilies();
+                getPhysicalQueueFamilies();
 
         vk::CommandPoolCreateInfo poolInfo = {};
         poolInfo.queueFamilyIndex = queFamilyIndices.graphicsFamily;
         poolInfo.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
 
-        if (device_.createCommandPool(&poolInfo, nullptr, &graphicsCommandPool) != vk::Result::eSuccess) {
+        if (device_.createCommandPool(&poolInfo, nullptr, &graphicsCommandPool_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create graphics command pool!");
         }
 
         poolInfo.queueFamilyIndex = queFamilyIndices.transferFamily;
         poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
-        if (device_.createCommandPool(&poolInfo, nullptr, &transferCommandPool) != vk::Result::eSuccess) {
+        if (device_.createCommandPool(&poolInfo, nullptr, &transferCommandPool_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create transfer command pool!");
         }
 
         poolInfo.queueFamilyIndex = queFamilyIndices.computeFamily;
 
-        if (device_.createCommandPool(&poolInfo, nullptr, &computeCommandPool) != vk::Result::eSuccess) {
+        if (device_.createCommandPool(&poolInfo, nullptr, &computeCommandPool_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create compute command pool!");
         }
     }
@@ -159,9 +158,9 @@ namespace hammock::core {
         allocator::AllocatorCreateInfo allocatorCreateInfo = {};
         allocatorCreateInfo.flags = allocator::AllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
         allocatorCreateInfo.vulkanApiVersion = vk::makeApiVersion(0, 1, 3, 0);
-        allocatorCreateInfo.physicalDevice = physicalDevice;
+        allocatorCreateInfo.physicalDevice = physicalDevice_;
         allocatorCreateInfo.device = device_;
-        allocatorCreateInfo.instance = instance.getInstance();
+        allocatorCreateInfo.instance = instance_.getInstance();
         allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
 
         try {
@@ -191,7 +190,7 @@ namespace hammock::core {
 
     bool Device::checkDeviceExtensionSupport(const vk::PhysicalDevice device) const {
         std::vector<vk::ExtensionProperties> availableExtensions = device.enumerateDeviceExtensionProperties();
-        std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+        std::set<std::string> requiredExtensions(deviceExtensions_.begin(), deviceExtensions_.end());
 
         for (const auto &extension: availableExtensions) {
             requiredExtensions.erase(extension.extensionName);
@@ -287,7 +286,7 @@ namespace hammock::core {
         const std::vector<vk::Format> &candidates, const vk::ImageTiling tiling,
         const vk::FormatFeatureFlags features) const {
         for (const vk::Format format: candidates) {
-            vk::FormatProperties props = physicalDevice.getFormatProperties(format);
+            vk::FormatProperties props = physicalDevice_.getFormatProperties(format);
 
             if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features) {
                 return format;
@@ -300,8 +299,19 @@ namespace hammock::core {
         throw std::runtime_error("failed to find supported format!");
     }
 
+    vk::Queue Device::getPresentQueue() const {
+        if (runningHeadless()) {
+            throw std::runtime_error("Present queue unavailable in headless mode");
+        }
+        return presentQueue_;
+    }
+
+    SwapChainSupportDetails Device::getSwapChainSupport() const {
+        return querySwapChainSupport(physicalDevice_);
+    }
+
     uint32_t Device::findMemoryType(const uint32_t typeFilter, const vk::MemoryPropertyFlags properties) const {
-        vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+        vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice_.getMemoryProperties();
         for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
             if ((typeFilter & (1 << i)) &&
                 (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -316,7 +326,7 @@ namespace hammock::core {
     vk::CommandBuffer Device::beginSingleTimeCommands() const {
         vk::CommandBufferAllocateInfo allocInfo{};
         allocInfo.level = vk::CommandBufferLevel::ePrimary;
-        allocInfo.commandPool = graphicsCommandPool;
+        allocInfo.commandPool = graphicsCommandPool_;
         allocInfo.commandBufferCount = 1;
 
         vk::CommandBuffer commandBuffer;
@@ -345,10 +355,10 @@ namespace hammock::core {
         }
 
         graphicsQueue_.waitIdle();
-        device_.freeCommandBuffers(graphicsCommandPool, 1, &commandBuffer);
+        device_.freeCommandBuffers(graphicsCommandPool_, 1, &commandBuffer);
     }
 
-    void Device::transitionImageLayout(const vk::Image image,
+    void Device::queueImageLayoutTransition(const vk::Image image,
                                        const vk::ImageLayout layoutOld,
                                        const vk::ImageLayout layoutNew,
                                        uint32_t layerCount,

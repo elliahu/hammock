@@ -24,8 +24,8 @@ namespace hammock::core {
     public:
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-        SwapChain(Device &deviceRef, vk::Extent2D windowExtent);
-        SwapChain(Device &deviceRef, vk::Extent2D windowExtent, const std::shared_ptr<SwapChain> &previous);
+        SwapChain(Device &deviceRef, vk::SurfaceKHR surface, vk::Extent2D windowExtent);
+        SwapChain(Device &deviceRef, vk::SurfaceKHR surface, vk::Extent2D windowExtent, const std::shared_ptr<SwapChain> &previous);
         ~SwapChain();
 
         SwapChain(const SwapChain &) = delete;
@@ -98,6 +98,7 @@ namespace hammock::core {
         std::vector<vk::ImageView> swapChainImageViews;
 
         Device &device;
+        vk::SurfaceKHR surface;
         vk::Extent2D windowExtent;
         vk::SwapchainKHR swapChain;
         std::shared_ptr<SwapChain> oldSwapChain;
