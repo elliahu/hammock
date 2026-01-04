@@ -131,6 +131,8 @@ std::vector<const char *> hammock::core::Instance::getRequiredExtensions() const
 
     // Common extension for all platforms
     extensions.push_back(vk::KHRSurfaceExtensionName);
+    extensions.push_back(vk::KHRGetSurfaceCapabilities2ExtensionName);
+    extensions.push_back(vk::KHRSurfaceMaintenance1ExtensionName);
 
 #if defined(_WIN32)
     // Add Win32-specific extension

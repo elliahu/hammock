@@ -29,17 +29,25 @@ namespace hammock::core {
     vk::Result SwapChain::acquireNextImage(uint32_t frameIndex, uint32_t *imageIndex) {
         auto& syncObjects = frameSyncObjects_[frameIndex];
 
-        // Wait for the fence from the previous frame
+        // Wait for both: GPU execution AND Presentation release
+        std::array<vk::Fence, 2> fences = {
+            syncObjects.inFlightFence,
+            syncObjects.releaseFence
+        };
+
         if (device_.device().waitForFences(
-            1,
-            &syncObjects.inFlightFence,
-            true,
+            fences.size(),
+            fences.data(),
+            true, // Wait for ALL
             UINT64_MAX
         ) != vk::Result::eSuccess) {
-            throw std::runtime_error("failed to wait for in flight fence");
+            throw std::runtime_error("failed to wait for fences");
         }
 
-        // Don't reset fence here - let the manager do it after successful acquire
+        // Resetting here is fine
+        if (device_.device().resetFences(1, &syncObjects.inFlightFence) != vk::Result::eSuccess) {
+            throw std::runtime_error("failed to reset in flight fence");
+        }
 
         return device_.device().acquireNextImageKHR(
             swapChain_,
@@ -53,11 +61,22 @@ namespace hammock::core {
     vk::Result SwapChain::present(uint32_t frameIndex, uint32_t imageIndex) {
         auto& syncObjects = frameSyncObjects_[frameIndex];
 
+        // Reset the release fence before using it in present
+        if (device_.device().resetFences(1, &syncObjects.releaseFence) != vk::Result::eSuccess) {
+            throw std::runtime_error("failed to reset release fence");
+        }
+
         vk::Semaphore signalSemaphores[] = {
             syncObjects.renderFinished->getVulkanSemaphore()
         };
 
+        // Attach the fence to the presentation via pNext
+        vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
+        presentFenceInfo.swapchainCount = 1;
+        presentFenceInfo.pFences = &syncObjects.releaseFence;
+
         vk::PresentInfoKHR presentInfo{};
+        presentInfo.pNext = &presentFenceInfo; // <--- The modern way
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
 
@@ -139,6 +158,7 @@ namespace hammock::core {
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             device_.device().destroyFence(frameSyncObjects_[i].inFlightFence, nullptr);
+            device_.device().destroyFence(frameSyncObjects_[i].releaseFence, nullptr);
         }
     }
 
@@ -221,6 +241,10 @@ namespace hammock::core {
             frameSyncObjects_[i].renderFinished = std::make_unique<Semaphore>(device_);
 
             if (device_.device().createFence(&fenceInfo, nullptr, &frameSyncObjects_[i].inFlightFence) != vk::Result::eSuccess) {
+                throw std::runtime_error("failed to create synchronization objects for a frame!");
+            }
+
+            if (device_.device().createFence(&fenceInfo, nullptr, &frameSyncObjects_[i].releaseFence) != vk::Result::eSuccess) {
                 throw std::runtime_error("failed to create synchronization objects for a frame!");
             }
         }

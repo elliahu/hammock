@@ -20,6 +20,7 @@ namespace hammock::core {
         std::unique_ptr<Semaphore> imageAvailable;
         std::unique_ptr<Semaphore> renderFinished;
         vk::Fence inFlightFence;
+        vk::Fence releaseFence;
     };
 
     /// @class SwapChain

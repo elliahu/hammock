@@ -63,12 +63,6 @@ bool hammock::core::SwapChainManager::beginFrame() {
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    // Reset fence after successful acquire
-    auto& syncObjects = swapChain_->getSyncObjects(currentFrameIndex_);
-    if (device_.device().resetFences(1, &syncObjects.inFlightFence) != vk::Result::eSuccess) {
-        throw std::runtime_error("failed to reset in flight fences");
-    }
-
     isFrameStarted_ = true;
     return true;
 }

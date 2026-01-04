@@ -66,7 +66,7 @@ namespace hammock::core {
         BaseResource(const BaseResource&) = delete;
         BaseResource& operator=(const BaseResource&) = delete;
         BaseResource(BaseResource&&) = default;
-        BaseResource& operator=(BaseResource&&) = default;
+        BaseResource& operator=(BaseResource&&) = delete;
 
     public:
         virtual ~BaseResource() {}

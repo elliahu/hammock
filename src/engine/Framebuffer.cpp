@@ -78,25 +78,26 @@ hammock::core::Semaphore &hammock::engine::Framebuffer::getFramebufferReadySemap
 void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, vk::Format format) {
     auto &rm = core::ResourceManager::getInstance();
     for (int i = 0; i < framesInFlight_; i++) {
-        auto handle = rm.createResource<core::Image>("swapimage-" + std::to_string(i), core::ImageDesc{
-                                                         .width = static_cast<std::uint32_t>(resolution.X),
-                                                         .height = static_cast<std::uint32_t>(resolution.Y),
-                                                         .channels = 4,
-                                                         .depth = 1,
-                                                         .layers = 1,
-                                                         .mips = 1,
-                                                         .format = format,
-                                                         .usage = vk::ImageUsageFlagBits::eColorAttachment |
-                                                                  vk::ImageUsageFlagBits::eTransferSrc |
-                                                                  vk::ImageUsageFlagBits::eTransferDst,
-                                                         .imageType = vk::ImageType::e2D,
-                                                         .imageViewType = vk::ImageViewType::e2D,
-                                                         .clearValue = vk::ClearValue{
-                                                             .color = vk::ClearColorValue{
-                                                                 std::array<float, 4>{1.0f, 1.0f, 1.0f, 1.0f}
-                                                             }
-                                                         }
-                                                     });
+        auto imageDesc = core::ImageDesc{
+            .width = static_cast<std::uint32_t>(resolution.X),
+            .height = static_cast<std::uint32_t>(resolution.Y),
+            .channels = 4,
+            .depth = 1,
+            .layers = 1,
+            .mips = 1,
+            .format = format,
+            .usage = vk::ImageUsageFlagBits::eColorAttachment |
+                     vk::ImageUsageFlagBits::eTransferSrc |
+                     vk::ImageUsageFlagBits::eTransferDst,
+            .imageType = vk::ImageType::e2D,
+            .imageViewType = vk::ImageViewType::e2D,
+            .clearValue = vk::ClearValue{
+                .color = vk::ClearColorValue{
+                    std::array<float, 4>{1.0f, 1.0f, 1.0f, 1.0f}
+                }
+            }
+        };
+        auto handle = rm.createResource<core::Image>("swapimage-" + std::to_string(i), imageDesc);
 
         images_.push_back(handle);
     }

@@ -178,6 +178,11 @@ namespace hammock::core {
             vk::KHRDynamicRenderingExtensionName,
             // Descriptor indexing is used
             vk::EXTDescriptorIndexingExtensionName,
+            // Unified image layouts
+            vk::KHRUnifiedImageLayoutsExtensionName,
+            // SwapChain maintenance enables release fence in swapchain
+            vk::KHRSwapchainMaintenance1ExtensionName,
+
         };
     };
 } // namespace hammock::core
