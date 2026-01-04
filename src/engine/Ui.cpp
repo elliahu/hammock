@@ -14,16 +14,16 @@ hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx) 
     ImGui::CreateContext();
     ImGui_ImplVulkanSurfer_Init(window);
 
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = ctx->getInstance().getInstance();
-    init_info.PhysicalDevice = ctx->getDevice().getPhysicalDevice();
-    init_info.Device = ctx->getDevice().device();
-    init_info.QueueFamily = ctx->getDevice().getGraphicsQueueFamilyIndex();
-    init_info.Queue = ctx->getDevice().graphicsQueue();
-    init_info.DescriptorPool = core::DescriptorPool::getInstance().getDescriptorPool();
-    init_info.MinImageCount = 3; // Usually 2 or 3
-    init_info.ImageCount = 3;
-    init_info.UseDynamicRendering = true;
+    ImGui_ImplVulkan_InitInfo initInfo = {};
+    initInfo.Instance = ctx->getInstance().getInstance();
+    initInfo.PhysicalDevice = ctx->getDevice().getPhysicalDevice();
+    initInfo.Device = ctx->getDevice().device();
+    initInfo.QueueFamily = ctx->getDevice().getGraphicsQueueFamilyIndex();
+    initInfo.Queue = ctx->getDevice().graphicsQueue();
+    initInfo.DescriptorPool = core::DescriptorPool::getInstance().getDescriptorPool();
+    initInfo.MinImageCount = 3; // Usually 2 or 3
+    initInfo.ImageCount = 3;
+    initInfo.UseDynamicRendering = true;
     // Set up dynamic rendering info
     VkFormat colorFormat = VK_FORMAT_B8G8R8A8_UNORM; // Use your swapchain format here
 
@@ -32,9 +32,9 @@ hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx) 
     pipelineRenderingInfo.colorAttachmentCount = 1;
     pipelineRenderingInfo.pColorAttachmentFormats = &colorFormat;
 
-    init_info.PipelineInfoMain.PipelineRenderingCreateInfo = pipelineRenderingInfo;
+    initInfo.PipelineInfoMain.PipelineRenderingCreateInfo = pipelineRenderingInfo;
 
-    ImGui_ImplVulkan_Init(&init_info);
+    ImGui_ImplVulkan_Init(&initInfo);
 }
 
 hammock::engine::Ui::~Ui() {

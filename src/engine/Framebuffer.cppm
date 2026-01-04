@@ -27,6 +27,9 @@ namespace hammock::engine {
         // This means we cannot rely on resource manager to delete the resource in its destructor.
         ~Framebuffer();
 
+        /// @brief Get the extent of the framebuffer
+        vk::Extent2D getExtent() const;
+
         /// @brief Swap the current front buffer
         void swapImages();
 
@@ -57,5 +60,6 @@ namespace hammock::engine {
         std::vector<core::ResourceHandle> images_;
         std::uint32_t framesInFlight_ = 0;
         std::uint32_t currentFrame_ = 0;
+        math::Vec2 resolution_;
     };
 }

@@ -75,6 +75,7 @@ namespace hammock::core {
 
         // Create the physical device features structures
 
+
         vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{};
         sync2Features.synchronization2 = vk::True;
 

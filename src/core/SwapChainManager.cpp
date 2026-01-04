@@ -114,3 +114,78 @@ void hammock::core::SwapChainManager::
 registerOnSwapChainRecreatedCallback(const OnSwapChainRecreatedCallback &callback) {
     onSwapChainRecreated_.push_back(std::move(callback));
 }
+
+void hammock::core::SwapChainManager::blitToSwapChainImage(CommandBuffer &commandBuffer, ResourceHandle src) {
+    auto image = ResourceManager::getInstance().getResource<Image>(src);
+
+    image->recordPipelineBarrier(
+        commandBuffer.getCommandBuffer(),
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        vk::AccessFlagBits2::eColorAttachmentWrite,
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferRead,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::ImageLayout::eTransferSrcOptimal,
+        vk::QueueFamilyIgnored,
+        vk::QueueFamilyIgnored
+    );
+
+    swapChain_->recordPipelineBarrier(
+        currentImageIndex_,
+        commandBuffer.getCommandBuffer(),
+        vk::PipelineStageFlagBits2::eTopOfPipe,
+        vk::AccessFlagBits2::eNone,
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferWrite,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::QueueFamilyIgnored,
+        vk::QueueFamilyIgnored
+    );
+
+    // Blit
+    vk::ImageBlit blit{};
+    blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    blit.srcSubresource.mipLevel = 0;
+    blit.srcSubresource.baseArrayLayer = 0;
+    blit.srcSubresource.layerCount = 1;
+    blit.srcOffsets[0] = vk::Offset3D{0, 0, 0};
+    blit.srcOffsets[1] = vk::Offset3D{
+        static_cast<std::int32_t>(image->getExtent().width),
+        static_cast<std::int32_t>(image->getExtent().height),
+        1
+    };
+
+    blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    blit.dstSubresource.mipLevel = 0;
+    blit.dstSubresource.baseArrayLayer = 0;
+    blit.dstSubresource.layerCount = 1;
+    blit.dstOffsets[0] = vk::Offset3D{0, 0, 0};
+    blit.dstOffsets[1] = vk::Offset3D{
+        static_cast<std::int32_t>(swapChain_->getExtent().width),
+        static_cast<std::int32_t>(swapChain_->getExtent().height),
+        1
+    };
+
+    commandBuffer.getCommandBuffer().blitImage(
+        image->getImage(), vk::ImageLayout::eTransferSrcOptimal,
+        swapChain_->getImage(currentImageIndex_), vk::ImageLayout::eTransferDstOptimal,
+        1,
+        &blit,
+        vk::Filter::eLinear
+    );
+
+
+    swapChain_->recordPipelineBarrier(
+        currentImageIndex_,
+        commandBuffer.getCommandBuffer(),
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferWrite,
+        vk::PipelineStageFlagBits2::eBottomOfPipe,
+        vk::AccessFlagBits2::eNone,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::ePresentSrcKHR,
+        vk::QueueFamilyIgnored,
+        vk::QueueFamilyIgnored
+    );
+}

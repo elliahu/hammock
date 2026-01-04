@@ -5,8 +5,9 @@ module;
 module hammock.engine.framebuffer;
 
 hammock::engine::Framebuffer::Framebuffer(core::Device &device, std::uint32_t framesInFlight, math::Vec2 resolution,
-    vk::Format format): device_(device), framesInFlight_(
-                            framesInFlight) {
+                                          vk::Format format) : device_(device), resolution_(resolution),
+                                                               framesInFlight_(
+                                                                   framesInFlight) {
     createImages(resolution, format);
     createCommandBuffers();
     createSemaphores();
@@ -19,6 +20,13 @@ hammock::engine::Framebuffer::~Framebuffer() {
     }
     commandBuffers_.clear();
     framebufferReadySemaphores_.clear();
+}
+
+vk::Extent2D hammock::engine::Framebuffer::getExtent() const {
+    return vk::Extent2D{
+        .width = static_cast<std::uint32_t>(resolution_.X),
+        .height = static_cast<std::uint32_t>(resolution_.Y),
+    };
 }
 
 void hammock::engine::Framebuffer::swapImages() {
@@ -56,14 +64,14 @@ hammock::core::ResourceHandle hammock::engine::Framebuffer::getImage(std::uint32
     return images_[index];
 }
 
-hammock::core::Image * hammock::engine::Framebuffer::getImagePtr(std::uint32_t index) const {
+hammock::core::Image *hammock::engine::Framebuffer::getImagePtr(std::uint32_t index) const {
     if (index >= images_.size()) {
         throw std::runtime_error("Invalid framebuffer image index");
     }
     return core::ResourceManager::getInstance().getResource<core::Image>(images_[index]);
 }
 
-hammock::core::Semaphore & hammock::engine::Framebuffer::getFramebufferReadySemaphore() const {
+hammock::core::Semaphore &hammock::engine::Framebuffer::getFramebufferReadySemaphore() const {
     return *framebufferReadySemaphores_[currentFrame_];
 }
 
@@ -79,10 +87,15 @@ void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, vk::Forma
                                                          .mips = 1,
                                                          .format = format,
                                                          .usage = vk::ImageUsageFlagBits::eColorAttachment |
-                                                                  vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst,
+                                                                  vk::ImageUsageFlagBits::eTransferSrc |
+                                                                  vk::ImageUsageFlagBits::eTransferDst,
                                                          .imageType = vk::ImageType::e2D,
                                                          .imageViewType = vk::ImageViewType::e2D,
-                                                            .clearValue = vk::ClearValue{ .color = vk::ClearColorValue{std::array<float, 4>{1.0f, 1.0f, 1.0f, 1.0f}} }
+                                                         .clearValue = vk::ClearValue{
+                                                             .color = vk::ClearColorValue{
+                                                                 std::array<float, 4>{1.0f, 1.0f, 1.0f, 1.0f}
+                                                             }
+                                                         }
                                                      });
 
         images_.push_back(handle);
@@ -103,6 +116,6 @@ void hammock::engine::Framebuffer::createSemaphores() {
     }
 }
 
-hammock::core::CommandBuffer & hammock::engine::Framebuffer::getFrontBufferCommandBuffer() const {
+hammock::core::CommandBuffer &hammock::engine::Framebuffer::getFrontBufferCommandBuffer() const {
     return *commandBuffers_[currentFrame_];
 }

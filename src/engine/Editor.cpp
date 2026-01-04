@@ -119,8 +119,10 @@ void hammock::engine::Editor::drawUi() {
 
     // Begin ui rendering
     commandBuffer.begin();
-    auto extent = swapChainManager.getSwapChain().getSwapChainExtent();
-    ui_->renderFrame(commandBuffer, swapChainManager.getSwapChain().getImageView(swapChainManager.getSwapChainImageIndex()), extent.width, extent.height);
+    auto extent = swapChainManager.getSwapChain().getExtent();
+    ui_->renderFrame(commandBuffer,
+                     swapChainManager.getSwapChain().getImageView(swapChainManager.getSwapChainImageIndex()),
+                     extent.width, extent.height);
     // End ui rendering
     commandBuffer.submit();
 }
@@ -154,73 +156,7 @@ void hammock::engine::Editor::present() const {
     // Begin present command buffer
     commandBuffer.begin();
 
-    auto target = core::ResourceManager::getInstance().getResource<core::Image>(
-        framebuffer_->getFrontbufferImage());
-
-    // target color attachment -> transfer src
-    target->recordPipelineBarrier(
-        commandBuffer.getCommandBuffer(),
-        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-        vk::AccessFlagBits2::eColorAttachmentWrite,
-        vk::PipelineStageFlagBits2::eTransfer,
-        vk::AccessFlagBits2::eTransferRead,
-        vk::ImageLayout::eColorAttachmentOptimal,
-        vk::ImageLayout::eTransferSrcOptimal,
-        vk::QueueFamilyIgnored,
-        vk::QueueFamilyIgnored
-    );
-
-    // swapchain undefined -> transfer dst
-    swapChain.recordPipelineBarrier(
-        imageIndex, // Now explicitly use imageIndex, not frameIndex
-        commandBuffer.getCommandBuffer(),
-        vk::PipelineStageFlagBits2::eTopOfPipe,
-        vk::AccessFlagBits2::eNone,
-        vk::PipelineStageFlagBits2::eTransfer,
-        vk::AccessFlagBits2::eTransferWrite,
-        vk::ImageLayout::eUndefined,
-        vk::ImageLayout::eTransferDstOptimal,
-        vk::QueueFamilyIgnored,
-        vk::QueueFamilyIgnored
-    );
-
-    // Blit
-    vk::ImageBlit blit{};
-    blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-    blit.srcSubresource.mipLevel = 0;
-    blit.srcSubresource.baseArrayLayer = 0;
-    blit.srcSubresource.layerCount = 1;
-    blit.srcOffsets[0] = vk::Offset3D{0, 0, 0};
-    blit.srcOffsets[1] = vk::Offset3D{1920, 1080, 1};
-
-    blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-    blit.dstSubresource.mipLevel = 0;
-    blit.dstSubresource.baseArrayLayer = 0;
-    blit.dstSubresource.layerCount = 1;
-    blit.dstOffsets[0] = vk::Offset3D{0, 0, 0};
-    blit.dstOffsets[1] = vk::Offset3D{1920, 1080, 1};
-
-    commandBuffer.getCommandBuffer().blitImage(
-        target->getImage(), vk::ImageLayout::eTransferSrcOptimal,
-        swapChain.getImage(imageIndex), vk::ImageLayout::eTransferDstOptimal,
-        1,
-        &blit,
-        vk::Filter::eLinear
-    );
-
-    // swapchain Transfer dst -> PRESENT_SRC_KHR
-    swapChain.recordPipelineBarrier(
-        imageIndex,
-        commandBuffer.getCommandBuffer(),
-        vk::PipelineStageFlagBits2::eTransfer,
-        vk::AccessFlagBits2::eTransferWrite,
-        vk::PipelineStageFlagBits2::eBottomOfPipe,
-        vk::AccessFlagBits2::eNone,
-        vk::ImageLayout::eTransferDstOptimal,
-        vk::ImageLayout::ePresentSrcKHR,
-        vk::QueueFamilyIgnored,
-        vk::QueueFamilyIgnored
-    );
+    swapChainManager.blitToSwapChainImage(commandBuffer, framebuffer_->getFrontbufferImage());
 
     // End the command buffer and submit with fence
     commandBuffer.submit(syncObjects.inFlightFence);
@@ -235,7 +171,7 @@ void hammock::engine::Editor::recreateFramebuffer() {
     // Create new one
     auto &sc = core::SwapChainManager::getInstance();
     auto format = sc.getSwapChain().getSwapChainImageFormat();
-    auto extent = sc.getSwapChain().getSwapChainExtent();
+    auto extent = sc.getSwapChain().getExtent();
     framebuffer_ = std::make_unique<Framebuffer>(context_.getDevice(), core::SwapChain::MAX_FRAMES_IN_FLIGHT,
                                                  math::Vec2{
                                                      static_cast<float>(extent.width),

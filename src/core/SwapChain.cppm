@@ -50,7 +50,7 @@ namespace hammock::core {
         [[nodiscard]] vk::Format getSwapChainImageFormat() const { return swapChainImageFormat_; }
 
         /// @brief Get the extent of the swapchain images
-        [[nodiscard]] vk::Extent2D getSwapChainExtent() const { return swapChainExtent_; }
+        [[nodiscard]] vk::Extent2D getExtent() const { return swapChainExtent_; }
 
         /// @brief Get supported depth format
         [[nodiscard]] vk::Format getSupportedDepthFormat() const;

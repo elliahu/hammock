@@ -11,6 +11,7 @@ import hammock.core.utilities;
 import hammock.core.base_surface_provider;
 import hammock.core.base_resource;
 import hammock.core.swapchain;
+import hammock.core.command_buffer;
 
 
 namespace hammock::core {
@@ -44,6 +45,11 @@ namespace hammock::core {
         void endFrame();
 
         void registerOnSwapChainRecreatedCallback(const OnSwapChainRecreatedCallback &callback);
+
+        /// @brief Performs blit operation from src to current swapchain image
+        /// @pre src is in color attachment optimal layout
+        /// @post swapchain image will be in present optimal layout
+        void blitToSwapChainImage(CommandBuffer &commandBuffer, ResourceHandle src);
 
     protected:
         SwapChainManager(BaseSurfaceProvider &i_surfaceProvider, Device &device);

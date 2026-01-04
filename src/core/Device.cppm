@@ -177,7 +177,7 @@ namespace hammock::core {
             // Dynamic rendering is preferred over render passes
             vk::KHRDynamicRenderingExtensionName,
             // Descriptor indexing is used
-            vk::EXTDescriptorIndexingExtensionName
+            vk::EXTDescriptorIndexingExtensionName,
         };
     };
 } // namespace hammock::core
