@@ -1,0 +1,205 @@
+module;
+#include <memory>
+#include <optional>
+#include <compare>
+#include <vulkan/vulkan.hpp>
+#include <functional>
+
+export module hammock.engine.presentation_engine;
+
+import hammock.core;
+import hammock.core.base_surface_provider;
+import hammock.engine.framebuffer;
+
+namespace hammock::engine {
+
+    /// @brief Context provided to the renderer for each frame
+    export struct FrameContext {
+        core::ResourceHandle renderTarget;
+        core::Semaphore& targetReady;
+        core::Semaphore& renderFinished;
+        uint32_t frameIndex;
+    };
+
+    // Base Strategy - Contains SHARED rendering orchestration
+
+    /// @class BasePresentationStrategy
+    /// @brief Base class containing common frame orchestration logic
+    /// Uses Template Method pattern - subclasses implement presentation-specific hooks
+    export class BasePresentationStrategy {
+    public:
+        virtual ~BasePresentationStrategy() = default;
+
+        // Public Interface (called by PresentationEngine)
+
+        std::optional<FrameContext> beginFrame();
+        void endFrame(const FrameContext& ctx);
+
+        [[nodiscard]] vk::Extent2D getResolution() const;
+        vk::Format getFormat() const;
+        std::uint32_t getFrameIndex() const {return currentFrameIndex_;}
+        bool isFrameInProgress() const { return frameInProgress_; }
+
+        void onResolutionChanged(std::function<void(uint32_t, uint32_t)> callback) {
+            resolutionCallbacks_.push_back(std::move(callback));
+        }
+
+    protected:
+        // Protected Constructor (only subclasses can instantiate)
+        BasePresentationStrategy(
+            core::Device& device,
+            vk::Extent2D resolution,
+            vk::Format format,
+            uint32_t framesInFlight
+        );
+
+        // Template Method Hooks (subclasses override these)
+
+        /// @brief Called at the start of beginFrame, before common logic
+        /// @return false to skip this frame (e.g., swapchain out of date)
+        virtual bool onBeginFrame() { return true; }
+
+        /// @brief Called at the end of endFrame, after rendering is done
+        /// Subclasses implement presentation logic here
+        virtual void onPresent(const FrameContext& ctx) = 0;
+
+        /// @brief Called when framebuffer needs recreation
+        virtual void onFramebufferRecreated() {}
+
+        // Protected Helpers (for subclass use)
+
+        void recreateFramebuffer(vk::Extent2D newResolution);
+        void notifyResolutionChanged(uint32_t width, uint32_t height);
+
+        struct PerFrameResources {
+            std::unique_ptr<core::Semaphore> renderingFinished;
+        };
+
+        // Protected Members (accessible by subclasses)
+
+        core::Device& device_;
+        std::unique_ptr<Framebuffer> framebuffer_;
+        std::vector<PerFrameResources> perFrameResources_;
+
+        uint32_t currentFrameIndex_ = 0;
+        uint32_t framesInFlight_;
+        bool frameInProgress_ = false;
+
+        std::vector<std::function<void(uint32_t, uint32_t)>> resolutionCallbacks_;
+    };
+
+    // Concrete Strategies - Only implement presentation differences
+
+    /// @class HeadlessPresentationStrategy
+    /// @brief Headless rendering - no presentation, just framebuffer
+    export class HeadlessPresentationStrategy : public BasePresentationStrategy {
+    public:
+        HeadlessPresentationStrategy(
+            core::Device& device,
+            vk::Extent2D resolution,
+            vk::Format format = vk::Format::eR8G8B8A8Unorm,
+            uint32_t framesInFlight = 1  // Headless typically uses 1
+        );
+
+        /// @brief Get the rendered image for readback/saving
+        core::ResourceHandle getRenderedImage() const;
+
+        /// @brief Change resolution (will recreate framebuffer)
+        void setResolution(vk::Extent2D newResolution);
+
+    protected:
+        // No special begin logic needed
+        bool onBeginFrame() override { return true; }
+
+        // No presentation needed - framebuffer is the final output
+        void onPresent(const FrameContext& ctx) override;
+    };
+
+    /// @class SurfacePresentationStrategy
+    /// @brief Surface-based rendering - framebuffer + swapchain presentation
+    export class SurfacePresentationStrategy : public BasePresentationStrategy {
+    public:
+        enum class Mode {
+            Runtime,  // Just scene rendering
+            Editor    // Scene + UI rendering
+        };
+
+        SurfacePresentationStrategy(
+            core::Device& device,
+            core::BaseSurfaceProvider& surfaceProvider,
+            Mode mode = Mode::Runtime
+        );
+
+        ~SurfacePresentationStrategy() override = default;
+
+        /// @brief Submit UI rendering commands (Editor mode only)
+        void submitUI(const FrameContext& ctx,
+                     std::function<void(core::CommandBuffer&, vk::ImageView, vk::Extent2D)> uiRenderFunc);
+
+        /// @brief Get the swapchain image view for direct rendering
+        vk::ImageView getSwapchainImageView(uint32_t index) const;
+
+    protected:
+        // Acquire swapchain image before common frame logic
+        bool onBeginFrame() override;
+
+        // Blit to swapchain and present
+        void onPresent(const FrameContext& ctx) override;
+
+        // Recreate framebuffer when swapchain changes
+        void onFramebufferRecreated() override;
+
+    private:
+        void blitFramebufferToSwapchain(const FrameContext& ctx);
+
+        Mode mode_;
+        std::unique_ptr<core::SwapChainManager> swapchainManager_;
+
+        // Additional per-frame resources for surface presentation
+        struct SurfacePerFrameResources {
+            std::unique_ptr<core::CommandBuffer> presentCommandBuffer;
+            // Editor mode only
+            std::unique_ptr<core::CommandBuffer> uiCommandBuffer;
+            std::unique_ptr<core::Semaphore> uiFinished;
+        };
+        std::vector<SurfacePerFrameResources> surfacePerFrameResources_;
+
+        uint32_t currentSwapchainImageIndex_ = 0;
+    };
+
+    /// @class PresentationEngine
+    /// @brief Main presentation engine - delegates to strategy
+    export class PresentationEngine {
+    public:
+        explicit PresentationEngine(std::unique_ptr<BasePresentationStrategy>&& strategy)
+            : strategy_(std::move(strategy)) {}
+
+        // Delegate all calls to strategy
+        [[nodiscard]] std::optional<FrameContext> beginFrame() const { return strategy_->beginFrame(); }
+
+        void endFrame(const FrameContext& ctx) const { strategy_->endFrame(ctx); }
+
+        [[nodiscard]] vk::Extent2D getResolution() const { return strategy_->getResolution(); }
+
+        [[nodiscard]] vk::Format getFormat() const { return strategy_->getFormat(); }
+
+        [[nodiscard]] bool isFrameInProgress() const { return strategy_->isFrameInProgress(); }
+
+        [[nodiscard]] std::uint32_t getFrameIndex() const {return strategy_->getFrameIndex();}
+
+        void onResolutionChanged(std::function<void(uint32_t, uint32_t)> cb) const {
+            strategy_->onResolutionChanged(std::move(cb));
+        }
+
+        // Strategy-specific access (use with caution)
+        template<typename T>
+        T* getStrategyAs() { return dynamic_cast<T*>(strategy_.get()); }
+
+        template<typename T>
+        const T* getStrategyAs() const { return dynamic_cast<const T*>(strategy_.get()); }
+
+
+    private:
+        std::unique_ptr<BasePresentationStrategy> strategy_;
+    };
+}

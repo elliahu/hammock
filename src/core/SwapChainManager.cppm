@@ -20,11 +20,9 @@ namespace hammock::core {
 
     /// @class SwapChainManager
     /// @brief Manager responsible for manipulation the SwapChain
-    export class SwapChainManager final : public Singleton<SwapChainManager> {
-        friend class Singleton<SwapChainManager>;
-
+    export class SwapChainManager final{
     public:
-        static void initialize(BaseSurfaceProvider &i_surfaceProvider, Device &device);
+        SwapChainManager(BaseSurfaceProvider &i_surfaceProvider, Device &device);
 
         // delete copy constructor and copy destructor
         SwapChainManager(const SwapChainManager &) = delete;
@@ -52,7 +50,6 @@ namespace hammock::core {
         void blitToSwapChainImage(CommandBuffer &commandBuffer, ResourceHandle src);
 
     protected:
-        SwapChainManager(BaseSurfaceProvider &i_surfaceProvider, Device &device);
 
         void recreateSwapChain();
 

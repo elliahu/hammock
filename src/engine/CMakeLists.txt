@@ -13,17 +13,19 @@ target_sources(hammock_engine
         FILE_SET CXX_MODULES TYPE CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
         FILES
-        "Editor.cppm"
-        "Engine.cppm"
+        "Runner.cppm"
+        "Application.cppm"
         "Window.cppm"
         "Ui.cppm"
         "Framebuffer.cppm"
+        "PresentationEngine.cppm"
     PRIVATE
-        "Editor.cpp"
-        "Engine.cpp"
+        "Runner.cpp"
+        "Application.cpp"
         "Framebuffer.cpp"
         "Ui.cpp"
         "Window.cpp"
+        "PresentationEngine.cpp"
         "${IMGUI_DIR}/imgui.cpp"
         "${IMGUI_DIR}/imgui_draw.cpp"
         "${IMGUI_DIR}/imgui_tables.cpp"

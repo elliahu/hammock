@@ -2,22 +2,22 @@ module;
 
 #include <memory>
 
-export module hammock.engine.engine;
+export module hammock.engine.application;
 
-import hammock.engine.editor;
+import hammock.engine.runner;
 import hammock.renderer;
 
 
 namespace hammock::engine {
-    export class Engine final {
+    export class Application final {
     public:
-        explicit Engine(LaunchMode mode);
+        explicit Application(RunnerMode mode);
 
         void launch() const;
 
     private:
         std::unique_ptr<renderer::GraphicsContext> context_;
         std::unique_ptr<renderer::Renderer> renderer_;
-        std::unique_ptr<Editor> editor_;
+        std::unique_ptr<Runner> runner_;
     };
 }

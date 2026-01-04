@@ -1,0 +1,285 @@
+module;
+#include <memory>
+#include <functional>
+#include <compare>
+#include <vulkan/vulkan.hpp>
+
+module hammock.engine.presentation_engine;
+
+import hammock.core;
+import hammock.renderer.math;
+
+// ************ Base presentation strategy *************
+
+std::optional<hammock::engine::FrameContext> hammock::engine::BasePresentationStrategy::beginFrame() {
+    if (frameInProgress_) {
+        throw std::runtime_error("Frame already in progress");
+    }
+
+    // Strategy-specific pre-frame logic
+    if (!onBeginFrame()) {
+        // Strategy says skip this frame (e.g., swapchain out of date)
+        return std::nullopt;
+    }
+
+    // Per frame resources
+    auto &frameRes = perFrameResources_[currentFrameIndex_];
+
+    // Swap buffers
+    framebuffer_->swapImages();
+
+    frameInProgress_ = true;
+    return FrameContext{
+        .renderTarget = framebuffer_->getFrontbufferImage(),
+        .targetReady = framebuffer_->getFramebufferReadySemaphore(),
+        .renderFinished = *frameRes.renderingFinished,
+        .frameIndex = currentFrameIndex_
+    };
+}
+
+void hammock::engine::BasePresentationStrategy::endFrame(const FrameContext &ctx) {
+    if (!frameInProgress_) {
+        throw std::runtime_error("No frame in progress");
+    }
+
+    // Strategy-specific presentation logic
+    onPresent(ctx);
+
+    // Advance frame index
+    currentFrameIndex_ = (currentFrameIndex_ + 1) % framesInFlight_;
+    frameInProgress_ = false;
+}
+
+vk::Extent2D hammock::engine::BasePresentationStrategy::getResolution() const {
+    return framebuffer_->getExtent();
+}
+
+vk::Format hammock::engine::BasePresentationStrategy::getFormat() const {
+    return vk::Format::eR8G8B8A8Unorm; // TODO: get from framebuffer
+}
+
+
+hammock::engine::BasePresentationStrategy::BasePresentationStrategy(core::Device &device, vk::Extent2D resolution,
+                                                                    vk::Format format,
+                                                                    uint32_t framesInFlight) : device_(device),
+    framesInFlight_(framesInFlight) {
+    // Create framebuffer (shared by all strategies)
+    framebuffer_ = std::make_unique<Framebuffer>(
+        device_,
+        framesInFlight_,
+        math::Vec2{
+            static_cast<float>(resolution.width),
+            static_cast<float>(resolution.height)
+        },
+        format
+    );
+
+    // Create per-frame synchronization (shared by all strategies)
+    perFrameResources_.resize(framesInFlight_);
+    for (auto &frameRes: perFrameResources_) {
+        frameRes.renderingFinished = std::make_unique<core::Semaphore>(device_);
+    }
+}
+
+void hammock::engine::BasePresentationStrategy::recreateFramebuffer(vk::Extent2D newResolution) {
+    // Wait for GPU to finish
+    device_.waitIdle();
+
+    // Destroy old framebuffer
+    framebuffer_.reset();
+
+    // Create new framebuffer
+    framebuffer_ = std::make_unique<Framebuffer>(
+        device_,
+        framesInFlight_,
+        math::Vec2{
+            static_cast<float>(newResolution.width),
+            static_cast<float>(newResolution.height)
+        },
+        getFormat()
+    );
+
+    // Notify subclass
+    onFramebufferRecreated();
+
+    // Notify listeners
+    notifyResolutionChanged(newResolution.width, newResolution.height);
+}
+
+void hammock::engine::BasePresentationStrategy::notifyResolutionChanged(uint32_t width, uint32_t height) {
+    for (auto &callback: resolutionCallbacks_) {
+        callback(width, height);
+    }
+}
+
+// **************** Headless presentation strategy ************
+
+hammock::engine::HeadlessPresentationStrategy::HeadlessPresentationStrategy(core::Device &device,
+                                                                            vk::Extent2D resolution, vk::Format format,
+                                                                            uint32_t
+                                                                            framesInFlight) : BasePresentationStrategy(
+    device, resolution, format, framesInFlight) {
+    // Base class handles everything
+}
+
+hammock::core::ResourceHandle hammock::engine::HeadlessPresentationStrategy::getRenderedImage() const {
+    // Return the current front buffer for readback
+    return framebuffer_->getFrontbufferImage();
+}
+
+void hammock::engine::HeadlessPresentationStrategy::setResolution(vk::Extent2D newResolution) {
+    recreateFramebuffer(newResolution);
+}
+
+void hammock::engine::HeadlessPresentationStrategy::onPresent(const FrameContext &ctx) {
+    // No presentation needed!
+    // Framebuffer is already the final output
+    // Just need to ensure GPU work is submitted with fence
+
+    auto &frameRes = perFrameResources_[ctx.frameIndex];
+
+    // Create a dummy command buffer just to submit the fence
+    // (in reality, the renderer's command buffer should have already
+    // submitted with the fence, so this might not be needed)
+
+    // Alternative: The renderer itself submits with the fence
+    // In that case, this method could be empty!
+}
+
+// ***************** Surface presentation strategy *************
+
+hammock::engine::SurfacePresentationStrategy::SurfacePresentationStrategy(core::Device &device,
+                                                                          core::BaseSurfaceProvider &surfaceProvider,
+                                                                          Mode mode)
+    : BasePresentationStrategy(
+          device,
+          vk::Extent2D{1920, 1080}, // Initial size, will be updated
+          vk::Format::eR8G8B8A8Unorm,
+          core::SwapChain::MAX_FRAMES_IN_FLIGHT // Surface rendering typically uses 2 frames in flight
+      ),
+      mode_(mode) {
+    // Initialize swapchain manager
+    swapchainManager_ = std::make_unique<core::SwapChainManager>(surfaceProvider, device_);
+
+    // Register swapchain recreation callback
+    swapchainManager_->registerOnSwapChainRecreatedCallback(
+        [this](uint32_t width, uint32_t height) {
+            recreateFramebuffer(vk::Extent2D{width, height});
+        }
+    );
+
+    // Create surface-specific resources
+
+    surfacePerFrameResources_.resize(framesInFlight_);
+    for (auto &surfaceRes: surfacePerFrameResources_) {
+        surfaceRes.presentCommandBuffer = std::make_unique<core::CommandBuffer>(
+            device_, core::CommandQueueFamily::Graphics
+        );
+
+        if (mode_ == Mode::Editor) {
+            surfaceRes.uiCommandBuffer = std::make_unique<core::CommandBuffer>(
+                device_, core::CommandQueueFamily::Graphics
+            );
+            surfaceRes.uiFinished = std::make_unique<core::Semaphore>(device_);
+        }
+    }
+
+    // Sync framebuffer size with swapchain
+
+    auto extent = swapchainManager_->getSwapChain().getExtent();
+    if (framebuffer_->getExtent() != extent) {
+        recreateFramebuffer(extent);
+    }
+}
+
+void hammock::engine::SurfacePresentationStrategy::submitUI(const FrameContext &ctx,
+                                                            std::function<void(
+                                                                core::CommandBuffer &, vk::ImageView,
+                                                                vk::Extent2D)> uiRenderFunc) {
+    if (mode_ != Mode::Editor) {
+        return;
+    }
+
+    auto &surfaceRes = surfacePerFrameResources_[ctx.frameIndex];
+    auto &uiCmd = *surfaceRes.uiCommandBuffer;
+    auto &swapChain = swapchainManager_->getSwapChain();
+
+    // Wait for scene rendering, signal when UI done
+    uiCmd.waitOnSemaphore(ctx.renderFinished,
+                          vk::PipelineStageFlagBits2::eTopOfPipe);
+    uiCmd.signalSemaphore(*surfaceRes.uiFinished);
+
+    // Record UI commands
+    uiCmd.begin();
+    auto extent = swapChain.getExtent();
+    uiRenderFunc(uiCmd,
+                 swapChain.getImageView(currentSwapchainImageIndex_),
+                 extent);
+    uiCmd.submit();
+}
+
+vk::ImageView hammock::engine::SurfacePresentationStrategy::getSwapchainImageView(uint32_t index) const {
+    return swapchainManager_->getSwapChain().getImageView(index);
+}
+
+bool hammock::engine::SurfacePresentationStrategy::onBeginFrame() {
+    // Acquire swapchain image
+    if (!swapchainManager_->beginFrame()) {
+        // Swapchain out of date, skip this frame
+        return false;
+    }
+
+    currentSwapchainImageIndex_ = swapchainManager_->getSwapChainImageIndex();
+    return true;
+}
+
+void hammock::engine::SurfacePresentationStrategy::onPresent(const FrameContext &ctx) {
+    auto &swapChain = swapchainManager_->getSwapChain();
+    auto &syncObjects = swapChain.getSyncObjects(ctx.frameIndex);
+    auto &frameRes = perFrameResources_[ctx.frameIndex];
+    auto &surfaceRes = surfacePerFrameResources_[ctx.frameIndex];
+    auto &presentCmd = *surfaceRes.presentCommandBuffer;
+
+    // Determine which semaphore to wait on
+
+    core::Semaphore *waitSemaphore = nullptr;
+
+    if (mode_ == Mode::Editor) {
+        // Wait for UI to finish
+        waitSemaphore = surfaceRes.uiFinished.get();
+    } else {
+        // Wait for scene rendering to finish
+        waitSemaphore = frameRes.renderingFinished.get();
+    }
+
+    // Set up presentation command buffer
+
+    presentCmd.waitOnSemaphore(*waitSemaphore,
+                               vk::PipelineStageFlagBits2::eTopOfPipe);
+    presentCmd.waitOnSemaphore(*syncObjects.imageAvailable,
+                               vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+    presentCmd.signalSemaphore(*syncObjects.renderFinished);
+
+    // Record blit operation
+
+    presentCmd.begin();
+    blitFramebufferToSwapchain(ctx);
+    presentCmd.submit(
+        swapchainManager_->getSwapChain().getSyncObjects(swapchainManager_->getFrameIndex()).inFlightFence);
+
+    // Present
+    swapchainManager_->present();
+    swapchainManager_->endFrame();
+}
+
+void hammock::engine::SurfacePresentationStrategy::onFramebufferRecreated() {
+    BasePresentationStrategy::onFramebufferRecreated();
+    // Surface strategy might need to do additional work here
+    // (though currently nothing needed)
+}
+
+void hammock::engine::SurfacePresentationStrategy::blitFramebufferToSwapchain(const FrameContext &ctx) {
+    auto &surfaceRes = surfacePerFrameResources_[ctx.frameIndex];
+    auto &presentCmd = *surfaceRes.presentCommandBuffer;
+    swapchainManager_->blitToSwapChainImage(presentCmd, framebuffer_->getFrontbufferImage());
+}

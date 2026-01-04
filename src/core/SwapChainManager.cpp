@@ -67,10 +67,6 @@ bool hammock::core::SwapChainManager::beginFrame() {
     return true;
 }
 
-void hammock::core::SwapChainManager::initialize(BaseSurfaceProvider &i_surfaceProvider, Device &device) {
-    Singleton<SwapChainManager>::initialize(i_surfaceProvider, device);
-}
-
 int hammock::core::SwapChainManager::getFrameIndex() const {
     if (!isFrameStarted_)
         throw std::runtime_error("Cannot get frame index when frame not in progress");
