@@ -44,6 +44,8 @@ namespace hammock::engine {
     private:
         void loop();
 
+        void drawUi();
+
         void present() const;
 
         void recreateFramebuffer();
@@ -53,8 +55,11 @@ namespace hammock::engine {
         std::unique_ptr<renderer::Renderer> renderer_;
         std::unique_ptr<Window> window_;
         std::unique_ptr<Framebuffer> framebuffer_;
-        std::vector<std::unique_ptr<core::Semaphore> > frameFinishedSemaphores_;
+        std::vector<std::unique_ptr<core::Semaphore> > rendererFinishedSemaphores_;
+        std::vector<std::unique_ptr<core::Semaphore> > uiFinishedSemaphores_;
         std::vector<std::unique_ptr<core::CommandBuffer> > presentCommandBuffers_;
+        std::vector<std::unique_ptr<core::CommandBuffer> > uiCommandBuffers_;
         math::Vec2 extent_;
+        std::unique_ptr<Ui> ui_;
     };
 }

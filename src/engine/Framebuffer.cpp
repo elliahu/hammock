@@ -82,6 +82,7 @@ void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, vk::Forma
                                                                   vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst,
                                                          .imageType = vk::ImageType::e2D,
                                                          .imageViewType = vk::ImageViewType::e2D,
+                                                            .clearValue = vk::ClearValue{ .color = vk::ClearColorValue{std::array<float, 4>{1.0f, 1.0f, 1.0f, 1.0f}} }
                                                      });
 
         images_.push_back(handle);

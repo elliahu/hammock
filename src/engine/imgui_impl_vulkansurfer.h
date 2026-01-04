@@ -3,11 +3,22 @@
 #include "imgui/imgui.h"
 #include "VulkanSurfer/VulkanSurfer.h"
 #include <chrono>
+#include <vector>
 
 // Backend State
 struct ImGui_ImplVulkanSurfer_Data {
     Surfer::Window *Window;
     std::chrono::time_point<std::chrono::high_resolution_clock> Time;
+
+    // Event queues
+    struct KeyEvent { ImGuiKey key; bool down; };
+    struct MouseButtonEvent { int button; bool down; };
+    struct MousePosEvent { float x, y; };
+
+    std::vector<KeyEvent> KeyEvents;
+    std::vector<MouseButtonEvent> MouseButtonEvents;
+    std::vector<MousePosEvent> MousePosEvents;
+    ImVec2 DisplaySize;
 };
 
 // Use a static pointer to keep the state local to the translation unit
@@ -16,9 +27,12 @@ static ImGui_ImplVulkanSurfer_Data *g_VulkanSurferData = nullptr;
 // Helper: Key Mapping
 inline ImGuiKey ImGui_ImplVulkanSurfer_KeyToImGuiKey(Surfer::KeyCode key) {
     switch (key) {
-        case Surfer::KeyCode::MouseLeft: return ImGuiKey_MouseLeft;
-        case Surfer::KeyCode::MouseRight: return ImGuiKey_MouseRight;
-        case Surfer::KeyCode::MouseMiddle: return ImGuiKey_MouseMiddle;
+        // Mouse buttons are handled separately, not as ImGuiKey
+        case Surfer::KeyCode::MouseLeft:
+        case Surfer::KeyCode::MouseRight:
+        case Surfer::KeyCode::MouseMiddle:
+            return ImGuiKey_None;
+
         case Surfer::KeyCode::Tab: return ImGuiKey_Tab;
         case Surfer::KeyCode::ArrowLeft: return ImGuiKey_LeftArrow;
         case Surfer::KeyCode::ArrowRight: return ImGuiKey_RightArrow;
@@ -148,13 +162,22 @@ inline ImGuiKey ImGui_ImplVulkanSurfer_KeyToImGuiKey(Surfer::KeyCode key) {
     }
 }
 
+// Helper: Convert Surfer mouse button to ImGui mouse button index
+inline int ImGui_ImplVulkanSurfer_KeyToMouseButton(Surfer::KeyCode key) {
+    switch (key) {
+        case Surfer::KeyCode::MouseLeft: return 0;
+        case Surfer::KeyCode::MouseRight: return 1;
+        case Surfer::KeyCode::MouseMiddle: return 2;
+        default: return -1;
+    }
+}
+
 // API Implementation
 
 inline bool ImGui_ImplVulkanSurfer_Init(Surfer::Window *window) {
     ImGuiIO &io = ImGui::GetIO();
     std::uint32_t width, height;
     window->getWindowSize(width, height);
-    io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
 
     // Check if backend is already initialized
     IM_ASSERT(g_VulkanSurferData == nullptr && "Already initialized!");
@@ -163,30 +186,54 @@ inline bool ImGui_ImplVulkanSurfer_Init(Surfer::Window *window) {
     g_VulkanSurferData = new ImGui_ImplVulkanSurfer_Data();
     g_VulkanSurferData->Window = window;
     g_VulkanSurferData->Time = std::chrono::high_resolution_clock::now();
+    g_VulkanSurferData->DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
 
     io.BackendPlatformName = "imgui_impl_vulkansurfer_header_only";
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
 
-    // Keyboard Callbacks
+    // Keyboard Callbacks - Queue events instead of directly calling ImGui
     window->registerKeyPressCallback([](Surfer::KeyCode key) {
-        ImGuiIO &io = ImGui::GetIO();
-        io.AddKeyEvent(ImGui_ImplVulkanSurfer_KeyToImGuiKey(key), true);
+        if (g_VulkanSurferData) {
+            // Check if it's a mouse button
+            int mouse_button = ImGui_ImplVulkanSurfer_KeyToMouseButton(key);
+            if (mouse_button >= 0) {
+                g_VulkanSurferData->MouseButtonEvents.push_back({mouse_button, true});
+            } else {
+                ImGuiKey imgui_key = ImGui_ImplVulkanSurfer_KeyToImGuiKey(key);
+                if (imgui_key != ImGuiKey_None) {
+                    g_VulkanSurferData->KeyEvents.push_back({imgui_key, true});
+                }
+            }
+        }
     });
 
     window->registerKeyReleaseCallback([](Surfer::KeyCode key) {
-        ImGuiIO &io = ImGui::GetIO();
-        io.AddKeyEvent(ImGui_ImplVulkanSurfer_KeyToImGuiKey(key), false);
+        if (g_VulkanSurferData) {
+            // Check if it's a mouse button
+            int mouse_button = ImGui_ImplVulkanSurfer_KeyToMouseButton(key);
+            if (mouse_button >= 0) {
+                g_VulkanSurferData->MouseButtonEvents.push_back({mouse_button, false});
+            } else {
+                ImGuiKey imgui_key = ImGui_ImplVulkanSurfer_KeyToImGuiKey(key);
+                if (imgui_key != ImGuiKey_None) {
+                    g_VulkanSurferData->KeyEvents.push_back({imgui_key, false});
+                }
+            }
+        }
     });
 
-    // Mouse Input (Motion & Buttons)
+    // Mouse Input (Motion & Buttons) - Queue events
     window->registerMouseMotionCallback([](int x, int y) {
-        ImGui::GetIO().AddMousePosEvent((float) x, (float) y);
+        if (g_VulkanSurferData) {
+            g_VulkanSurferData->MousePosEvents.push_back({(float)x, (float)y});
+        }
     });
 
     // Resize Handling
     window->registerResizeCallback([](int width, int height) {
-        ImGuiIO &io = ImGui::GetIO();
-        io.DisplaySize = ImVec2((float) width, (float) height);
+        if (g_VulkanSurferData) {
+            g_VulkanSurferData->DisplaySize = ImVec2((float)width, (float)height);
+        }
     });
 
     return true;
@@ -203,9 +250,30 @@ inline void ImGui_ImplVulkanSurfer_NewFrame() {
     IM_ASSERT(g_VulkanSurferData != nullptr && "Backend not initialized!");
     ImGuiIO &io = ImGui::GetIO();
 
+    // Update display size
+    io.DisplaySize = g_VulkanSurferData->DisplaySize;
+
     // Setup Delta Time
     auto current_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> delta_time = current_time - g_VulkanSurferData->Time;
     io.DeltaTime = delta_time.count() > 0.0f ? delta_time.count() : (1.0f / 60.0f);
     g_VulkanSurferData->Time = current_time;
+
+    // Process queued keyboard events
+    for (const auto& event : g_VulkanSurferData->KeyEvents) {
+        io.AddKeyEvent(event.key, event.down);
+    }
+    g_VulkanSurferData->KeyEvents.clear();
+
+    // Process queued mouse button events
+    for (const auto& event : g_VulkanSurferData->MouseButtonEvents) {
+        io.AddMouseButtonEvent(event.button, event.down);
+    }
+    g_VulkanSurferData->MouseButtonEvents.clear();
+
+    // Process queued mouse position events
+    for (const auto& event : g_VulkanSurferData->MousePosEvents) {
+        io.AddMousePosEvent(event.x, event.y);
+    }
+    g_VulkanSurferData->MousePosEvents.clear();
 }

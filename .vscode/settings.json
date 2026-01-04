@@ -4,6 +4,7 @@
     ],
     "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 0, NamespaceIndentation: All}",
     "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
     "files.associations": {
         "unordered_map": "cpp",
         "xstring": "cpp",
