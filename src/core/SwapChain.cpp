@@ -27,20 +27,23 @@ namespace hammock::core {
     }
 
     vk::Result SwapChain::acquireNextImage(uint32_t frameIndex, uint32_t *imageIndex) {
-        auto& syncObjects = frameSyncObjects_[frameIndex];
+        auto &syncObjects = frameSyncObjects_[frameIndex];
 
         // Wait for both: GPU execution AND Presentation release
-        std::array<vk::Fence, 2> fences = {
-            syncObjects.inFlightFence,
-            syncObjects.releaseFence
+        std::vector<vk::Fence> fences = {
+            syncObjects.inFlightFence
         };
 
+        if (isSwapChainMaintenance1FeatureSupported()) {
+            fences.push_back(syncObjects.releaseFence);
+        }
+
         if (device_.device().waitForFences(
-            fences.size(),
-            fences.data(),
-            true, // Wait for ALL
-            UINT64_MAX
-        ) != vk::Result::eSuccess) {
+                fences.size(),
+                fences.data(),
+                true, // Wait for ALL
+                UINT64_MAX
+            ) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to wait for fences");
         }
 
@@ -59,11 +62,13 @@ namespace hammock::core {
     }
 
     vk::Result SwapChain::present(uint32_t frameIndex, uint32_t imageIndex) {
-        auto& syncObjects = frameSyncObjects_[frameIndex];
+        auto &syncObjects = frameSyncObjects_[frameIndex];
 
         // Reset the release fence before using it in present
-        if (device_.device().resetFences(1, &syncObjects.releaseFence) != vk::Result::eSuccess) {
-            throw std::runtime_error("failed to reset release fence");
+        if (isSwapChainMaintenance1FeatureSupported()) {
+            if (device_.device().resetFences(1, &syncObjects.releaseFence) != vk::Result::eSuccess) {
+                throw std::runtime_error("failed to reset release fence");
+            }
         }
 
         vk::Semaphore signalSemaphores[] = {
@@ -71,12 +76,16 @@ namespace hammock::core {
         };
 
         // Attach the fence to the presentation via pNext
-        vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
-        presentFenceInfo.swapchainCount = 1;
-        presentFenceInfo.pFences = &syncObjects.releaseFence;
-
         vk::PresentInfoKHR presentInfo{};
-        presentInfo.pNext = &presentFenceInfo; // <--- The modern way
+        if (isSwapChainMaintenance1FeatureSupported()) {
+            vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
+            presentFenceInfo.swapchainCount = 1;
+            presentFenceInfo.pFences = &syncObjects.releaseFence;
+            presentInfo.pNext = &presentFenceInfo; // The modern way
+        } else {
+            presentInfo.pNext = nullptr;
+        }
+
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
 
@@ -99,7 +108,6 @@ namespace hammock::core {
         vk::ImageLayout newLayout,
         uint32_t srcQueueFamilyIndex,
         uint32_t dstQueueFamilyIndex) const {
-
         vk::ImageSubresourceRange subresourceRange{
             .aspectMask = vk::ImageAspectFlagBits::eColor,
             .baseMipLevel = 0,
@@ -250,7 +258,31 @@ namespace hammock::core {
         }
     }
 
-     vk::SurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
+    bool SwapChain::isSwapChainMaintenance1FeatureSupported() const {
+        // First, check if the device actually exposes the extension
+        std::vector<vk::ExtensionProperties> deviceExtensions = device_.getPhysicalDevice().enumerateDeviceExtensionProperties();
+        bool hasSwapchainMaintenance1Ext = false;
+        for (const auto &ext: deviceExtensions) {
+            if (strcmp(ext.extensionName, vk::KHRSwapchainMaintenance1ExtensionName) == 0) {
+                hasSwapchainMaintenance1Ext = true;
+                break;
+            }
+        }
+
+        if (!hasSwapchainMaintenance1Ext) {
+            return false;
+        }
+
+        // Query the feature only if the extension exists
+        vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT features{};
+        vk::PhysicalDeviceFeatures2 features2{};
+        features2.pNext = &features;
+        device_.getPhysicalDevice().getFeatures2(&features2);
+
+        return features.swapchainMaintenance1 == VK_TRUE;
+    }
+
+    vk::SurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
         for (const auto &availableFormat: availableFormats) {
             if (availableFormat.format == vk::Format::eB8G8R8A8Unorm &&
                 availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
@@ -301,11 +333,11 @@ namespace hammock::core {
             vk::FormatFeatureFlagBits::eDepthStencilAttachment);
     }
 
-    FrameSyncObjects & SwapChain::getSyncObjects(const uint32_t frameIndex) {
+    FrameSyncObjects &SwapChain::getSyncObjects(const uint32_t frameIndex) {
         return frameSyncObjects_[frameIndex];
     }
 
-    const FrameSyncObjects & SwapChain::getSyncObjects(const uint32_t frameIndex) const {
+    const FrameSyncObjects &SwapChain::getSyncObjects(const uint32_t frameIndex) const {
         return frameSyncObjects_[frameIndex];
     }
 } // namespace hammock::core

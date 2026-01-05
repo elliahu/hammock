@@ -93,6 +93,9 @@ namespace hammock::core {
         void createImageViews();
         void createSyncObjects();
 
+        /// This will get removed once linux drivers will catch up with windows
+        bool isSwapChainMaintenance1FeatureSupported() const;
+
         // Helper functions
         static vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
             const std::vector<vk::SurfaceFormatKHR> &availableFormats);

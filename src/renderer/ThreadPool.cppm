@@ -1,8 +1,10 @@
 module;
 
+#include <condition_variable>
 #include <mutex>
 #include <functional>
 #include <queue>
+#include <thread>
 
 export module hammock.renderer.threadpool;
 

@@ -3,6 +3,7 @@ module;
 #include <functional>
 #include <memory>
 #include <stdexcept>
+#include <cmath>
 
 export module hammock.core.utilities;
 

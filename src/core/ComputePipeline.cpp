@@ -1,4 +1,5 @@
 module;
+#include <memory>
 #include <stdexcept>
 #include <compare>
 #include <vulkan/vulkan.hpp>

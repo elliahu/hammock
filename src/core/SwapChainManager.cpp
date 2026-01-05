@@ -3,6 +3,7 @@ module;
 #include <string>
 #include <cassert>
 #include <compare>
+#include <memory>
 #include <vulkan/vulkan.hpp>
 
 module hammock.core.swapchain_manager;

@@ -131,15 +131,17 @@ std::vector<const char *> hammock::core::Instance::getRequiredExtensions() const
 
     // Common extension for all platforms
     extensions.push_back(vk::KHRSurfaceExtensionName);
-    extensions.push_back(vk::KHRGetSurfaceCapabilities2ExtensionName);
-    extensions.push_back(vk::KHRSurfaceMaintenance1ExtensionName);
+    // These are commented here as most of the recent linux drivers still don't support them even tho on windows they are pretty much standard now
+    // Looking at you NVidia ...
+    // extensions.push_back(vk::KHRGetSurfaceCapabilities2ExtensionName);
+    // extensions.push_back(vk::KHRSurfaceMaintenance1ExtensionName);
 
 #if defined(_WIN32)
     // Add Win32-specific extension
     extensions.push_back(vk::KHRWin32SurfaceExtensionName);
 #elif defined(__linux__)
     // We use X11 on linux as Wayland is a dumpster fire and pain to develop for
-    extensions.push_back(vk::KhrXlibSurfaceExtensionName);
+    extensions.push_back(vk::KHRXlibSurfaceExtensionName);
 #endif
 
     if (enableValidationLayers) {

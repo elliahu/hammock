@@ -178,10 +178,13 @@ namespace hammock::core {
             vk::KHRDynamicRenderingExtensionName,
             // Descriptor indexing is used
             vk::EXTDescriptorIndexingExtensionName,
+
+            // These are commented here as most of the recent linux drivers still don't support them even tho on windows they are pretty much standard now
+            // Looking at you NVidia ...
             // Unified image layouts
-            vk::KHRUnifiedImageLayoutsExtensionName,
+            // vk::KHRUnifiedImageLayoutsExtensionName,
             // SwapChain maintenance enables release fence in swapchain
-            vk::KHRSwapchainMaintenance1ExtensionName,
+            // vk::KHRSwapchainMaintenance1ExtensionName,
 
         };
     };

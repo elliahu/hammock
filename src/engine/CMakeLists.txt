@@ -44,6 +44,15 @@ target_include_directories(hammock_engine PUBLIC
 # Link renderer (which links core transitively)
 target_link_libraries(hammock_engine PUBLIC hammock_renderer)
 
+# Platform-specific libraries required by VulkanSurfer
+# Here I added them manually, another option is to add Surfers Cmake as subdirectory here
+if(WIN32)
+    target_link_libraries(hammock_engine INTERFACE Dwmapi)
+elseif(UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED)
+    target_link_libraries(hammock_engine INTERFACE ${X11_LIBRARIES})
+endif()
+
 # Compiler features
 target_compile_features(hammock_engine PUBLIC cxx_std_23)
 

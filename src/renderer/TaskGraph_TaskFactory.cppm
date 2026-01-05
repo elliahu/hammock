@@ -65,7 +65,7 @@ namespace hammock::renderer {
                     case reflection::SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
                     case reflection::SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
                     default:
-                        throw std::exception("unimplemented");
+                        throw std::runtime_error("unimplemented");
                 }
 
                 task->addSocket(std::move(socket));
@@ -90,7 +90,7 @@ namespace hammock::renderer {
         /// @param fragmentShaderFilename fragment shader filename
         static std::unique_ptr<GraphicsTask> createGraphicsTask(const std::string &vertexShaderFilename,
                                                                 const std::string &fragmentShaderFilename) {
-            throw std::exception("unimplemented");
+            throw std::runtime_error("unimplemented");
         }
 
     private:

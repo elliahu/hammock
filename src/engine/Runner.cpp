@@ -1,5 +1,6 @@
 module;
 
+#include <memory>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 

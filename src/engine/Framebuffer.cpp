@@ -1,4 +1,5 @@
 module;
+#include <cstdint>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
