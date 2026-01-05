@@ -5,7 +5,7 @@ module;
 #include <stdexcept>
 #include <cmath>
 
-export module hammock_core.utilities;
+export module hammock_core:utilities;
 
 
 

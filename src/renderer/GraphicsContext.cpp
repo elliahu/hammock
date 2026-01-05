@@ -5,12 +5,9 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_renderer.graphics_context;
+module hammock_renderer;
 
-import hammock_core.instance;
-import hammock_core.device;
-import hammock_core.resource_manager;
-import hammock_core.descriptor;
+import hammock_core;
 
 
 hammock::renderer::GraphicsContext::GraphicsContext(const GraphicsContextDesc &desc): desc_(desc) {

@@ -1,4 +1,4 @@
 export module hammock_engine;
 
-export import hammock_engine.application;
-export import hammock_engine.runner;
+export import :application;
+export import :runner;

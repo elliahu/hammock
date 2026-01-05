@@ -3,7 +3,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock_core.base_surface_provider;
+export module hammock_core:base_surface_provider;
 
 
 namespace hammock::core {

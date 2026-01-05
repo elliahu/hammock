@@ -4,7 +4,7 @@ module;
 #include <vulkan/vulkan.hpp>
 #include <VulkanSurfer/VulkanSurfer.h>
 
-module hammock_engine.window;
+module hammock_engine;
 
 hammock::engine::Window::Window(const std::string &title, core::Instance &instance, const uint32_t width,
     const uint32_t height, const uint32_t x, const uint32_t y): instance_(instance) {

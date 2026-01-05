@@ -5,10 +5,10 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock_core.command_buffer;
+export module hammock_core:command_buffer;
 
-import hammock_core.device;
-import hammock_core.semaphore;
+import :device;
+import :semaphore;
 
 
 namespace hammock::core {

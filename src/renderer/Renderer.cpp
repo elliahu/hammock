@@ -3,7 +3,9 @@ module;
 #include <memory>
 #include <stdexcept>
 
-module hammock_renderer.renderer;
+module hammock_renderer;
+
+import hammock_core;
 
 hammock::renderer::Renderer::Renderer(std::unique_ptr<IRenderingStrategy> &&strategy): strategy_(std::move(strategy)) {
 }

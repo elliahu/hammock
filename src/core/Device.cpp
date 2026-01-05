@@ -6,10 +6,7 @@ module;
 #include <vulkan/vulkan.hpp>
 
 
-module hammock_core.device;
-
-import hammock_core.utilities;
-import hammock_core.memory_allocator;
+module hammock_core;
 
 namespace hammock::core {
     Device::Device(Instance &instance, vk::SurfaceKHR surface) : instance_{instance}, surface_{surface} {

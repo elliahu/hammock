@@ -9,14 +9,12 @@ module;
 #include <vulkan/vulkan.hpp>
 
 
-export module hammock_renderer.task_graph:task;
+export module hammock_renderer:task;
 
 import :socket;
 import :push_constants;
-import hammock_renderer.spirv_reflection;
-import hammock_core.graphics_pipeline;
-import hammock_core.compute_pipeline;
-import hammock_core.command_buffer;
+import :spirv_reflection;
+import hammock_core;
 
 
 namespace hammock::renderer {

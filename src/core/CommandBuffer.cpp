@@ -3,9 +3,8 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core.command_buffer;
+module hammock_core;
 
-import hammock_core.semaphore;
 
 auto hammock::core::CommandBuffer::begin() -> void {
     if (inProgress_) {

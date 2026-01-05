@@ -6,10 +6,10 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock_core.swapchain;
+export module hammock_core:swapchain;
 
-import hammock_core.device;
-import hammock_core.semaphore;
+import :device;
+import :semaphore;
 
 #define FB_COLOR_FORMAT VK_FORMAT_R8G8B8A8_UNORM
 

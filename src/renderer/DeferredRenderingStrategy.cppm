@@ -5,11 +5,11 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock_renderer.deferred_rendering_strategy;
+export module hammock_renderer:deferred_rendering_strategy;
 
-import hammock_renderer.rendering_strategy;
+import :rendering_strategy;
 import hammock_core;
-import hammock_renderer.graphics_context;
+import :graphics_context;
 
 namespace hammock::renderer {
     export class DeferredRenderingStrategy : public IRenderingStrategy {

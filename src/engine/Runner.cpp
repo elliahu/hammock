@@ -4,11 +4,10 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_engine.runner;
+module hammock_engine;
 
 import hammock_core;
-import hammock_engine.presentation_engine;
-import hammock_renderer.deferred_rendering_strategy;
+import hammock_renderer;
 
 hammock::engine::Runner::Runner(RunnerMode mode, renderer::GraphicsContext &context) : context_(context) {
     // Create window

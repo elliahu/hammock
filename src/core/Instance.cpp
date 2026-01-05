@@ -5,7 +5,7 @@ module;
 #include <vulkan/vulkan.hpp>
 
 
-module hammock_core.instance;
+module hammock_core;
 
 hammock::core::Instance::Instance() {
     createInstance();

@@ -6,7 +6,7 @@ module;
 #include <queue>
 #include <thread>
 
-export module hammock_renderer.threadpool;
+export module hammock_renderer:threadpool;
 
 namespace hammock::renderer {
     export class ThreadPool {

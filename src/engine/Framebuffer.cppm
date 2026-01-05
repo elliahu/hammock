@@ -8,7 +8,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock_engine.framebuffer;
+export module hammock_engine:framebuffer;
 
 import hammock_core;
 import hammock_renderer;

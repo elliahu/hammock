@@ -2,10 +2,10 @@ module;
 
 #include <cstdint>
 
-export module hammock_renderer.rendering_strategy;
+export module hammock_renderer:rendering_strategy;
 
 import hammock_core;
-import hammock_renderer.graphics_context;
+import :graphics_context;
 
 namespace hammock::renderer {
     export class IRenderingStrategy {

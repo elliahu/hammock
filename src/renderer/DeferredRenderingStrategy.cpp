@@ -5,11 +5,9 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_renderer.deferred_rendering_strategy;
+module hammock_renderer;
 
-import hammock_renderer.rendering_strategy;
 import hammock_core;
-import hammock_renderer.graphics_context;
 
 
 hammock::renderer::DeferredRenderingStrategy::DeferredRenderingStrategy(GraphicsContext &ctx, std::uint32_t maxFramesInFlight): IRenderingStrategy(ctx, maxFramesInFlight) {

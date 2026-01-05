@@ -4,9 +4,9 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock_core.base_resource;
+export module hammock_core:base_resource;
 
-import hammock_core.device;
+import :device;
 
 
 namespace hammock::core {

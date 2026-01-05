@@ -6,7 +6,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core.descriptor;
+module hammock_core;
 
 
 

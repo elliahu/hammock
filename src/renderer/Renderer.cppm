@@ -3,9 +3,9 @@ module;
 #include <memory>
 #include <stdexcept>
 
-export module hammock_renderer.renderer;
+export module hammock_renderer:renderer;
 
-export import hammock_renderer.rendering_strategy;
+export import :rendering_strategy;
 
 import hammock_core;
 

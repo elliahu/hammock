@@ -5,13 +5,12 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock_engine.runner;
+export module hammock_engine:runner;
 
-import hammock_engine.window;
-import hammock_renderer.renderer;
-import hammock_renderer.graphics_context;
-import hammock_engine.ui;
-import hammock_engine.presentation_engine;
+import :window;
+import hammock_renderer;
+import :ui;
+import :presentation_engine;
 
 namespace hammock::engine {
 

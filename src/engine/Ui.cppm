@@ -8,10 +8,10 @@ module;
 #include "vulkan/vulkan.hpp"
 
 
-export module hammock_engine.ui;
+export module hammock_engine:ui;
 
 import hammock_core;
-import hammock_renderer.graphics_context;
+import hammock_renderer;
 
 namespace hammock::engine {
 

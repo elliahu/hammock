@@ -4,9 +4,9 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock_core.semaphore;
+export module hammock_core:semaphore;
 
-import hammock_core.device;
+import :device;
 
 namespace hammock::core {
     /// @class Semaphore
