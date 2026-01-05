@@ -3,10 +3,10 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock.core.device;
+export module hammock_core.device;
 
-import hammock.core.instance;
-import hammock.core.memory_allocator;
+import hammock_core.instance;
+import hammock_core.memory_allocator;
 
 namespace hammock::core {
     /// @struct SwapChainSupportDetails

@@ -4,10 +4,10 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock.engine.presentation_engine;
+module hammock_engine.presentation_engine;
 
-import hammock.core;
-import hammock.renderer.math;
+import hammock_core;
+import hammock_renderer.math;
 
 // ************ Base presentation strategy *************
 

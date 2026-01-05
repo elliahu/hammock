@@ -1,5 +1,5 @@
 module;
-export module hammock.renderer.task_graph;
+export module hammock_renderer.task_graph;
 
 export import :task;
 export import :socket;

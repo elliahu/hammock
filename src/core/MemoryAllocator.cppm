@@ -8,7 +8,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock.core.memory_allocator;
+export module hammock_core.memory_allocator;
 
 
 /// @namespace hammock::core::allocator

@@ -4,14 +4,14 @@ module;
 #include <memory>
 #include <functional>
 
-export module hammock.core.swapchain_manager;
+export module hammock_core.swapchain_manager;
 
-import hammock.core.device;
-import hammock.core.utilities;
-import hammock.core.base_surface_provider;
-import hammock.core.base_resource;
-import hammock.core.swapchain;
-import hammock.core.command_buffer;
+import hammock_core.device;
+import hammock_core.utilities;
+import hammock_core.base_surface_provider;
+import hammock_core.base_resource;
+import hammock_core.swapchain;
+import hammock_core.command_buffer;
 
 
 namespace hammock::core {

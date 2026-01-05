@@ -3,7 +3,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock.core.image;
+module hammock_core.image;
 
 // ************* Image *********************
 hammock::core::Image::Image(Device &device, uint64_t id, const std::string &name, const ImageDesc &desc): BaseResource(device, id, name) {

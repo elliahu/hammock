@@ -4,7 +4,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock.engine.application;
+module hammock_engine.application;
 hammock::engine::Application::Application(RunnerMode mode) {
     // Create graphics context
     context_ = std::make_unique<renderer::GraphicsContext>(renderer::GraphicsContextDesc{

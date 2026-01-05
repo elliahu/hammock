@@ -5,7 +5,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock.core.graphics_pipeline;
+module hammock_core.graphics_pipeline;
 
 
 

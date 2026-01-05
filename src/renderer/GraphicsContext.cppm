@@ -5,12 +5,12 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock.renderer.graphics_context;
+export module hammock_renderer.graphics_context;
 
-import hammock.core.instance;
-import hammock.core.device;
-import hammock.core.resource_manager;
-import hammock.core.descriptor;
+import hammock_core.instance;
+import hammock_core.device;
+import hammock_core.resource_manager;
+import hammock_core.descriptor;
 
 
 namespace hammock::renderer {

@@ -8,9 +8,9 @@ module;
 #include <memory>
 #include <functional>
 
-export module hammock.renderer.spirv_reflection;
+export module hammock_renderer.spirv_reflection;
 
-import hammock.renderer.filesystem;
+import hammock_renderer.filesystem;
 
 
 // TODO abstract SPV_REFLECT types and variables and don't export them outside of this module

@@ -5,11 +5,11 @@ module;
 #include <vulkan/vulkan.hpp>
 #include <functional>
 
-export module hammock.engine.presentation_engine;
+export module hammock_engine.presentation_engine;
 
-import hammock.core;
-import hammock.core.base_surface_provider;
-import hammock.engine.framebuffer;
+import hammock_core;
+import hammock_core.base_surface_provider;
+import hammock_engine.framebuffer;
 
 namespace hammock::engine {
     /// @brief Context provided to the renderer for each frame

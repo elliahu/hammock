@@ -7,9 +7,9 @@ module;
 #include <cstdint>
 #include <variant>
 
-export module hammock.renderer.task_graph:socket;
+export module hammock_renderer.task_graph:socket;
 
-import hammock.core.base_resource;
+import hammock_core.base_resource;
 
 namespace hammock::renderer {
     /// @enum SocketUsageStage

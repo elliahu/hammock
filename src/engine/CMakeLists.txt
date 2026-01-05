@@ -19,6 +19,7 @@ target_sources(hammock_engine
         "Ui.cppm"
         "Framebuffer.cppm"
         "PresentationEngine.cppm"
+        "import.cppm"
     PRIVATE
         "Runner.cpp"
         "Application.cpp"

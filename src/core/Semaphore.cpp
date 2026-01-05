@@ -4,7 +4,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock.core.semaphore;
+module hammock_core.semaphore;
 
 namespace hammock::core {
     Semaphore::Semaphore(Device &device) : device_(device) {

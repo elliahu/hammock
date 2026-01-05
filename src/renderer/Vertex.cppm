@@ -4,9 +4,9 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock.renderer.vertex;
+export module hammock_renderer.vertex;
 
-import hammock.renderer.math;
+import hammock_renderer.math;
 
 
 using namespace hammock::math;

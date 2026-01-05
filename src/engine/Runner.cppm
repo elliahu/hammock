@@ -5,20 +5,22 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock.engine.runner;
+export module hammock_engine.runner;
 
-import hammock.engine.window;
-import hammock.renderer.renderer;
-import hammock.renderer.graphics_context;
-import hammock.engine.ui;
-import hammock.engine.presentation_engine;
+import hammock_engine.window;
+import hammock_renderer.renderer;
+import hammock_renderer.graphics_context;
+import hammock_engine.ui;
+import hammock_engine.presentation_engine;
 
 namespace hammock::engine {
 
+    /// @enum RunnerMode
+    /// @brief Defines how the runner launches the engine
     export enum class RunnerMode {
-        Headless,
-        Editor,
-        Runtime,
+        Headless, /// Running without a rendering surface
+        Editor, /// Surface rendering without tooling
+        Runtime, /// Both tooling and surface rendering
     };
 
     /// @class Runner

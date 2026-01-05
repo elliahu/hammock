@@ -2,10 +2,10 @@ module;
 
 #include <memory>
 
-export module hammock.engine.application;
+export module hammock_engine.application;
 
-import hammock.engine.runner;
-import hammock.renderer;
+import hammock_engine.runner;
+import hammock_renderer;
 
 
 namespace hammock::engine {

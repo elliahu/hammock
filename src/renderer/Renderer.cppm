@@ -3,11 +3,11 @@ module;
 #include <memory>
 #include <stdexcept>
 
-export module hammock.renderer.renderer;
+export module hammock_renderer.renderer;
 
-export import hammock.renderer.rendering_strategy;
+export import hammock_renderer.rendering_strategy;
 
-import hammock.core;
+import hammock_core;
 
 namespace hammock::renderer {
     export class Renderer {

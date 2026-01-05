@@ -4,10 +4,10 @@ module;
 #include <memory>
 #include <stdexcept>
 
-export module hammock.renderer.task_graph:task_factory;
+export module hammock_renderer.task_graph:task_factory;
 import :task;
-import hammock.renderer.filesystem;
-import hammock.renderer.spirv_reflection;
+import hammock_renderer.filesystem;
+import hammock_renderer.spirv_reflection;
 
 namespace hammock::renderer {
     /// @class TaskFactory

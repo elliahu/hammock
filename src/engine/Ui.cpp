@@ -7,7 +7,7 @@ module;
 #include "vulkan/vulkan.hpp"
 
 
-module hammock.engine.ui;
+module hammock_engine.ui;
 
 hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx, std::uint32_t framesInFlight) {
     IMGUI_CHECKVERSION();

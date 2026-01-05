@@ -7,9 +7,9 @@ module;
 #include <cstdint>
 #include <memory>
 
-export module hammock.renderer.task_graph:push_constants;
+export module hammock_renderer.task_graph:push_constants;
 
-import hammock.renderer.math;
+import hammock_renderer.math;
 
 namespace hammock::renderer {
     /// @enum PushConstantFieldType

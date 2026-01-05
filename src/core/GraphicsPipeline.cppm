@@ -7,12 +7,12 @@ module;
 #include <memory>
 
 
-export module hammock.core.graphics_pipeline;
+export module hammock_core.graphics_pipeline;
 
-import hammock.core.command_buffer;
-import hammock.core.device;
-import hammock.core.base_pipeline;
-import hammock.core.descriptor;
+import hammock_core.command_buffer;
+import hammock_core.device;
+import hammock_core.base_pipeline;
+import hammock_core.descriptor;
 
 namespace hammock::core {
 

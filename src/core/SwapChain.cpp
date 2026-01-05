@@ -9,10 +9,10 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock.core.swapchain;
+module hammock_core.swapchain;
 
-import hammock.core.utilities;
-import hammock.core.device;
+import hammock_core.utilities;
+import hammock_core.device;
 
 namespace hammock::core {
     SwapChain::SwapChain(Device &deviceRef, vk::SurfaceKHR surface, const vk::Extent2D extent)

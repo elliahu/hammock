@@ -6,10 +6,10 @@ module;
 #include <vulkan/vulkan.hpp>
 
 
-export module hammock.engine.window;
+export module hammock_engine.window;
 
-import hammock.core;
-import hammock.core.base_surface_provider;
+import hammock_core;
+import hammock_core.base_surface_provider;
 
 
 namespace hammock::engine {

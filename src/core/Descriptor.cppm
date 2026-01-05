@@ -5,10 +5,10 @@ module;
 #include <vulkan/vulkan.hpp>
 
 
-export module hammock.core.descriptor;
+export module hammock_core.descriptor;
 
-import hammock.core.device;
-import hammock.core.utilities;
+import hammock_core.device;
+import hammock_core.utilities;
 
 
 

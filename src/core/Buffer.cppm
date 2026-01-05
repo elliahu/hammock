@@ -5,13 +5,13 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock.core.buffer;
+export module hammock_core.buffer;
 
 
-import hammock.core.base_resource;
-import hammock.core.device;
-import hammock.core.utilities;
-import hammock.core.memory_allocator;
+import hammock_core.base_resource;
+import hammock_core.device;
+import hammock_core.utilities;
+import hammock_core.memory_allocator;
 
 namespace hammock::core {
     /// @struct BufferDesc

@@ -6,12 +6,12 @@ module;
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
-module hammock.core.swapchain_manager;
+module hammock_core.swapchain_manager;
 
-import hammock.core.resource_manager;
-import hammock.core.base_surface_provider;
-import hammock.core.base_resource;
-import hammock.core.image;
+import hammock_core.resource_manager;
+import hammock_core.base_surface_provider;
+import hammock_core.base_resource;
+import hammock_core.image;
 
 
 hammock::core::SwapChainManager::SwapChainManager(

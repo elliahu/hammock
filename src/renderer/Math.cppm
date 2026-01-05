@@ -2,7 +2,7 @@ module;
 
 #include "HandmadeMath/HandmadeMath.h"
 
-export module hammock.renderer.math;
+export module hammock_renderer.math;
 
 export namespace hammock::math {
 

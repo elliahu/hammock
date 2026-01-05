@@ -4,7 +4,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock.core.resource_manager;
+module hammock_core.resource_manager;
 
 
 void hammock::core::ResourceManager::initialize(Device &device, vk::DeviceSize memoryBudget) {

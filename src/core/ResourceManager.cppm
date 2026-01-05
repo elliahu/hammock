@@ -4,13 +4,13 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock.core.resource_manager;
+export module hammock_core.resource_manager;
 
-import hammock.core.utilities;
-import hammock.core.buffer;
-import hammock.core.image;
-import hammock.core.device;
-import hammock.core.base_resource;
+import hammock_core.utilities;
+import hammock_core.buffer;
+import hammock_core.image;
+import hammock_core.device;
+import hammock_core.base_resource;
 
 
 namespace hammock::core {

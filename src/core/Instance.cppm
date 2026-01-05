@@ -5,9 +5,9 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-export module hammock.core.instance;
+export module hammock_core.instance;
 
-import hammock.core.utilities;
+import hammock_core.utilities;
 
 
 namespace hammock::core {

@@ -8,9 +8,9 @@ module;
 #include <filesystem>
 #include <regex>
 
-export module hammock.renderer.filesystem;
+export module hammock_renderer.filesystem;
 
-import hammock.core.utilities;
+import hammock_core.utilities;
 
 namespace hammock::renderer::filesystem {
     /// Check if file exists

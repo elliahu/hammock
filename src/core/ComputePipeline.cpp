@@ -4,7 +4,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock.core.compute_pipeline;
+module hammock_core.compute_pipeline;
 
 // *************** Compute pipeline ***********************
 hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : BasePipeline(config.device) {

@@ -3,11 +3,11 @@ module;
 #include <cstdint>
 #include <vector>
 
-export module hammock.renderer.geometry;
+export module hammock_renderer.geometry;
 
-import hammock.renderer.vertex;
-import hammock.renderer.math;
-import hammock.core.base_resource;
+import hammock_renderer.vertex;
+import hammock_renderer.math;
+import hammock_core.base_resource;
 
 using namespace hammock::math;
 

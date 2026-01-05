@@ -2,9 +2,7 @@
 #include <cstdlib>
 #include <memory>
 
-import hammock.engine.application;
-import hammock.engine.runner;
-
+import hammock_engine;
 
 int main() {
     try {
