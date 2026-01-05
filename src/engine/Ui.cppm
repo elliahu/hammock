@@ -3,14 +3,14 @@ module;
 #include "imgui/backends/imgui_impl_vulkan.h"
 #include "imgui_impl_vulkansurfer.h"
 #include "imgui/imgui.h"
+#include <cstdint>
 #include <compare>
 #include "vulkan/vulkan.hpp"
 
 
 export module hammock.engine.ui;
 
-import hammock.core.command_buffer;
-import hammock.core.descriptor;
+import hammock.core;
 import hammock.renderer.graphics_context;
 
 namespace hammock::engine {
@@ -19,14 +19,18 @@ namespace hammock::engine {
     /// @brief This class is responsible for laying out and rendering the ui
     export class Ui {
     public:
-        Ui(Surfer::Window * window, renderer::GraphicsContext * ctx);
+        Ui(Surfer::Window * window, renderer::GraphicsContext * ctx, std::uint32_t framesInFlight);
 
         ~Ui();
 
         /// @brief Renders the user interface on top of provided image
-        static void renderFrame(core::CommandBuffer& commandBuffer, vk::ImageView swapchainImageView, std::uint32_t width, std::uint32_t height);
+        void renderFrame(core::ResourceHandle target, std::uint32_t frameIndex,  core::Semaphore &wait, core::Semaphore &signal);
 
     private:
         static void draw();
+
+
+        std::vector<std::unique_ptr<core::CommandBuffer>> commandBuffers_;
+
     };
 }

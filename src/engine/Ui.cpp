@@ -9,7 +9,7 @@ module;
 
 module hammock.engine.ui;
 
-hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx) {
+hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx, std::uint32_t framesInFlight) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui_ImplVulkanSurfer_Init(window);
@@ -25,7 +25,7 @@ hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx) 
     initInfo.ImageCount = 3;
     initInfo.UseDynamicRendering = true;
     // Set up dynamic rendering info
-    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_UNORM; // Use your swapchain format here
+    VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
     VkPipelineRenderingCreateInfo pipelineRenderingInfo = {};
     pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
@@ -35,6 +35,13 @@ hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx) 
     initInfo.PipelineInfoMain.PipelineRenderingCreateInfo = pipelineRenderingInfo;
 
     ImGui_ImplVulkan_Init(&initInfo);
+
+    // Create command buffers
+    core::SwapChain::forEachFrameInFlight([&, this](int frame) {
+        auto commandBuffer = std::make_unique<
+            core::CommandBuffer>(ctx->getDevice(), core::CommandQueueFamily::Graphics);
+        commandBuffers_.push_back(std::move(commandBuffer));
+    });
 }
 
 hammock::engine::Ui::~Ui() {
@@ -44,7 +51,7 @@ hammock::engine::Ui::~Ui() {
 }
 
 
-void hammock::engine::Ui::renderFrame(core::CommandBuffer &commandBuffer, vk::ImageView swapchainImageView, std::uint32_t width, std::uint32_t height) {
+void hammock::engine::Ui::renderFrame(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore &wait, core::Semaphore &signal) {
     // New frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplVulkanSurfer_NewFrame();
@@ -55,21 +62,31 @@ void hammock::engine::Ui::renderFrame(core::CommandBuffer &commandBuffer, vk::Im
     ImGui::Render();
     ImDrawData *draw_data = ImGui::GetDrawData();
 
-    vk::RenderingAttachmentInfo colorAttachment{};
-    colorAttachment.imageView = swapchainImageView;
-    colorAttachment.imageLayout = vk::ImageLayout::eGeneral; // Expects GENERAL layout
-    colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad; // Keep existing content
+    auto targetImage = core::ResourceManager::getInstance().getResource<core::Image>(target);
+    vk::RenderingAttachmentInfo colorAttachment = targetImage->getRenderingAttachmentInfo();
+    colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
     colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
 
     vk::RenderingInfo renderInfo = {};
-    renderInfo.renderArea = vk::Rect2D{{0,  0}, {width, height}};
+    renderInfo.renderArea = vk::Rect2D{{0, 0}, {targetImage->getExtent().width, targetImage->getExtent().height}};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 1;
     renderInfo.pColorAttachments = &colorAttachment;
 
+    auto &commandBuffer = *commandBuffers_[frameIndex];
+
+    // Begin command buffer
+    commandBuffer.addWaitSemaphore(wait, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+    commandBuffer.addSignalSemaphore(signal);
+    commandBuffer.begin();
+
+    // Begin rendering
     commandBuffer.getCommandBuffer().beginRendering(&renderInfo);
     ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer.getCommandBuffer());
     commandBuffer.getCommandBuffer().endRendering();
+
+    // Submit
+    commandBuffer.submit();
 }
 
 void hammock::engine::Ui::draw() {

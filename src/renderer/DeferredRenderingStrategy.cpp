@@ -40,7 +40,8 @@ void hammock::renderer::DeferredRenderingStrategy::draw(core::ResourceHandle tar
     );
 
     auto attachment = image->getRenderingAttachmentInfo();
-    attachment.loadOp = vk::AttachmentLoadOp::eDontCare;
+    attachment.loadOp = vk::AttachmentLoadOp::eClear;
+    attachment.storeOp = vk::AttachmentStoreOp::eStore;
 
     vk::RenderingInfo renderInfo{};
     renderInfo.renderArea = vk::Rect2D{{0,  0}, {image->getExtent().width, image->getExtent().height}};

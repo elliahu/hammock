@@ -12,11 +12,10 @@ import hammock.core.base_surface_provider;
 import hammock.engine.framebuffer;
 
 namespace hammock::engine {
-
     /// @brief Context provided to the renderer for each frame
     export struct FrameContext {
         core::ResourceHandle renderTarget;
-        core::Semaphore& renderFinished;
+        core::Semaphore &renderFinished;
         uint32_t frameIndex;
     };
 
@@ -32,11 +31,14 @@ namespace hammock::engine {
         // Public Interface (called by PresentationEngine)
 
         std::optional<FrameContext> beginFrame();
-        void endFrame(const FrameContext& ctx);
+
+        void endFrame(const FrameContext &ctx);
 
         [[nodiscard]] vk::Extent2D getResolution() const;
+
         vk::Format getFormat() const;
-        std::uint32_t getFrameIndex() const {return currentFrameIndex_;}
+
+        std::uint32_t getFrameIndex() const { return currentFrameIndex_; }
         bool isFrameInProgress() const { return frameInProgress_; }
 
         void onResolutionChanged(std::function<void(uint32_t, uint32_t)> callback) {
@@ -46,7 +48,7 @@ namespace hammock::engine {
     protected:
         // Protected Constructor (only subclasses can instantiate)
         BasePresentationStrategy(
-            core::Device& device,
+            core::Device &device,
             vk::Extent2D resolution,
             vk::Format format,
             uint32_t framesInFlight
@@ -60,14 +62,16 @@ namespace hammock::engine {
 
         /// @brief Called at the end of endFrame, after rendering is done
         /// Subclasses implement presentation logic here
-        virtual void onPresent(const FrameContext& ctx) = 0;
+        virtual void onPresent(const FrameContext &ctx) = 0;
 
         /// @brief Called when framebuffer needs recreation
-        virtual void onFramebufferRecreated() {}
+        virtual void onFramebufferRecreated() {
+        }
 
         // Protected Helpers (for subclass use)
 
         void recreateFramebuffer(vk::Extent2D newResolution);
+
         void notifyResolutionChanged(uint32_t width, uint32_t height);
 
         struct PerFrameResources {
@@ -76,7 +80,7 @@ namespace hammock::engine {
 
         // Protected Members (accessible by subclasses)
 
-        core::Device& device_;
+        core::Device &device_;
         std::unique_ptr<Framebuffer> framebuffer_;
         std::vector<PerFrameResources> perFrameResources_;
 
@@ -84,7 +88,7 @@ namespace hammock::engine {
         uint32_t framesInFlight_;
         bool frameInProgress_ = false;
 
-        std::vector<std::function<void(uint32_t, uint32_t)>> resolutionCallbacks_;
+        std::vector<std::function<void(uint32_t, uint32_t)> > resolutionCallbacks_;
     };
 
     // Concrete Strategies - Only implement presentation differences
@@ -94,10 +98,10 @@ namespace hammock::engine {
     export class HeadlessPresentationStrategy : public BasePresentationStrategy {
     public:
         HeadlessPresentationStrategy(
-            core::Device& device,
+            core::Device &device,
             vk::Extent2D resolution,
             vk::Format format = vk::Format::eR8G8B8A8Unorm,
-            uint32_t framesInFlight = 1  // Headless typically uses 1
+            uint32_t framesInFlight = 1 // Headless typically uses 1
         );
 
         /// @brief Get the rendered image for readback/saving
@@ -111,7 +115,7 @@ namespace hammock::engine {
         bool onBeginFrame() override { return true; }
 
         // No presentation needed - framebuffer is the final output
-        void onPresent(const FrameContext& ctx) override;
+        void onPresent(const FrameContext &ctx) override;
     };
 
     /// @class SurfacePresentationStrategy
@@ -119,21 +123,22 @@ namespace hammock::engine {
     export class SurfacePresentationStrategy : public BasePresentationStrategy {
     public:
         enum class Mode {
-            Runtime,  // Just scene rendering
-            Editor    // Scene + UI rendering
+            Runtime, // Just scene rendering
+            Editor // Scene + UI rendering
         };
 
         SurfacePresentationStrategy(
-            core::Device& device,
-            core::BaseSurfaceProvider& surfaceProvider,
+            core::Device &device,
+            core::BaseSurfaceProvider &surfaceProvider,
             Mode mode = Mode::Runtime
         );
 
         ~SurfacePresentationStrategy() override = default;
 
         /// @brief Submit UI rendering commands (Editor mode only)
-        void submitUI(const FrameContext& ctx,
-                     std::function<void(core::CommandBuffer&, vk::ImageView, vk::Extent2D)> uiRenderFunc);
+        void submitUI(const FrameContext &ctx,
+                      std::function<void(core::ResourceHandle, std::uint32_t, core::Semaphore &, core::Semaphore &)>
+                      uiRenderFunc);
 
         /// @brief Get the swapchain image view for direct rendering
         vk::ImageView getSwapchainImageView(uint32_t index) const;
@@ -143,13 +148,13 @@ namespace hammock::engine {
         bool onBeginFrame() override;
 
         // Blit to swapchain and present
-        void onPresent(const FrameContext& ctx) override;
+        void onPresent(const FrameContext &ctx) override;
 
         // Recreate framebuffer when swapchain changes
         void onFramebufferRecreated() override;
 
     private:
-        void blitFramebufferToSwapchain(const FrameContext& ctx);
+        void blitFramebufferToSwapchain(const FrameContext &ctx);
 
         Mode mode_;
         std::unique_ptr<core::SwapChainManager> swapchainManager_;
@@ -158,9 +163,9 @@ namespace hammock::engine {
         struct SurfacePerFrameResources {
             std::unique_ptr<core::CommandBuffer> presentCommandBuffer;
             // Editor mode only
-            std::unique_ptr<core::CommandBuffer> uiCommandBuffer;
             std::unique_ptr<core::Semaphore> uiFinished;
         };
+
         std::vector<SurfacePerFrameResources> surfacePerFrameResources_;
 
         uint32_t currentSwapchainImageIndex_ = 0;
@@ -170,13 +175,14 @@ namespace hammock::engine {
     /// @brief Main presentation engine - delegates to strategy
     export class PresentationEngine {
     public:
-        explicit PresentationEngine(std::unique_ptr<BasePresentationStrategy>&& strategy)
-            : strategy_(std::move(strategy)) {}
+        explicit PresentationEngine(std::unique_ptr<BasePresentationStrategy> &&strategy)
+            : strategy_(std::move(strategy)) {
+        }
 
         // Delegate all calls to strategy
         [[nodiscard]] std::optional<FrameContext> beginFrame() { return strategy_->beginFrame(); }
 
-        void endFrame(const FrameContext& ctx) { strategy_->endFrame(ctx); }
+        void endFrame(const FrameContext &ctx) { strategy_->endFrame(ctx); }
 
         [[nodiscard]] vk::Extent2D getResolution() { return strategy_->getResolution(); }
 
@@ -184,7 +190,7 @@ namespace hammock::engine {
 
         [[nodiscard]] bool isFrameInProgress() { return strategy_->isFrameInProgress(); }
 
-        [[nodiscard]] std::uint32_t getFrameIndex() {return strategy_->getFrameIndex();}
+        [[nodiscard]] std::uint32_t getFrameIndex() { return strategy_->getFrameIndex(); }
 
         void onResolutionChanged(std::function<void(uint32_t, uint32_t)> cb) {
             strategy_->onResolutionChanged(std::move(cb));
@@ -192,18 +198,18 @@ namespace hammock::engine {
 
         // Strategy-specific access (use with caution)
         template<typename T>
-        T* getStrategyAs();
+        T *getStrategyAs();
 
         template<typename T>
-        const T* getStrategyAs() const;
+        const T *getStrategyAs() const;
 
     private:
         std::unique_ptr<BasePresentationStrategy> strategy_;
     };
 
     template<typename T>
-    T * PresentationEngine::getStrategyAs() { return dynamic_cast<T*>(strategy_.get()); }
+    T *PresentationEngine::getStrategyAs() { return dynamic_cast<T *>(strategy_.get()); }
 
     template<typename T>
-    const T * PresentationEngine::getStrategyAs() const { return dynamic_cast<const T*>(strategy_.get()); }
+    const T *PresentationEngine::getStrategyAs() const { return dynamic_cast<const T *>(strategy_.get()); }
 }

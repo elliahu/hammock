@@ -37,7 +37,7 @@ hammock::engine::Runner::Runner(RunnerMode mode, renderer::GraphicsContext &cont
         );
 
         // Ui only in surface mode
-        ui_ = std::make_unique<Ui>(window_->getWindowPtr(), &context_);
+        ui_ = std::make_unique<Ui>(window_->getWindowPtr(), &context_, core::SwapChain::MAX_FRAMES_IN_FLIGHT);
     }
 
     // Register resize callback
@@ -81,8 +81,8 @@ void hammock::engine::Runner::loop() {
             // Render UI (editor only)
             if (auto* surfaceStrategy = presentationEngine_->getStrategyAs<SurfacePresentationStrategy>()) {
                 surfaceStrategy->submitUI(*frameCtx,
-                    [this](core::CommandBuffer& cmd, vk::ImageView swapchainView, vk::Extent2D extent) {
-                        ui_->renderFrame(cmd, swapchainView, extent.width, extent.height);
+                    [this](core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore & wait, core::Semaphore & signal) {
+                        ui_->renderFrame(target, frameIndex, wait, signal);
                     }
                 );
             }

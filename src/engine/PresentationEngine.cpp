@@ -176,9 +176,6 @@ hammock::engine::SurfacePresentationStrategy::SurfacePresentationStrategy(core::
         );
 
         if (mode_ == Mode::Editor) {
-            surfaceRes.uiCommandBuffer = std::make_unique<core::CommandBuffer>(
-                device_, core::CommandQueueFamily::Graphics
-            );
             surfaceRes.uiFinished = std::make_unique<core::Semaphore>(device_);
         }
     }
@@ -191,30 +188,20 @@ hammock::engine::SurfacePresentationStrategy::SurfacePresentationStrategy(core::
     }
 }
 
-void hammock::engine::SurfacePresentationStrategy::submitUI(const FrameContext &ctx,
-                                                            std::function<void(
-                                                                core::CommandBuffer &, vk::ImageView,
-                                                                vk::Extent2D)> uiRenderFunc) {
+void hammock::engine::SurfacePresentationStrategy::submitUI(
+    const FrameContext &ctx,
+    std::function<void(core::ResourceHandle, std::uint32_t, core::Semaphore &, core::Semaphore &)> uiRenderFunc
+) {
     if (mode_ != Mode::Editor) {
         return;
     }
+    auto frameIndex = swapchainManager_->getFrameIndex();
 
-    auto &surfaceRes = surfacePerFrameResources_[ctx.frameIndex];
-    auto &uiCmd = *surfaceRes.uiCommandBuffer;
-    auto &swapChain = swapchainManager_->getSwapChain();
-
-    // Wait for scene rendering, signal when UI done
-    uiCmd.addWaitSemaphore(ctx.renderFinished,
-                          vk::PipelineStageFlagBits2::eColorAttachmentOutput);
-    uiCmd.addSignalSemaphore(*surfaceRes.uiFinished);
-
-    // Record UI commands
-    uiCmd.begin();
-    auto extent = swapChain.getExtent();
-    uiRenderFunc(uiCmd,
-                 swapChain.getImageView(currentSwapchainImageIndex_),
-                 extent);
-    uiCmd.submit();
+    uiRenderFunc(
+        framebuffer_->getFrontbufferImage(),
+        frameIndex,
+        *perFrameResources_[frameIndex].renderingFinished,
+        *surfacePerFrameResources_[frameIndex].uiFinished);
 }
 
 vk::ImageView hammock::engine::SurfacePresentationStrategy::getSwapchainImageView(uint32_t index) const {
@@ -252,11 +239,11 @@ void hammock::engine::SurfacePresentationStrategy::onPresent(const FrameContext 
     }
 
     // Set up presentation command buffer
-
+    // Wai wait for two semaphores here
     presentCmd.addWaitSemaphore(*waitSemaphore,
-                               vk::PipelineStageFlagBits2::eTopOfPipe);
+                                vk::PipelineStageFlagBits2::eTopOfPipe);
     presentCmd.addWaitSemaphore(*syncObjects.imageAvailable,
-                               vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+                                vk::PipelineStageFlagBits2::eColorAttachmentOutput);
     presentCmd.addSignalSemaphore(*syncObjects.frameFinished);
 
     // Record blit operation
