@@ -30,13 +30,10 @@ namespace hammock::core {
         auto &syncObjects = frameSyncObjects_[frameIndex];
 
         // Wait for both: GPU execution AND Presentation release
-        std::vector<vk::Fence> fences = {
-            syncObjects.inFlightFence
+        std::array fences = {
+            syncObjects.inFlightFence,
+            syncObjects.releaseFence
         };
-
-        if (isSwapChainMaintenance1FeatureSupported()) {
-            fences.push_back(syncObjects.releaseFence);
-        }
 
         if (device_.device().waitForFences(
                 fences.size(),
@@ -65,26 +62,22 @@ namespace hammock::core {
         auto &syncObjects = frameSyncObjects_[frameIndex];
 
         // Reset the release fence before using it in present
-        if (isSwapChainMaintenance1FeatureSupported()) {
-            if (device_.device().resetFences(1, &syncObjects.releaseFence) != vk::Result::eSuccess) {
-                throw std::runtime_error("failed to reset release fence");
-            }
+        if (device_.device().resetFences(1, &syncObjects.releaseFence) != vk::Result::eSuccess) {
+            throw std::runtime_error("failed to reset release fence");
         }
 
+
         vk::Semaphore signalSemaphores[] = {
-            syncObjects.renderFinished->getVulkanSemaphore()
+            syncObjects.frameFinished->getVulkanSemaphore()
         };
 
         // Attach the fence to the presentation via pNext
         vk::PresentInfoKHR presentInfo{};
-        if (isSwapChainMaintenance1FeatureSupported()) {
-            vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
-            presentFenceInfo.swapchainCount = 1;
-            presentFenceInfo.pFences = &syncObjects.releaseFence;
-            presentInfo.pNext = &presentFenceInfo; // The modern way
-        } else {
-            presentInfo.pNext = nullptr;
-        }
+        vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
+        presentFenceInfo.swapchainCount = 1;
+        presentFenceInfo.pFences = &syncObjects.releaseFence;
+        presentInfo.pNext = &presentFenceInfo; // The modern way
+
 
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
@@ -246,7 +239,7 @@ namespace hammock::core {
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             frameSyncObjects_[i].imageAvailable = std::make_unique<Semaphore>(device_);
-            frameSyncObjects_[i].renderFinished = std::make_unique<Semaphore>(device_);
+            frameSyncObjects_[i].frameFinished = std::make_unique<Semaphore>(device_);
 
             if (device_.device().createFence(&fenceInfo, nullptr, &frameSyncObjects_[i].inFlightFence) != vk::Result::eSuccess) {
                 throw std::runtime_error("failed to create synchronization objects for a frame!");
@@ -258,29 +251,6 @@ namespace hammock::core {
         }
     }
 
-    bool SwapChain::isSwapChainMaintenance1FeatureSupported() const {
-        // First, check if the device actually exposes the extension
-        std::vector<vk::ExtensionProperties> deviceExtensions = device_.getPhysicalDevice().enumerateDeviceExtensionProperties();
-        bool hasSwapchainMaintenance1Ext = false;
-        for (const auto &ext: deviceExtensions) {
-            if (strcmp(ext.extensionName, vk::KHRSwapchainMaintenance1ExtensionName) == 0) {
-                hasSwapchainMaintenance1Ext = true;
-                break;
-            }
-        }
-
-        if (!hasSwapchainMaintenance1Ext) {
-            return false;
-        }
-
-        // Query the feature only if the extension exists
-        vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT features{};
-        vk::PhysicalDeviceFeatures2 features2{};
-        features2.pNext = &features;
-        device_.getPhysicalDevice().getFeatures2(&features2);
-
-        return features.swapchainMaintenance1 == VK_TRUE;
-    }
 
     vk::SurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
         for (const auto &availableFormat: availableFormats) {

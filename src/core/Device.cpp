@@ -74,11 +74,10 @@ namespace hammock::core {
         deviceFeatures.fillModeNonSolid = vk::True;
 
         // Create the physical device features structures
-        vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR swapchainFeatures{};
-        swapchainFeatures.swapchainMaintenance1 = vk::True;
 
-        vk::PhysicalDeviceUnifiedImageLayoutsFeaturesKHR unifiedLayoutsFeatures;
-        unifiedLayoutsFeatures.unifiedImageLayouts = vk::True;
+        vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchainFeaturesEXT{};
+        swapchainFeaturesEXT.swapchainMaintenance1 = vk::True;
+
 
         vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{};
         sync2Features.synchronization2 = vk::True;
@@ -101,8 +100,7 @@ namespace hammock::core {
         // Chain the features structures
         descriptorIndexingFeatures.pNext = &dynamicRenderingFeatures;
         dynamicRenderingFeatures.pNext = &sync2Features;
-        // sync2Features.pNext = &unifiedLayoutsFeatures;
-        // unifiedLayoutsFeatures.pNext = &swapchainFeatures;
+        sync2Features.pNext = &swapchainFeaturesEXT;
 
         // Populate VkPhysicalDeviceFeatures2
         vk::PhysicalDeviceFeatures2 deviceFeatures2{};

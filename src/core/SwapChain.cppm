@@ -18,7 +18,7 @@ namespace hammock::core {
     /// @brief Struct to hold per-frame synchronization objects
     export struct FrameSyncObjects {
         std::unique_ptr<Semaphore> imageAvailable;
-        std::unique_ptr<Semaphore> renderFinished;
+        std::unique_ptr<Semaphore> frameFinished;
         vk::Fence inFlightFence;
         vk::Fence releaseFence;
     };
@@ -92,9 +92,6 @@ namespace hammock::core {
         void createSwapChain();
         void createImageViews();
         void createSyncObjects();
-
-        /// This will get removed once linux drivers will catch up with windows
-        bool isSwapChainMaintenance1FeatureSupported() const;
 
         // Helper functions
         static vk::SurfaceFormatKHR chooseSwapSurfaceFormat(

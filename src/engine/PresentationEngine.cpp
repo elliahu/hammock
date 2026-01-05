@@ -257,7 +257,7 @@ void hammock::engine::SurfacePresentationStrategy::onPresent(const FrameContext 
                                vk::PipelineStageFlagBits2::eTopOfPipe);
     presentCmd.addWaitSemaphore(*syncObjects.imageAvailable,
                                vk::PipelineStageFlagBits2::eColorAttachmentOutput);
-    presentCmd.addSignalSemaphore(*syncObjects.renderFinished);
+    presentCmd.addSignalSemaphore(*syncObjects.frameFinished);
 
     // Record blit operation
 
