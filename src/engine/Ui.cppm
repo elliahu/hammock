@@ -1,7 +1,7 @@
 module;
 
 #include "imgui/backends/imgui_impl_vulkan.h"
-#include "imgui_impl_vulkansurfer.h"
+#include "VulkanSurfer/imgui_impl_vulkansurfer.h"
 #include "imgui/imgui.h"
 #include <cstdint>
 #include <compare>
