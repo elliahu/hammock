@@ -22,10 +22,10 @@ namespace hammock::core {
 
         /// @brief Set a semaphore that needs to be signaled before the command buffer starts
         /// Execution will wait on all wait semaphores in their corresponding stages
-        auto waitOnSemaphore(Semaphore& semaphore, vk::PipelineStageFlagBits2 stageFlagBits) -> void;
+        auto addWaitSemaphore(Semaphore& semaphore, vk::PipelineStageFlagBits2 stageFlagBits) -> void;
 
         /// @brief Set a semaphore that will be signaled after the command buffer finishes
-        auto signalSemaphore(Semaphore& semaphore) -> void;
+        auto addSignalSemaphore(Semaphore& semaphore) -> void;
 
         /// @brief begin command buffer recording
         auto begin() -> void;

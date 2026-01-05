@@ -57,12 +57,12 @@ void hammock::engine::Ui::renderFrame(core::CommandBuffer &commandBuffer, vk::Im
 
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.imageView = swapchainImageView;
-    colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    colorAttachment.imageLayout = vk::ImageLayout::eGeneral; // Expects GENERAL layout
     colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad; // Keep existing content
     colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
 
     vk::RenderingInfo renderInfo = {};
-    renderInfo.renderArea = vk::Rect2D{{.x = 0, .y = 0}, {.width = width, .height = height}};
+    renderInfo.renderArea = vk::Rect2D{{0,  0}, {width, height}};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 1;
     renderInfo.pColorAttachments = &colorAttachment;

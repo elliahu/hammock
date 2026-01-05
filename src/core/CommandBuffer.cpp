@@ -112,7 +112,7 @@ hammock::core::CommandBuffer::~CommandBuffer() {
     }
 }
 
-auto hammock::core::CommandBuffer::waitOnSemaphore(Semaphore &semaphore,
+auto hammock::core::CommandBuffer::addWaitSemaphore(Semaphore &semaphore,
                                                    vk::PipelineStageFlagBits2 stageFlagBits) -> void {
     waitSemaphoreSubmitInfos_.push_back(vk::SemaphoreSubmitInfo{
         .semaphore = semaphore.getVulkanSemaphore(),
@@ -120,7 +120,7 @@ auto hammock::core::CommandBuffer::waitOnSemaphore(Semaphore &semaphore,
     });
 }
 
-auto hammock::core::CommandBuffer::signalSemaphore(Semaphore &semaphore) -> void {
+auto hammock::core::CommandBuffer::addSignalSemaphore(Semaphore &semaphore) -> void {
     signalSemaphoreSubmitInfos_.push_back(vk::SemaphoreSubmitInfo{
         .semaphore = semaphore.getVulkanSemaphore(),
     });

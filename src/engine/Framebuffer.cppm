@@ -28,7 +28,7 @@ namespace hammock::engine {
         ~Framebuffer();
 
         /// @brief Get the extent of the framebuffer
-        vk::Extent2D getExtent() const;
+        [[nodiscard]] vk::Extent2D getExtent() const;
 
         /// @brief Swap the current front buffer
         void swapImages();
@@ -36,27 +36,10 @@ namespace hammock::engine {
         /// @brief Get current front buffer image
         [[nodiscard]] core::ResourceHandle getFrontbufferImage() const;
 
-
-        /// @brief Get image handle
-        [[nodiscard]] core::ResourceHandle getImage(std::uint32_t index) const;
-
-        /// @brief Get raw image pointer
-        [[nodiscard]] core::Image *getImagePtr(std::uint32_t index) const;
-
-        [[nodiscard]] core::Semaphore &getFramebufferReadySemaphore() const;
-
     private:
         void createImages(math::Vec2 resolution, vk::Format format);
 
-        void createCommandBuffers();
-
-        void createSemaphores();
-
-        core::CommandBuffer &getFrontBufferCommandBuffer() const;
-
         core::Device& device_;
-        std::vector<std::unique_ptr<core::CommandBuffer>> commandBuffers_;
-        std::vector<std::unique_ptr<core::Semaphore>> framebufferReadySemaphores_;
         std::vector<core::ResourceHandle> images_;
         std::uint32_t framesInFlight_ = 0;
         std::uint32_t currentFrame_ = 0;

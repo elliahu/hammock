@@ -16,7 +16,6 @@ namespace hammock::engine {
     /// @brief Context provided to the renderer for each frame
     export struct FrameContext {
         core::ResourceHandle renderTarget;
-        core::Semaphore& targetReady;
         core::Semaphore& renderFinished;
         uint32_t frameIndex;
     };
@@ -175,31 +174,36 @@ namespace hammock::engine {
             : strategy_(std::move(strategy)) {}
 
         // Delegate all calls to strategy
-        [[nodiscard]] std::optional<FrameContext> beginFrame() const { return strategy_->beginFrame(); }
+        [[nodiscard]] std::optional<FrameContext> beginFrame() { return strategy_->beginFrame(); }
 
-        void endFrame(const FrameContext& ctx) const { strategy_->endFrame(ctx); }
+        void endFrame(const FrameContext& ctx) { strategy_->endFrame(ctx); }
 
-        [[nodiscard]] vk::Extent2D getResolution() const { return strategy_->getResolution(); }
+        [[nodiscard]] vk::Extent2D getResolution() { return strategy_->getResolution(); }
 
-        [[nodiscard]] vk::Format getFormat() const { return strategy_->getFormat(); }
+        [[nodiscard]] vk::Format getFormat() { return strategy_->getFormat(); }
 
-        [[nodiscard]] bool isFrameInProgress() const { return strategy_->isFrameInProgress(); }
+        [[nodiscard]] bool isFrameInProgress() { return strategy_->isFrameInProgress(); }
 
-        [[nodiscard]] std::uint32_t getFrameIndex() const {return strategy_->getFrameIndex();}
+        [[nodiscard]] std::uint32_t getFrameIndex() {return strategy_->getFrameIndex();}
 
-        void onResolutionChanged(std::function<void(uint32_t, uint32_t)> cb) const {
+        void onResolutionChanged(std::function<void(uint32_t, uint32_t)> cb) {
             strategy_->onResolutionChanged(std::move(cb));
         }
 
         // Strategy-specific access (use with caution)
         template<typename T>
-        T* getStrategyAs() { return dynamic_cast<T*>(strategy_.get()); }
+        T* getStrategyAs();
 
         template<typename T>
-        const T* getStrategyAs() const { return dynamic_cast<const T*>(strategy_.get()); }
-
+        const T* getStrategyAs() const;
 
     private:
         std::unique_ptr<BasePresentationStrategy> strategy_;
     };
+
+    template<typename T>
+    T * PresentationEngine::getStrategyAs() { return dynamic_cast<T*>(strategy_.get()); }
+
+    template<typename T>
+    const T * PresentationEngine::getStrategyAs() const { return dynamic_cast<const T*>(strategy_.get()); }
 }

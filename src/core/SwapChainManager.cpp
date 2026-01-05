@@ -108,26 +108,14 @@ registerOnSwapChainRecreatedCallback(const OnSwapChainRecreatedCallback &callbac
 void hammock::core::SwapChainManager::blitToSwapChainImage(CommandBuffer &commandBuffer, ResourceHandle src) {
     auto image = ResourceManager::getInstance().getResource<Image>(src);
 
-    image->recordPipelineBarrier(
-        commandBuffer.getCommandBuffer(),
-        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-        vk::AccessFlagBits2::eColorAttachmentWrite,
-        vk::PipelineStageFlagBits2::eTransfer,
-        vk::AccessFlagBits2::eTransferRead,
-        vk::ImageLayout::eColorAttachmentOptimal,
-        vk::ImageLayout::eTransferSrcOptimal,
-        vk::QueueFamilyIgnored,
-        vk::QueueFamilyIgnored
-    );
-
     swapChain_->recordPipelineBarrier(
         currentImageIndex_,
         commandBuffer.getCommandBuffer(),
-        vk::PipelineStageFlagBits2::eTopOfPipe,
+        vk::PipelineStageFlagBits2::eBottomOfPipe,
         vk::AccessFlagBits2::eNone,
         vk::PipelineStageFlagBits2::eTransfer,
         vk::AccessFlagBits2::eTransferWrite,
-        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::ePresentSrcKHR,
         vk::ImageLayout::eTransferDstOptimal,
         vk::QueueFamilyIgnored,
         vk::QueueFamilyIgnored

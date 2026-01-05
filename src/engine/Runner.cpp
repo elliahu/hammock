@@ -74,7 +74,6 @@ void hammock::engine::Runner::loop() {
             renderer_->drawFrame(
                frameCtx->renderTarget,
                presentationEngine_->getFrameIndex(),
-               frameCtx->targetReady,
                frameCtx->renderFinished
            );
 

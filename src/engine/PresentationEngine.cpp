@@ -31,7 +31,6 @@ std::optional<hammock::engine::FrameContext> hammock::engine::BasePresentationSt
     frameInProgress_ = true;
     return FrameContext{
         .renderTarget = framebuffer_->getFrontbufferImage(),
-        .targetReady = framebuffer_->getFramebufferReadySemaphore(),
         .renderFinished = *frameRes.renderingFinished,
         .frameIndex = currentFrameIndex_
     };
@@ -205,9 +204,9 @@ void hammock::engine::SurfacePresentationStrategy::submitUI(const FrameContext &
     auto &swapChain = swapchainManager_->getSwapChain();
 
     // Wait for scene rendering, signal when UI done
-    uiCmd.waitOnSemaphore(ctx.renderFinished,
-                          vk::PipelineStageFlagBits2::eTopOfPipe);
-    uiCmd.signalSemaphore(*surfaceRes.uiFinished);
+    uiCmd.addWaitSemaphore(ctx.renderFinished,
+                          vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+    uiCmd.addSignalSemaphore(*surfaceRes.uiFinished);
 
     // Record UI commands
     uiCmd.begin();
@@ -254,11 +253,11 @@ void hammock::engine::SurfacePresentationStrategy::onPresent(const FrameContext 
 
     // Set up presentation command buffer
 
-    presentCmd.waitOnSemaphore(*waitSemaphore,
+    presentCmd.addWaitSemaphore(*waitSemaphore,
                                vk::PipelineStageFlagBits2::eTopOfPipe);
-    presentCmd.waitOnSemaphore(*syncObjects.imageAvailable,
+    presentCmd.addWaitSemaphore(*syncObjects.imageAvailable,
                                vk::PipelineStageFlagBits2::eColorAttachmentOutput);
-    presentCmd.signalSemaphore(*syncObjects.renderFinished);
+    presentCmd.addSignalSemaphore(*syncObjects.renderFinished);
 
     // Record blit operation
 
@@ -281,5 +280,21 @@ void hammock::engine::SurfacePresentationStrategy::onFramebufferRecreated() {
 void hammock::engine::SurfacePresentationStrategy::blitFramebufferToSwapchain(const FrameContext &ctx) {
     auto &surfaceRes = surfacePerFrameResources_[ctx.frameIndex];
     auto &presentCmd = *surfaceRes.presentCommandBuffer;
-    swapchainManager_->blitToSwapChainImage(presentCmd, framebuffer_->getFrontbufferImage());
+    auto imageHandle = framebuffer_->getFrontbufferImage();
+    auto image = core::ResourceManager::getInstance().getResource<core::Image>(imageHandle);
+
+    // Transition the target image to transfer scr optimal
+    image->recordPipelineBarrier(
+        presentCmd.getCommandBuffer(),
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        vk::AccessFlagBits2::eColorAttachmentWrite,
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferRead,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::ImageLayout::eTransferSrcOptimal,
+        vk::QueueFamilyIgnored,
+        vk::QueueFamilyIgnored
+    );
+
+    swapchainManager_->blitToSwapChainImage(presentCmd, imageHandle);
 }

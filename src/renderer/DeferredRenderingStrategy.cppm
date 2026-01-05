@@ -16,7 +16,7 @@ namespace hammock::renderer {
     public:
         explicit DeferredRenderingStrategy(GraphicsContext &ctx, std::uint32_t maxFramesInFlight);
 
-        void draw(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore &wait, core::Semaphore &signal) override;
+        void draw(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore &signal) override;
 
     private:
         std::vector<std::unique_ptr<core::CommandBuffer>> commandBuffers_;

@@ -1,4 +1,5 @@
 module;
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <cassert>
@@ -21,7 +22,7 @@ namespace hammock::core {
     /// @struct ImageDesc
     /// @brief Describes a general image
     export struct ImageDesc {
-        uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
+        std::uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
         vk::Image image{};
         vk::ImageView view{};
         vk::Format format;
@@ -49,7 +50,7 @@ namespace hammock::core {
         vk::ImageViewType viewType_;
 
         // Image dimensions
-        uint32_t width_, height_, channels_, depth_ = 1, layers_ = 1, mips_ = 1;
+        std::uint32_t width_, height_, channels_, depth_ = 1, layers_ = 1, mips_ = 1;
 
         // Vulkan handles
         vk::Image image_{};
@@ -61,7 +62,7 @@ namespace hammock::core {
         vk::ClearValue clearValue_ = {};
 
         CommandQueueFamily queueFamily_;
-        std::vector<uint32_t> queueFamilyIndices_{};
+        std::vector<std::uint32_t> queueFamilyIndices_{};
         vk::SharingMode sharingMode_;
 
         vk::ImageTiling tiling_;
@@ -71,7 +72,7 @@ namespace hammock::core {
         vk::Sampler sampler_{};
 
     public:
-        Image(Device &device, uint64_t id, const std::string &name, const ImageDesc &desc);
+        Image(Device &device, std::uint64_t id, const std::string &name, const ImageDesc &desc);
 
         ~Image() override;
 
@@ -88,10 +89,10 @@ namespace hammock::core {
         [[nodiscard]] vk::Format getFormat() const { return format_; }
 
         /// @brief Get number of mip levels
-        [[nodiscard]] uint32_t getMipLevel() const { return mips_; }
+        [[nodiscard]] std::uint32_t getMipLevel() const { return mips_; }
 
         /// @brief Get number of array layers
-        [[nodiscard]] uint32_t getLayerLevel() const { return layers_; }
+        [[nodiscard]] std::uint32_t getLayerLevel() const { return layers_; }
 
         /// @brief Get queue family
         [[nodiscard]] CommandQueueFamily getQueueFamily() const { return queueFamily_; }
@@ -129,8 +130,8 @@ namespace hammock::core {
         void queueImageLayoutTransition(vk::ImageLayout newLayout);
 
         vk::ImageSubresourceRange getSubresourceRange(
-            uint32_t baseMipLevel = 0,
-            uint32_t baseArrayLayer = 0) const;
+            std::uint32_t baseMipLevel = 0,
+            std::uint32_t baseArrayLayer = 0) const;
 
         /**
          * Applies a pipeline barrier to the image. New layout is tracked internally. Layout tracking is not
@@ -144,8 +145,8 @@ namespace hammock::core {
             vk::AccessFlags2 dstAccessMask,
             vk::ImageLayout oldLayout,
             vk::ImageLayout newLayout,
-            uint32_t srcQueueFamilyIndex,
-            uint32_t dstQueueFamilyIndex);
+            std::uint32_t srcQueueFamilyIndex,
+            std::uint32_t dstQueueFamilyIndex);
 
 
         /**
@@ -190,7 +191,7 @@ namespace hammock::core {
         vk::Bool32 anisotropyEnable = true;
         vk::BorderColor borderColor = vk::BorderColor::eIntOpaqueBlack;
         vk::SamplerMipmapMode mipmapMode = vk::SamplerMipmapMode::eLinear;
-        uint32_t mips = 1;
+        std::uint32_t mips = 1;
         float mipLodBias = 0.0f;
     };
 
@@ -207,11 +208,11 @@ namespace hammock::core {
         float maxAnisotropy_;
         vk::BorderColor borderColor_;
         vk::SamplerMipmapMode mipmapMode_;
-        uint32_t mips_;
+        std::uint32_t mips_;
         float mipLodBias_;
 
     public:
-        Sampler(Device &device, uint64_t id, const std::string &name, const SamplerDesc &desc);
+        Sampler(Device &device, std::uint64_t id, const std::string &name, const SamplerDesc &desc);
 
         ~Sampler() override;
 

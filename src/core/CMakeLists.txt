@@ -53,6 +53,7 @@ target_include_directories(hammock_core PUBLIC
 target_link_libraries(hammock_core PUBLIC Vulkan::Vulkan)
 
 add_compile_definitions(VULKAN_HPP_NO_CONSTRUCTORS)
+add_compile_definitions(VULKAN_HPP_NO_SPACESHIP_OPERATOR)
 
 # Compiler features
 target_compile_features(hammock_core PUBLIC cxx_std_23)

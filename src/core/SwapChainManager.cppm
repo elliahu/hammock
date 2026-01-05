@@ -45,7 +45,7 @@ namespace hammock::core {
         void registerOnSwapChainRecreatedCallback(const OnSwapChainRecreatedCallback &callback);
 
         /// @brief Performs blit operation from src to current swapchain image
-        /// @pre src is in color attachment optimal layout
+        /// @pre src is in transfer src layout
         /// @post swapchain image will be in present optimal layout
         void blitToSwapChainImage(CommandBuffer &commandBuffer, ResourceHandle src);
 

@@ -8,7 +8,7 @@ import hammock.engine.runner;
 
 int main() {
     try {
-        auto engine = std::make_unique<hammock::engine::Application>(hammock::engine::RunnerMode::Editor);
+        auto engine = std::make_unique<hammock::engine::Application>(hammock::engine::RunnerMode::Runtime);
         engine->launch();
     } catch(std::exception &e) {
         std::println("{}", e.what());

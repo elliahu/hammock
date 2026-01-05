@@ -15,7 +15,7 @@ namespace hammock::renderer {
 
         virtual ~IRenderingStrategy() = default;
 
-        virtual void draw(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore &wait, core::Semaphore &signal) = 0;
+        virtual void draw(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore &signal) = 0;
 
     protected:
         GraphicsContext &ctx_;
