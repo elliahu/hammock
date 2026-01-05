@@ -19,6 +19,6 @@ namespace hammock::renderer {
 
     protected:
         GraphicsContext &ctx_;
-        std::uint32_t maxFramesInFlight_;
+        const std::uint32_t maxFramesInFlight_;
     };
 }
