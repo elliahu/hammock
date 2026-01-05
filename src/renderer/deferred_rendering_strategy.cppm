@@ -12,7 +12,7 @@ import hammock_core;
 import :graphics_context;
 
 namespace hammock::renderer {
-    export class DeferredRenderingStrategy : public IRenderingStrategy {
+    export class DeferredRenderingStrategy : public BaseRenderingStrategy {
     public:
         explicit DeferredRenderingStrategy(GraphicsContext &ctx, std::uint32_t maxFramesInFlight);
 

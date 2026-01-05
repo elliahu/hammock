@@ -8,12 +8,12 @@ import hammock_core;
 import :graphics_context;
 
 namespace hammock::renderer {
-    export class IRenderingStrategy {
+    export class BaseRenderingStrategy {
     public:
-        IRenderingStrategy(GraphicsContext &context, std::uint32_t maxFramesInFlight) : ctx_(context), maxFramesInFlight_(maxFramesInFlight) {
+        BaseRenderingStrategy(GraphicsContext &context, std::uint32_t maxFramesInFlight) : ctx_(context), maxFramesInFlight_(maxFramesInFlight) {
         }
 
-        virtual ~IRenderingStrategy() = default;
+        virtual ~BaseRenderingStrategy() = default;
 
         virtual void draw(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore &signal) = 0;
 

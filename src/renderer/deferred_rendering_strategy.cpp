@@ -10,7 +10,7 @@ module hammock_renderer;
 import hammock_core;
 
 
-hammock::renderer::DeferredRenderingStrategy::DeferredRenderingStrategy(GraphicsContext &ctx, std::uint32_t maxFramesInFlight): IRenderingStrategy(ctx, maxFramesInFlight) {
+hammock::renderer::DeferredRenderingStrategy::DeferredRenderingStrategy(GraphicsContext &ctx, std::uint32_t maxFramesInFlight): BaseRenderingStrategy(ctx, maxFramesInFlight) {
     core::SwapChain::forEachFrameInFlight([this](int i) {
         auto commandBuffer =  std::make_unique<core::CommandBuffer>(this->ctx_.getDevice(), core::CommandQueueFamily::Graphics);
         commandBuffers_.push_back(std::move(commandBuffer));

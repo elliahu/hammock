@@ -7,7 +7,7 @@ module hammock_renderer;
 
 import hammock_core;
 
-hammock::renderer::Renderer::Renderer(std::unique_ptr<IRenderingStrategy> &&strategy): strategy_(std::move(strategy)) {
+hammock::renderer::Renderer::Renderer(std::unique_ptr<BaseRenderingStrategy> &&strategy): strategy_(std::move(strategy)) {
 }
 
 void hammock::renderer::Renderer::drawFrame(core::ResourceHandle target, std::uint32_t frameIndex,

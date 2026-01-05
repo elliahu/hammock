@@ -12,12 +12,12 @@ import hammock_core;
 namespace hammock::renderer {
     export class Renderer {
     public:
-        explicit Renderer(std::unique_ptr<IRenderingStrategy> &&strategy =
+        explicit Renderer(std::unique_ptr<BaseRenderingStrategy> &&strategy =
                                   {});
 
         void drawFrame(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore &signal) const;
 
     private:
-        std::unique_ptr<IRenderingStrategy> strategy_{};;
+        std::unique_ptr<BaseRenderingStrategy> strategy_{};;
     };
 };
