@@ -186,7 +186,14 @@ namespace hammock::core {
 
         vk::PhysicalDeviceFeatures supportedFeatures = device.getFeatures();
 
-        return indices.isComplete() && extensionsSupported && swapChainAdequate &&
+        bool isComplete = false;
+        if (runningHeadless()) {
+            isComplete = indices.isHeadlessComplete();
+        } else {
+            isComplete = indices.isComplete();
+        }
+
+        return  isComplete && extensionsSupported && swapChainAdequate &&
                supportedFeatures.samplerAnisotropy;
     }
 

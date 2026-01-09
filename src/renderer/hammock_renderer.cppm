@@ -10,7 +10,6 @@ export import :spirv_reflection;
 export import :threadpool;
 export import :vertex;
 export import :task_graph;
-export import :task;
+export import :gpu_task;
 export import :push_constants;
 export import :socket;
-export import :task_factory;

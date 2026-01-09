@@ -33,6 +33,10 @@ namespace hammock::core {
         [[nodiscard]] bool isComplete() const {
             return graphicsFamilyHasValue && presentFamilyHasValue && computeFamilyHasValue && transferFamilyHasValue;
         }
+
+        [[nodiscard]] bool isHeadlessComplete() const {
+            return graphicsFamilyHasValue && computeFamilyHasValue && transferFamilyHasValue;
+        }
     };
 
     /// Queue family

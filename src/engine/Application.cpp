@@ -8,11 +8,7 @@ module hammock_engine;
 
 hammock::engine::Application::Application(RunnerMode mode) {
     // Create graphics context
-    context_ = std::make_unique<renderer::GraphicsContext>(renderer::GraphicsContextDesc{
-        .mode = mode == RunnerMode::Headless
-                    ? renderer::GraphicsContextMode::Headless
-                    : renderer::GraphicsContextMode::Windowed,
-    });
+    context_ = std::make_unique<renderer::GraphicsContext>();
 
     // Create editor
     runner_ = std::make_unique<Runner>(mode, *context_);

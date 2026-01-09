@@ -9,18 +9,14 @@ module hammock_renderer;
 
 import hammock_core;
 
-
-hammock::renderer::GraphicsContext::GraphicsContext(const GraphicsContextDesc &desc): desc_(desc) {
-}
-
 hammock::renderer::GraphicsContext::~GraphicsContext() {
     core::ResourceManager::dispose();
     core::DescriptorPool::dispose();
 }
 
 void hammock::renderer::GraphicsContext::attachSurface(vk::SurfaceKHR surface) {
-    if (desc_.mode != GraphicsContextMode::Windowed) {
-        throw std::runtime_error("Cannot attach surface when not in Windowed context mode");
+    if (device_.has_value()) {
+        throw std::runtime_error("cannot attach surface, already in headless mode");
     }
 
     this->surface_ = surface;
@@ -31,8 +27,8 @@ void hammock::renderer::GraphicsContext::attachSurface(vk::SurfaceKHR surface) {
 }
 
 void hammock::renderer::GraphicsContext::createHeadlessDevice() {
-    if (desc_.mode != GraphicsContextMode::Headless) {
-        throw std::runtime_error("Cannot create headless device when not in Headless context mode");
+    if (device_.has_value()) {
+        throw std::runtime_error("cannot create headless device, surface already attached");
     }
 
     device_.emplace(instance_, nullptr);
@@ -41,7 +37,7 @@ void hammock::renderer::GraphicsContext::createHeadlessDevice() {
 }
 
 bool hammock::renderer::GraphicsContext::supportsPresent() const {
-    return desc_.mode == GraphicsContextMode::Windowed;
+    return device_.has_value() && hasPresent_;
 }
 
 void hammock::renderer::GraphicsContext::initManagers() {

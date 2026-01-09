@@ -6,7 +6,7 @@ module;
 module hammock_core;
 
 // ************* Image *********************
-hammock::core::Image::Image(Device &device, uint64_t id, const std::string &name, const ImageDesc &desc): BaseResource(device, id, name) {
+hammock::core::Image::Image(Device &device, uint64_t id, const ImageDesc &desc): BaseResource(device, id) {
     // Fromat and usage
     format_ = desc.format;
     usage_ = desc.usage;
@@ -23,9 +23,6 @@ hammock::core::Image::Image(Device &device, uint64_t id, const std::string &name
     mips_ = desc.mips;
 
     queueFamily_ = desc.currentQueueFamily;
-
-    image_ = desc.image;
-    view_ = desc.view;
 
     // attachment
     clearValue_ = desc.clearValue;
@@ -234,7 +231,7 @@ void hammock::core::Image::queueCopyFromImage(Image image) const {
 }
 
 void hammock::core::Image::create() {
-    Logger::log(LOG_LEVEL_DEBUG, "Creating image %s", getName().c_str());
+    Logger::log(LOG_LEVEL_DEBUG, "Creating image");
     // Create the image
     vk::ImageCreateInfo imageCreateInfo{};
     imageCreateInfo.imageType = type_;
@@ -282,7 +279,7 @@ void hammock::core::Image::create() {
 }
 
 void hammock::core::Image::release() {
-    Logger::log(LOG_LEVEL_DEBUG, "Releasing image %s", getName().c_str());
+    Logger::log(LOG_LEVEL_DEBUG, "Releasing image");
     if (image_ != nullptr) {
         allocator::destroyImage(device.allocator(), image_, allocation_);
     }
@@ -411,7 +408,7 @@ void hammock::core::Image::generateMips() {
 
 // **************** Sampler **********************
 
-hammock::core::Sampler::Sampler(Device &device, uint64_t id, const std::string &name, const SamplerDesc &desc): BaseResource(device, id, name) {
+hammock::core::Sampler::Sampler(Device &device, uint64_t id, const SamplerDesc &desc): BaseResource(device, id) {
     magFilter_ = desc.magFilter;
     minFilter_ = desc.minFilter;
     addressModeU_ = desc.addressModeU;
@@ -434,7 +431,7 @@ hammock::core::Sampler::~Sampler() {
 }
 
 void hammock::core::Sampler::create() {
-    Logger::log(LOG_LEVEL_DEBUG, "Creating sampler %s", getName().c_str());
+    Logger::log(LOG_LEVEL_DEBUG, "Creating sampler");
     vk::SamplerCreateInfo samplerInfo{};
     samplerInfo.magFilter = magFilter_;
     samplerInfo.minFilter = minFilter_;
@@ -459,7 +456,7 @@ void hammock::core::Sampler::create() {
 }
 
 void hammock::core::Sampler::release() {
-    Logger::log(LOG_LEVEL_DEBUG, "Releasing sampler %s", getName().c_str());
+    Logger::log(LOG_LEVEL_DEBUG, "Releasing sampler");
     if (sampler_ != VK_NULL_HANDLE) {
         vkDestroySampler(device.device(), sampler_, nullptr);
     }

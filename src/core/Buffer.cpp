@@ -12,9 +12,9 @@ vk::DeviceSize hammock::core::Buffer::getAlignment(const vk::DeviceSize instance
     return instanceSize;
 }
 
-hammock::core::Buffer::Buffer(Device &device, uint64_t id, const std::string &name,
+hammock::core::Buffer::Buffer(Device &device, uint64_t id,
                               const BufferDesc &desc) : BaseResource(
-    device, id, name) {
+    device, id) {
     alignmentSize_ = getAlignment(desc.instanceSize, desc.minOffsetAlignment);
     bufferSize_ = alignmentSize_ * desc.instanceCount;
     instanceCount_ = desc.instanceCount;
@@ -46,7 +46,7 @@ hammock::core::Buffer::~Buffer() {
 }
 
 void hammock::core::Buffer::create() {
-    Logger::log(LOG_LEVEL_DEBUG, "Creating buffer %s of size %d", getName().c_str(), bufferSize_);
+    Logger::log(LOG_LEVEL_DEBUG, "Creating buffer of size %d", bufferSize_);
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = bufferSize_;
     bufferInfo.usage = usageFlags_;
@@ -70,7 +70,7 @@ void hammock::core::Buffer::release() {
     unmap();
     allocator::destroyBuffer(device.allocator(), buffer_, allocation_);
     resident = false;
-    Logger::log(LOG_LEVEL_DEBUG, "Buffer %s of size %d released", getName().c_str(), bufferSize_);
+    Logger::log(LOG_LEVEL_DEBUG, "Releasing buffer of size %d" , bufferSize_);
 }
 
 vk::MemoryPropertyFlags hammock::core::Buffer::getMemoryPropertyFlags() const {

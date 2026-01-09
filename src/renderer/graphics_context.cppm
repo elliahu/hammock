@@ -11,24 +11,12 @@ import hammock_core;
 
 namespace hammock::renderer {
 
-    /// @enum GraphicsContextMode
-    /// @brief Mode of the graphics context
-    export enum class GraphicsContextMode {
-        Headless,
-        Windowed
-    };
-
-    /// @struct GraphicsContextDesc
-    /// @brief Description for creating a GraphicsContext
-    export struct GraphicsContextDesc {
-        GraphicsContextMode mode;
-    };
 
     /// @class GraphicsContext
     /// @brief Manages Vulkan instance, device, and surface
     export class GraphicsContext {
     public:
-        explicit GraphicsContext(const GraphicsContextDesc &desc);
+        GraphicsContext() = default;
 
         ~GraphicsContext();
 
@@ -50,8 +38,6 @@ namespace hammock::renderer {
     private
     :
         void initManagers();
-
-        GraphicsContextDesc desc_;
 
         core::Instance instance_{};
         std::optional<core::Device> device_;

@@ -12,28 +12,39 @@ export module hammock_renderer:socket;
 import hammock_core;
 
 namespace hammock::renderer {
-    /// @enum SocketUsageStage
+
+    /// @struct SocketHandle
+    /// @brief Returned when adding a task to TaskGraph.
+    /// Represents a task inside a TaskGraph
+    export struct SocketHandle {
+        std::uint32_t index;
+        std::uint32_t generation;
+    };
+
+    /// @enum SocketUsageStageFlagBits
     /// @brief Describes the stage at which the socket is used
-    export enum SocketUsageStage {
+    export enum SocketUsageStageFlagBits {
         None = 0,
         ComputeShader = 1 << 0,
         VertexShader = 1 << 1,
         FragmentShader = 1 << 2,
     };
 
+
+
     /// @struct DescriptorBinding
-    /// @brief Describes descriptor binding
+    /// @brief Describes descriptor binding info (if the socket is descriptor)
     export struct DescriptorBinding {
         std::uint32_t set;
         std::uint32_t binding;
-        SocketUsageStage usage;
+        std::int32_t usage;
         std::uint32_t count = 1u;
     };
 
     /// @struct AttachmentLocation
-    /// @brief Describes attachment location
+    /// @brief Describes attachment location info (if the socket is attachment)
     export struct AttachmentLocation {
-        std::uint32_t location; // color attachment index or depth/stencil slot
+        std::uint32_t location = 0u; // color attachment index or depth/stencil slot
     };
 
     /// @typedef SocketInterface
@@ -45,37 +56,26 @@ namespace hammock::renderer {
     >;
 
 
-    /// @interface ISocket
+    /// @interface BaseSocket
     /// Base interface for resource sockets.
-    class ISocket {
-        std::vector<core::ResourceHandle> handles;
+    class BaseSocket {
         std::string name;
         SocketInterface iface;
 
+    protected:
+        // Protected constructor so that only children can instantiate
+        explicit BaseSocket(const std::string &name, SocketInterface iface = {});
+
     public:
-        virtual ~ISocket() = default;
-
-        explicit ISocket(const std::string &name, SocketInterface iface = {}) : name(name), iface(iface) {
-            if (auto binding = get_if<DescriptorBinding>(&iface)) {
-                handles.resize(binding->count);
-            }
-        }
-
-        /// @brief Assign resource to specific index in the socket. If socket is not array, leave index = 0
-        void assignResource(core::ResourceHandle resource, std::uint32_t index = 0) {
-            if (index >= handles.size()) {
-                throw std::out_of_range("invalid index");
-            }
-            handles[index] = resource;
-        }
+        virtual ~BaseSocket() = default;
 
         [[nodiscard]] std::string getName() const { return name; }
     };
 
 
-    /// @enum ImageState
+    /// @enum ImageUsage
     /// @breif Describes how the image in the socket is used by the task
-    export enum class ImageState {
+    export enum class ImageUsage {
         Undefined, // Invalid/Initial state
         ColorAttachmentWrite, // Rendering target color
         DepthAttachmentWrite, // Rendering target depth (stencil)
@@ -96,20 +96,18 @@ namespace hammock::renderer {
 
     /// @class ImageSocket
     /// Concrete Socket for image
-    export class ImageSocket final : public ISocket {
-        ImageState state = ImageState::Undefined;
+    export class ImageSocket final : public BaseSocket {
+        ImageUsage state = ImageUsage::Undefined;
         ImageType type = ImageType::Undefined;
 
     public:
-        ImageSocket(std::string name, const ImageState state, const ImageType type,
-                    SocketInterface iface = {}) : ISocket(name, iface),
-                                                  state(state), type(type) {
-        }
+        ImageSocket(std::string name, const ImageUsage state, const ImageType type,
+                    SocketInterface iface = {});
     };
 
-    /// @enum BufferState
+    /// @enum BufferUsage
     /// @brief Describes how is buffer accessed
-    export enum class BufferState {
+    export enum class BufferUsage {
         Undefined,
         UniformBufferRead,
         StorageBufferReadWrite,
@@ -117,12 +115,17 @@ namespace hammock::renderer {
 
     /// @class BufferSocket
     /// @brief Concrete socket for buffer
-    export class BufferSocket final : public ISocket {
-        BufferState state;
+    export class BufferSocket final : public BaseSocket {
+        BufferUsage state;
 
     public:
-        BufferSocket(std::string name, const BufferState state, DescriptorBinding binding) : ISocket(name, binding),
-            state(state) {
-        }
+        BufferSocket(std::string name, const BufferUsage state, DescriptorBinding binding);
+    };
+
+    /// @struct CompiledSocket
+    /// @brief Represents a socket of a task after it had been compiled by GraphCompiler
+    export struct CompiledSocket final {
+        std::string name{};
+        std::vector<core::ResourceHandle> handles{};
     };
 }

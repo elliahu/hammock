@@ -23,8 +23,6 @@ namespace hammock::core {
     /// @brief Describes a general image
     export struct ImageDesc {
         std::uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
-        vk::Image image{};
-        vk::ImageView view{};
         vk::Format format;
         vk::ImageUsageFlags usage;
         vk::ImageType imageType;
@@ -72,7 +70,7 @@ namespace hammock::core {
         vk::Sampler sampler_{};
 
     public:
-        Image(Device &device, std::uint64_t id, const std::string &name, const ImageDesc &desc);
+        Image(Device &device, std::uint64_t id, const ImageDesc &desc);
 
         ~Image() override;
 
@@ -212,7 +210,7 @@ namespace hammock::core {
         float mipLodBias_;
 
     public:
-        Sampler(Device &device, std::uint64_t id, const std::string &name, const SamplerDesc &desc);
+        Sampler(Device &device, std::uint64_t id, const SamplerDesc &desc);
 
         ~Sampler() override;
 

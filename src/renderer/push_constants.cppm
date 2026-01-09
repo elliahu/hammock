@@ -74,7 +74,11 @@ namespace hammock::renderer {
     /// @class PushConstantsBlock
     /// @brief Represents single push constant block inside a SPIR-V shader
     export class PushConstantsBlock {
+        std::string name;
+        std::vector<std::unique_ptr<PushConstantField>> fields{};
     public:
+        explicit PushConstantsBlock(std::string name) : name(std::move(name)) {}
+
         /// @brief Add field to the block
         /// @returns Reference to the added filed
         std::unique_ptr<PushConstantField> &addField(std::unique_ptr<PushConstantField> &&field) {
@@ -82,7 +86,5 @@ namespace hammock::renderer {
             return fields.back();
         }
 
-    private:
-        std::vector<std::unique_ptr<PushConstantField>> fields{};
     };
 }

@@ -55,12 +55,11 @@ namespace hammock::core {
     protected:
         Device& device;
         uint64_t uid;
-        std::string debug_name;
         vk::DeviceSize size = 0;
         bool resident;  // Whether the resource is currently in GPU memory
 
-        BaseResource(Device& device, std::uint64_t uid, const std::string& name)
-            : uid(uid), debug_name(name), resident(false), device(device) {}
+        BaseResource(Device& device, std::uint64_t uid)
+            : device(device), uid(uid), resident(false)  {}
 
         // Allow moving but not copying
         BaseResource(const BaseResource&) = delete;
@@ -76,7 +75,6 @@ namespace hammock::core {
         virtual void release() = 0;
 
         [[nodiscard]] std::uint64_t getUid() const { return uid; }
-        [[nodiscard]] const std::string& getName() const { return debug_name; }
         bool isResident() const { return resident; }
         [[nodiscard]] vk::DeviceSize getSize() const { return size; }  // for now
     };

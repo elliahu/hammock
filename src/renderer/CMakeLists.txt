@@ -20,16 +20,18 @@ target_sources(hammock_renderer
         "thread_pool.cppm"
         "vertex.cppm"
         "task_graph.cppm"
-        "task.cppm"
+        "gpu_task.cppm"
         "socket.cppm"
         "push_constants.cppm"
-        "task_factory.cppm"
         "graphics_context.cppm"
     PRIVATE
         "${PROJECT_SOURCE_DIR}/third_party/spirv_reflect/spirv_reflect.cpp" # include spirv_reflect source
         "filesystem_impl.cpp"
         "graphics_context.cpp"
         "renderer.cpp"
+        "gpu_task.cpp"
+        "socket.cpp"
+        "task_graph.cpp"
         "deferred_rendering_strategy.cpp"
 )
 

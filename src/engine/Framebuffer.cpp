@@ -39,7 +39,7 @@ hammock::core::ResourceHandle hammock::engine::Framebuffer::getFrontbufferImage(
 void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, vk::Format format) {
     auto &rm = core::ResourceManager::getInstance();
     for (int i = 0; i < framesInFlight_; i++) {
-        auto imageDesc = core::ImageDesc{
+        auto handle = rm.createResource<core::Image>(core::ImageDesc{
             .width = static_cast<std::uint32_t>(resolution.X),
             .height = static_cast<std::uint32_t>(resolution.Y),
             .channels = 4,
@@ -57,8 +57,7 @@ void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, vk::Forma
                     std::array<float, 4>{1.0f, 1.0f, 1.0f, 1.0f}
                 }
             )
-        };
-        auto handle = rm.createResource<core::Image>("swapimage-" + std::to_string(i), imageDesc);
+        });
         images_.push_back(handle);
     }
 

@@ -27,6 +27,8 @@ namespace hammock::core {
         }
     };
 
+    // TODO use the same generational handle system as TaskGraph
+
     /// @class ResourceManager
     /// Instance of this class is responsible for keeping and cleaning resources allocated on the GPU
     class ResourceManager final : public Singleton<ResourceManager> {

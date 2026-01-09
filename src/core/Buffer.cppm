@@ -52,7 +52,7 @@ namespace hammock::core {
         vk::DeviceSize getAlignment(const vk::DeviceSize instanceSize, const vk::DeviceSize minOffsetAlignment);
 
     public:
-        Buffer(Device &device, uint64_t id, const std::string &name, const BufferDesc &desc);
+        Buffer(Device &device, uint64_t id, const BufferDesc &desc);
 
         ~Buffer() override;
 
