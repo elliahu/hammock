@@ -6,12 +6,38 @@ module;
 #include <stdexcept>
 #include <cstdint>
 #include <variant>
+#include <vulkan/vulkan.hpp>
 
 export module hammock_renderer:socket;
 
 import hammock_core;
 
 namespace hammock::renderer {
+    /// @struct LogicalResourceHandle
+    export struct LogicalResourceHandle {
+        std::uint32_t index;
+        std::uint32_t generation;
+    };
+
+    /// @enum ImageType
+    /// Describes the type of the image in the socket
+    export enum class ImageType {
+        Undefined,
+        Type2D,
+        Type3D,
+    };
+
+    export struct ImageLogicalResource {
+    };
+
+    export struct BufferLogicalResource {
+    };
+
+    export using LogicalResourceInterface = std::variant<
+        std::monostate,
+        ImageLogicalResource,
+        BufferLogicalResource
+    >;
 
     /// @struct SocketHandle
     /// @brief Returned when adding a task to TaskGraph.
@@ -29,7 +55,6 @@ namespace hammock::renderer {
         VertexShader = 1 << 1,
         FragmentShader = 1 << 2,
     };
-
 
 
     /// @struct DescriptorBinding
@@ -59,17 +84,21 @@ namespace hammock::renderer {
     /// @interface BaseSocket
     /// Base interface for resource sockets.
     class BaseSocket {
-        std::string name;
-        SocketInterface iface;
+        friend class DependencyGraphCompiler;
+        std::string name_;
+        SocketInterface iface_;
+        LogicalResourceHandle handle_;
 
     protected:
         // Protected constructor so that only children can instantiate
-        explicit BaseSocket(const std::string &name, SocketInterface iface = {});
+        explicit BaseSocket(std::string name, LogicalResourceHandle handle,
+                            SocketInterface iface = {}) : name_(name), handle_(handle), iface_(iface) {
+        };
 
     public:
         virtual ~BaseSocket() = default;
 
-        [[nodiscard]] std::string getName() const { return name; }
+        [[nodiscard]] std::string getName() const { return name_; }
     };
 
 
@@ -86,23 +115,16 @@ namespace hammock::renderer {
         Present // Image will be used as present image
     };
 
-    /// @enum ImageType
-    /// Describes the type of the image in the socket
-    export enum class ImageType {
-        Undefined,
-        Type2D,
-        Type3D,
-    };
-
     /// @class ImageSocket
     /// Concrete Socket for image
     export class ImageSocket final : public BaseSocket {
-        ImageUsage state = ImageUsage::Undefined;
-        ImageType type = ImageType::Undefined;
+        friend class DependencyGraphCompiler;
+        ImageUsage usage_ = ImageUsage::Undefined;
 
     public:
-        ImageSocket(std::string name, const ImageUsage state, const ImageType type,
-                    SocketInterface iface = {});
+        ImageSocket(std::string name, LogicalResourceHandle handle, const ImageUsage usage,
+                    SocketInterface iface = {}) : BaseSocket(name, handle, iface), usage_(usage) {
+        }
     };
 
     /// @enum BufferUsage
@@ -116,16 +138,12 @@ namespace hammock::renderer {
     /// @class BufferSocket
     /// @brief Concrete socket for buffer
     export class BufferSocket final : public BaseSocket {
-        BufferUsage state;
+        friend class DependencyGraphCompiler;
+        BufferUsage usage_;
 
     public:
-        BufferSocket(std::string name, const BufferUsage state, DescriptorBinding binding);
-    };
-
-    /// @struct CompiledSocket
-    /// @brief Represents a socket of a task after it had been compiled by GraphCompiler
-    export struct CompiledSocket final {
-        std::string name{};
-        std::vector<core::ResourceHandle> handles{};
+        BufferSocket(std::string name, LogicalResourceHandle handle, const BufferUsage usage,
+                     DescriptorBinding binding) : BaseSocket(name, handle, binding), usage_(usage) {
+        }
     };
 }

@@ -19,7 +19,9 @@ target_sources(hammock_renderer
         "math.cppm"
         "thread_pool.cppm"
         "vertex.cppm"
-        "task_graph.cppm"
+        "dependency_graph.cppm"
+        "dependency_graph_compiler.cppm"
+        "dependency_graph_executor.cppm"
         "gpu_task.cppm"
         "socket.cppm"
         "push_constants.cppm"
@@ -31,7 +33,9 @@ target_sources(hammock_renderer
         "renderer.cpp"
         "gpu_task.cpp"
         "socket.cpp"
-        "task_graph.cpp"
+        "dependency_graph.cpp"
+        "dependency_graph_compiler.cpp"
+        "dependency_graph_executor.cpp"
         "deferred_rendering_strategy.cpp"
 )
 

@@ -13,7 +13,9 @@ using namespace hammock::core;
 using namespace hammock::engine;
 
 int main() {
-    auto taskGraph = std::make_unique<TaskGraph>();
+    auto dependencyGraph = std::make_unique<DependencyGraph>();
+
+    auto IMAGE_RESOURCE_HANDLE = dependencyGraph->addResource(ImageLogicalResource{});
 
     auto computeTask = std::make_unique<ComputeTask>("compute.comp.spv");
     auto graphicsTask = std::make_unique<GraphicsTask>(
@@ -22,16 +24,15 @@ int main() {
     );
 
 
-    auto storageImageSocket = std::make_unique<ImageSocket>("storageImage", ImageUsage::StorageReadWrite,
-                                                            ImageType::Type2D, DescriptorBinding{
+    auto storageImageSocket = std::make_unique<ImageSocket>("storageImage", IMAGE_RESOURCE_HANDLE, ImageUsage::StorageReadWrite,
+                                                            DescriptorBinding{
                                                                 0, 0, SocketUsageStageFlagBits::ComputeShader
                                                             });
-    auto STORAGE_IMAGE_HANDLE = computeTask->addSocket(std::move(storageImageSocket));
+    computeTask->addSocket(std::move(storageImageSocket));
 
-    auto colorTargetSocket = std::make_unique<ImageSocket>("colorOutput", ImageUsage::ColorAttachmentWrite,
-                                                           ImageType::Type2D,
+    auto colorTargetSocket = std::make_unique<ImageSocket>("colorOutput", IMAGE_RESOURCE_HANDLE, ImageUsage::ColorAttachmentWrite,
                                                            AttachmentLocation{0});
-    auto COLOR_TARGET_HANDLE = graphicsTask->addSocket(std::move(colorTargetSocket));
+    graphicsTask->addSocket(std::move(colorTargetSocket));
 
 
     auto pushBlock = std::make_unique<PushConstantsBlock>("pushConstants");
@@ -40,10 +41,13 @@ int main() {
     pushBlock->addField(std::move(pushField));
     graphicsTask->addPushConstantBlock(std::move(pushBlock));
 
-    auto GRAPHICS_TASK_HANDLE = taskGraph->add(std::move(graphicsTask));
-    auto COMPUTE_TASK_HANDLE = taskGraph->add(std::move(computeTask));
+    auto GRAPHICS_TASK_HANDLE = dependencyGraph->addTask(std::move(graphicsTask));
+    auto COMPUTE_TASK_HANDLE = dependencyGraph->addTask(std::move(computeTask));
 
-    taskGraph->connect(COMPUTE_TASK_HANDLE, STORAGE_IMAGE_HANDLE, GRAPHICS_TASK_HANDLE, COLOR_TARGET_HANDLE);
+    dependencyGraph->connect(COMPUTE_TASK_HANDLE, GRAPHICS_TASK_HANDLE, DependencyType::Debug);
+
+    auto compiler = std::make_unique<DependencyGraphCompiler>();
+    auto compiledGraph = compiler->compileDependencyGraph(*dependencyGraph);
 
 
     try {

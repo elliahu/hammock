@@ -31,6 +31,7 @@ namespace hammock::renderer {
     /// @interface BaseGpuTask
     /// Interface representing general GPU task that has input and outputs (sockets)
     class BaseGpuTask {
+        friend class DependencyGraphCompiler;
     public:
         virtual ~BaseGpuTask() = default;
 
@@ -58,6 +59,7 @@ namespace hammock::renderer {
 
         std::vector<Slot> sockets_;
         std::int32_t firstFreeSlot_ = -1;
+        std::unordered_map<std::string, SocketHandle> socketHandleResolutionMap_{};
         std::unique_ptr<PushConstantsBlock> pushConstantsBlock_{nullptr}; // Single push constant block allowed
     };
 
@@ -68,6 +70,7 @@ namespace hammock::renderer {
     /// Vertex and fragment shaders required
     /// TODO use reflection to build the task from SPIR-V shader
     export class GraphicsTask final: public BaseGpuTask {
+        friend class DependencyGraphCompiler;
     public:
         GraphicsTask(const std::string &vertexShaderFile, const std::string &fragmentShaderFile) : vertexShaderFile_(
                 vertexShaderFile), fragmentShaderFile_(fragmentShaderFile) {
@@ -84,21 +87,12 @@ namespace hammock::renderer {
     /// @brief Specialized task that uses GPU compute via compute shader
     /// /// TODO use reflection to build the task from SPIR-V shader
     export class ComputeTask final: public BaseGpuTask {
+        friend class DependencyGraphCompiler;
     public:
         explicit ComputeTask(const std::string &computeShaderFile) : computeShaderFile_(computeShaderFile) {
         }
 
     private:
         std::string computeShaderFile_;
-    };
-
-    // ************ Compiled task **************
-
-    /// @struct CompiledTask
-    /// @brief Represents a GPU task that has been compiled by the graph compiler.
-    /// Usually lives inside CompiledGraph
-    export struct CompiledTask final {
-        BaseGpuTask *source_{nullptr};
-        std::unique_ptr<core::BasePipeline> pipeline_{nullptr};
     };
 }

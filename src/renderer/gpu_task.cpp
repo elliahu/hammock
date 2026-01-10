@@ -25,11 +25,18 @@ namespace hammock::renderer {
             sockets_.emplace_back();
         }
 
+        auto name = socket->getName();
+
         Slot& slot = sockets_[idx];
         slot.task = std::move(socket);
         slot.active = true;
         // Note: We don't increment generation here; we do it on removal
-        return { idx, slot.generation };
+        auto handle = SocketHandle{ idx, slot.generation };
+
+        // Save for resolution later
+        socketHandleResolutionMap_[name] = handle;
+
+        return handle;
     }
 
     void BaseGpuTask::removeSocket(SocketHandle handle) {
