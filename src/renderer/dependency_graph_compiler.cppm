@@ -85,6 +85,8 @@ namespace hammock::renderer {
         CompiledDependencyGraph compiledDependencyGraph_{};
 
     public:
+
+        /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
         CompiledDependencyGraph compileDependencyGraph(DependencyGraph &dependencyGraph) {
 
 

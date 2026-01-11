@@ -15,7 +15,9 @@ using namespace hammock::engine;
 int main() {
     auto dependencyGraph = std::make_unique<DependencyGraph>();
 
-    auto IMAGE_RESOURCE_HANDLE = dependencyGraph->addResource(ImageLogicalResource{});
+    auto IMAGE_RESOURCE_HANDLE = dependencyGraph->addResource(ImageLogicalResource{
+        .format = ImageFormat::R8G8B8A8Uint
+    });
 
     auto computeTask = std::make_unique<ComputeTask>("compute.comp.spv");
     auto graphicsTask = std::make_unique<GraphicsTask>(

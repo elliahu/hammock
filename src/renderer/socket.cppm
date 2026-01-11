@@ -27,7 +27,16 @@ namespace hammock::renderer {
         Type3D,
     };
 
+    export enum class ImageFormat {
+        Undefined,
+        R8G8B8A8Uint,
+        R16G16B16A16Sfloat,
+        R32G32B32A32Sfloat,
+    };
+
     export struct ImageLogicalResource {
+        ImageFormat format = ImageFormat::Undefined;
+        ImageType type = ImageType::Type2D;
     };
 
     export struct BufferLogicalResource {
