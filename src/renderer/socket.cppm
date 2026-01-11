@@ -59,7 +59,7 @@ namespace hammock::renderer {
     /// @enum SocketUsageStageFlagBits
     /// @brief Describes the stage at which the socket is used
     export enum SocketUsageStageFlagBits {
-        None = 0,
+        Unused = 0,
         ComputeShader = 1 << 0,
         VertexShader = 1 << 1,
         FragmentShader = 1 << 2,
