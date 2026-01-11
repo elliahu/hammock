@@ -28,13 +28,16 @@ namespace hammock::renderer {
         auto name = socket->getName();
 
         Slot& slot = sockets_[idx];
-        slot.task = std::move(socket);
+        slot.socket = std::move(socket);
         slot.active = true;
         // Note: We don't increment generation here; we do it on removal
         auto handle = SocketHandle{ idx, slot.generation };
 
         // Save for resolution later
         socketHandleResolutionMap_[name] = handle;
+
+        // Fill out metadata
+        updateMetadata(*sockets_[idx].socket);
 
         return handle;
     }
@@ -67,5 +70,9 @@ namespace hammock::renderer {
         return h.index < sockets_.size() &&
                sockets_[h.index].generation == h.generation &&
                sockets_[h.index].active;
+    }
+
+    void BaseGpuTask::updateMetadata(BaseSocket &socket) {
+        // TODO
     }
 }

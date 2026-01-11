@@ -7,7 +7,7 @@ module;
 module hammock_renderer;
 
 namespace hammock::renderer {
-    LogicalResourceHandle DependencyGraph::addResource(LogicalResourceInterface iface) {
+    LogicalResourceHandle DependencyGraph::addLogicalResource(LogicalResourceInterface iface) {
         std::uint32_t idx;
 
         if (firstFreeLogicalResourceSlot_ != -1) {

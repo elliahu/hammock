@@ -19,34 +19,7 @@ namespace hammock::renderer {
         std::uint32_t generation;
     };
 
-    /// @enum ImageType
-    /// Describes the type of the image in the socket
-    export enum class ImageType {
-        Undefined,
-        Type2D,
-        Type3D,
-    };
 
-    export enum class ImageFormat {
-        Undefined,
-        R8G8B8A8Uint,
-        R16G16B16A16Sfloat,
-        R32G32B32A32Sfloat,
-    };
-
-    export struct ImageLogicalResource {
-        ImageFormat format = ImageFormat::Undefined;
-        ImageType type = ImageType::Type2D;
-    };
-
-    export struct BufferLogicalResource {
-    };
-
-    export using LogicalResourceInterface = std::variant<
-        std::monostate,
-        ImageLogicalResource,
-        BufferLogicalResource
-    >;
 
     /// @struct SocketHandle
     /// @brief Returned when adding a task to TaskGraph.
@@ -91,6 +64,7 @@ namespace hammock::renderer {
 
 
     /// @interface BaseSocket
+    /// @brief Describes the intended use of a resource assigned to this socket
     /// Base interface for resource sockets.
     class BaseSocket {
         friend class DependencyGraphCompiler;
@@ -119,8 +93,6 @@ namespace hammock::renderer {
         DepthAttachmentWrite, // Rendering target depth (stencil)
         SampledRead, // Used as combined image sampler
         StorageReadWrite, // Storage image (read write access implied)
-        TransferSrc, // Transfer source (data will be copied into the image)
-        TransferDst, // Transfer destination (data will be copied out of the image)
         Present // Image will be used as present image
     };
 

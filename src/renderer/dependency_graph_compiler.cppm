@@ -11,13 +11,22 @@ import :dependency_graph;
 
 namespace hammock::renderer {
 
+    export struct CompiledLogicalResource final {
+        /// Original resource handle for debugging
+        LogicalResourceHandle origin;
+        /// Handles of physical resources (may be multiple for resources that need to have a copy for each frame in flight)
+        std::vector<core::ResourceHandle> handles{};
+    };
+
     /// @struct CompiledSocket
     /// @brief Represents a socket of a task after it had been compiled by GraphCompiler
     export struct CompiledSocket final {
         /// Original socket before compilation (for debug)
         SocketHandle origin;
-        /// Handles of physical resources (may be multiple for resources that need to have a copy for each frame in flight)
-        std::vector<core::ResourceHandle> handles{};
+
+        /// Compiled resource
+        CompiledLogicalResource * resource;
+
         /// Binding information (one of DescriptorBinding or AttachmentLocation)
         SocketInterface bindingIface{};
 
@@ -77,6 +86,7 @@ namespace hammock::renderer {
     /// @brief Represents output of graph compiler
     export struct CompiledDependencyGraph final {
         std::vector<CompiledTask> compiledTasks{};
+        std::vector<CompiledLogicalResource> compiledResources{};
     };
 
     /// @class DependencyGraphCompiler

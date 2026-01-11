@@ -50,8 +50,10 @@ namespace hammock::renderer {
         [[nodiscard]] bool isHandleValid(SocketHandle h) const;
 
     protected:
+        void updateMetadata(BaseSocket& socket);
+
         struct Slot {
-            std::unique_ptr<BaseSocket> task;
+            std::unique_ptr<BaseSocket> socket;
             std::uint32_t generation;
             std::uint32_t nextFreeSlot;
             bool active = false;
@@ -61,6 +63,39 @@ namespace hammock::renderer {
         std::int32_t firstFreeSlot_ = -1;
         std::unordered_map<std::string, SocketHandle> socketHandleResolutionMap_{};
         std::unique_ptr<PushConstantsBlock> pushConstantsBlock_{nullptr}; // Single push constant block allowed
+
+        struct Metadata {
+            // Inputs and outputs
+            bool hasInputs = false;
+            bool hasOutputs = false;
+            std::vector<SocketHandle> inputs;
+            std::vector<SocketHandle> outputs;
+
+            // Depth stencil
+            bool hasDepthStencil = false;
+            SocketHandle depthStencilSocket;
+
+            // Color targets
+            bool hasColorTargets = false;
+            std::vector<SocketHandle> colorTargetSockets{};
+
+            // Sampled images
+            bool hasSampledImages = false;
+            std::vector<SocketHandle> sampledImageSockets{};
+
+            // Storage images
+            bool hasStorageImages = false;
+            std::vector<SocketHandle> storageImageSockets{};
+
+            // Uniform buffers
+            bool hasUniformBuffers = false;
+            std::vector<SocketHandle> uniformBuffers{};
+
+            // Storage buffers
+            bool hasStorageBuffers = false;
+            std::vector<SocketHandle> storageBuffers{};
+        };
+        Metadata metadata_;
     };
 
     // ************ Graphics Task *************
