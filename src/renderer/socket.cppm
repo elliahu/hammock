@@ -85,9 +85,9 @@ namespace hammock::renderer {
     };
 
 
-    /// @enum ImageUsage
+    /// @enum ImageAccess
     /// @breif Describes how the image in the socket is used by the task
-    export enum class ImageUsage {
+    export enum class ImageAccess {
         Undefined, // Invalid/Initial state
         ColorAttachmentWrite, // Rendering target color
         DepthAttachmentWrite, // Rendering target depth (stencil)
@@ -100,17 +100,17 @@ namespace hammock::renderer {
     /// Concrete Socket for image
     export class ImageSocket final : public BaseSocket {
         friend class DependencyGraphCompiler;
-        ImageUsage usage_ = ImageUsage::Undefined;
+        ImageAccess access_ = ImageAccess::Undefined;
 
     public:
-        ImageSocket(std::string name, LogicalResourceHandle handle, const ImageUsage usage,
-                    SocketInterface iface = {}) : BaseSocket(name, handle, iface), usage_(usage) {
+        ImageSocket(std::string name, LogicalResourceHandle handle, const ImageAccess access,
+                    SocketInterface iface = {}) : BaseSocket(name, handle, iface), access_(access) {
         }
     };
 
-    /// @enum BufferUsage
+    /// @enum BufferAccess
     /// @brief Describes how is buffer accessed
-    export enum class BufferUsage {
+    export enum class BufferAccess {
         Undefined,
         UniformBufferRead,
         StorageBufferReadWrite,
@@ -120,11 +120,11 @@ namespace hammock::renderer {
     /// @brief Concrete socket for buffer
     export class BufferSocket final : public BaseSocket {
         friend class DependencyGraphCompiler;
-        BufferUsage usage_;
+        BufferAccess access_;
 
     public:
-        BufferSocket(std::string name, LogicalResourceHandle handle, const BufferUsage usage,
-                     DescriptorBinding binding) : BaseSocket(name, handle, binding), usage_(usage) {
+        BufferSocket(std::string name, LogicalResourceHandle handle, const BufferAccess access,
+                     DescriptorBinding binding) : BaseSocket(name, handle, binding), access_(access) {
         }
     };
 }

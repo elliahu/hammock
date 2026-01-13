@@ -2,43 +2,25 @@ module;
 #include <cstdint>
 #include <vector>
 #include <memory>
+#include <variant>
 
 export module hammock_renderer:dependency_graph;
 
+import hammock_core;
 import :gpu_task;
 import :socket;
 
 namespace hammock::renderer {
 
-    /// @enum ImageType
-    /// Describes the type of the image in the socket
-    export enum class ImageType {
-        Undefined,
-        Type2D,
-        Type3D,
-        TypeCube
-    };
-
-    /// @enum ImageFormat
-    /// Describes the memory layout of the image
-    export enum class ImageFormat {
-        Undefined,
-        R8G8B8A8Uint,
-        R16G16B16A16Sfloat,
-        R32G32B32A32Sfloat,
-    };
-
-    export enum class RelativeSize {
-        SwapChainRelative,
-    };
-
     /// @struct LogicalImageResource
     /// Describes logical image resource
     export struct LogicalImageResource {
-        ImageFormat format = ImageFormat::Undefined;
-        ImageType type = ImageType::Type2D;
-        math::Vec2 relativeSizeFactor = {1.f, 1.f};
-        RelativeSize relativeSize = RelativeSize::SwapChainRelative;
+        core::ImageFormat format = core::ImageFormat::Undefined;
+        core::ImageType type = core::ImageType::Type2D;
+        core::ImageUsage usage; // TODO this can be inferred
+        std::uint32_t width = 0;
+        std::uint32_t height = 0;
+        std::uint32_t channels = 4;
         std::uint32_t depth = 1;
         std::uint32_t levels = 1;
         std::uint32_t layers = 1;
@@ -46,20 +28,14 @@ namespace hammock::renderer {
         bool persistent = true;
     };
 
-    /// @enum BufferType
-    /// Describes the type of the buffer
-    export enum class BufferType {
-        Vertex,
-        Index,
-        Storage,
-        Uniform,
-    };
 
     /// @struct LogicalBufferResource
     /// Describes logical buffer resource
     export struct LogicalBufferResource {
-        BufferType type;
-        std::uint64_t size;
+        core::BufferType type;
+        core::BufferUsage usage;
+        std::uint64_t instanceSize;
+        std::uint32_t instanceCount;
         bool frameLocal = true;
         bool persistent = true;
     };

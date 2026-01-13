@@ -13,10 +13,16 @@ using namespace hammock::core;
 using namespace hammock::engine;
 
 int main() {
+    auto engine = std::make_unique<Application>(RunnerMode::Editor);
+
     auto dependencyGraph = std::make_unique<DependencyGraph>();
 
     auto IMAGE_RESOURCE_HANDLE = dependencyGraph->addLogicalResource(LogicalImageResource{
-        .format = ImageFormat::R8G8B8A8Uint
+        .format = ImageFormat::R8G8B8A8Uint,
+        .type = ImageType::Type2D,
+        .usage = ImageUsage::Sampled | ImageUsage::ColorAttachment,
+        .width = 1920u,
+        .height = 1080u,
     });
 
     auto computeTask = std::make_unique<ComputeTask>("compute.comp.spv");
@@ -26,13 +32,13 @@ int main() {
     );
 
 
-    auto storageImageSocket = std::make_unique<ImageSocket>("storageImage", IMAGE_RESOURCE_HANDLE, ImageUsage::StorageReadWrite,
+    auto storageImageSocket = std::make_unique<ImageSocket>("storageImage", IMAGE_RESOURCE_HANDLE, ImageAccess::SampledRead,
                                                             DescriptorBinding{
-                                                                0, 0, SocketUsageStageFlagBits::ComputeShader
+                                                                0, 0, ComputeShader
                                                             });
     computeTask->addSocket(std::move(storageImageSocket));
 
-    auto colorTargetSocket = std::make_unique<ImageSocket>("colorOutput", IMAGE_RESOURCE_HANDLE, ImageUsage::ColorAttachmentWrite,
+    auto colorTargetSocket = std::make_unique<ImageSocket>("colorOutput", IMAGE_RESOURCE_HANDLE, ImageAccess::ColorAttachmentWrite,
                                                            AttachmentLocation{0});
     graphicsTask->addSocket(std::move(colorTargetSocket));
 
@@ -52,13 +58,9 @@ int main() {
     auto compiledGraph = compiler->compileDependencyGraph(*dependencyGraph);
 
 
-    try {
-        auto engine = std::make_unique<Application>(RunnerMode::Editor);
-        engine->launch();
-    } catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
-        exit(EXIT_FAILURE);
-    }
+
+    engine->launch();
+
 
     return EXIT_SUCCESS;
 }

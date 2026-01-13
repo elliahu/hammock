@@ -15,15 +15,15 @@ vk::DeviceSize hammock::core::Buffer::getAlignment(const vk::DeviceSize instance
 hammock::core::Buffer::Buffer(Device &device, uint64_t id,
                               const BufferDesc &desc) : BaseResource(
     device, id) {
-    alignmentSize_ = getAlignment(desc.instanceSize, desc.minOffsetAlignment);
+    alignmentSize_ = getAlignment(desc.instanceSize, desc.advanced.minOffsetAlignment);
     bufferSize_ = alignmentSize_ * desc.instanceCount;
     instanceCount_ = desc.instanceCount;
     instanceSize_ = desc.instanceSize;
-    usageFlags_ = desc.usageFlags;
-    memoryPropertyFlags_ = desc.allocationFlags;
+    usageFlags_ = static_cast<vk::BufferUsageFlags>(VulkanBufferUsage{desc.usage});
+    memoryPropertyFlags_ = static_cast<allocator::AllocationCreateFlags>(VulkanBufferAllocationFlags{desc.type});
 
     // queue family indices
-    for (auto &family: desc.queueFamilies) {
+    for (auto &family: desc.advanced.queueFamilies) {
         if (family == CommandQueueFamily::Graphics)
             queueFamilyIndices_.push_back(
                 device.getGraphicsQueueFamilyIndex());
@@ -35,8 +35,8 @@ hammock::core::Buffer::Buffer(Device &device, uint64_t id,
                 device.getTransferQueueFamilyIndex());
     }
 
-    queueFamily_ = desc.currentQueueFamily;
-    sharingMode_ = desc.sharingMode;
+    queueFamily_ = desc.advanced.currentQueueFamily;
+    sharingMode_ = desc.advanced.sharingMode;
 }
 
 hammock::core::Buffer::~Buffer() {
@@ -46,7 +46,6 @@ hammock::core::Buffer::~Buffer() {
 }
 
 void hammock::core::Buffer::create() {
-    Logger::log(LOG_LEVEL_DEBUG, "Creating buffer of size %d", bufferSize_);
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = bufferSize_;
     bufferInfo.usage = usageFlags_;
@@ -70,7 +69,6 @@ void hammock::core::Buffer::release() {
     unmap();
     allocator::destroyBuffer(device.allocator(), buffer_, allocation_);
     resident = false;
-    Logger::log(LOG_LEVEL_DEBUG, "Releasing buffer of size %d" , bufferSize_);
 }
 
 vk::MemoryPropertyFlags hammock::core::Buffer::getMemoryPropertyFlags() const {

@@ -53,13 +53,13 @@ vk::Extent2D hammock::engine::BasePresentationStrategy::getResolution() const {
     return framebuffer_->getExtent();
 }
 
-vk::Format hammock::engine::BasePresentationStrategy::getFormat() const {
-    return vk::Format::eR8G8B8A8Unorm; // TODO: get from framebuffer
+hammock::core::ImageFormat hammock::engine::BasePresentationStrategy::getFormat() const {
+    return core::ImageFormat::R8G8B8A8Uint; // TODO: get from framebuffer
 }
 
 
 hammock::engine::BasePresentationStrategy::BasePresentationStrategy(core::Device &device, vk::Extent2D resolution,
-                                                                    vk::Format format,
+                                                                    core::ImageFormat format,
                                                                     uint32_t framesInFlight) : device_(device),
     framesInFlight_(framesInFlight) {
     // Create framebuffer (shared by all strategies)
@@ -114,7 +114,7 @@ void hammock::engine::BasePresentationStrategy::notifyResolutionChanged(uint32_t
 // **************** Headless presentation strategy ************
 
 hammock::engine::HeadlessPresentationStrategy::HeadlessPresentationStrategy(core::Device &device,
-                                                                            vk::Extent2D resolution, vk::Format format,
+                                                                            vk::Extent2D resolution, core::ImageFormat format,
                                                                             uint32_t
                                                                             framesInFlight) : BasePresentationStrategy(
     device, resolution, format, framesInFlight) {
@@ -153,7 +153,7 @@ hammock::engine::SurfacePresentationStrategy::SurfacePresentationStrategy(core::
     : BasePresentationStrategy(
           device,
           vk::Extent2D{1920, 1080}, // Initial size, will be updated
-          vk::Format::eR8G8B8A8Unorm,
+          core::ImageFormat::R8G8B8A8Uint,
           core::SwapChain::MAX_FRAMES_IN_FLIGHT // Surface rendering typically uses 2 frames in flight
       ),
       mode_(mode) {

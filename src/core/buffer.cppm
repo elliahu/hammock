@@ -14,17 +14,106 @@ import :utilities;
 import :memory_allocator;
 
 namespace hammock::core {
+
+    export enum class BufferType {
+        DeviceOnly,
+        HostVisible, // Staging buffer
+    };
+
+    class VulkanBufferAllocationFlags{
+    public:
+        constexpr VulkanBufferAllocationFlags(BufferType usage) : type(usage) {
+        }
+
+        explicit constexpr operator allocator::AllocationCreateFlags() const {
+            allocator::AllocationCreateFlags flags{};
+
+            if (type == BufferType::HostVisible) {
+                flags |= allocator::AllocationCreateFlagsBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+            }
+
+            return flags;
+        }
+
+    private:
+        BufferType type;
+    };
+
+
+    export enum class BufferUsage : uint32_t {
+        None = 0,
+        TransferSrc = 1 << 0,
+        TransferDst = 1 << 1,
+        UniformBuffer = 1 << 2,
+        StorageBuffer = 1 << 3,
+        IndexBuffer = 1 << 4,
+        VertexBuffer = 1 << 5,
+        IndirectBuffer = 1 << 6,
+    };
+
+    export constexpr BufferUsage operator|(BufferUsage a, BufferUsage b) {
+        return static_cast<BufferUsage>(
+            static_cast<uint32_t>(a) | static_cast<uint32_t>(b)
+        );
+    }
+
+    export constexpr BufferUsage operator&(BufferUsage a, BufferUsage b) {
+        return static_cast<BufferUsage>(
+            static_cast<uint32_t>(a) & static_cast<uint32_t>(b)
+        );
+    }
+
+    class VulkanBufferUsage {
+    public:
+        constexpr VulkanBufferUsage(BufferUsage usage) : usage(usage) {
+        }
+
+        explicit constexpr operator vk::BufferUsageFlags() const {
+            vk::BufferUsageFlags flags{};
+
+            if ((usage & BufferUsage::TransferSrc) != BufferUsage::None)
+                flags |= vk::BufferUsageFlagBits::eTransferSrc;
+
+            if ((usage & BufferUsage::TransferDst) != BufferUsage::None)
+                flags |= vk::BufferUsageFlagBits::eTransferDst;
+
+            if ((usage & BufferUsage::UniformBuffer) != BufferUsage::None)
+                flags |= vk::BufferUsageFlagBits::eUniformBuffer;
+
+            if ((usage & BufferUsage::StorageBuffer) != BufferUsage::None)
+                flags |= vk::BufferUsageFlagBits::eStorageBuffer;
+
+            if ((usage & BufferUsage::IndexBuffer) != BufferUsage::None)
+                flags |= vk::BufferUsageFlagBits::eIndexBuffer;
+
+            if ((usage & BufferUsage::VertexBuffer) != BufferUsage::None)
+                flags |= vk::BufferUsageFlagBits::eVertexBuffer;
+
+            if ((usage & BufferUsage::IndirectBuffer) != BufferUsage::None)
+                flags |= vk::BufferUsageFlagBits::eIndirectBuffer;
+
+            return flags;
+        }
+
+    private:
+        BufferUsage usage;
+    };
+
+
     /// @struct BufferDesc
     /// @brief Describes general buffer
     export struct BufferDesc {
-        vk::DeviceSize instanceSize;
-        uint32_t instanceCount;
-        vk::BufferUsageFlags usageFlags;
-        allocator::AllocationCreateFlags allocationFlags;
-        vk::DeviceSize minOffsetAlignment;
-        CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
-        std::vector<CommandQueueFamily> queueFamilies{};
-        vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
+        BufferType type = BufferType::HostVisible;
+        BufferUsage usage = BufferUsage::None;
+        std::uint64_t instanceSize = 0;
+        uint32_t instanceCount = 0;
+        struct {
+            std::uint64_t minOffsetAlignment = 0;
+            CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
+            std::vector<CommandQueueFamily> queueFamilies{CommandQueueFamily::Graphics, CommandQueueFamily::Compute, CommandQueueFamily::Transfer};
+            vk::SharingMode sharingMode = vk::SharingMode::eConcurrent;
+        } advanced{};
+
     };
 
     /// @class Buffer

@@ -94,13 +94,18 @@ namespace hammock::renderer {
     export class DependencyGraphCompiler final {
         CompiledDependencyGraph compiledDependencyGraph_{};
 
+        /// @brief Compiles logical resources into CompiledLogicalResource structs.
+        /// The compiled resources contain physical resources handles
+        void compileLogicalResources(DependencyGraph &dependencyGraph);
+
     public:
 
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
         CompiledDependencyGraph compileDependencyGraph(DependencyGraph &dependencyGraph) {
-
-
+            compileLogicalResources(dependencyGraph);
             return std::move(compiledDependencyGraph_);
         }
     };
+
+
 }

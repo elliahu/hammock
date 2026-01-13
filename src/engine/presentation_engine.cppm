@@ -35,7 +35,7 @@ namespace hammock::engine {
 
         [[nodiscard]] vk::Extent2D getResolution() const;
 
-        vk::Format getFormat() const;
+        core::ImageFormat getFormat() const;
 
         std::uint32_t getFrameIndex() const { return currentFrameIndex_; }
         bool isFrameInProgress() const { return frameInProgress_; }
@@ -49,7 +49,7 @@ namespace hammock::engine {
         BasePresentationStrategy(
             core::Device &device,
             vk::Extent2D resolution,
-            vk::Format format,
+            core::ImageFormat format,
             uint32_t framesInFlight
         );
 
@@ -99,7 +99,7 @@ namespace hammock::engine {
         HeadlessPresentationStrategy(
             core::Device &device,
             vk::Extent2D resolution,
-            vk::Format format = vk::Format::eR8G8B8A8Unorm,
+            core::ImageFormat format = core::ImageFormat::R8G8B8A8Uint,
             uint32_t framesInFlight = 1 // Headless typically uses 1
         );
 
@@ -185,7 +185,7 @@ namespace hammock::engine {
 
         [[nodiscard]] vk::Extent2D getResolution() { return strategy_->getResolution(); }
 
-        [[nodiscard]] vk::Format getFormat() { return strategy_->getFormat(); }
+        [[nodiscard]] core::ImageFormat getFormat() { return strategy_->getFormat(); }
 
         [[nodiscard]] bool isFrameInProgress() { return strategy_->isFrameInProgress(); }
 

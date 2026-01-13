@@ -4,6 +4,7 @@ module;
 #include <string>
 #include <cassert>
 #include <stdexcept>
+#include <array>
 #include <compare>
 #include "vulkan/vulkan.hpp"
 
@@ -16,24 +17,174 @@ import :buffer;
 import :memory_allocator;
 
 
-
 namespace hammock::core {
+    /// @enum ImageFormat
+    /// Describes the memory layout of the image
+    export enum class ImageFormat {
+        Undefined,
+        R8G8B8A8Uint,
+        R16G16B16A16Sfloat,
+        R32G32B32A32Sfloat,
+    };
+
+    /// @class VulkanImageFormat
+    export class VulkanImageFormat {
+    public:
+        constexpr VulkanImageFormat(ImageFormat fmt) : format(fmt) {
+        }
+
+        explicit constexpr operator vk::Format() const {
+            switch (format) {
+                case ImageFormat::R8G8B8A8Uint:
+                    return vk::Format::eR8G8B8A8Unorm;
+                case ImageFormat::R16G16B16A16Sfloat:
+                    return vk::Format::eR16G16B16A16Sfloat;
+                case ImageFormat::R32G32B32A32Sfloat:
+                    return vk::Format::eR32G32B32A32Sfloat;
+                case ImageFormat::Undefined:
+                default:
+                    throw std::runtime_error("unsupported format");
+            }
+            throw std::runtime_error("unsupported format");
+        }
+
+    private:
+        ImageFormat format;
+    };
+
+    /// @enum ImageUsage
+    export enum class ImageUsage : uint32_t {
+        None = 0,
+        TransferSrc = 1 << 0,
+        TransferDst = 1 << 1,
+        Sampled = 1 << 2,
+        Storage = 1 << 3,
+        ColorAttachment = 1 << 4,
+        DepthStencil = 1 << 5,
+    };
+
+    export constexpr ImageUsage operator|(ImageUsage a, ImageUsage b) {
+        return static_cast<ImageUsage>(
+            static_cast<uint32_t>(a) | static_cast<uint32_t>(b)
+        );
+    }
+
+    export constexpr ImageUsage operator&(ImageUsage a, ImageUsage b) {
+        return static_cast<ImageUsage>(
+            static_cast<uint32_t>(a) & static_cast<uint32_t>(b)
+        );
+    }
+
+    /// @class VulkanImageUsage
+    class VulkanImageUsage {
+    public:
+        constexpr VulkanImageUsage(ImageUsage usage) : usage(usage) {
+        }
+
+        explicit constexpr operator vk::ImageUsageFlags() const {
+            vk::ImageUsageFlags flags{};
+
+            if ((usage & ImageUsage::TransferSrc) != ImageUsage::None)
+                flags |= vk::ImageUsageFlagBits::eTransferSrc;
+
+            if ((usage & ImageUsage::TransferDst) != ImageUsage::None)
+                flags |= vk::ImageUsageFlagBits::eTransferDst;
+
+            if ((usage & ImageUsage::Sampled) != ImageUsage::None)
+                flags |= vk::ImageUsageFlagBits::eSampled;
+
+            if ((usage & ImageUsage::Storage) != ImageUsage::None)
+                flags |= vk::ImageUsageFlagBits::eStorage;
+
+            if ((usage & ImageUsage::ColorAttachment) != ImageUsage::None)
+                flags |= vk::ImageUsageFlagBits::eColorAttachment;
+
+            if ((usage & ImageUsage::DepthStencil) != ImageUsage::None)
+                flags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+
+            return flags;
+        }
+
+    private:
+        ImageUsage usage;
+    };
+
+    /// @enum ImageType
+    export enum class ImageType {
+        Type2D,
+        Type2DArray,
+        Type3D,
+        TypeCube,
+        TypeCubeArray,
+    };
+
+    export class VulkanImageType {
+    public:
+        constexpr VulkanImageType(ImageType type) : type_(type) {
+        }
+
+        explicit constexpr operator vk::ImageType() const {
+            switch (type_) {
+                case ImageType::Type2D:
+                case ImageType::Type2DArray:
+                    return vk::ImageType::e2D;
+                case ImageType::Type3D:
+                    return vk::ImageType::e3D;
+                case ImageType::TypeCube:
+                case ImageType::TypeCubeArray:
+                    return vk::ImageType::e2D;
+                default:
+                    throw std::runtime_error("unsupported type");
+            }
+            throw std::runtime_error("unsupported type");
+        }
+
+        explicit constexpr operator vk::ImageViewType() const {
+            switch (type_) {
+                case ImageType::Type2D:
+                    return vk::ImageViewType::e2D;
+                case ImageType::Type2DArray:
+                    return vk::ImageViewType::e2DArray;
+                case ImageType::Type3D:
+                    return vk::ImageViewType::e3D;
+                case ImageType::TypeCube:
+                    return vk::ImageViewType::eCube;
+                case ImageType::TypeCubeArray:
+                    return vk::ImageViewType::eCubeArray;
+                default:
+                    throw std::runtime_error("unsupported type");
+            }
+            throw std::runtime_error("unsupported type");
+        }
+
+    private:
+        ImageType type_;
+    };
+
 
     /// @struct ImageDesc
     /// @brief Describes a general image
     export struct ImageDesc {
-        std::uint32_t width, height, channels = 4, depth = 1, layers = 1, mips = 1;
-        vk::Format format;
-        vk::ImageUsageFlags usage;
-        vk::ImageType imageType;
-        vk::ImageViewType imageViewType;
-        vk::ImageAspectFlags aspectFlags;
-        vk::ClearValue clearValue{};
-        CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
-        std::vector<CommandQueueFamily> queueFamilies{};
-        vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
-        vk::MemoryPropertyFlagBits memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        vk::ImageTiling tiling = vk::ImageTiling::eOptimal;
+        std::uint32_t width = 0;
+        std::uint32_t height = 0;
+        std::uint32_t channels = 4;
+        std::uint32_t depth = 1;
+        std::uint32_t layers = 1;
+        std::uint32_t mips = 1;
+        ImageFormat format;
+        ImageUsage usage;
+        ImageType type;
+        std::array<float, 4> colorClearValue{0.f, 0.f, 0.f, 1.f};
+        std::array<float, 2> depthStencilClearValue{1.f, 1.f};
+        struct {
+            CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
+            std::vector<CommandQueueFamily> queueFamilies{
+                CommandQueueFamily::Graphics, CommandQueueFamily::Compute, CommandQueueFamily::Transfer
+            };
+            vk::SharingMode sharingMode = vk::SharingMode::eConcurrent;
+            vk::MemoryPropertyFlagBits memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+            vk::ImageTiling tiling = vk::ImageTiling::eOptimal;
+        } advanced{};
     };
 
 
@@ -66,7 +217,6 @@ namespace hammock::core {
         vk::ImageTiling tiling_;
         vk::MemoryPropertyFlags memoryFlags_;
 
-        vk::ImageAspectFlags aspectFlags_;
         vk::Sampler sampler_{};
 
     public:

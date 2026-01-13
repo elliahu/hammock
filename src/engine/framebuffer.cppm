@@ -20,7 +20,7 @@ namespace hammock::engine {
     /// @brief This class represents offscreen framebuffer used by the engine editor
     export class Framebuffer final {
     public:
-        Framebuffer(core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, vk::Format format);
+        Framebuffer(core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, core::ImageFormat format);
 
         // Framebuffer lifetime is expected to be smaller than resource managers lifetime.
         // It is also expected that framebuffer will be recreated many times .
@@ -37,7 +37,7 @@ namespace hammock::engine {
         [[nodiscard]] core::ResourceHandle getFrontbufferImage() const;
 
     private:
-        void createImages(math::Vec2 resolution, vk::Format format);
+        void createImages(math::Vec2 resolution, core::ImageFormat format);
 
         core::Device& device_;
         std::vector<core::ResourceHandle> images_;

@@ -37,6 +37,8 @@ namespace hammock::core {
 
         [[nodiscard]] uint64_t getUid() const { return packed_handle & INDEX_MASK; }
 
+        [[nodiscard]] uint64_t getPackedHandle() const { return packed_handle; }
+
         bool isValid() const { return packed_handle != 0 && getType() != ResourceType::Invalid; }
 
         bool operator==(const ResourceHandle& other) const { return packed_handle == other.packed_handle; }

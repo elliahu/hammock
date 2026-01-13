@@ -95,7 +95,11 @@ namespace hammock::core {
         resources_[id] = std::move(resource);
         resourceCache_[id] = {getCurrentTimestamp(), 0};
 
-        return ResourceHandle::create(ResourceTypeTraits<T>::type, id);
+        auto handle = ResourceHandle::create(ResourceTypeTraits<T>::type, id);
+
+        Logger::debug("creating resource type %d with id %llu - packed handle %llu", handle.getType(), handle.getUid(), handle.getPackedHandle());
+
+        return handle;
     }
 
     template<typename T, typename ... Args>

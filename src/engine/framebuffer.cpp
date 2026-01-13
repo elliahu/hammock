@@ -8,7 +8,7 @@ module hammock_engine;
 import hammock_core;
 
 hammock::engine::Framebuffer::Framebuffer(core::Device &device, std::uint32_t framesInFlight, math::Vec2 resolution,
-                                          vk::Format format) : device_(device), resolution_(resolution),
+                                          core::ImageFormat format) : device_(device), resolution_(resolution),
                                                                framesInFlight_(framesInFlight) {
     createImages(resolution, format);
 }
@@ -36,7 +36,7 @@ hammock::core::ResourceHandle hammock::engine::Framebuffer::getFrontbufferImage(
 }
 
 
-void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, vk::Format format) {
+void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, core::ImageFormat format) {
     auto &rm = core::ResourceManager::getInstance();
     for (int i = 0; i < framesInFlight_; i++) {
         auto handle = rm.createResource<core::Image>(core::ImageDesc{
@@ -47,16 +47,8 @@ void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, vk::Forma
             .layers = 1,
             .mips = 1,
             .format = format,
-            .usage = vk::ImageUsageFlagBits::eColorAttachment |
-                     vk::ImageUsageFlagBits::eTransferSrc |
-                     vk::ImageUsageFlagBits::eTransferDst,
-            .imageType = vk::ImageType::e2D,
-            .imageViewType = vk::ImageViewType::e2D,
-            .clearValue = vk::ClearValue(
-                vk::ClearColorValue{
-                    std::array<float, 4>{1.0f, 1.0f, 1.0f, 1.0f}
-                }
-            )
+            .usage = core::ImageUsage::ColorAttachment | core::ImageUsage::TransferSrc | core::ImageUsage::TransferDst,
+            .type = core::ImageType::Type2D,
         });
         images_.push_back(handle);
     }
