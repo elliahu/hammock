@@ -77,12 +77,14 @@ namespace hammock::renderer {
                 }
             }
         }
+
+        assertDebugEdges(dependencyGraph);
     }
 
     void DependencyGraphCompiler::addEdge(std::uint32_t aidx, std::uint32_t bidx) {
         if (!std::ranges::contains(nodes_[aidx].outgoing, bidx)) {
             nodes_[aidx].outgoing.push_back(bidx);
-            nodes_[aidx].indegree++;
+            nodes_[bidx].indegree++;
         }
     }
 
@@ -169,4 +171,12 @@ namespace hammock::renderer {
         return true;  // Everything else is hazard
     }
 
+    void DependencyGraphCompiler::assertDebugEdges(DependencyGraph& dependencyGraph) {
+        for(auto edge : dependencyGraph.explicitDependencies_){
+            // Make sure there is an edge from a to b (A -> B)
+            if(edge.dependencyType == DependencyType::Debug && !std::ranges::contains(nodes_[edge.srcTaskHandle.index].outgoing, edge.dstTaskHandle.index)){
+                throw std::runtime_error("expected edge not found during assertion");
+            }
+        }
+    }
 }  // namespace hammock::renderer

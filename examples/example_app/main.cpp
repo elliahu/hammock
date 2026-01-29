@@ -60,7 +60,7 @@ int main() {
     auto GRAPHICS_TASK_HANDLE = dependencyGraph->addTask(std::move(graphicsTask));
     
 
-    dependencyGraph->dependency(COMPUTE_TASK_HANDLE, GRAPHICS_TASK_HANDLE, DependencyType::Execution);
+    dependencyGraph->dependency(COMPUTE_TASK_HANDLE,  GRAPHICS_TASK_HANDLE, DependencyType::Debug);
 
     dependencyGraph->present(GRAPHICS_TASK_HANDLE);
 

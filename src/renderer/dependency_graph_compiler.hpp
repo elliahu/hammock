@@ -121,6 +121,11 @@ namespace hammock::renderer {
         core::ResourceHandle createPhysicalImageResource(LogicalImageResource* logicalImageResource);
         core::ResourceHandle createPhysicalBufferResource(LogicalBufferResource* logicalBufferResource);
 
+        /// Assert debug edges
+        void assertDebugEdges(DependencyGraph& dependencyGraph);
+
+        /// Determine execution levels
+
        public:
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
         CompiledDependencyGraph compileDependencyGraph(DependencyGraph& dependencyGraph) {
