@@ -51,7 +51,6 @@ namespace hammock::renderer {
     /// @brief Describes a type of dependency between two tasks
     enum class DependencyType {
         Execution, /// Task B must not begin until Task A has completed
-        Debug, /// Validation only, hard error if inferred edge does not equal debug dge
     };
 
     /// @class DependencyGraph

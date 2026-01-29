@@ -1,13 +1,14 @@
+#include "gpu_task.hpp"
+
 #include <compare>
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <cstdint>
 #include <vulkan/vulkan.hpp>
 
-#include "gpu_task.hpp"
 
 namespace hammock::renderer {
 
@@ -23,6 +24,6 @@ namespace hammock::renderer {
     }
 
     void BaseGpuTask::access(LogicalResourceAccess access) {
-        logicalResourceAccesses_[access.handle].push_back(access);
+        logicalResourceAccesses_.push_back(access);
     }
 }  // namespace hammock::renderer

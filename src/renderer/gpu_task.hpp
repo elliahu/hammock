@@ -7,9 +7,8 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "push_constants.hpp"
 #include "hammock_core.hpp"
-
+#include "push_constants.hpp"
 
 namespace hammock::renderer {
 
@@ -25,12 +24,9 @@ namespace hammock::renderer {
         }
     };
 
-    // Hash function
     struct LogicalResourceHandleHash {
-        std::size_t operator()(const LogicalResourceHandle& handle) const noexcept {
-            std::size_t h1 = std::hash<std::uint32_t>{}(handle.index);
-            std::size_t h2 = std::hash<std::uint32_t>{}(handle.generation);
-            return h1 ^ (h2 << 1);  // simple hash combine
+        std::size_t operator()(const LogicalResourceHandle& h) const noexcept {
+            return (static_cast<std::size_t>(h.generation) << 32) | static_cast<std::size_t>(h.index);
         }
     };
 
@@ -120,8 +116,7 @@ namespace hammock::renderer {
        protected:
         std::unique_ptr<PushConstantsBlock> pushConstantsBlock_{
             nullptr};  // Single push constant block allowed
-        std::unordered_map<LogicalResourceHandle, std::vector<LogicalResourceAccess>, LogicalResourceHandleHash>
-            logicalResourceAccesses_;
+        std::vector<LogicalResourceAccess> logicalResourceAccesses_;
     };
 
     // ************ Graphics Task *************

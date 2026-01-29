@@ -1,20 +1,26 @@
 #pragma once
 #include <cstdint>
-#include <vector>
 #include <memory>
+#include <unordered_map>
+#include <vector>
 #include <vulkan/vulkan.hpp>
 
 #include "dependency_graph.hpp"
 #include "gpu_task.hpp"
-
 
 namespace hammock::renderer {
 
     struct CompiledLogicalResource final {
         /// Original resource handle for debugging
         LogicalResourceHandle origin;
-        /// Handles of physical resources (may be multiple for resources that need to have a copy for each frame in flight)
+        /// Handles of physical resources (may be multiple for resources that need to have a copy for each
+        /// frame in flight)
         std::vector<core::ResourceHandle> handles{};
+    };
+
+    struct CompiledResourceAccess {
+        /// Compiled logical resource
+        CompiledLogicalResource* compiledLogicalResource{nullptr};
 
         /// Binding information (one of DescriptorBinding or AttachmentLocation)
         BindingInterface bindingIface{};
@@ -30,10 +36,7 @@ namespace hammock::renderer {
         vk::DescriptorType descriptorType;
     };
 
-
-    enum class CompiledTaskType {
-        Compute, Graphics
-    };
+    enum class CompiledTaskType { Compute, Graphics };
 
     struct DispatchInfo {
         // TODO
@@ -55,7 +58,7 @@ namespace hammock::renderer {
         std::unique_ptr<core::BasePipeline> pipeline{nullptr};
 
         /// Compiled sockets
-        std::vector<CompiledLogicalResource> sockets{};
+        std::vector<CompiledResourceAccess> compiledResourceAccesses{};
 
         /// Image barriers that need to be applied before this task executes
         std::vector<vk::ImageMemoryBarrier2> imageBarriers{};
@@ -77,43 +80,54 @@ namespace hammock::renderer {
     /// @struct CompiledDependencyGraph
     /// @brief Represents output of graph compiler
     struct CompiledDependencyGraph final {
+        std::vector<CompiledLogicalResource> compiledLogicalResources{};
         std::vector<CompiledTask> compiledTasks{};
     };
 
     /// @struct TaskNode
     /// @brief Internal node representation for graph compilation
     struct TaskNode {
-        BaseGpuTask * task;
-        std::vector<TaskNode *> outgoing{};
+        BaseGpuTask* task = nullptr;
+        std::vector<std::uint32_t> outgoing{};
         std::uint32_t indegree = 0;
     };
 
-    enum class ReadWriteIntent {
-        Read,
-        Write,
-        ReadWrite
-    };
-
-
+    enum class ReadWriteIntent { Read, Write, ReadWrite };
 
     /// @class DependencyGraphCompiler
     /// @brief Outputs compiled graph
     class DependencyGraphCompiler final {
+        struct TaskHandleLogicalResourceAccessPair {
+            TaskHandle task;
+            AccessInterface access;
+        };
+
         std::vector<TaskNode> nodes_;
+        std::unordered_map<LogicalResourceHandle, std::vector<TaskHandleLogicalResourceAccessPair>,
+            LogicalResourceHandleHash>
+            logicalResourceUses_;
         CompiledDependencyGraph compiledDependencyGraph_{};
 
+        /// Populates nodes_ list
+        void buildGraphNodes(DependencyGraph& dependencyGraph);
+        void addEdge(std::uint32_t aidx, std::uint32_t bidx);
+        ReadWriteIntent determineReadWriteIntent(AccessInterface accessIface);
+        bool isHazard(ReadWriteIntent a, ReadWriteIntent b);
+        void handleExplicitDependencies(DependencyGraph& dependencyGraph);
+        
 
-        void buildGraphNodes(DependencyGraph &dependencyGraph);
+        /// Creates physical resources from logical resources and wraps them in compiled logical resources
+        void compileLogicalResources(DependencyGraph& dependencyGraph);
+        core::ResourceHandle createPhysicalImageResource(LogicalImageResource* logicalImageResource);
+        core::ResourceHandle createPhysicalBufferResource(LogicalBufferResource* logicalBufferResource);
 
-    public:
-
+       public:
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
-        CompiledDependencyGraph compileDependencyGraph(DependencyGraph &dependencyGraph) {
-
-
+        CompiledDependencyGraph compileDependencyGraph(DependencyGraph& dependencyGraph) {
+            compileLogicalResources(dependencyGraph);
+            buildGraphNodes(dependencyGraph);
             return std::move(compiledDependencyGraph_);
         }
     };
 
-
-}
+}  // namespace hammock::renderer
