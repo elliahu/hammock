@@ -1,13 +1,12 @@
-module;
 #include <memory>
 #include <functional>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_engine;
+#include "presentation_engine.hpp"
+#include "hammock_core.hpp"
+#include "hammock_renderer.hpp"
 
-import hammock_core;
-import hammock_renderer;
 
 // ************ Base presentation strategy *************
 

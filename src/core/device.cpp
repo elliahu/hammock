@@ -1,12 +1,10 @@
-module;
 #include <stdexcept>
 #include <set>
 #include <vector>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-
-module hammock_core;
+#include "device.hpp"
 
 namespace hammock::core {
     Device::Device(Instance &instance, vk::SurfaceKHR surface) : instance_{instance}, surface_{surface} {

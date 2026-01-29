@@ -1,10 +1,8 @@
-module;
 #include <stdexcept>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
-
+#include "command_buffer.hpp"
 
 auto hammock::core::CommandBuffer::begin() -> void {
     if (inProgress_) {

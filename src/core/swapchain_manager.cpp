@@ -1,4 +1,3 @@
-module;
 #include <iostream>
 #include <string>
 #include <cassert>
@@ -6,7 +5,9 @@ module;
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "swapchain_manager.hpp"
+#include "resource_manager.hpp"
+#include "image.hpp"
 
 
 hammock::core::SwapChainManager::SwapChainManager(

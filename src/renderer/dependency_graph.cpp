@@ -1,10 +1,9 @@
-module;
 #include <cstdint>
 #include <vector>
 #include <memory>
 #include <stdexcept>
 
-module hammock_renderer;
+#include "dependency_graph.hpp"
 
 namespace hammock::renderer {
     LogicalResourceHandle DependencyGraph::addLogicalResource(LogicalResourceInterface iface) {
@@ -65,7 +64,12 @@ namespace hammock::renderer {
         }
     }
 
-    void DependencyGraph::connect(TaskHandle srcTaskHandle, TaskHandle dstTaskHandle, DependencyType dependencyType) {
-        dependencies_.push_back({srcTaskHandle, dstTaskHandle, dependencyType});
+    void DependencyGraph::dependency(TaskHandle srcTaskHandle, TaskHandle dstTaskHandle, DependencyType dependencyType) {
+        explicitDependencies_.push_back({srcTaskHandle, dstTaskHandle, dependencyType});
+    }
+
+    void DependencyGraph::present(TaskHandle presentTaskHandle) {
+        presentTaskHandle_ = std::move(presentTaskHandle);
+        isPresentTaskSet_ = true;
     }
 }

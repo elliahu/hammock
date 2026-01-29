@@ -1,13 +1,10 @@
-module;
-
 #include <optional>
 #include <stdexcept>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_renderer;
-
-import hammock_core;
+#include "graphics_context.hpp"
+#include "hammock_core.hpp"
 
 hammock::renderer::GraphicsContext::~GraphicsContext() {
     core::ResourceManager::dispose();

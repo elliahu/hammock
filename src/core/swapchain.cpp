@@ -1,5 +1,3 @@
-module;
-
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -9,7 +7,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "swapchain.hpp"
 
 namespace hammock::core {
     SwapChain::SwapChain(Device &deviceRef, vk::SurfaceKHR surface, const vk::Extent2D extent)

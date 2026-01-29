@@ -1,10 +1,8 @@
-module;
-
 #include <memory>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_engine;
+#include "application.hpp"
 
 hammock::engine::Application::Application(RunnerMode mode) {
     // Create graphics context

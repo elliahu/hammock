@@ -1,11 +1,8 @@
-module;
-
 #include <iostream>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-
-module hammock_core;
+#include "instance.hpp"
 
 hammock::core::Instance::Instance() {
     createInstance();

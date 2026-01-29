@@ -1,47 +1,42 @@
 cmake_minimum_required(VERSION 3.30)
 
 # Renderer library
-add_library(hammock_renderer)
+add_library(hammock_renderer
+        "hammock_renderer.hpp"
+        "spirv_reflection.hpp"
+        "renderer.hpp"
+        "base_rendering_strategy.hpp"
+        "deferred_rendering_strategy.hpp"
+        "filesystem.hpp"
+        "scene.hpp"
+        "math.hpp"
+        "thread_pool.hpp"
+        "vertex.hpp"
+        "dependency_graph.hpp"
+        "dependency_graph_compiler.hpp"
+        "dependency_graph_executor.hpp"
+        "gpu_task.hpp"
+        "push_constants.hpp"
+        "graphics_context.hpp"
 
-# Add module sources
-target_sources(hammock_renderer
-    PUBLIC
-        FILE_SET CXX_MODULES TYPE CXX_MODULES
-        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-        FILES
-        "hammock_renderer.cppm"
-        "spirv_reflection.cppm"
-        "renderer.cppm"
-        "base_rendering_strategy.cppm"
-        "deferred_rendering_strategy.cppm"
-        "filesystem.cppm"
-        "scene.cppm"
-        "math.cppm"
-        "thread_pool.cppm"
-        "vertex.cppm"
-        "dependency_graph.cppm"
-        "dependency_graph_compiler.cppm"
-        "dependency_graph_executor.cppm"
-        "gpu_task.cppm"
-        "socket.cppm"
-        "push_constants.cppm"
-        "graphics_context.cppm"
-    PRIVATE
-        "${PROJECT_SOURCE_DIR}/third_party/spirv_reflect/spirv_reflect.cpp" # include spirv_reflect source
         "filesystem_impl.cpp"
         "graphics_context.cpp"
         "renderer.cpp"
         "gpu_task.cpp"
-        "socket.cpp"
+        "math.cpp"
         "dependency_graph.cpp"
         "dependency_graph_compiler.cpp"
         "dependency_graph_executor.cpp"
         "deferred_rendering_strategy.cpp"
 )
 
+
 # Include directories for legacy headers
 target_include_directories(hammock_renderer PUBLIC
     "${PROJECT_SOURCE_DIR}/third_party"
+    "${PROJECT_SOURCE_DIR}/src/core"
+    "${PROJECT_SOURCE_DIR}/src/renderer"
+    "${PROJECT_SOURCE_DIR}/src/engine"
 )
 
 # Link core (which provides Vulkan transitively)

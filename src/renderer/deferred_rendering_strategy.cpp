@@ -1,13 +1,9 @@
-module;
-
 #include <memory>
 #include <vector>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_renderer;
-
-import hammock_core;
+#include "deferred_rendering_strategy.hpp"
 
 
 hammock::renderer::DeferredRenderingStrategy::DeferredRenderingStrategy(GraphicsContext &ctx, std::uint32_t maxFramesInFlight): BaseRenderingStrategy(ctx, maxFramesInFlight) {

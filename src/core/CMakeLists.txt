@@ -1,33 +1,26 @@
 cmake_minimum_required(VERSION 3.30)
 
 # Core library
-add_library(hammock_core)
+add_library(hammock_core
+        "hammock_core.hpp"
+        "base_pipeline.hpp"
+        "base_resource.hpp"
+        "base_surface_provider.hpp"
+        "buffer.hpp"
+        "command_buffer.hpp"
+        "compute_pipeline.hpp"
+        "descriptors.hpp"
+        "device.hpp"
+        "swapchain_manager.hpp"
+        "graphics_pipeline.hpp"
+        "image.hpp" 
+        "instance.hpp"
+        "memory_allocator.hpp"
+        "resource_manager.hpp"
+        "swapchain.hpp"
+        "utilities.hpp"
+        "semaphore.hpp"
 
-# Add module sources
-target_sources(hammock_core
-    PUBLIC
-        FILE_SET CXX_MODULES TYPE CXX_MODULES
-        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-        FILES
-        "hammock_core.cppm"
-        "base_pipeline.cppm"
-        "base_resource.cppm"
-        "base_surface_provider.cppm"
-        "buffer.cppm"
-        "command_buffer.cppm"
-        "compute_pipeline.cppm"
-        "descriptors.cppm"
-        "device.cppm"
-        "swapchain_manager.cppm"
-        "graphics_pipeline.cppm"
-        "image.cppm"
-        "instance.cppm"
-        "memory_allocator.cppm"
-        "resource_manager.cppm"
-        "swapchain.cppm"
-        "utilities.cppm"
-        "semaphore.cppm"
-    PRIVATE
         "buffer.cpp"
         "image.cpp"
         "instance.cpp"
@@ -48,12 +41,12 @@ target_include_directories(hammock_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     "${PROJECT_SOURCE_DIR}/third_party"
     "${Vulkan_INCLUDE_DIR}"
+    "${PROJECT_SOURCE_DIR}/src/core"
+    "${PROJECT_SOURCE_DIR}/src/renderer"
+    "${PROJECT_SOURCE_DIR}/src/engine"
 )
 
 target_link_libraries(hammock_core PUBLIC Vulkan::Vulkan)
-
-add_compile_definitions(VULKAN_HPP_NO_CONSTRUCTORS)
-add_compile_definitions(VULKAN_HPP_NO_SPACESHIP_OPERATOR)
 
 # Compiler features
 target_compile_features(hammock_core PUBLIC cxx_std_23)

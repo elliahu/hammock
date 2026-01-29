@@ -1,10 +1,8 @@
-module;
-
 #include <stdexcept>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "semaphore.hpp"
 
 namespace hammock::core {
     Semaphore::Semaphore(Device &device) : device_(device) {

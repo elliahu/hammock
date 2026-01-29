@@ -1,10 +1,9 @@
-module;
 #include <memory>
 #include <stdexcept>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "compute_pipeline.hpp"
 
 // *************** Compute pipeline ***********************
 hammock::core::ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo &config) : BasePipeline(config.device) {

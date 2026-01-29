@@ -1,5 +1,20 @@
 CompileFlags:
-  Add: 
+  Add:
+    # Add flags clangd needs
     - -std=c++23
-    - -fmodules
-  Compiler: clang++
+    - -DNOMINMAX
+    - -DVK_USE_PLATFORM_WIN32_KHR
+    - -DVULKAN_HPP_NO_CONSTRUCTORS
+    - -DVULKAN_HPP_NO_SPACESHIP_OPERATOR
+    - -DWIN32_LEAN_AND_MEAN
+  
+  Remove:
+    # Remove GCC-specific flags
+    - -fmodules-ts
+    - -fmodule-mapper=*
+    - -fdeps-format=*
+    - -MD
+    - -MT
+    - -MF
+    - -x
+    

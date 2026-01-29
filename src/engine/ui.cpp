@@ -1,13 +1,10 @@
-module;
-
 #include "imgui/backends/imgui_impl_vulkan.h"
 #include "VulkanSurfer/imgui_impl_vulkansurfer.h"
 #include "imgui/imgui.h"
 #include <compare>
 #include "vulkan/vulkan.hpp"
 
-
-module hammock_engine;
+#include "ui.hpp"
 
 hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx, std::uint32_t framesInFlight) {
     IMGUI_CHECKVERSION();

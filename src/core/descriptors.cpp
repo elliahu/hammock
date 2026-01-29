@@ -1,4 +1,3 @@
-module;
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -6,7 +5,7 @@ module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "descriptors.hpp"
 
 
 

@@ -1,9 +1,8 @@
-module;
 #include <cstdint>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "image.hpp"
 
 // ************* Image *********************
 hammock::core::Image::Image(Device &device, uint64_t id, const ImageDesc &desc) : BaseResource(device, id) {

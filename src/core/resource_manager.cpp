@@ -1,10 +1,9 @@
-module;
 #include <chrono>
 #include <algorithm>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "resource_manager.hpp"
 
 
 void hammock::core::ResourceManager::initialize(Device &device, vk::DeviceSize memoryBudget) {

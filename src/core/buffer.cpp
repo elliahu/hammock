@@ -1,8 +1,7 @@
-module;
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "buffer.hpp"
 
 vk::DeviceSize hammock::core::Buffer::getAlignment(const vk::DeviceSize instanceSize,
                                                    const vk::DeviceSize minOffsetAlignment) {

@@ -1,11 +1,10 @@
-module;
 #include <memory>
 #include <stdexcept>
 #include <vector>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_core;
+#include "graphics_pipeline.hpp"
 
 
 
@@ -212,8 +211,8 @@ void hammock::core::GraphicsPipeline::defaultRenderPipelineConfig(GraphicsPipeli
     configInfo.depthStencilInfo.minDepthBounds = 0.0f; // Optional
     configInfo.depthStencilInfo.maxDepthBounds = 1.0f; // Optional
     configInfo.depthStencilInfo.stencilTestEnable = false;
-    configInfo.depthStencilInfo.front = {}; // Optional
-    configInfo.depthStencilInfo.back = {}; // Optional
+    configInfo.depthStencilInfo.front = vk::StencilOpState{}; // Optional
+    configInfo.depthStencilInfo.back = vk::StencilOpState{}; // Optional
 
     configInfo.dynamicStateEnables = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();

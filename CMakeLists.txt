@@ -4,6 +4,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(hammock LANGUAGES CXX)
 
@@ -20,6 +21,11 @@ elseif(UNIX AND NOT APPLE)
 elseif(APPLE)
     add_compile_definitions(VK_USE_PLATFORM_METAL_EXT)
 endif()
+
+add_compile_definitions(
+    VULKAN_HPP_NO_SPACESHIP_OPERATOR
+    VULKAN_HPP_NO_CONSTRUCTORS
+)
 
 # Find Vulkan once for the whole project
 find_package(Vulkan REQUIRED)

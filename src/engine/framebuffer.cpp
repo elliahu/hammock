@@ -1,11 +1,9 @@
-module;
 #include <cstdint>
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-module hammock_engine;
-
-import hammock_core;
+#include "framebuffer.hpp"
+#include "hammock_core.hpp"
 
 hammock::engine::Framebuffer::Framebuffer(core::Device &device, std::uint32_t framesInFlight, math::Vec2 resolution,
                                           core::ImageFormat format) : device_(device), resolution_(resolution),

@@ -1,26 +1,18 @@
 cmake_minimum_required(VERSION 3.30)
 
-
-# Editor library
-add_library(hammock_engine)
-
 # Imgui is compiled with this target
 set(IMGUI_DIR "${PROJECT_SOURCE_DIR}/third_party/imgui")
 
-# Add module sources
-target_sources(hammock_engine
-    PUBLIC
-        FILE_SET CXX_MODULES TYPE CXX_MODULES
-        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-        FILES
-        "hammock_engine.cppm"
-        "runner.cppm"
-        "application.cppm"
-        "window.cppm"
-        "ui.cppm"
-        "framebuffer.cppm"
-        "presentation_engine.cppm"
-    PRIVATE
+# Editor library
+add_library(hammock_engine
+        "hammock_engine.hpp"
+        "runner.hpp"
+        "application.hpp"
+        "window.hpp"
+        "ui.hpp"
+        "framebuffer.hpp"
+        "presentation_engine.hpp"
+
         "runner.cpp"
         "application.cpp"
         "framebuffer.cpp"
@@ -34,12 +26,18 @@ target_sources(hammock_engine
         "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp"
 )
 
+
+
+
 # Include directories for legacy headers
 target_include_directories(hammock_engine PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         "${PROJECT_SOURCE_DIR}/third_party"
         "${PROJECT_SOURCE_DIR}/third_party/imgui"
         "${Vulkan_INCLUDE_DIR}" # imgui needs vulkan.h
+        "${PROJECT_SOURCE_DIR}/src/core"
+        "${PROJECT_SOURCE_DIR}/src/renderer"
+        "${PROJECT_SOURCE_DIR}/src/engine"
 )
 
 # Link renderer (which links core transitively)

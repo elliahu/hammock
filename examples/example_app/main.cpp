@@ -3,9 +3,9 @@
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
-import hammock_engine;
-import hammock_renderer;
-import hammock_core;
+#include "hammock_core.hpp"
+#include "hammock_renderer.hpp"
+#include "hammock_engine.hpp"
 
 using namespace hammock;
 using namespace hammock::renderer;
@@ -32,31 +32,29 @@ int main() {
     );
 
 
-    auto storageImageSocket = std::make_unique<ImageSocket>("storageImage", IMAGE_RESOURCE_HANDLE, ImageAccess::SampledRead,
-                                                            DescriptorBinding{
-                                                                0, 0, ComputeShader
-                                                            });
-    computeTask->addSocket(std::move(storageImageSocket));
+    computeTask->access({
+        .handle = IMAGE_RESOURCE_HANDLE,
+        .access = ImageAccess::SampledRead,
+        .binding = DescriptorBinding{0, 0, ComputeShader},
+    });
 
-    auto colorTargetSocket = std::make_unique<ImageSocket>("colorOutput", IMAGE_RESOURCE_HANDLE, ImageAccess::ColorAttachmentWrite,
-                                                           AttachmentLocation{0});
-    graphicsTask->addSocket(std::move(colorTargetSocket));
+    graphicsTask->access({
+        .handle = IMAGE_RESOURCE_HANDLE,
+        .access = ImageAccess::ColorAttachmentWrite,
+        .binding = AttachmentLocation{0}
+    });
 
-
-    auto pushBlock = std::make_unique<PushConstantsBlock>("pushConstants");
-    auto pushField = std::make_unique<PushConstantField>("someField", PushConstantFieldType::Float);
-    pushField->setFloat(420.69f);
-    pushBlock->addField(std::move(pushField));
-    graphicsTask->addPushConstantBlock(std::move(pushBlock));
 
     auto GRAPHICS_TASK_HANDLE = dependencyGraph->addTask(std::move(graphicsTask));
     auto COMPUTE_TASK_HANDLE = dependencyGraph->addTask(std::move(computeTask));
 
-    dependencyGraph->connect(COMPUTE_TASK_HANDLE, GRAPHICS_TASK_HANDLE, DependencyType::Debug);
+
+    dependencyGraph->dependency(COMPUTE_TASK_HANDLE, GRAPHICS_TASK_HANDLE, DependencyType::Debug);
+
+    dependencyGraph->present(GRAPHICS_TASK_HANDLE);
 
     auto compiler = std::make_unique<DependencyGraphCompiler>();
     auto compiledGraph = compiler->compileDependencyGraph(*dependencyGraph);
-
 
 
     engine->launch();
