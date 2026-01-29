@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <queue>
 #include <ranges>
 #include <stdexcept>
 #include <variant>
@@ -172,11 +173,43 @@ namespace hammock::renderer {
     }
 
     void DependencyGraphCompiler::assertDebugEdges(DependencyGraph& dependencyGraph) {
-        for(auto edge : dependencyGraph.explicitDependencies_){
+        for (auto edge : dependencyGraph.explicitDependencies_) {
             // Make sure there is an edge from a to b (A -> B)
-            if(edge.dependencyType == DependencyType::Debug && !std::ranges::contains(nodes_[edge.srcTaskHandle.index].outgoing, edge.dstTaskHandle.index)){
+            if (edge.dependencyType == DependencyType::Debug &&
+                !std::ranges::contains(nodes_[edge.srcTaskHandle.index].outgoing, edge.dstTaskHandle.index)) {
                 throw std::runtime_error("expected edge not found during assertion");
             }
+        }
+    }
+    void DependencyGraphCompiler::determineExecutionLevels() {
+        std::queue<std::uint32_t> ready{};
+
+        // Init ready set
+        for (std::uint32_t i = 0; i < nodes_.size(); i++) {
+            auto& n = nodes_[i];
+            if (n.indegree == 0) {
+                ready.push(i);
+            }
+        }
+
+        while (!ready.empty()) {
+            std::vector<std::uint32_t> level{};
+            std::size_t count = ready.size();
+
+            // All tasks currently ready can run in parallel
+            for (std::size_t i = 0; i < count; ++i) {
+                auto t = ready.front();
+                ready.pop();
+                level.push_back(t);
+
+                // Remove this task from graph
+                for (auto next : nodes_[t].outgoing) {
+                    if (--nodes_[next].indegree == 0) {
+                        ready.push(next);
+                    }
+                }
+            }
+            compiledDependencyGraph_.executionLevels.push_back(level);
         }
     }
 }  // namespace hammock::renderer

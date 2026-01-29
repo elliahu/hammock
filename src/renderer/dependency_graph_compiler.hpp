@@ -18,7 +18,7 @@ namespace hammock::renderer {
         std::vector<core::ResourceHandle> handles{};
     };
 
-    struct CompiledResourceAccess {
+    struct CompiledLogicalResourceAccess {
         /// Compiled logical resource
         CompiledLogicalResource* compiledLogicalResource{nullptr};
 
@@ -58,7 +58,7 @@ namespace hammock::renderer {
         std::unique_ptr<core::BasePipeline> pipeline{nullptr};
 
         /// Compiled sockets
-        std::vector<CompiledResourceAccess> compiledResourceAccesses{};
+        std::vector<CompiledLogicalResourceAccess> compiledResourceAccesses{};
 
         /// Image barriers that need to be applied before this task executes
         std::vector<vk::ImageMemoryBarrier2> imageBarriers{};
@@ -82,6 +82,7 @@ namespace hammock::renderer {
     struct CompiledDependencyGraph final {
         std::vector<CompiledLogicalResource> compiledLogicalResources{};
         std::vector<CompiledTask> compiledTasks{};
+        std::vector<std::vector<std::uint32_t>> executionLevels{};
     };
 
     /// @struct TaskNode
@@ -108,6 +109,7 @@ namespace hammock::renderer {
             logicalResourceUses_;
         CompiledDependencyGraph compiledDependencyGraph_{};
 
+
         /// Populates nodes_ list
         void buildGraphNodes(DependencyGraph& dependencyGraph);
         void addEdge(std::uint32_t aidx, std::uint32_t bidx);
@@ -125,12 +127,17 @@ namespace hammock::renderer {
         void assertDebugEdges(DependencyGraph& dependencyGraph);
 
         /// Determine execution levels
+        /// Task is ready if indegree == 0
+        /// Ready task does not need to wait for any other tasks to finish
+        /// Tasks in the same execution level can run in parallel
+        void determineExecutionLevels();
 
        public:
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
         CompiledDependencyGraph compileDependencyGraph(DependencyGraph& dependencyGraph) {
             compileLogicalResources(dependencyGraph);
             buildGraphNodes(dependencyGraph);
+            determineExecutionLevels();
             return std::move(compiledDependencyGraph_);
         }
     };
