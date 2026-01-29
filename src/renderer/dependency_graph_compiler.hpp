@@ -7,8 +7,11 @@
 
 #include "dependency_graph.hpp"
 #include "gpu_task.hpp"
+#include "vulkan/vulkan.hpp"
 
 namespace hammock::renderer {
+
+    enum class ResourceLifetimeState { Uninitialized, Initialized };
 
     struct CompiledLogicalResource final {
         /// Original resource handle for debugging
@@ -16,6 +19,8 @@ namespace hammock::renderer {
         /// Handles of physical resources (may be multiple for resources that need to have a copy for each
         /// frame in flight)
         std::vector<core::ResourceHandle> handles{};
+        std::vector<ResourceLifetimeState> lifetime;
+        bool persistent = true;
     };
 
     struct CompiledLogicalResourceAccess {
@@ -24,13 +29,6 @@ namespace hammock::renderer {
 
         /// Binding information (one of DescriptorBinding or AttachmentLocation)
         BindingInterface bindingIface{};
-
-        /// Required layout (if image)
-        vk::ImageLayout layout = vk::ImageLayout::eUndefined;
-        /// Access flags
-        vk::AccessFlagBits2 access;
-        /// Stages that use the resource
-        vk::PipelineStageFlagBits2 stages;
 
         /// What kind of resource
         vk::DescriptorType descriptorType;
@@ -57,18 +55,13 @@ namespace hammock::renderer {
         /// Constructed pipeline
         std::unique_ptr<core::BasePipeline> pipeline{nullptr};
 
-        /// Compiled sockets
+        /// Compiled resource accesses
         std::vector<CompiledLogicalResourceAccess> compiledResourceAccesses{};
 
         /// Image barriers that need to be applied before this task executes
         std::vector<vk::ImageMemoryBarrier2> imageBarriers{};
         /// Buffer barriers that need to be applied before this task executes
         std::vector<vk::BufferMemoryBarrier2> bufferBarriers{};
-
-        /// Src stages
-        vk::PipelineStageFlagBits2 srcStages;
-        /// Dst stages
-        vk::PipelineStageFlagBits2 dstStages;
 
         // Execution parameters
         /// Dispatch info for compute tasks
@@ -90,6 +83,7 @@ namespace hammock::renderer {
     struct TaskNode {
         BaseGpuTask* task = nullptr;
         std::vector<std::uint32_t> outgoing{};
+        std::vector<std::uint32_t> incoming{};
         std::uint32_t indegree = 0;
     };
 
@@ -98,17 +92,18 @@ namespace hammock::renderer {
     /// @class DependencyGraphCompiler
     /// @brief Outputs compiled graph
     class DependencyGraphCompiler final {
+        /// Internal structure to pair up task and access
         struct TaskHandleLogicalResourceAccessPair {
             TaskHandle task;
             AccessInterface access;
         };
 
-        std::vector<TaskNode> nodes_;
+        std::vector<TaskNode> nodes_;  /// Intermediate graph structure
         std::unordered_map<LogicalResourceHandle, std::vector<TaskHandleLogicalResourceAccessPair>,
             LogicalResourceHandleHash>
-            logicalResourceUses_;
-        CompiledDependencyGraph compiledDependencyGraph_{};
-
+            logicalResourceUses_;  /// Stores where is each resources accessed and how
+        CompiledDependencyGraph
+            compiledDependencyGraph_{};  /// The final compiled graph that will be returned
 
         /// Populates nodes_ list
         void buildGraphNodes(DependencyGraph& dependencyGraph);
@@ -116,7 +111,6 @@ namespace hammock::renderer {
         ReadWriteIntent determineReadWriteIntent(AccessInterface accessIface);
         bool isHazard(ReadWriteIntent a, ReadWriteIntent b);
         void handleExplicitDependencies(DependencyGraph& dependencyGraph);
-        
 
         /// Creates physical resources from logical resources and wraps them in compiled logical resources
         void compileLogicalResources(DependencyGraph& dependencyGraph);
@@ -132,14 +126,18 @@ namespace hammock::renderer {
         /// Tasks in the same execution level can run in parallel
         void determineExecutionLevels();
 
+        void compileTasks(DependencyGraph& dependencyGraph);
+        void compileTaskResourceAccesses(BaseGpuTask* srcTask, CompiledTask& dstTask);
+        vk::DescriptorType determineDescriptorType(AccessInterface access);
+        void compileBarrier(
+            const LogicalResourceAccess& prev, const LogicalResourceAccess& curr, CompiledTask& dstTask);
+        vk::PipelineStageFlags2 stagesFromAccess(AccessInterface accessIface);
+        vk::AccessFlags2 accessFlagsFromAccess(AccessInterface accessIface);
+        vk::ImageLayout layoutFromAccess(ImageAccess access);
+
        public:
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
-        CompiledDependencyGraph compileDependencyGraph(DependencyGraph& dependencyGraph) {
-            compileLogicalResources(dependencyGraph);
-            buildGraphNodes(dependencyGraph);
-            determineExecutionLevels();
-            return std::move(compiledDependencyGraph_);
-        }
+        CompiledDependencyGraph compileDependencyGraph(DependencyGraph& dependencyGraph);
     };
 
 }  // namespace hammock::renderer

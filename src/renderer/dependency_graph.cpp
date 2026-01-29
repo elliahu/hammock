@@ -1,9 +1,10 @@
+#include "dependency_graph.hpp"
+
 #include <cstdint>
-#include <vector>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 
-#include "dependency_graph.hpp"
 
 namespace hammock::renderer {
     LogicalResourceHandle DependencyGraph::addLogicalResource(LogicalResourceInterface iface) {
@@ -23,16 +24,15 @@ namespace hammock::renderer {
         slot.resource = iface;
         slot.active = true;
         // Note: We don't increment generation here; we do it on removal
-        return { idx, slot.generation };
+        return {idx, slot.generation};
     }
 
     bool DependencyGraph::isHandleValid(TaskHandle h) const {
-        return h.index < tasks_.size() &&
-               tasks_[h.index].generation == h.generation &&
+        return h.index < tasks_.size() && tasks_[h.index].generation == h.generation &&
                tasks_[h.index].active;
     }
 
-    TaskHandle DependencyGraph::addTask(std::unique_ptr<BaseGpuTask> &&task) {
+    TaskHandle DependencyGraph::addTask(std::unique_ptr<BaseGpuTask>&& task) {
         std::uint32_t idx;
 
         if (firstFreeTaskSlot_ != -1) {
@@ -49,14 +49,14 @@ namespace hammock::renderer {
         slot.task = std::move(task);
         slot.active = true;
         // Note: We don't increment generation here; we do it on removal
-        return { idx, slot.generation };
+        return {idx, slot.generation};
     }
 
     void DependencyGraph::removeTask(TaskHandle h) {
         if (isHandleValid(h)) {
             TaskSlot& slot = tasks_[h.index];
             slot.active = false;
-            slot.generation++; // This invalidates all existing handles to this slot
+            slot.generation++;  // This invalidates all existing handles to this slot
 
             // Push this slot onto the front of the free list
             slot.nextFreeSlot = firstFreeTaskSlot_;
@@ -64,7 +64,8 @@ namespace hammock::renderer {
         }
     }
 
-    void DependencyGraph::dependency(TaskHandle srcTaskHandle, TaskHandle dstTaskHandle, DependencyType dependencyType) {
+    void DependencyGraph::dependency(
+        TaskHandle srcTaskHandle, TaskHandle dstTaskHandle, DependencyType dependencyType) {
         explicitDependencies_.push_back({srcTaskHandle, dstTaskHandle, dependencyType});
     }
 
@@ -72,4 +73,23 @@ namespace hammock::renderer {
         presentTaskHandle_ = std::move(presentTaskHandle);
         isPresentTaskSet_ = true;
     }
-}
+
+    void DependencyGraph::initCopyBuffer(LogicalResourceHandle target, core::Buffer& src) {
+        resourceInits_.push_back(InitCopyBuffer{
+            .buffer = src
+        });
+    }
+
+    void DependencyGraph::initCopyImage(LogicalResourceHandle target, core::Image& src) {
+        resourceInits_.push_back({InitCopyImage{
+            .image = src
+        }});
+    }
+
+    void DependencyGraph::initClearImage(LogicalResourceHandle target, std::array<float, 4> clearColor, std::array<float, 2> clearDepthStencil) {
+        resourceInits_.push_back({InitClearImage{
+            .clearColor = clearColor,
+            .clearDepthStencil = clearDepthStencil,
+        }});
+    }
+}  // namespace hammock::renderer

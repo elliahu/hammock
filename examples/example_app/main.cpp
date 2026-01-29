@@ -3,6 +3,7 @@
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
+#include "dependency_graph.hpp"
 #include "gpu_task.hpp"
 #include "hammock_core.hpp"
 #include "hammock_engine.hpp"
@@ -24,7 +25,11 @@ int main() {
         .usage = ImageUsage::Sampled | ImageUsage::Storage,
         .width = 1920u,
         .height = 1080u,
+        .persistent = true
     });
+
+    dependencyGraph->initClearImage(IMAGE_RESOURCE_HANDLE, {1.f, 1.f, 0.f, 1.f});
+
 
     auto TARGET_RESOURCE_HANDLE = dependencyGraph->addLogicalResource(LogicalImageResource{
         .format = ImageFormat::R8G8B8A8Uint,

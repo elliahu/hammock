@@ -57,7 +57,7 @@ namespace hammock::renderer {
     /// @typedef BindingInterface
     /// @brief Defines how exactly is the resource bound in the task. One of DescriptorBinding or
     /// AttachmentLocation.
-    using BindingInterface = std::variant<std::monostate, DescriptorBinding, AttachmentLocation>;
+    using BindingInterface = std::variant<DescriptorBinding, AttachmentLocation>;
 
     /// @enum ImageAccess
     /// @breif Describes how the image in the socket is used by the task
@@ -80,7 +80,7 @@ namespace hammock::renderer {
     /// @typedef AccessInterface
     /// @brief Defines what kind of resource is accessed and in what manner. One of ImageAccess or
     /// BufferAccess
-    using AccessInterface = std::variant<std::monostate, ImageAccess, BufferAccess>;
+    using AccessInterface = std::variant<ImageAccess, BufferAccess>;
 
     /// @struct LogicalResourceAccess
     /// @brief Defines a single resource access in the task

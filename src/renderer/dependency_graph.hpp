@@ -1,22 +1,26 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <functional>
 #include <memory>
 #include <variant>
+#include <vector>
 
-#include "hammock_core.hpp"
+#include "base_resource.hpp"
+#include "buffer.hpp"
+#include "command_buffer.hpp"
 #include "gpu_task.hpp"
+#include "hammock_core.hpp"
+#include "math.hpp"
 
 namespace hammock::renderer {
-
-
 
     /// @struct LogicalImageResource
     /// Describes logical image resource
     struct LogicalImageResource {
         core::ImageFormat format = core::ImageFormat::Undefined;
         core::ImageType type = core::ImageType::Type2D;
-        core::ImageUsage usage; // TODO this can be inferred
+        core::ImageUsage usage;  // TODO this can be inferred
         std::uint32_t width = 0;
         std::uint32_t height = 0;
         std::uint32_t channels = 4;
@@ -26,7 +30,6 @@ namespace hammock::renderer {
         bool frameLocal = true;
         bool persistent = true;
     };
-
 
     /// @struct LogicalBufferResource
     /// Describes logical buffer resource
@@ -41,17 +44,14 @@ namespace hammock::renderer {
 
     /// @typedef LogicalResourceInterface
     /// Describes an option between LogicalImageResource and LogicalBufferResource
-    using LogicalResourceInterface = std::variant<
-        std::monostate,
-        LogicalImageResource,
-        LogicalBufferResource
-    >;
+    using LogicalResourceInterface =
+        std::variant<LogicalImageResource, LogicalBufferResource>;
 
     /// @enum DependencyType
     /// @brief Describes a type of dependency between two tasks
     enum class DependencyType {
-        Execution, /// Task B must not begin until Task A has completed
-        Debug, /// Asserts during compilation that A -> B exists, if not, throws
+        Execution,  /// Task B must not begin until Task A has completed
+        Debug,      /// Asserts during compilation that A -> B exists, if not, throws
     };
 
     /// @class DependencyGraph
@@ -89,15 +89,42 @@ namespace hammock::renderer {
         bool isPresentTaskSet_ = false;
         TaskHandle presentTaskHandle_;
 
-    public:
+        struct InitCopyBuffer {
+            std::reference_wrapper<core::Buffer> buffer;
+        };
+
+        struct InitCopyImage {
+            std::reference_wrapper<core::Image> image;
+        };
+
+        struct InitClearImage {
+            std::array<float, 4> clearColor;
+            std::array<float, 2> clearDepthStencil;
+        };
+
+        using InitResourceInterface = std::variant<InitCopyBuffer, InitCopyImage, InitClearImage>;
+
+        std::vector<InitResourceInterface> resourceInits_{};
+
+       public:
         /// @brief Adds a resource to the graph
         LogicalResourceHandle addLogicalResource(LogicalResourceInterface iface = {});
+
+        /// @brief Copy buffer contents into target resource
+        void initCopyBuffer(LogicalResourceHandle target, core::Buffer& src);
+
+        /// @brief Copy image contents into target resource
+        void initCopyImage(LogicalResourceHandle target, core::Image& src);
+
+        /// @brief Clear target image
+        /// @pre target must be image, if not, throws
+        void initClearImage(LogicalResourceHandle target, std::array<float, 4> clearColor, std::array<float, 2> clearDepthStencil = {1.f, 1.f});
 
         /// @brief Returns true if a handle is valid
         [[nodiscard]] bool isHandleValid(TaskHandle h) const;
 
         /// @brief Adds a gpu task to the graph
-        TaskHandle addTask(std::unique_ptr<BaseGpuTask> &&task);
+        TaskHandle addTask(std::unique_ptr<BaseGpuTask>&& task);
 
         /// @brief Removes a task from the graph
         void removeTask(TaskHandle h);
@@ -109,4 +136,4 @@ namespace hammock::renderer {
         /// This will end the execution of the render graph when the task marked present is executed
         void present(TaskHandle presentTaskHandle);
     };
-}
+}  // namespace hammock::renderer

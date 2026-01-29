@@ -1,22 +1,26 @@
 #include "dependency_graph_compiler.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <queue>
 #include <ranges>
 #include <stdexcept>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
 #include "base_resource.hpp"
 #include "buffer.hpp"
+#include "compute_pipeline.hpp"
 #include "dependency_graph.hpp"
 #include "gpu_task.hpp"
 #include "hammock_core.hpp"
 #include "image.hpp"
 #include "resource_manager.hpp"
 #include "swapchain.hpp"
+#include "vulkan/vulkan.hpp"
 
 namespace hammock::renderer {
 
@@ -53,13 +57,15 @@ namespace hammock::renderer {
         nodes_.resize(dependencyGraph.tasks_.size());
         for (std::uint32_t idx = 0; idx < dependencyGraph.tasks_.size(); idx++) {
             auto task = dependencyGraph.tasks_[idx].task.get();
+            compiledDependencyGraph_.compiledTasks.push_back(CompiledTask{});  // Pre-create
             nodes_[idx].task = task;
 
             // This will fill out the logicalResourceUses_
             for (auto access : task->logicalResourceAccesses_) {
                 logicalResourceUses_[access.handle].push_back(TaskHandleLogicalResourceAccessPair{
                     .task = TaskHandle{.index = idx, .generation = dependencyGraph.tasks_[idx].generation},
-                    .access = access.access});
+                    .access = access.access,
+                });
             }
         }
 
@@ -86,6 +92,7 @@ namespace hammock::renderer {
         if (!std::ranges::contains(nodes_[aidx].outgoing, bidx)) {
             nodes_[aidx].outgoing.push_back(bidx);
             nodes_[bidx].indegree++;
+            nodes_[bidx].incoming.push_back(aidx);
         }
     }
 
@@ -111,6 +118,7 @@ namespace hammock::renderer {
             CompiledLogicalResource compiledLogicalResource{};
             compiledLogicalResource.origin = LogicalResourceHandle{
                 .index = idx, .generation = dependencyGraph.logicalResources_[idx].generation};
+                
 
             // Determine the type of the resource
             // Image resource
@@ -123,6 +131,8 @@ namespace hammock::renderer {
                 for (int i = 0; i < numOfCopies; i++) {
                     core::ResourceHandle handle = createPhysicalImageResource(logicalImageResource);
                     compiledLogicalResource.handles.push_back(handle);
+                    compiledLogicalResource.lifetime.push_back(ResourceLifetimeState::Uninitialized);
+                    compiledLogicalResource.persistent = logicalImageResource->persistent;
                 }
             }
 
@@ -136,6 +146,8 @@ namespace hammock::renderer {
                 for (int i = 0; i < numOfCopies; i++) {
                     core::ResourceHandle handle = createPhysicalBufferResource(logicalBufferResource);
                     compiledLogicalResource.handles.push_back(handle);
+                    compiledLogicalResource.lifetime.push_back(ResourceLifetimeState::Uninitialized);
+                    compiledLogicalResource.persistent = logicalBufferResource->persistent;
                 }
             }
 
@@ -181,6 +193,7 @@ namespace hammock::renderer {
             }
         }
     }
+
     void DependencyGraphCompiler::determineExecutionLevels() {
         std::queue<std::uint32_t> ready{};
 
@@ -212,4 +225,227 @@ namespace hammock::renderer {
             compiledDependencyGraph_.executionLevels.push_back(level);
         }
     }
+
+    void DependencyGraphCompiler::compileTasks(DependencyGraph& dependencyGraph) {
+        std::unordered_set<LogicalResourceHandle, LogicalResourceHandleHash> initializedResources;
+
+        for (auto& level : compiledDependencyGraph_.executionLevels) {
+            for (auto i : level) {
+                BaseGpuTask* srcTask = nodes_[i].task;
+                CompiledTask& dstTask = compiledDependencyGraph_.compiledTasks[i];
+
+                // Origin
+                dstTask.origin = TaskHandle{.index = i, .generation = dependencyGraph.tasks_[i].generation};
+
+                // Task type and pipeline
+                if (srcTask->getAs<ComputeTask>()) {
+                    dstTask.type = CompiledTaskType::Compute;
+                    // create compute pipeline
+                    // TODO
+                } else if (srcTask->getAs<GraphicsTask>()) {
+                    dstTask.type = CompiledTaskType::Graphics;
+                    // create graphics pipeline
+                    // TODO
+                }
+
+                // Compile resource accesses
+                compileTaskResourceAccesses(srcTask, dstTask);
+
+                // Compile barriers
+                for (auto p : nodes_[i].incoming) {
+                    BaseGpuTask* prevTask = nodes_[p].task;
+                    for (auto& prevAccess : prevTask->logicalResourceAccesses_) {
+                        for (auto& currAccess : srcTask->logicalResourceAccesses_) {
+                            if (prevAccess.handle != currAccess.handle) continue;
+
+                            auto prevIntent = determineReadWriteIntent(prevAccess.access);
+                            auto currIntent = determineReadWriteIntent(currAccess.access);
+
+                            if (!isHazard(prevIntent, currIntent)) continue;
+
+                            compileBarrier(prevAccess, currAccess, dstTask);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void DependencyGraphCompiler::compileTaskResourceAccesses(BaseGpuTask* srcTask, CompiledTask& dstTask) {
+        for (auto& access : srcTask->logicalResourceAccesses_) {
+            CompiledLogicalResourceAccess compiledAccess{};
+
+            // Map logical → compiled resource
+            compiledAccess.compiledLogicalResource =
+                &compiledDependencyGraph_.compiledLogicalResources[access.handle.index];
+
+            // Binding info is copied verbatim
+            compiledAccess.bindingIface = access.binding;
+
+            // Descriptor type is decided here
+            compiledAccess.descriptorType = determineDescriptorType(access.access);
+
+            dstTask.compiledResourceAccesses.push_back(compiledAccess);
+        }
+    }
+
+    vk::DescriptorType DependencyGraphCompiler::determineDescriptorType(AccessInterface access) {
+        if (auto imageAccess = std::get_if<ImageAccess>(&access)) {
+            switch (*imageAccess) {
+                case ImageAccess::ColorAttachmentWrite:
+                case ImageAccess::DepthAttachmentWrite:
+                    return vk::DescriptorType::eInputAttachment;
+                case ImageAccess::StorageReadWrite:
+                    return vk::DescriptorType::eStorageImage;
+                case ImageAccess::SampledRead:
+                    return vk::DescriptorType::eCombinedImageSampler;
+                default:
+                    throw std::runtime_error("could not determine descriptor type for image");
+            }
+        }
+
+        else if (auto bufferAccess = std::get_if<BufferAccess>(&access)) {
+            switch (*bufferAccess) {
+                case BufferAccess::UniformBufferRead:
+                    return vk::DescriptorType::eUniformBuffer;
+                case BufferAccess::StorageBufferReadWrite:
+                    return vk::DescriptorType::eStorageBuffer;
+                default:
+                    throw std::runtime_error("could not determine descriptor type for buffer");
+            }
+        }
+
+        throw std::runtime_error("could not determine descriptor type");
+    }
+
+    void DependencyGraphCompiler::compileBarrier(
+        const LogicalResourceAccess& prev, const LogicalResourceAccess& curr, CompiledTask& dstTask) {
+        vk::PipelineStageFlags2 srcStage = stagesFromAccess(prev.access);
+        vk::PipelineStageFlags2 dstStage = stagesFromAccess(curr.access);
+        vk::AccessFlags2 srcAccess = accessFlagsFromAccess(prev.access);
+        vk::AccessFlags2 dstAccess = accessFlagsFromAccess(curr.access);
+
+        if (auto oldAccess = std::get_if<ImageAccess>(&prev.access)) {
+            if (auto newAccess = std::get_if<ImageAccess>(&curr.access)) {
+                vk::ImageLayout oldLayout = layoutFromAccess(*oldAccess);
+                vk::ImageLayout newLayout = layoutFromAccess(*newAccess);
+
+                vk::ImageMemoryBarrier2 imageBarrier{
+                    .srcStageMask = srcStage,
+                    .srcAccessMask = srcAccess,
+                    .dstStageMask = dstStage,
+                    .dstAccessMask = dstAccess,
+                    .oldLayout = oldLayout,
+                    .newLayout = newLayout,
+                };
+
+                dstTask.imageBarriers.push_back(imageBarrier);
+            }
+        }
+
+        if (auto oldAccess = std::get_if<BufferAccess>(&prev.access)) {
+            if (auto newAccess = std::get_if<BufferAccess>(&curr.access)) {
+                vk::BufferMemoryBarrier2 bufferBarrier{
+                    .srcStageMask = srcStage,
+                    .srcAccessMask = srcAccess,
+                    .dstStageMask = dstStage,
+                    .dstAccessMask = dstAccess,
+                };
+
+                dstTask.bufferBarriers.push_back(bufferBarrier);
+            }
+        }
+    }
+
+    vk::PipelineStageFlags2 DependencyGraphCompiler::stagesFromAccess(AccessInterface accessIface) {
+        if (auto imageAccess = std::get_if<ImageAccess>(&accessIface)) {
+            switch (*imageAccess) {
+                case ImageAccess::ColorAttachmentWrite:
+                    return vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+                case ImageAccess::DepthAttachmentWrite:
+                    return vk::PipelineStageFlagBits2::eEarlyFragmentTests;
+                case ImageAccess::StorageReadWrite:
+                    return vk::PipelineStageFlagBits2::eComputeShader;
+                case ImageAccess::SampledRead:
+                    return vk::PipelineStageFlagBits2::eFragmentShader;
+                default:
+                    throw std::runtime_error("could not determine stage");
+            }
+        }
+
+        else if (auto bufferAccess = std::get_if<BufferAccess>(&accessIface)) {
+            switch (*bufferAccess) {
+                case BufferAccess::UniformBufferRead:
+                    return vk::PipelineStageFlagBits2::eAllGraphics;
+                case BufferAccess::StorageBufferReadWrite:
+                    return vk::PipelineStageFlagBits2::eComputeShader;
+                default:
+                    throw std::runtime_error("could not determine stage");
+            }
+        }
+
+        throw std::runtime_error("could not determine stage");
+    }
+
+    vk::AccessFlags2 DependencyGraphCompiler::accessFlagsFromAccess(AccessInterface accessIface) {
+        if (auto imageAccess = std::get_if<ImageAccess>(&accessIface)) {
+            switch (*imageAccess) {
+                case ImageAccess::ColorAttachmentWrite:
+                    return vk::AccessFlagBits2::eColorAttachmentWrite;
+                case ImageAccess::DepthAttachmentWrite:
+                    return vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+                case ImageAccess::StorageReadWrite:
+                    return vk::AccessFlagBits2::eShaderRead;
+                case ImageAccess::SampledRead:
+                    return vk::AccessFlagBits2::eShaderSampledRead;
+                default:
+                    throw std::runtime_error("could not determine access");
+            }
+        }
+
+        else if (auto bufferAccess = std::get_if<BufferAccess>(&accessIface)) {
+            switch (*bufferAccess) {
+                case BufferAccess::UniformBufferRead:
+                    return vk::AccessFlagBits2::eUniformRead;
+                case BufferAccess::StorageBufferReadWrite:
+                    return vk::AccessFlagBits2::eShaderRead;
+                default:
+                    throw std::runtime_error("could not determine access");
+            }
+        }
+
+        throw std::runtime_error("could not determine access");
+    }
+
+    vk::ImageLayout DependencyGraphCompiler::layoutFromAccess(ImageAccess access) {
+        switch (access) {
+            case ImageAccess::ColorAttachmentWrite:
+                return vk::ImageLayout::eColorAttachmentOptimal;
+            case ImageAccess::DepthAttachmentWrite:
+                return vk::ImageLayout::eDepthStencilAttachmentOptimal;
+            case ImageAccess::StorageReadWrite:
+                return vk::ImageLayout::eGeneral;
+            case ImageAccess::SampledRead:
+                return vk::ImageLayout::eShaderReadOnlyOptimal;
+            default:
+                throw std::runtime_error("could not determine image layout");
+        }
+    }
+
+    CompiledDependencyGraph DependencyGraphCompiler::compileDependencyGraph(
+        DependencyGraph& dependencyGraph) {
+        // Graph Analysis
+        buildGraphNodes(dependencyGraph);
+        determineExecutionLevels();
+
+        // Resource Compilation
+        compileLogicalResources(dependencyGraph);
+
+        // Task compilation
+        compileTasks(dependencyGraph);
+
+        // Return compiled graph
+        return std::move(compiledDependencyGraph_);
+    }
+
 }  // namespace hammock::renderer
