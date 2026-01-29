@@ -6,9 +6,9 @@ the renderer design. The renderer being built here, is gonna be very different t
 
 # New (planed) features
 - C++ 23 language standard
-- Fully using c++ modules instead of header files
 - Modular architecture
 - Customizable rendering pipeline 
+- Dependency graph based rendering 
 - State-of-the-art graphics
 - And much more
 
