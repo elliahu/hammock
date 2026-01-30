@@ -14,7 +14,6 @@ namespace hammock::engine {
 
     private:
         std::unique_ptr<renderer::GraphicsContext> context_;
-        std::unique_ptr<renderer::Renderer> renderer_;
         std::unique_ptr<Runner> runner_;
     };
 }

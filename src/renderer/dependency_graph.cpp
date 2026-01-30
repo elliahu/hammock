@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "gpu_task.hpp"
+
 
 namespace hammock::renderer {
     LogicalResourceHandle DependencyGraph::addLogicalResource(LogicalResourceInterface iface) {
@@ -69,27 +71,30 @@ namespace hammock::renderer {
         explicitDependencies_.push_back({srcTaskHandle, dstTaskHandle, dependencyType});
     }
 
-    void DependencyGraph::present(TaskHandle presentTaskHandle) {
+    void DependencyGraph::present(TaskHandle presentTaskHandle, LogicalResourceHandle presentResourceHandle) {
         presentTaskHandle_ = std::move(presentTaskHandle);
-        isPresentTaskSet_ = true;
+        presentResourceHandle_ = std::move(presentResourceHandle);
+        isPresentSet_ = true;
     }
 
     void DependencyGraph::initCopyBuffer(LogicalResourceHandle target, core::Buffer& src) {
-        resourceInits_.push_back(InitCopyBuffer{
-            .buffer = src
-        });
+        resourceInits_[target] = InitCopyBuffer{.buffer = src};
     }
 
     void DependencyGraph::initCopyImage(LogicalResourceHandle target, core::Image& src) {
-        resourceInits_.push_back({InitCopyImage{
-            .image = src
-        }});
+        resourceInits_[target] = InitCopyImage{.image = src};
     }
 
-    void DependencyGraph::initClearImage(LogicalResourceHandle target, std::array<float, 4> clearColor, std::array<float, 2> clearDepthStencil) {
-        resourceInits_.push_back({InitClearImage{
-            .clearColor = clearColor,
-            .clearDepthStencil = clearDepthStencil,
-        }});
+    void DependencyGraph::initClearImage(LogicalResourceHandle target, std::array<float, 4> clearColor,
+        std::array<float, 2> clearDepthStencil) {
+        if (auto image = std::get_if<LogicalImageResource>(&logicalResources_[target.index].resource)) {
+            resourceInits_[target] = InitClearImage{
+                .clearColor = clearColor,
+                .clearDepthStencil = clearDepthStencil,
+            };
+        } else {
+            throw std::runtime_error("cannot clear image, target is not image");
+        }
     }
+
 }  // namespace hammock::renderer

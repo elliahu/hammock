@@ -1,12 +1,11 @@
 #include <memory>
 #include <vector>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "deferred_rendering_strategy.hpp"
 
 
-hammock::renderer::DeferredRenderingStrategy::DeferredRenderingStrategy(GraphicsContext &ctx, std::uint32_t maxFramesInFlight): BaseRenderingStrategy(ctx, maxFramesInFlight) {
+hammock::renderer::DeferredRenderingStrategy::DeferredRenderingStrategy(GraphicsContext &ctx): BaseRenderingStrategy(ctx) {
     core::SwapChain::forEachFrameInFlight([this](int i) {
         auto commandBuffer =  std::make_unique<core::CommandBuffer>(this->ctx_.getDevice(), core::CommandQueueFamily::Graphics);
         commandBuffers_.push_back(std::move(commandBuffer));

@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
@@ -11,18 +12,30 @@
 
 namespace hammock::renderer {
 
-    enum class ResourceLifetimeState { Uninitialized, Initialized };
+    /// @struct ResourceInitState
+    /// @brief Describes the state of the initialization
+    enum class ResourceInitState { Uninitialized, Initialized };
 
+    /// @struct CompiledLogicalResource
+    /// @brief Represents compiled resource that is linked to the physical resources
     struct CompiledLogicalResource final {
         /// Original resource handle for debugging
         LogicalResourceHandle origin;
         /// Handles of physical resources (may be multiple for resources that need to have a copy for each
         /// frame in flight)
         std::vector<core::ResourceHandle> handles{};
-        std::vector<ResourceLifetimeState> lifetime;
+        /// Store information about init state of the physical resources for each frame in flight.
+        /// Same expected length as handles
+        std::vector<ResourceInitState> initStates;
+        /// Stores how should the physical resoure be initialized
+        DependencyGraph::InitResourceInterface initContext = DependencyGraph::InitDefault{};
+        /// Persistent resource keeps its content across frames.
+        /// Non-persistent resource may be cleared after each frame
         bool persistent = true;
     };
 
+    /// @struct CompiledLogicalResourceAccess
+    /// @brief Stores how is resource accessed in a task
     struct CompiledLogicalResourceAccess {
         /// Compiled logical resource
         CompiledLogicalResource* compiledLogicalResource{nullptr};
@@ -34,12 +47,15 @@ namespace hammock::renderer {
         vk::DescriptorType descriptorType;
     };
 
+    /// @enum CompiledTaskType
     enum class CompiledTaskType { Compute, Graphics };
 
+    /// @struct DispatchInfo
     struct DispatchInfo {
         // TODO
     };
 
+    /// @struct Drawinfo
     struct DrawInfo {
         // TODO
     };
@@ -76,6 +92,8 @@ namespace hammock::renderer {
         std::vector<CompiledLogicalResource> compiledLogicalResources{};
         std::vector<CompiledTask> compiledTasks{};
         std::vector<std::vector<std::uint32_t>> executionLevels{};
+        std::int32_t presentResourceIdx = -1;
+        std::int32_t presentTaskIdx = -1;
     };
 
     /// @struct TaskNode
@@ -87,6 +105,7 @@ namespace hammock::renderer {
         std::uint32_t indegree = 0;
     };
 
+    /// @enum ReadWriteIntent
     enum class ReadWriteIntent { Read, Write, ReadWrite };
 
     /// @class DependencyGraphCompiler
@@ -116,6 +135,7 @@ namespace hammock::renderer {
         void compileLogicalResources(DependencyGraph& dependencyGraph);
         core::ResourceHandle createPhysicalImageResource(LogicalImageResource* logicalImageResource);
         core::ResourceHandle createPhysicalBufferResource(LogicalBufferResource* logicalBufferResource);
+        void setInitializer(DependencyGraph& dependencyGraph, CompiledLogicalResource& resource);
 
         /// Assert debug edges
         void assertDebugEdges(DependencyGraph& dependencyGraph);
@@ -126,6 +146,7 @@ namespace hammock::renderer {
         /// Tasks in the same execution level can run in parallel
         void determineExecutionLevels();
 
+        /// Task compilation
         void compileTasks(DependencyGraph& dependencyGraph);
         void compileTaskResourceAccesses(BaseGpuTask* srcTask, CompiledTask& dstTask);
         vk::DescriptorType determineDescriptorType(AccessInterface access);
@@ -137,7 +158,7 @@ namespace hammock::renderer {
 
        public:
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
-        CompiledDependencyGraph compileDependencyGraph(DependencyGraph& dependencyGraph);
+        CompiledDependencyGraph compile(DependencyGraph& dependencyGraph);
     };
 
 }  // namespace hammock::renderer

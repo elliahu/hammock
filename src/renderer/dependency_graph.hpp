@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -58,6 +59,7 @@ namespace hammock::renderer {
     /// @brief Represents DAG of tasks and resources
     class DependencyGraph final {
         friend class DependencyGraphCompiler;
+        friend struct CompiledLogicalResource;
         struct TaskSlot {
             std::unique_ptr<BaseGpuTask> task;
             std::uint32_t generation;
@@ -86,8 +88,11 @@ namespace hammock::renderer {
         std::vector<LogicalResourceSlot> logicalResources_;
         std::int32_t firstFreeLogicalResourceSlot_ = -1;
 
-        bool isPresentTaskSet_ = false;
+        bool isPresentSet_ = false;
         TaskHandle presentTaskHandle_;
+        LogicalResourceHandle presentResourceHandle_;
+
+        struct InitDefault{};
 
         struct InitCopyBuffer {
             std::reference_wrapper<core::Buffer> buffer;
@@ -102,9 +107,9 @@ namespace hammock::renderer {
             std::array<float, 2> clearDepthStencil;
         };
 
-        using InitResourceInterface = std::variant<InitCopyBuffer, InitCopyImage, InitClearImage>;
+        using InitResourceInterface = std::variant<InitDefault, InitCopyBuffer, InitCopyImage, InitClearImage>;
 
-        std::vector<InitResourceInterface> resourceInits_{};
+        std::unordered_map<LogicalResourceHandle, InitResourceInterface, LogicalResourceHandleHash> resourceInits_{};
 
        public:
         /// @brief Adds a resource to the graph
@@ -132,8 +137,8 @@ namespace hammock::renderer {
         /// @brief Declares an explicit execution dependency between two tasks.
         void dependency(TaskHandle srcTaskHandle, TaskHandle dstTaskHandle, DependencyType dependencyType);
 
-        /// @brief Marks this task as present.
+        /// @brief Marks this task as present and a resource as present target
         /// This will end the execution of the render graph when the task marked present is executed
-        void present(TaskHandle presentTaskHandle);
+        void present(TaskHandle presentTaskHandle, LogicalResourceHandle presentResourceHandle);
     };
 }  // namespace hammock::renderer

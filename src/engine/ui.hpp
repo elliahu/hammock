@@ -16,7 +16,7 @@ namespace hammock::engine {
     /// @brief This class is responsible for laying out and rendering the ui
     class Ui {
     public:
-        Ui(Surfer::Window * window, renderer::GraphicsContext * ctx, std::uint32_t framesInFlight);
+        Ui(Surfer::Window * window, renderer::GraphicsContext * ctx);
 
         ~Ui();
 

@@ -2,12 +2,11 @@
 #include <cstdint>
 
 #include "graphics_context.hpp"
-#include "hammock_core.hpp"
 
 namespace hammock::renderer {
     class BaseRenderingStrategy {
     public:
-        BaseRenderingStrategy(GraphicsContext &context, std::uint32_t maxFramesInFlight) : ctx_(context), maxFramesInFlight_(maxFramesInFlight) {
+        BaseRenderingStrategy(GraphicsContext &context) : ctx_(context){
         }
 
         virtual ~BaseRenderingStrategy() = default;
@@ -16,6 +15,5 @@ namespace hammock::renderer {
 
     protected:
         GraphicsContext &ctx_;
-        const std::uint32_t maxFramesInFlight_;
     };
 }

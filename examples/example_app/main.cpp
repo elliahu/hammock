@@ -67,10 +67,10 @@ int main() {
 
     dependencyGraph->dependency(COMPUTE_TASK_HANDLE,  GRAPHICS_TASK_HANDLE, DependencyType::Debug);
 
-    dependencyGraph->present(GRAPHICS_TASK_HANDLE);
+    dependencyGraph->present(GRAPHICS_TASK_HANDLE, TARGET_RESOURCE_HANDLE);
 
     auto compiler = std::make_unique<DependencyGraphCompiler>();
-    auto compiledGraph = compiler->compileDependencyGraph(*dependencyGraph);
+    auto compiledGraph = compiler->compile(*dependencyGraph);
 
     engine->launch();
 

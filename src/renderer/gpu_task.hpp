@@ -96,6 +96,10 @@ namespace hammock::renderer {
     struct TaskHandle {
         std::uint32_t index;
         std::uint32_t generation;
+
+        bool operator==(const TaskHandle& other) const {
+            return generation == other.generation && index == other.index;
+        }
     };
 
     /// @interface BaseGpuTask

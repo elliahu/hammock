@@ -60,6 +60,17 @@ namespace hammock::renderer {
             compiledDependencyGraph_.compiledTasks.push_back(CompiledTask{});  // Pre-create
             nodes_[idx].task = task;
 
+            // If the task is present task, mark it
+            TaskHandle taskHandle{
+                .index = idx,
+                .generation = dependencyGraph.tasks_[idx].generation,
+            };
+
+            if(taskHandle == dependencyGraph.presentTaskHandle_){
+                compiledDependencyGraph_.presentTaskIdx = static_cast<std::int32_t>(idx);
+            }
+
+
             // This will fill out the logicalResourceUses_
             for (auto access : task->logicalResourceAccesses_) {
                 logicalResourceUses_[access.handle].push_back(TaskHandleLogicalResourceAccessPair{
@@ -112,13 +123,25 @@ namespace hammock::renderer {
     }
 
     void DependencyGraphCompiler::compileLogicalResources(DependencyGraph& dependencyGraph) {
+        // First of all, check if the dependency graph has a present set
+        if (!dependencyGraph.isPresentSet_) {
+            throw std::runtime_error("no present set for the graph, cannot compile");
+        }
+
         for (std::uint32_t idx = 0; idx < dependencyGraph.logicalResources_.size(); idx++) {
             auto& logicalResourceIface = dependencyGraph.logicalResources_[idx].resource;
 
             CompiledLogicalResource compiledLogicalResource{};
             compiledLogicalResource.origin = LogicalResourceHandle{
                 .index = idx, .generation = dependencyGraph.logicalResources_[idx].generation};
-                
+
+            // Set the initializer
+            setInitializer(dependencyGraph, compiledLogicalResource);
+
+            // If the resource is present resource, mark it
+            if (compiledLogicalResource.origin == dependencyGraph.presentResourceHandle_){
+                compiledDependencyGraph_.presentResourceIdx = static_cast<std::int32_t>(idx);
+            }
 
             // Determine the type of the resource
             // Image resource
@@ -131,7 +154,7 @@ namespace hammock::renderer {
                 for (int i = 0; i < numOfCopies; i++) {
                     core::ResourceHandle handle = createPhysicalImageResource(logicalImageResource);
                     compiledLogicalResource.handles.push_back(handle);
-                    compiledLogicalResource.lifetime.push_back(ResourceLifetimeState::Uninitialized);
+                    compiledLogicalResource.initStates.push_back(ResourceInitState::Uninitialized);
                     compiledLogicalResource.persistent = logicalImageResource->persistent;
                 }
             }
@@ -146,13 +169,24 @@ namespace hammock::renderer {
                 for (int i = 0; i < numOfCopies; i++) {
                     core::ResourceHandle handle = createPhysicalBufferResource(logicalBufferResource);
                     compiledLogicalResource.handles.push_back(handle);
-                    compiledLogicalResource.lifetime.push_back(ResourceLifetimeState::Uninitialized);
+                    compiledLogicalResource.initStates.push_back(ResourceInitState::Uninitialized);
                     compiledLogicalResource.persistent = logicalBufferResource->persistent;
                 }
             }
 
             compiledDependencyGraph_.compiledLogicalResources.push_back(compiledLogicalResource);
         }
+    }
+
+    void DependencyGraphCompiler::setInitializer(
+        DependencyGraph& dependencyGraph, CompiledLogicalResource& resource) {
+        // Check if we have a user defined initializer, if not, add default one
+        DependencyGraph::InitResourceInterface initIface = DependencyGraph::InitDefault{};
+        if (dependencyGraph.resourceInits_.contains(resource.origin)) {
+            initIface = dependencyGraph.resourceInits_[resource.origin];
+        }
+
+        resource.initContext = initIface;
     }
 
     core::ResourceHandle DependencyGraphCompiler::createPhysicalImageResource(
@@ -227,8 +261,6 @@ namespace hammock::renderer {
     }
 
     void DependencyGraphCompiler::compileTasks(DependencyGraph& dependencyGraph) {
-        std::unordered_set<LogicalResourceHandle, LogicalResourceHandleHash> initializedResources;
-
         for (auto& level : compiledDependencyGraph_.executionLevels) {
             for (auto i : level) {
                 BaseGpuTask* srcTask = nodes_[i].task;
@@ -432,8 +464,7 @@ namespace hammock::renderer {
         }
     }
 
-    CompiledDependencyGraph DependencyGraphCompiler::compileDependencyGraph(
-        DependencyGraph& dependencyGraph) {
+    CompiledDependencyGraph DependencyGraphCompiler::compile(DependencyGraph& dependencyGraph) {
         // Graph Analysis
         buildGraphNodes(dependencyGraph);
         determineExecutionLevels();

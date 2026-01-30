@@ -6,7 +6,7 @@
 
 #include "ui.hpp"
 
-hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx, std::uint32_t framesInFlight) {
+hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui_ImplVulkanSurfer_Init(window);

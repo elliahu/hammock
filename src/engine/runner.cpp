@@ -34,7 +34,7 @@ hammock::engine::Runner::Runner(RunnerMode mode, renderer::GraphicsContext &cont
         );
 
         // Ui only in surface mode
-        ui_ = std::make_unique<Ui>(window_->getWindowPtr(), &context_, core::SwapChain::MAX_FRAMES_IN_FLIGHT);
+        ui_ = std::make_unique<Ui>(window_->getWindowPtr(), &context_);
     }
 
     // Register resize callback
@@ -47,7 +47,7 @@ hammock::engine::Runner::Runner(RunnerMode mode, renderer::GraphicsContext &cont
     presentationEngine_ = std::make_unique<PresentationEngine>(std::move(strategy));
 
     // Initialize renderer
-    auto renderStrategy = std::make_unique<renderer::DeferredRenderingStrategy>(context_, core::SwapChain::MAX_FRAMES_IN_FLIGHT);
+    auto renderStrategy = std::make_unique<renderer::DeferredRenderingStrategy>(context_);
     renderer_ = std::make_unique<renderer::Renderer>(std::move(renderStrategy));
 }
 
