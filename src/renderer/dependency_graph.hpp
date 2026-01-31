@@ -113,7 +113,15 @@ namespace hammock::renderer {
 
        public:
         /// @brief Adds a resource to the graph
-        LogicalResourceHandle addLogicalResource(LogicalResourceInterface iface = {});
+        LogicalResourceHandle resource(LogicalResourceInterface iface = {});
+
+        /// @brief Adds an image to the graph
+        /// @note Wrapper around addResource
+        LogicalResourceHandle image(LogicalImageResource imageResource);
+
+        /// @brief Adds a buffer to the graph
+        /// @note Wrapper around addResource
+        LogicalResourceHandle buffer(LogicalBufferResource bufferResource);
 
         /// @brief Copy buffer contents into target resource
         void initCopyBuffer(LogicalResourceHandle target, core::Buffer& src);
@@ -129,10 +137,13 @@ namespace hammock::renderer {
         [[nodiscard]] bool isHandleValid(TaskHandle h) const;
 
         /// @brief Adds a gpu task to the graph
-        TaskHandle addTask(std::unique_ptr<BaseGpuTask>&& task);
+        TaskHandle task(std::unique_ptr<BaseGpuTask>&& task);
 
         /// @brief Removes a task from the graph
-        void removeTask(TaskHandle h);
+        void remove(TaskHandle h);
+
+        /// @brief Removes a resource from the graph
+        void remove(LogicalResourceHandle h);
 
         /// @brief Declares an explicit execution dependency between two tasks.
         void dependency(TaskHandle srcTaskHandle, TaskHandle dstTaskHandle, DependencyType dependencyType);

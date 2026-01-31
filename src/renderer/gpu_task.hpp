@@ -32,19 +32,34 @@ namespace hammock::renderer {
 
     /// @enum SocketUsageStageFlagBits
     /// @brief Describes the stage at which the socket is used
-    enum SocketUsageStageFlagBits {
+    enum class DescriptorUsageStage : std::uint32_t {
         Unused = 0,
         ComputeShader = 1 << 0,
         VertexShader = 1 << 1,
         FragmentShader = 1 << 2,
     };
 
+    constexpr DescriptorUsageStage operator|(DescriptorUsageStage lhs, DescriptorUsageStage rhs) {
+        return static_cast<DescriptorUsageStage>(
+            static_cast<std::uint32_t>(lhs) | static_cast<std::uint32_t>(rhs));
+    }
+
+    constexpr DescriptorUsageStage operator&(DescriptorUsageStage lhs, DescriptorUsageStage rhs) {
+        return static_cast<DescriptorUsageStage>(
+            static_cast<std::uint32_t>(lhs) & static_cast<std::uint32_t>(rhs));
+    }
+
+    constexpr DescriptorUsageStage& operator|=(DescriptorUsageStage& lhs, DescriptorUsageStage rhs) {
+        lhs = lhs | rhs;
+        return lhs;
+    }
+
     /// @struct DescriptorBinding
     /// @brief Describes descriptor binding info (if the socket is descriptor)
     struct DescriptorBinding {
         std::uint32_t set;
         std::uint32_t binding;
-        std::int32_t usage;
+        DescriptorUsageStage usage;
         std::uint32_t count = 1u;
     };
 
@@ -73,8 +88,8 @@ namespace hammock::renderer {
     /// @brief Describes how is buffer accessed
     enum class BufferAccess {
         Undefined,
-        UniformBufferRead,
-        StorageBufferReadWrite,
+        UniformRead,
+        StorageReadWrite,
     };
 
     /// @typedef AccessInterface

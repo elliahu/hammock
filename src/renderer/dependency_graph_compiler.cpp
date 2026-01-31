@@ -41,9 +41,9 @@ namespace hammock::renderer {
 
         else if (auto bufferAccess = std::get_if<BufferAccess>(&accessIface)) {
             switch (*bufferAccess) {
-                case BufferAccess::UniformBufferRead:
+                case BufferAccess::UniformRead:
                     return ReadWriteIntent::Read;
-                case BufferAccess::StorageBufferReadWrite:
+                case BufferAccess::StorageReadWrite:
                     return ReadWriteIntent::ReadWrite;
                 default:
                     throw std::runtime_error("could not determine read write intent for buffer");
@@ -55,9 +55,9 @@ namespace hammock::renderer {
 
     void DependencyGraphCompiler::buildGraphNodes(DependencyGraph& dependencyGraph) {
         nodes_.resize(dependencyGraph.tasks_.size());
+        compiledDependencyGraph_.compiledTasks.resize(dependencyGraph.tasks_.size());
         for (std::uint32_t idx = 0; idx < dependencyGraph.tasks_.size(); idx++) {
             auto task = dependencyGraph.tasks_[idx].task.get();
-            compiledDependencyGraph_.compiledTasks.push_back(CompiledTask{});  // Pre-create
             nodes_[idx].task = task;
 
             // If the task is present task, mark it
@@ -66,10 +66,9 @@ namespace hammock::renderer {
                 .generation = dependencyGraph.tasks_[idx].generation,
             };
 
-            if(taskHandle == dependencyGraph.presentTaskHandle_){
+            if (taskHandle == dependencyGraph.presentTaskHandle_) {
                 compiledDependencyGraph_.presentTaskIdx = static_cast<std::int32_t>(idx);
             }
-
 
             // This will fill out the logicalResourceUses_
             for (auto access : task->logicalResourceAccesses_) {
@@ -83,6 +82,7 @@ namespace hammock::renderer {
         handleExplicitDependencies(dependencyGraph);
 
         // Detect hazards
+        // FIXME this part is essentially iterating in the task submission order. Should be order independent.
         for (auto accessPair : logicalResourceUses_) {
             auto resourceHandle = accessPair.first;
             auto accesses = accessPair.second;
@@ -139,7 +139,7 @@ namespace hammock::renderer {
             setInitializer(dependencyGraph, compiledLogicalResource);
 
             // If the resource is present resource, mark it
-            if (compiledLogicalResource.origin == dependencyGraph.presentResourceHandle_){
+            if (compiledLogicalResource.origin == dependencyGraph.presentResourceHandle_) {
                 compiledDependencyGraph_.presentResourceIdx = static_cast<std::int32_t>(idx);
             }
 
@@ -338,9 +338,9 @@ namespace hammock::renderer {
 
         else if (auto bufferAccess = std::get_if<BufferAccess>(&access)) {
             switch (*bufferAccess) {
-                case BufferAccess::UniformBufferRead:
+                case BufferAccess::UniformRead:
                     return vk::DescriptorType::eUniformBuffer;
-                case BufferAccess::StorageBufferReadWrite:
+                case BufferAccess::StorageReadWrite:
                     return vk::DescriptorType::eStorageBuffer;
                 default:
                     throw std::runtime_error("could not determine descriptor type for buffer");
@@ -407,9 +407,9 @@ namespace hammock::renderer {
 
         else if (auto bufferAccess = std::get_if<BufferAccess>(&accessIface)) {
             switch (*bufferAccess) {
-                case BufferAccess::UniformBufferRead:
+                case BufferAccess::UniformRead:
                     return vk::PipelineStageFlagBits2::eAllGraphics;
-                case BufferAccess::StorageBufferReadWrite:
+                case BufferAccess::StorageReadWrite:
                     return vk::PipelineStageFlagBits2::eComputeShader;
                 default:
                     throw std::runtime_error("could not determine stage");
@@ -437,9 +437,9 @@ namespace hammock::renderer {
 
         else if (auto bufferAccess = std::get_if<BufferAccess>(&accessIface)) {
             switch (*bufferAccess) {
-                case BufferAccess::UniformBufferRead:
+                case BufferAccess::UniformRead:
                     return vk::AccessFlagBits2::eUniformRead;
-                case BufferAccess::StorageBufferReadWrite:
+                case BufferAccess::StorageReadWrite:
                     return vk::AccessFlagBits2::eShaderRead;
                 default:
                     throw std::runtime_error("could not determine access");

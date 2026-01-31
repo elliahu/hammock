@@ -9,7 +9,7 @@
 
 
 namespace hammock::renderer {
-    LogicalResourceHandle DependencyGraph::addLogicalResource(LogicalResourceInterface iface) {
+    LogicalResourceHandle DependencyGraph::resource(LogicalResourceInterface iface) {
         std::uint32_t idx;
 
         if (firstFreeLogicalResourceSlot_ != -1) {
@@ -34,7 +34,7 @@ namespace hammock::renderer {
                tasks_[h.index].active;
     }
 
-    TaskHandle DependencyGraph::addTask(std::unique_ptr<BaseGpuTask>&& task) {
+    TaskHandle DependencyGraph::task(std::unique_ptr<BaseGpuTask>&& task) {
         std::uint32_t idx;
 
         if (firstFreeTaskSlot_ != -1) {
@@ -54,7 +54,7 @@ namespace hammock::renderer {
         return {idx, slot.generation};
     }
 
-    void DependencyGraph::removeTask(TaskHandle h) {
+    void DependencyGraph::remove(TaskHandle h) {
         if (isHandleValid(h)) {
             TaskSlot& slot = tasks_[h.index];
             slot.active = false;
@@ -64,6 +64,10 @@ namespace hammock::renderer {
             slot.nextFreeSlot = firstFreeTaskSlot_;
             firstFreeTaskSlot_ = static_cast<std::int32_t>(h.index);
         }
+    }
+
+    void DependencyGraph::remove(LogicalResourceHandle h) {
+       // TODO
     }
 
     void DependencyGraph::dependency(
@@ -97,4 +101,12 @@ namespace hammock::renderer {
         }
     }
 
+    LogicalResourceHandle DependencyGraph::image(LogicalImageResource imageResource) {
+        return resource(imageResource);
+    }
+
+    LogicalResourceHandle DependencyGraph::buffer(LogicalBufferResource bufferResource) {
+        return resource(bufferResource);
+    }
+    
 }  // namespace hammock::renderer
