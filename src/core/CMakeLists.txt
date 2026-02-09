@@ -51,7 +51,3 @@ target_link_libraries(hammock_core PUBLIC Vulkan::Vulkan)
 # Compiler features
 target_compile_features(hammock_core PUBLIC cxx_std_23)
 
-# Enable automatic module dependency scanning
-set_target_properties(hammock_core PROPERTIES
-        CXX_SCAN_FOR_MODULES ON
-)

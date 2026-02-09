@@ -83,6 +83,7 @@ namespace hammock::renderer {
 
         // Detect hazards
         // FIXME this part is essentially iterating in the task submission order. Should be order independent.
+        // For now this is ok, but it means the responsibility of ordering the tasks of the graph is no in the hands of the application.
         for (auto accessPair : logicalResourceUses_) {
             auto resourceHandle = accessPair.first;
             auto accesses = accessPair.second;
@@ -479,4 +480,7 @@ namespace hammock::renderer {
         return std::move(compiledDependencyGraph_);
     }
 
+    void DependencyGraphCompiler::createComputePipeline(CompiledTask& task) {
+        
+    }
 }  // namespace hammock::renderer

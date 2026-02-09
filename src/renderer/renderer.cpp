@@ -2,9 +2,14 @@
 #include <stdexcept>
 
 #include "renderer.hpp"
+#include "graphics_context.hpp"
 #include "hammock_core.hpp"
 
-hammock::renderer::Renderer::Renderer(std::unique_ptr<BaseRenderingStrategy> &&strategy): strategy_(std::move(strategy)) {
+hammock::renderer::Renderer::Renderer(GraphicsContext& context) : ctx_(context){
+    core::SwapChain::forEachFrameInFlight([this](int i) {
+        auto commandBuffer =  std::make_unique<core::CommandBuffer>(this->ctx_.getDevice(), core::CommandQueueFamily::Graphics);
+        commandBuffers_.push_back(std::move(commandBuffer));
+    });
 }
 
 void hammock::renderer::Renderer::drawFrame(core::ResourceHandle target, std::uint32_t frameIndex,
@@ -13,5 +18,37 @@ void hammock::renderer::Renderer::drawFrame(core::ResourceHandle target, std::ui
         throw std::runtime_error("Invalid rendering target");
     }
 
-    strategy_->draw(target, frameIndex, signal);
+    auto &commandBuffer = *commandBuffers_[frameIndex];
+    auto image = core::ResourceManager::getInstance().getResource<core::Image>(target);
+
+    commandBuffer.addSignalSemaphore(signal);
+    commandBuffer.begin();
+
+    // Attachment needs to be in color attachment optimal layout
+    image->recordPipelineBarrier(
+        commandBuffer.getCommandBuffer(),
+        vk::PipelineStageFlagBits2::eNone,
+        vk::AccessFlagBits2::eNone,
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        vk::AccessFlagBits2::eColorAttachmentWrite,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::QueueFamilyIgnored,
+        vk::QueueFamilyIgnored
+    );
+
+    auto attachment = image->getRenderingAttachmentInfo();
+    attachment.loadOp = vk::AttachmentLoadOp::eClear;
+    attachment.storeOp = vk::AttachmentStoreOp::eStore;
+
+    vk::RenderingInfo renderInfo{};
+    renderInfo.renderArea = vk::Rect2D{{0,  0}, {image->getExtent().width, image->getExtent().height}};
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 1;
+    renderInfo.pColorAttachments = &attachment;
+
+    commandBuffer.getCommandBuffer().beginRendering(&renderInfo);
+    commandBuffer.getCommandBuffer().endRendering();
+
+    commandBuffer.submit();
 }

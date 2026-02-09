@@ -6,7 +6,9 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
+#include "compute_pipeline.hpp"
 #include "dependency_graph.hpp"
+#include "descriptors.hpp"
 #include "gpu_task.hpp"
 #include "vulkan/vulkan.hpp"
 
@@ -70,6 +72,9 @@ namespace hammock::renderer {
         CompiledTaskType type;
         /// Constructed pipeline
         std::unique_ptr<core::BasePipeline> pipeline{nullptr};
+        
+        /// Descriptor set layouts
+        std::vector<core::DescriptorSetLayout> descriptorSetLayouts{};
 
         /// Compiled resource accesses
         std::vector<CompiledLogicalResourceAccess> compiledResourceAccesses{};
@@ -124,14 +129,14 @@ namespace hammock::renderer {
         CompiledDependencyGraph
             compiledDependencyGraph_{};  /// The final compiled graph that will be returned
 
-        /// Populates nodes_ list
+        // Populates nodes_ list
         void buildGraphNodes(DependencyGraph& dependencyGraph);
         void addEdge(std::uint32_t aidx, std::uint32_t bidx);
         ReadWriteIntent determineReadWriteIntent(AccessInterface accessIface);
         bool isHazard(ReadWriteIntent a, ReadWriteIntent b);
         void handleExplicitDependencies(DependencyGraph& dependencyGraph);
 
-        /// Creates physical resources from logical resources and wraps them in compiled logical resources
+        // Creates physical resources from logical resources and wraps them in compiled logical resources
         void compileLogicalResources(DependencyGraph& dependencyGraph);
         core::ResourceHandle createPhysicalImageResource(LogicalImageResource* logicalImageResource);
         core::ResourceHandle createPhysicalBufferResource(LogicalBufferResource* logicalBufferResource);
@@ -140,13 +145,13 @@ namespace hammock::renderer {
         /// Assert debug edges
         void assertDebugEdges(DependencyGraph& dependencyGraph);
 
-        /// Determine execution levels
-        /// Task is ready if indegree == 0
-        /// Ready task does not need to wait for any other tasks to finish
-        /// Tasks in the same execution level can run in parallel
+        /// Determine execution levels.
+        /// Task is ready if indegree == 0.
+        /// Ready task does not need to wait for any other tasks to finish.
+        /// Tasks in the same execution level can run in parallel.
         void determineExecutionLevels();
 
-        /// Task compilation
+        // Task compilation
         void compileTasks(DependencyGraph& dependencyGraph);
         void compileTaskResourceAccesses(BaseGpuTask* srcTask, CompiledTask& dstTask);
         vk::DescriptorType determineDescriptorType(AccessInterface access);
@@ -155,6 +160,7 @@ namespace hammock::renderer {
         vk::PipelineStageFlags2 stagesFromAccess(AccessInterface accessIface);
         vk::AccessFlags2 accessFlagsFromAccess(AccessInterface accessIface);
         vk::ImageLayout layoutFromAccess(ImageAccess access);
+        void createComputePipeline(CompiledTask& task);
 
        public:
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor

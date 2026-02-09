@@ -1,5 +1,6 @@
 #include <compare>
 #include <vulkan/vulkan.hpp>
+#include "vulkan/vulkan.hpp"
 
 #include "buffer.hpp"
 
@@ -47,14 +48,14 @@ hammock::core::Buffer::~Buffer() {
 void hammock::core::Buffer::create() {
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = bufferSize_;
-    bufferInfo.usage = usageFlags_;
+    bufferInfo.usage = usageFlags_ | vk::BufferUsageFlagBits::eShaderDeviceAddress; // So that we can reference buffer via pointers in shaders
     bufferInfo.sharingMode = sharingMode_;
     bufferInfo.queueFamilyIndexCount = queueFamilyIndices_.size();
     bufferInfo.pQueueFamilyIndices = queueFamilyIndices_.data();
 
     allocator::AllocationCreateInfo allocInfo = {};
     allocInfo.usage = allocator::MemoryUsage::VMA_MEMORY_USAGE_AUTO;
-    allocInfo.flags = memoryPropertyFlags_;
+    allocInfo.flags = memoryPropertyFlags_ ;
 
     try {
         allocator::createBuffer(device.allocator(), bufferInfo, &allocInfo, buffer_, &allocation_, nullptr);
@@ -174,4 +175,11 @@ void hammock::core::Buffer::copyFromImage(vk::CommandBuffer commandBuffer, vk::I
     region.imageExtent = extent;
 
     commandBuffer.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, buffer_, 1, &region);
+}
+vk::DeviceAddress hammock::core::Buffer::queryDeviceAddress() {
+    vk::BufferDeviceAddressInfo deviceAddressInfo{
+        .buffer = buffer_
+    };
+
+    return device.device().getBufferAddress(&deviceAddressInfo);
 }

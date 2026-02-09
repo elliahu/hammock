@@ -47,8 +47,7 @@ hammock::engine::Runner::Runner(RunnerMode mode, renderer::GraphicsContext &cont
     presentationEngine_ = std::make_unique<PresentationEngine>(std::move(strategy));
 
     // Initialize renderer
-    auto renderStrategy = std::make_unique<renderer::DeferredRenderingStrategy>(context_);
-    renderer_ = std::make_unique<renderer::Renderer>(std::move(renderStrategy));
+    renderer_ = std::make_unique<renderer::Renderer>(context_);
 }
 
 hammock::engine::Runner::~Runner() {

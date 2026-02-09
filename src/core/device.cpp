@@ -1,13 +1,14 @@
-#include <stdexcept>
-#include <set>
-#include <vector>
-#include <compare>
-#include <vulkan/vulkan.hpp>
-
 #include "device.hpp"
 
+#include <compare>
+#include <set>
+#include <stdexcept>
+#include <vector>
+#include <vulkan/vulkan.hpp>
+
+
 namespace hammock::core {
-    Device::Device(Instance &instance, vk::SurfaceKHR surface) : instance_{instance}, surface_{surface} {
+    Device::Device(Instance& instance, vk::SurfaceKHR surface) : instance_{instance}, surface_{surface} {
         pickPhysicalDevice();
         createLogicalDevice();
         createCommandPools();
@@ -22,11 +23,10 @@ namespace hammock::core {
         device_.destroy();
     }
 
-
     void Device::pickPhysicalDevice() {
         std::vector<vk::PhysicalDevice> devices = instance_.getInstance().enumeratePhysicalDevices();
 
-        for (const auto &device: devices) {
+        for (const auto& device : devices) {
             if (isDeviceSuitable(device)) {
                 physicalDevice_ = device;
                 break;
@@ -46,17 +46,16 @@ namespace hammock::core {
     }
 
     void Device::createLogicalDevice() {
-        auto queFamilyIndices = findQueueFamilies(
-            physicalDevice_);
+        auto queFamilyIndices = findQueueFamilies(physicalDevice_);
 
         std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
-        std::set<uint32_t> uniqueQueueFamilies = {
-            queFamilyIndices.graphicsFamily, queFamilyIndices.presentFamily, queFamilyIndices.transferFamily,
-            queFamilyIndices.computeFamily
-        };
+        std::set<uint32_t> uniqueQueueFamilies = {queFamilyIndices.graphicsFamily,
+            queFamilyIndices.presentFamily,
+            queFamilyIndices.transferFamily,
+            queFamilyIndices.computeFamily};
 
         float queuePriority = 1.0f;
-        for (uint32_t queueFamily: uniqueQueueFamilies) {
+        for (uint32_t queueFamily : uniqueQueueFamilies) {
             vk::DeviceQueueCreateInfo queueCreateInfo = {};
             queueCreateInfo.queueFamilyIndex = queueFamily;
             queueCreateInfo.queueCount = 1;
@@ -70,9 +69,11 @@ namespace hammock::core {
 
         // Create the physical device features structures
 
+        vk::PhysicalDeviceBufferDeviceAddressFeatures bufferAddressFeatures{};
+        bufferAddressFeatures.bufferDeviceAddress = vk::True;
+
         vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchainFeaturesEXT{};
         swapchainFeaturesEXT.swapchainMaintenance1 = vk::True;
-
 
         vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{};
         sync2Features.synchronization2 = vk::True;
@@ -96,6 +97,7 @@ namespace hammock::core {
         descriptorIndexingFeatures.pNext = &dynamicRenderingFeatures;
         dynamicRenderingFeatures.pNext = &sync2Features;
         sync2Features.pNext = &swapchainFeaturesEXT;
+        swapchainFeaturesEXT.pNext = &bufferAddressFeatures;
 
         // Populate VkPhysicalDeviceFeatures2
         vk::PhysicalDeviceFeatures2 deviceFeatures2{};
@@ -110,9 +112,8 @@ namespace hammock::core {
         // Ensure no enabled features from previous Vulkan versions are left active
         createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions_.size());
         createInfo.ppEnabledExtensionNames = deviceExtensions_.data();
-        createInfo.pNext = &deviceFeatures2; // Pass the device features structure
+        createInfo.pNext = &deviceFeatures2;  // Pass the device features structure
         createInfo.enabledLayerCount = 0;
-
 
         if (physicalDevice_.createDevice(&createInfo, nullptr, &device_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create logical device!");
@@ -125,13 +126,12 @@ namespace hammock::core {
     }
 
     void Device::createCommandPools() {
-        auto queFamilyIndices =
-                getPhysicalQueueFamilies();
+        auto queFamilyIndices = getPhysicalQueueFamilies();
 
         vk::CommandPoolCreateInfo poolInfo = {};
         poolInfo.queueFamilyIndex = queFamilyIndices.graphicsFamily;
-        poolInfo.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
-
+        poolInfo.flags =
+            vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
         if (device_.createCommandPool(&poolInfo, nullptr, &graphicsCommandPool_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create graphics command pool!");
@@ -157,7 +157,9 @@ namespace hammock::core {
         vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
 
         allocator::AllocatorCreateInfo allocatorCreateInfo = {};
-        allocatorCreateInfo.flags = allocator::AllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+        allocatorCreateInfo.flags =
+            allocator::AllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT |
+            allocator::AllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
         allocatorCreateInfo.vulkanApiVersion = vk::makeApiVersion(0, 1, 3, 0);
         allocatorCreateInfo.physicalDevice = physicalDevice_;
         allocatorCreateInfo.device = device_;
@@ -166,7 +168,7 @@ namespace hammock::core {
 
         try {
             allocator::createAllocator(&allocatorCreateInfo, &allocator_);
-        } catch (std::runtime_error &e) {
+        } catch (std::runtime_error& e) {
             throw;
         }
     }
@@ -191,16 +193,15 @@ namespace hammock::core {
             isComplete = indices.isComplete();
         }
 
-        return  isComplete && extensionsSupported && swapChainAdequate &&
-               supportedFeatures.samplerAnisotropy;
+        return isComplete && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
     }
 
-
     bool Device::checkDeviceExtensionSupport(const vk::PhysicalDevice device) const {
-        std::vector<vk::ExtensionProperties> availableExtensions = device.enumerateDeviceExtensionProperties();
+        std::vector<vk::ExtensionProperties> availableExtensions =
+            device.enumerateDeviceExtensionProperties();
         std::set<std::string> requiredExtensions(deviceExtensions_.begin(), deviceExtensions_.end());
 
-        for (const auto &extension: availableExtensions) {
+        for (const auto& extension : availableExtensions) {
             requiredExtensions.erase(extension.extensionName);
         }
 
@@ -212,7 +213,7 @@ namespace hammock::core {
         std::vector<vk::QueueFamilyProperties> queueFamilies = device.getQueueFamilyProperties();
 
         int i = 0;
-        for (const auto &queueFamily: queueFamilies) {
+        for (const auto& queueFamily : queueFamilies) {
             if (queueFamily.queueCount > 0) {
                 // Graphics queue
                 if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
@@ -229,7 +230,6 @@ namespace hammock::core {
                         indices.presentFamilyHasValue = true;
                     }
                 }
-
 
                 // Compute queue (preferably separate from graphics)
                 if ((queueFamily.queueFlags & vk::QueueFlagBits::eCompute) &&
@@ -290,10 +290,9 @@ namespace hammock::core {
         return details;
     }
 
-    vk::Format Device::findSupportedFormat(
-        const std::vector<vk::Format> &candidates, const vk::ImageTiling tiling,
-        const vk::FormatFeatureFlags features) const {
-        for (const vk::Format format: candidates) {
+    vk::Format Device::findSupportedFormat(const std::vector<vk::Format>& candidates,
+        const vk::ImageTiling tiling, const vk::FormatFeatureFlags features) const {
+        for (const vk::Format format : candidates) {
             vk::FormatProperties props = physicalDevice_.getFormatProperties(format);
 
             if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features) {
@@ -318,7 +317,8 @@ namespace hammock::core {
         return querySwapChainSupport(physicalDevice_);
     }
 
-    uint32_t Device::findMemoryType(const uint32_t typeFilter, const vk::MemoryPropertyFlags properties) const {
+    uint32_t Device::findMemoryType(
+        const uint32_t typeFilter, const vk::MemoryPropertyFlags properties) const {
         vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice_.getMemoryProperties();
         for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
             if ((typeFilter & (1 << i)) &&
@@ -329,7 +329,6 @@ namespace hammock::core {
 
         throw std::runtime_error("failed to find suitable memory type!");
     }
-
 
     vk::CommandBuffer Device::beginSingleTimeCommands() const {
         vk::CommandBufferAllocateInfo allocInfo{};
@@ -366,14 +365,9 @@ namespace hammock::core {
         device_.freeCommandBuffers(graphicsCommandPool_, 1, &commandBuffer);
     }
 
-    void Device::queueImageLayoutTransition(const vk::Image image,
-                                       const vk::ImageLayout layoutOld,
-                                       const vk::ImageLayout layoutNew,
-                                       uint32_t layerCount,
-                                       uint32_t baseLayer,
-                                       uint32_t levelCount,
-                                       uint32_t baseLevel,
-                                       vk::ImageAspectFlags aspectMask) const {
+    void Device::queueImageLayoutTransition(const vk::Image image, const vk::ImageLayout layoutOld,
+        const vk::ImageLayout layoutNew, uint32_t layerCount, uint32_t baseLayer, uint32_t levelCount,
+        uint32_t baseLevel, vk::ImageAspectFlags aspectMask) const {
         vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
 
         vk::ImageMemoryBarrier barrier{};
@@ -396,11 +390,10 @@ namespace hammock::core {
             vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eTransfer;
 
-
-            commandBuffer.pipelineBarrier(sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr,
-                                          1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
-                   vk::ImageLayout::eTransferSrcOptimal) {
+            commandBuffer.pipelineBarrier(
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eUndefined &&
+                   layoutNew == vk::ImageLayout::eTransferSrcOptimal) {
             barrier.srcAccessMask = vk::AccessFlagBits::eNone;
             barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
@@ -408,13 +401,8 @@ namespace hammock::core {
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eTransfer;
 
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
-                   vk::ImageLayout::eGeneral) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew == vk::ImageLayout::eGeneral) {
             barrier.srcAccessMask = vk::AccessFlagBits::eNone;
             barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite;
 
@@ -422,13 +410,9 @@ namespace hammock::core {
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eComputeShader;
 
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
-                   vk::ImageLayout::eColorAttachmentOptimal) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eUndefined &&
+                   layoutNew == vk::ImageLayout::eColorAttachmentOptimal) {
             // Transition for a color attachment:
             // - No previous accesses.
             // - Destination will be written as a color attachment.
@@ -438,13 +422,9 @@ namespace hammock::core {
             vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
-                   vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eUndefined &&
+                   layoutNew == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
             // Transition for a depth/stencil attachment:
             // - No previous accesses.
             // - Destination will be read and written as a depth/stencil attachment.
@@ -457,13 +437,9 @@ namespace hammock::core {
             vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eUndefined && layoutNew ==
-                   vk::ImageLayout::eShaderReadOnlyOptimal) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eUndefined &&
+                   layoutNew == vk::ImageLayout::eShaderReadOnlyOptimal) {
             barrier.srcAccessMask = vk::AccessFlagBits::eNone;
             barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
@@ -471,13 +447,9 @@ namespace hammock::core {
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
 
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal && layoutNew ==
-                   vk::ImageLayout::eColorAttachmentOptimal) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal &&
+                   layoutNew == vk::ImageLayout::eColorAttachmentOptimal) {
             barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
             barrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 
@@ -485,13 +457,9 @@ namespace hammock::core {
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal && layoutNew ==
-                   vk::ImageLayout::eShaderReadOnlyOptimal) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal &&
+                   layoutNew == vk::ImageLayout::eShaderReadOnlyOptimal) {
             barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
             barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
@@ -499,13 +467,9 @@ namespace hammock::core {
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
 
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal && layoutNew ==
-                   vk::ImageLayout::eGeneral) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal &&
+                   layoutNew == vk::ImageLayout::eGeneral) {
             barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
             barrier.dstAccessMask = vk::AccessFlagBits::eHostRead | vk::AccessFlagBits::eHostWrite;
 
@@ -513,13 +477,9 @@ namespace hammock::core {
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eHost;
 
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eColorAttachmentOptimal && layoutNew ==
-                   vk::ImageLayout::eShaderReadOnlyOptimal) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eColorAttachmentOptimal &&
+                   layoutNew == vk::ImageLayout::eShaderReadOnlyOptimal) {
             barrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
             barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
@@ -528,28 +488,21 @@ namespace hammock::core {
 
             // Transition from color attachment to shader read-only
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
-        } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal && layoutNew ==
-                   vk::ImageLayout::eShaderReadOnlyOptimal) {
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
+        } else if (layoutOld == vk::ImageLayout::eTransferDstOptimal &&
+                   layoutNew == vk::ImageLayout::eShaderReadOnlyOptimal) {
             barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
             barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
             barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
-            barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;;
+            barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
+            ;
 
             vk::PipelineStageFlags sourceStage = vk::PipelineStageFlagBits::eTransfer;
             vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
 
             commandBuffer.pipelineBarrier(
-                sourceStage, destinationStage,
-                vk::DependencyFlags{},
-                0, nullptr,
-                0, nullptr,
-                1, &barrier);
+                sourceStage, destinationStage, vk::DependencyFlags{}, 0, nullptr, 0, nullptr, 1, &barrier);
         } else {
             throw std::invalid_argument("Unsupported layout transition!");
         }
@@ -557,8 +510,5 @@ namespace hammock::core {
         endSingleTimeCommands(commandBuffer);
     }
 
-
-    void Device::waitIdle() {
-        device().waitIdle();
-    }
-}
+    void Device::waitIdle() { device().waitIdle(); }
+}  // namespace hammock::core

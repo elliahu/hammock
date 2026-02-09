@@ -54,8 +54,3 @@ endif()
 
 # Compiler features
 target_compile_features(hammock_engine PUBLIC cxx_std_23)
-
-# Enable automatic module dependency scanning
-set_target_properties(hammock_engine PROPERTIES
-        CXX_SCAN_FOR_MODULES ON
-)

@@ -2,18 +2,18 @@
 #include <memory>
 #include <stdexcept>
 
-#include "base_rendering_strategy.hpp"
+#include "graphics_context.hpp"
 #include "hammock_core.hpp"
 
 namespace hammock::renderer {
     class Renderer {
        public:
-        explicit Renderer(std::unique_ptr<BaseRenderingStrategy>&& strategy = {});
+        explicit Renderer(GraphicsContext& context);
 
         void drawFrame(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore& signal) const;
 
        private:
-        std::unique_ptr<BaseRenderingStrategy> strategy_{};
-        ;
+        GraphicsContext& ctx_;
+        std::vector<std::unique_ptr<core::CommandBuffer>> commandBuffers_;
     };
 };  // namespace hammock::renderer

@@ -288,6 +288,11 @@ namespace hammock::core {
          */
         void copyFromImage(vk::CommandBuffer commandBuffer, vk::Image src, vk::Extent3D extent, uint32_t mipLevel = 0,
                            uint32_t baseArrayLayer = 0, uint32_t layerCount = 1, vk::Offset3D offset = {0, 0, 0}) const;
+
+        /**
+         * Retrieves device address of the buffer
+         */
+        vk::DeviceAddress queryDeviceAddress();
     };
 
     template<>
