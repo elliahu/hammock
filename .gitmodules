@@ -6,3 +6,12 @@
 	path = third_party/VulkanSurfer
 	url = https://github.com/elliahu/VulkanSurfer
 	branch = master
+[submodule "third_party/cgltf"]
+	path = third_party/cgltf
+	url = https://github.com/jkuhlmann/cgltf
+[submodule "third_party/spirv_reflect"]
+	path = third_party/spirv_reflect
+	url = https://github.com/KhronosGroup/SPIRV-Reflect
+[submodule "third_party/vma"]
+	path = third_party/vma
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
