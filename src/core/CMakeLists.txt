@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.30)
 add_library(hammock_core
         "base_pipeline.hpp"
         "base_resource.hpp"
-        "base_surface_provider.hpp"
+        "surface_provider_iface.hpp"
         "buffer.hpp"
         "command_buffer.hpp"
         "compute_pipeline.hpp"

@@ -27,7 +27,7 @@ target_include_directories(hammock_renderer PUBLIC
 )
 
 # Link core (which provides Vulkan transitively)
-target_link_libraries(hammock_renderer PUBLIC hammock_core hammock_dependency_graph)
+target_link_libraries(hammock_renderer PUBLIC hammock_core hammock_utils hammock_dependency_graph)
 
 # Compiler features
 target_compile_features(hammock_renderer PUBLIC cxx_std_23)

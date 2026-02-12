@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <vulkan/vulkan.hpp>
 
-#include "base_surface_provider.hpp"
+#include "surface_provider_iface.hpp"
 #include "descriptors.hpp"
 #include "device.hpp"
 #include "instance.hpp"
@@ -25,6 +25,6 @@ namespace hammock::core {
 
         /// @brief This initializes the full vulkan context
         /// @note If this is not called, only the vulkan instance is created
-        void initialize(core::BaseSurfaceProvider& surfaceProvider);
+        void initialize(core::SurfaceProviderIface& surfaceProvider);
     };
 }  // namespace hammock::core

@@ -1,5 +1,8 @@
 #include "gltf_loader.hpp"
 
+
+hammock::renderer::GltfLoader::~GltfLoader() {};
+
 void hammock::renderer::GltfLoader::checkResult(cgltf_result& result) {
     if (result != cgltf_result_success) {
         // Error occurred during parsing
@@ -27,4 +30,27 @@ void hammock::renderer::GltfLoader::checkResult(cgltf_result& result) {
         }
     }
 }
-hammock::renderer::GltfLoader::~GltfLoader() { cgltf_free(data_); }
+
+
+void hammock::renderer::GltfLoader::read(const std::string& glTF) {
+    // Loading library options
+    cgltf_options options = {
+        .type = cgltf_file_type::cgltf_file_type_invalid,  // autodetect
+        .json_token_count = 0,                             // autodetect
+    };
+
+    // Parse file
+    cgltf_result result = cgltf_parse_file(&options, glTF.c_str(), &data_);
+
+    // Check result
+    try {
+        checkResult(result);
+    } catch (std::runtime_error err) {
+        throw std::runtime_error("failed to parse glTF file: " + std::string(err.what()));
+    }
+}
+
+void hammock::renderer::GltfLoader::load(const std::string& glTF, Stage& stage) {
+    read(glTF);
+    parse(stage);
+}

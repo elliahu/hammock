@@ -6,14 +6,14 @@
 #include <vulkan/vulkan.hpp>
 
 
-#include "core/base_surface_provider.hpp"
+#include "core/surface_provider_iface.hpp"
 #include "core/instance.hpp"
 
 
 namespace hammock::app {
     /// @class Window
     /// @brief Class represents OS window and handles user I/O
-    class Window final : public core::BaseSurfaceProvider {
+    class Window final : public core::SurfaceProviderIface {
     public:
         Window(const std::string &title, core::Instance &instance, const std::uint32_t width,
                const std::uint32_t height, const std::uint32_t x = 100u,

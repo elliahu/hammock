@@ -11,7 +11,7 @@
 
 
 hammock::core::SwapChainManager::SwapChainManager(
-    BaseSurfaceProvider& i_surfaceProvider,
+    SurfaceProviderIface& i_surfaceProvider,
     Device &device)
     : surfaceProvider_{i_surfaceProvider}, device_{device} {
     recreateSwapChain();

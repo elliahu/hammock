@@ -7,6 +7,7 @@
 #include "core/vulkan_context.hpp"
 
 
+
 // ************ Base presentation strategy *************
 
 std::optional<hammock::app::FrameContext> hammock::app::BasePresentationStrategy::beginFrame() {
@@ -112,7 +113,7 @@ void hammock::app::BasePresentationStrategy::notifyResolutionChanged(uint32_t wi
 // ***************** Surface presentation strategy *************
 
 hammock::app::SurfacePresentationStrategy::SurfacePresentationStrategy(core::VulkanContext &ctx,
-                                                                          core::BaseSurfaceProvider &surfaceProvider,
+                                                                          core::SurfaceProviderIface &surfaceProvider,
                                                                           Mode mode)
     : BasePresentationStrategy(
           ctx,

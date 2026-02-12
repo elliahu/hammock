@@ -18,4 +18,5 @@ namespace hammock::math {
     Mat4 translate(Vec3 position);
     Mat4 scale(Vec3 scale);
     Mat4 rotate(Quat quat);
+    Mat4 identity();
 }  // namespace hammock::math

@@ -71,6 +71,8 @@ namespace hammock::renderer {
         };
     };
 
+
+
     /// @struct Mesh
     /// Represents renderable mesh
     struct Mesh {
@@ -99,8 +101,7 @@ namespace hammock::renderer {
     /// Used to represent tree like structures
     struct Hierarchy {
         std::int32_t parent{-1};
-        std::int32_t firstChild{-1};
-        std::int32_t nextSibling{-1};
+        // TODO first chid, next sibling
     };
 
     /// @struct Transform
@@ -115,7 +116,7 @@ namespace hammock::renderer {
     /// Scene represents hierarchy of nodes
     struct Scene {
         std::vector<std::uint32_t> nodes;
-         std::vector<Hierarchy> hierarchies;
+        std::vector<Hierarchy> hierarchies;
         std::vector<Transform> locals;
         std::vector<math::Mat4> worlds;
     };

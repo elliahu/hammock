@@ -18,4 +18,8 @@ namespace hammock::math {
     Mat4 translate(Vec3 position) { return HMM_Translate(position); }
     Mat4 scale(Vec3 scale) { return HMM_Scale(scale); }
     Mat4 rotate(Quat quat) { return HMM_QToM4(quat); }
+    
+    Mat4 identity() {
+        return Mat4{1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f};
+    }
 }  // namespace hammock::math

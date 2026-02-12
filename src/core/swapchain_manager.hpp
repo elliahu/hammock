@@ -6,7 +6,7 @@
 
 #include "device.hpp"
 #include "utilities.hpp"
-#include "base_surface_provider.hpp"
+#include "surface_provider_iface.hpp"
 #include "base_resource.hpp"
 #include "swapchain.hpp"
 #include "command_buffer.hpp"
@@ -22,7 +22,7 @@ namespace hammock::core {
     /// @brief Manager responsible for manipulation the SwapChain
     class SwapChainManager final{
     public:
-        SwapChainManager(BaseSurfaceProvider &i_surfaceProvider, Device &device);
+        SwapChainManager(SurfaceProviderIface &i_surfaceProvider, Device &device);
 
         // delete copy constructor and copy destructor
         SwapChainManager(const SwapChainManager &) = delete;
@@ -53,7 +53,7 @@ namespace hammock::core {
 
         void recreateSwapChain();
 
-        BaseSurfaceProvider &surfaceProvider_;
+        SurfaceProviderIface &surfaceProvider_;
         Device &device_;
         std::unique_ptr<SwapChain> swapChain_;
 

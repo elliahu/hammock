@@ -10,6 +10,7 @@
 #include "core/swapchain_manager.hpp"
 #include "framebuffer.hpp"
 #include "core/vulkan_context.hpp"
+#include "core/surface_provider_iface.hpp"
 
 
 namespace hammock::app {
@@ -107,7 +108,7 @@ namespace hammock::app {
 
         SurfacePresentationStrategy(
             core::VulkanContext &ctx,
-            core::BaseSurfaceProvider &surfaceProvider,
+            core::SurfaceProviderIface &surfaceProvider,
             Mode mode = Mode::Tooling
         );
 

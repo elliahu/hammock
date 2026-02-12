@@ -4,9 +4,9 @@
 
 namespace hammock::core {
 
-    class BaseSurfaceProvider {
+    class SurfaceProviderIface {
        public:
-        virtual ~BaseSurfaceProvider() = default;
+        virtual ~SurfaceProviderIface() = default;
         virtual vk::Extent2D getExtent() const = 0;
         virtual vk::SurfaceKHR getSurface() const = 0;
         virtual bool wasResized() const = 0;

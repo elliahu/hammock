@@ -1,9 +1,10 @@
 #include "vulkan_context.hpp"
+#include "surface_provider_iface.hpp"
 
 
 hammock::core::VulkanContext::VulkanContext() { instance = std::make_unique<core::Instance>(); }
 
-void hammock::core::VulkanContext::initialize(core::BaseSurfaceProvider& surfaceProvider) {
+void hammock::core::VulkanContext::initialize(core::SurfaceProviderIface& surfaceProvider) {
     device = std::make_unique<core::Device>(*instance, surfaceProvider.getSurface());
     resourceManager = std::make_unique<core::ResourceManager>(*device);
     descriptorPool = std::make_unique<core::DescriptorPool>(*device,
