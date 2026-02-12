@@ -1,24 +1,28 @@
-#include "imgui/backends/imgui_impl_vulkan.h"
-#include "VulkanSurfer/imgui_impl_vulkansurfer.h"
-#include "imgui/imgui.h"
-#include <compare>
-#include "vulkan/vulkan.hpp"
-
 #include "ui.hpp"
 
-hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx) {
+#include <compare>
+#include <vulkan/vulkan.hpp>
+
+#include "VulkanSurfer/imgui_impl_vulkansurfer.h"
+#include "imgui/backends/imgui_impl_vulkan.h"
+#include "imgui/imgui.h"
+#include "core/swapchain.hpp"
+
+
+
+hammock::app::Ui::Ui(Surfer::Window* window, core::VulkanContext& ctx) : ctx_(ctx) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui_ImplVulkanSurfer_Init(window);
 
     ImGui_ImplVulkan_InitInfo initInfo = {};
-    initInfo.Instance = ctx->getInstance().getInstance();
-    initInfo.PhysicalDevice = ctx->getDevice().getPhysicalDevice();
-    initInfo.Device = ctx->getDevice().device();
-    initInfo.QueueFamily = ctx->getDevice().getGraphicsQueueFamilyIndex();
-    initInfo.Queue = ctx->getDevice().graphicsQueue();
-    initInfo.DescriptorPool = core::DescriptorPool::getInstance().getDescriptorPool();
-    initInfo.MinImageCount = 3; // Usually 2 or 3
+    initInfo.Instance = ctx.instance->getInstance();
+    initInfo.PhysicalDevice = ctx.device->getPhysicalDevice();
+    initInfo.Device = ctx.device->device();
+    initInfo.QueueFamily = ctx.device->getGraphicsQueueFamilyIndex();
+    initInfo.Queue = ctx.device->graphicsQueue();
+    initInfo.DescriptorPool = ctx.descriptorPool->getDescriptorPool();
+    initInfo.MinImageCount = 3;  // Usually 2 or 3
     initInfo.ImageCount = 3;
     initInfo.UseDynamicRendering = true;
     // Set up dynamic rendering info
@@ -35,20 +39,20 @@ hammock::engine::Ui::Ui(Surfer::Window *window, renderer::GraphicsContext *ctx) 
 
     // Create command buffers
     core::SwapChain::forEachFrameInFlight([&, this](int frame) {
-        auto commandBuffer = std::make_unique<
-            core::CommandBuffer>(ctx->getDevice(), core::CommandQueueFamily::Graphics);
+        auto commandBuffer =
+            std::make_unique<core::CommandBuffer>(*ctx.device, core::CommandQueueFamily::Graphics);
         commandBuffers_.push_back(std::move(commandBuffer));
     });
 }
 
-hammock::engine::Ui::~Ui() {
+hammock::app::Ui::~Ui() {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplVulkanSurfer_Shutdown();
     ImGui::DestroyContext();
 }
 
-
-void hammock::engine::Ui::renderFrame(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore &wait, core::Semaphore &signal) {
+void hammock::app::Ui::renderFrame(
+    core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore& wait, core::Semaphore& signal) {
     // New frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplVulkanSurfer_NewFrame();
@@ -57,20 +61,21 @@ void hammock::engine::Ui::renderFrame(core::ResourceHandle target, std::uint32_t
     // Draw data
     draw();
     ImGui::Render();
-    ImDrawData *draw_data = ImGui::GetDrawData();
+    ImDrawData* draw_data = ImGui::GetDrawData();
 
-    auto targetImage = core::ResourceManager::getInstance().getResource<core::Image>(target);
+    auto targetImage = ctx_.resourceManager->getResource<core::Image>(target);
     vk::RenderingAttachmentInfo colorAttachment = targetImage->getRenderingAttachmentInfo();
     colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
     colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
 
     vk::RenderingInfo renderInfo = {};
-    renderInfo.renderArea = vk::Rect2D{{0, 0}, {targetImage->getExtent().width, targetImage->getExtent().height}};
+    renderInfo.renderArea =
+        vk::Rect2D{{0, 0}, {targetImage->getExtent().width, targetImage->getExtent().height}};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 1;
     renderInfo.pColorAttachments = &colorAttachment;
 
-    auto &commandBuffer = *commandBuffers_[frameIndex];
+    auto& commandBuffer = *commandBuffers_[frameIndex];
 
     // Begin command buffer
     commandBuffer.addWaitSemaphore(wait, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
@@ -86,7 +91,7 @@ void hammock::engine::Ui::renderFrame(core::ResourceHandle target, std::uint32_t
     commandBuffer.submit();
 }
 
-void hammock::engine::Ui::draw() {
+void hammock::app::Ui::draw() {
     static float f = 0.0f;
     static int counter = 0;
 
@@ -99,8 +104,7 @@ void hammock::engine::Ui::draw() {
     char buffer[200] = {0};
     ImGui::InputText("label", buffer, 200);
 
-    if (ImGui::Button("Button"))
-        counter++;
+    if (ImGui::Button("Button")) counter++;
     ImGui::SameLine();
     ImGui::Text("counter = %d", counter);
     ImGui::End();

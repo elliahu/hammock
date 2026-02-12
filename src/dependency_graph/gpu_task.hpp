@@ -7,7 +7,7 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "hammock_core.hpp"
+#include "core/utilities.hpp"
 #include "push_constants.hpp"
 
 namespace hammock::renderer {

@@ -6,10 +6,11 @@
 #include <vulkan/vulkan.hpp>
 
 
-#include "hammock_core.hpp"
+#include "core/base_surface_provider.hpp"
+#include "core/instance.hpp"
 
 
-namespace hammock::engine {
+namespace hammock::app {
     /// @class Window
     /// @brief Class represents OS window and handles user I/O
     class Window final : public core::BaseSurfaceProvider {

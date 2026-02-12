@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "math.hpp"
+#include "utils/math.hpp"
 
 namespace hammock::renderer {
     /// @enum PushConstantFieldType

@@ -7,12 +7,12 @@
 #include <variant>
 #include <vector>
 
-#include "base_resource.hpp"
-#include "buffer.hpp"
-#include "command_buffer.hpp"
+#include "core/base_resource.hpp"
+#include "core/buffer.hpp"
+#include "core/command_buffer.hpp"
 #include "gpu_task.hpp"
-#include "hammock_core.hpp"
-#include "math.hpp"
+#include "utils/math.hpp"
+#include "core/image.hpp"
 
 namespace hammock::renderer {
 

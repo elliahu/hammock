@@ -10,6 +10,7 @@
 #include "base_resource.hpp"
 #include "swapchain.hpp"
 #include "command_buffer.hpp"
+#include "image.hpp"
 
 
 
@@ -46,7 +47,7 @@ namespace hammock::core {
         /// @brief Performs blit operation from src to current swapchain image
         /// @pre src is in transfer src layout
         /// @post swapchain image will be in present optimal layout
-        void blitToSwapChainImage(CommandBuffer &commandBuffer, ResourceHandle src);
+        void blitToSwapChainImage(CommandBuffer &commandBuffer, Image* image);
 
     protected:
 

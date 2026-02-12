@@ -6,9 +6,6 @@
 #include "resource_manager.hpp"
 
 
-void hammock::core::ResourceManager::initialize(Device &device, vk::DeviceSize memoryBudget) {
-    Singleton<ResourceManager>::initialize(device, memoryBudget);
-}
 
 void hammock::core::ResourceManager::releaseResource(uint64_t id) {
     auto it = resources_.find(id);

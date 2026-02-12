@@ -2,15 +2,14 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
-#include <variant>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "compute_pipeline.hpp"
+#include "core/base_pipeline.hpp"
 #include "dependency_graph.hpp"
-#include "descriptors.hpp"
+#include "core/descriptors.hpp"
 #include "gpu_task.hpp"
-#include "vulkan/vulkan.hpp"
+#include "core/vulkan_context.hpp"
 
 namespace hammock::renderer {
 
@@ -116,6 +115,7 @@ namespace hammock::renderer {
     /// @class DependencyGraphCompiler
     /// @brief Outputs compiled graph
     class DependencyGraphCompiler final {
+        core::VulkanContext& ctx_;
         /// Internal structure to pair up task and access
         struct TaskHandleLogicalResourceAccessPair {
             TaskHandle task;
@@ -163,6 +163,7 @@ namespace hammock::renderer {
         void createComputePipeline(CompiledTask& task);
 
        public:
+        DependencyGraphCompiler(core::VulkanContext& ctx);
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
         CompiledDependencyGraph compile(DependencyGraph& dependencyGraph);
     };

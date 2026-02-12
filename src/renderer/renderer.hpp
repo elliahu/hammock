@@ -2,18 +2,18 @@
 #include <memory>
 #include <stdexcept>
 
-#include "graphics_context.hpp"
-#include "hammock_core.hpp"
+#include "core/command_buffer.hpp"
+#include "core/vulkan_context.hpp"
 
 namespace hammock::renderer {
     class Renderer {
        public:
-        explicit Renderer(GraphicsContext& context);
+        explicit Renderer(core::VulkanContext& context);
 
         void drawFrame(core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore& signal) const;
 
        private:
-        GraphicsContext& ctx_;
+        core::VulkanContext& ctx_;
         std::vector<std::unique_ptr<core::CommandBuffer>> commandBuffers_;
     };
 };  // namespace hammock::renderer

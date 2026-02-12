@@ -1,15 +1,14 @@
 #pragma once
+#include <compare>
 #include <memory>
 #include <unordered_map>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
-#include "utilities.hpp"
-#include "buffer.hpp"
-#include "image.hpp"
-#include "device.hpp"
 #include "base_resource.hpp"
-
+#include "buffer.hpp"
+#include "device.hpp"
+#include "image.hpp"
+#include "utilities.hpp"
 
 namespace hammock::core {
     class ResourceManager;
@@ -29,7 +28,7 @@ namespace hammock::core {
 
     /// @class ResourceManager
     /// Instance of this class is responsible for keeping and cleaning resources allocated on the GPU
-    class ResourceManager final : public Singleton<ResourceManager> {
+    class ResourceManager final{
         friend class Singleton<ResourceManager>;
 
        private:
@@ -50,13 +49,10 @@ namespace hammock::core {
 
         std::unordered_map<uint64_t, CacheEntry> resourceCache_;
 
+       public:
         explicit ResourceManager(Device& device, vk::DeviceSize memoryBudget = 6ULL * 1024 * 1024 * 1024)
             // 6GB default
             : device_(device), totalMemoryUsed_(0), memoryBudget_(memoryBudget), nextId_(1) {}
-
-       public:
-        /// @brief Initializes the singleton instance
-        static void initialize(Device& device, vk::DeviceSize memoryBudget = 6ULL * 1024 * 1024 * 1024);
 
         /// @brief Create a resource
         template <typename T, typename... Args>
@@ -76,10 +72,10 @@ namespace hammock::core {
         void evictResources(vk::DeviceSize requiredSize);
     };
 
-    template<typename T, typename ... Args>
-    ResourceHandle ResourceManager::createResource(Args &&...args) {
+    template <typename T, typename... Args>
+    ResourceHandle ResourceManager::createResource(Args&&... args) {
         static_assert(ResourceTypeTraits<T>::type != ResourceType::Invalid,
-                      "Resource type not registered in ResourceTypeTraits");
+            "Resource type not registered in ResourceTypeTraits");
 
         auto resource = ResourceFactory::create<T>(device_, nextId_, std::forward<Args>(args)...);
         uint64_t id = nextId_++;
@@ -95,15 +91,18 @@ namespace hammock::core {
 
         auto handle = ResourceHandle::create(ResourceTypeTraits<T>::type, id);
 
-        Logger::debug("creating resource type %d with id %llu - packed handle %llu", handle.getType(), handle.getUid(), handle.getPackedHandle());
+        Logger::debug("creating resource type %d with id %llu - packed handle %llu",
+            handle.getType(),
+            handle.getUid(),
+            handle.getPackedHandle());
 
         return handle;
     }
 
-    template<typename T, typename ... Args>
-    ResourceHandle ResourceManager::addResource(Args &&...args) {
+    template <typename T, typename... Args>
+    ResourceHandle ResourceManager::addResource(Args&&... args) {
         static_assert(ResourceTypeTraits<T>::type != ResourceType::Invalid,
-                      "Resource type not registered in ResourceTypeTraits");
+            "Resource type not registered in ResourceTypeTraits");
 
         auto resource = ResourceFactory::create<T>(device_, nextId_, std::forward<Args>(args)...);
         uint64_t id = nextId_++;
@@ -114,8 +113,8 @@ namespace hammock::core {
         return ResourceHandle::create(ResourceTypeTraits<T>::type, id);
     }
 
-    template<typename T>
-    T * ResourceManager::getResource(ResourceHandle handle) {
+    template <typename T>
+    T* ResourceManager::getResource(ResourceHandle handle) {
         // Type check
         if (ResourceTypeTraits<T>::type != handle.getType()) {
             return nullptr;

@@ -10,7 +10,7 @@
 #include "hammock_core.hpp"
 
 
-namespace hammock::renderer::filesystem {
+namespace hammock::filesystem {
     /// Check if file exists
     inline bool fileExists(const std::string &filename) {
         std::ifstream f(filename.c_str());

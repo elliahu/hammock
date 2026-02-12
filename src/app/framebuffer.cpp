@@ -3,41 +3,39 @@
 #include <vulkan/vulkan.hpp>
 
 #include "framebuffer.hpp"
-#include "hammock_core.hpp"
+#include "core/vulkan_context.hpp"
 
-hammock::engine::Framebuffer::Framebuffer(core::Device &device, std::uint32_t framesInFlight, math::Vec2 resolution,
-                                          core::ImageFormat format) : device_(device), resolution_(resolution),
+hammock::app::Framebuffer::Framebuffer(core::VulkanContext &ctx, std::uint32_t framesInFlight, math::Vec2 resolution,
+                                          core::ImageFormat format) : ctx_(ctx), resolution_(resolution),
                                                                framesInFlight_(framesInFlight) {
     createImages(resolution, format);
 }
 
-hammock::engine::Framebuffer::~Framebuffer() {
-    auto &rm = core::ResourceManager::getInstance();
+hammock::app::Framebuffer::~Framebuffer() {
     for (auto &i: images_) {
-        rm.releaseResource(i.getUid());
+        ctx_.resourceManager->releaseResource(i.getUid());
     }
 }
 
-vk::Extent2D hammock::engine::Framebuffer::getExtent() const {
+vk::Extent2D hammock::app::Framebuffer::getExtent() const {
     return vk::Extent2D(
         static_cast<std::uint32_t>(resolution_.X),
         static_cast<std::uint32_t>(resolution_.Y)
     );
 }
 
-void hammock::engine::Framebuffer::swapImages() {
+void hammock::app::Framebuffer::swapImages() {
     currentFrame_ = (currentFrame_ + 1) % framesInFlight_;
 }
 
-hammock::core::ResourceHandle hammock::engine::Framebuffer::getFrontbufferImage() const {
+hammock::core::ResourceHandle hammock::app::Framebuffer::getFrontbufferImage() const {
     return images_[currentFrame_];
 }
 
 
-void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, core::ImageFormat format) {
-    auto &rm = core::ResourceManager::getInstance();
+void hammock::app::Framebuffer::createImages(math::Vec2 resolution, core::ImageFormat format) {
     for (int i = 0; i < framesInFlight_; i++) {
-        auto handle = rm.createResource<core::Image>(core::ImageDesc{
+        auto handle = ctx_.resourceManager->createResource<core::Image>(core::ImageDesc{
             .width = static_cast<std::uint32_t>(resolution.X),
             .height = static_cast<std::uint32_t>(resolution.Y),
             .channels = 4,
@@ -52,5 +50,5 @@ void hammock::engine::Framebuffer::createImages(math::Vec2 resolution, core::Ima
     }
 
     // Wait for all transitions
-    device_.waitIdle();
+    ctx_.device->waitIdle();
 }

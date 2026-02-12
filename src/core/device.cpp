@@ -330,10 +330,15 @@ namespace hammock::core {
         throw std::runtime_error("failed to find suitable memory type!");
     }
 
-    vk::CommandBuffer Device::beginSingleTimeCommands() const {
+    vk::CommandBuffer Device::beginSingleTimeCommands(CommandQueueFamily family) const {
         vk::CommandBufferAllocateInfo allocInfo{};
         allocInfo.level = vk::CommandBufferLevel::ePrimary;
-        allocInfo.commandPool = graphicsCommandPool_;
+        if(family == CommandQueueFamily::Compute)
+            allocInfo.commandPool = computeCommandPool_;
+        else if (family == CommandQueueFamily::Transfer)
+            allocInfo.commandPool = transferCommandPool_;
+        else
+            allocInfo.commandPool = graphicsCommandPool_;
         allocInfo.commandBufferCount = 1;
 
         vk::CommandBuffer commandBuffer;

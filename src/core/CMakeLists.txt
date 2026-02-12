@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.30)
 
 # Core library
 add_library(hammock_core
-        "hammock_core.hpp"
         "base_pipeline.hpp"
         "base_resource.hpp"
         "base_surface_provider.hpp"
@@ -20,6 +19,7 @@ add_library(hammock_core
         "swapchain.hpp"
         "utilities.hpp"
         "semaphore.hpp"
+        "vulkan_context.hpp"
 
         "buffer.cpp"
         "image.cpp"
@@ -34,6 +34,7 @@ add_library(hammock_core
         "resource_manager.cpp"
         "swapchain.cpp"
         "semaphore.cpp"
+        "vulkan_context.cpp"
 )
 
 # Include directories for legacy headers

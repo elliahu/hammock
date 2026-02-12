@@ -5,11 +5,14 @@
 #include <vulkan/vulkan.hpp>
 #include <functional>
 
-#include "hammock_core.hpp"
+#include "core/semaphore.hpp"
+#include "core/command_buffer.hpp"
+#include "core/swapchain_manager.hpp"
 #include "framebuffer.hpp"
+#include "core/vulkan_context.hpp"
 
 
-namespace hammock::engine {
+namespace hammock::app {
     /// @brief Context provided to the renderer for each frame
     struct FrameContext {
         core::ResourceHandle renderTarget;
@@ -48,7 +51,7 @@ namespace hammock::engine {
     protected:
         // Protected Constructor (only subclasses can instantiate)
         BasePresentationStrategy(
-            core::Device &device,
+            core::VulkanContext &ctx,
             vk::Extent2D resolution,
             core::ImageFormat format,
             uint32_t framesInFlight
@@ -80,7 +83,7 @@ namespace hammock::engine {
 
         // Protected Members (accessible by subclasses)
 
-        core::Device &device_;
+        core::VulkanContext &ctx_;
         std::unique_ptr<Framebuffer> framebuffer_;
         std::vector<PerFrameResources> perFrameResources_;
 
@@ -93,46 +96,19 @@ namespace hammock::engine {
 
     // Concrete Strategies - Only implement presentation differences
 
-    /// @class HeadlessPresentationStrategy
-    /// @brief Headless rendering - no presentation, just framebuffer
-    class HeadlessPresentationStrategy : public BasePresentationStrategy {
-    public:
-        HeadlessPresentationStrategy(
-            core::Device &device,
-            vk::Extent2D resolution,
-            core::ImageFormat format = core::ImageFormat::R8G8B8A8Uint,
-            uint32_t framesInFlight = 1 // Headless typically uses 1
-        );
-
-        /// @brief Get the rendered image for readback/saving
-        core::ResourceHandle getRenderedImage() const;
-
-        /// @brief Change resolution (will recreate framebuffer)
-        void setResolution(vk::Extent2D newResolution);
-
-        bool surfaceCapable() override { return false; }
-
-    protected:
-        // No special begin logic needed
-        bool onBeginFrame() override { return true; }
-
-        // No presentation needed - framebuffer is the final output
-        void onPresent(const FrameContext &ctx) override;
-    };
-
     /// @class SurfacePresentationStrategy
     /// @brief Surface-based rendering - framebuffer + swapchain presentation
     class SurfacePresentationStrategy : public BasePresentationStrategy {
     public:
         enum class Mode {
-            Runtime, // Just scene rendering
-            Editor // Scene + UI rendering
+            Tooling, 
+            Game 
         };
 
         SurfacePresentationStrategy(
-            core::Device &device,
+            core::VulkanContext &ctx,
             core::BaseSurfaceProvider &surfaceProvider,
-            Mode mode = Mode::Runtime
+            Mode mode = Mode::Tooling
         );
 
         ~SurfacePresentationStrategy() override = default;

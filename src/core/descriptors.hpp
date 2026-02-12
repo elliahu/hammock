@@ -1,14 +1,11 @@
 #pragma once
+#include <compare>
 #include <memory>
 #include <unordered_map>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "device.hpp"
 #include "utilities.hpp"
-
-
-
 
 namespace hammock::core {
     typedef const uint32_t Binding;
@@ -20,7 +17,8 @@ namespace hammock::core {
     class DescriptorWriter;
 
     /// @class DescriptorSetLayout
-    /// @brief Wrapper class around Vulkan descriptor set layout which describes what kind of resources are bound
+    /// @brief Wrapper class around Vulkan descriptor set layout which describes what kind of resources are
+    /// bound
     class DescriptorSetLayout {
        public:
         DescriptorSetLayout(Device& device,
@@ -47,7 +45,7 @@ namespace hammock::core {
     /// @class DescriptorSetLayoutBuilder
     /// @brief Builder style helper for creating descriptor set layouts
     class DescriptorSetLayoutBuilder {
-    public:
+       public:
         explicit DescriptorSetLayoutBuilder(Device& device) : device_{device} {}
 
         /// @brief Add binding to the layout
@@ -57,7 +55,7 @@ namespace hammock::core {
         /// @brief Build the actual layout as a unique ptr
         [[nodiscard]] std::unique_ptr<DescriptorSetLayout> build() const;
 
-    private:
+       private:
         Device& device_;
         std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> bindings_{};
         std::unordered_map<uint32_t, vk::DescriptorBindingFlags> bindingFlags_{};
@@ -66,22 +64,19 @@ namespace hammock::core {
     /// @class DescriptorPool
     /// @brief Wrapper class around Vulkan descriptor pool.
     /// Used to allocate descriptors. Singleton class.
-    class DescriptorPool final : public Singleton<DescriptorPool> {
-        friend class Singleton<DescriptorPool>;
+    class DescriptorPool final {
         friend class DescriptorWriter;
 
        public:
+        DescriptorPool(Device& device, uint32_t maxSets, vk::DescriptorPoolCreateFlags poolFlags,
+            const std::vector<vk::DescriptorPoolSize>& poolSizes);
         DescriptorPool(const DescriptorPool&) = delete;
         DescriptorPool& operator=(const DescriptorPool&) = delete;
 
-        ~DescriptorPool() override;
-
-        /// @brief Initialize the singleton instance
-        static void initialize(Device& device, uint32_t maxSets, vk::DescriptorPoolCreateFlags poolFlags,
-            const std::vector<vk::DescriptorPoolSize>& poolSizes);
-
+        ~DescriptorPool();
         /// @brief Allocate descriptor from the pool
-        bool allocateDescriptor(vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor) const;
+        bool allocateDescriptor(
+            vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor) const;
 
         /// @brief Free allocated descriptor
         void freeDescriptors(const std::vector<vk::DescriptorSet>& descriptors) const;
@@ -90,19 +85,17 @@ namespace hammock::core {
         void resetPool() const;
 
         /// @brief Get the Vulkan handle
-        vk::DescriptorPool& getDescriptorPool() {return descriptorPool_;}
+        vk::DescriptorPool& getDescriptorPool() { return descriptorPool_; }
 
        protected:
-        DescriptorPool(Device& device, uint32_t maxSets, vk::DescriptorPoolCreateFlags poolFlags,
-            const std::vector<vk::DescriptorPoolSize>& poolSizes);
-
         Device& device_;
         vk::DescriptorPool descriptorPool_;
     };
 
     /// @class DescriptorWriter
     /// Helper class for writing data into descriptors.
-    /// Given a descriptor set layout, using this builder style class you can create a concrete descriptor set.
+    /// Given a descriptor set layout, using this builder style class you can create a concrete descriptor
+    /// set.
     class DescriptorWriter {
        public:
         DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool& pool);
@@ -121,8 +114,8 @@ namespace hammock::core {
         DescriptorWriter& writeImageArray(
             uint32_t binding, const std::vector<vk::DescriptorImageInfo>& imageInfos);
 
-        DescriptorWriter& writeAccelerationStructure(
-            uint32_t binding, const vk::WriteDescriptorSetAccelerationStructureKHR* accelerationStructureInfo);
+        DescriptorWriter& writeAccelerationStructure(uint32_t binding,
+            const vk::WriteDescriptorSetAccelerationStructureKHR* accelerationStructureInfo);
 
         /// @brief Build the actual descriptor set
         bool build(vk::DescriptorSet& set);

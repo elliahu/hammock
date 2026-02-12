@@ -2,10 +2,10 @@
 #include <memory>
 
 #include "runner.hpp"
-#include "hammock_renderer.hpp"
+#include "core/vulkan_context.hpp"
 
 
-namespace hammock::engine {
+namespace hammock::app {
     class Application final {
     public:
         explicit Application(RunnerMode mode);
@@ -13,7 +13,7 @@ namespace hammock::engine {
         void launch() const;
 
     private:
-        std::unique_ptr<renderer::GraphicsContext> context_;
+        std::unique_ptr<core::VulkanContext> context_;
         std::unique_ptr<Runner> runner_;
     };
 }

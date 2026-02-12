@@ -11,18 +11,18 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "base_resource.hpp"
-#include "buffer.hpp"
-#include "compute_pipeline.hpp"
+#include "core/base_resource.hpp"
+#include "core/buffer.hpp"
+#include "core/compute_pipeline.hpp"
 #include "dependency_graph.hpp"
 #include "gpu_task.hpp"
-#include "hammock_core.hpp"
-#include "image.hpp"
-#include "resource_manager.hpp"
-#include "swapchain.hpp"
-#include "vulkan/vulkan.hpp"
+#include "core/image.hpp"
+#include "core/resource_manager.hpp"
+#include "core/swapchain.hpp"
 
 namespace hammock::renderer {
+
+    DependencyGraphCompiler::DependencyGraphCompiler(core::VulkanContext& ctx) : ctx_(ctx) {}
 
     ReadWriteIntent DependencyGraphCompiler::determineReadWriteIntent(AccessInterface accessIface) {
         if (auto imageAccess = std::get_if<ImageAccess>(&accessIface)) {
@@ -83,7 +83,8 @@ namespace hammock::renderer {
 
         // Detect hazards
         // FIXME this part is essentially iterating in the task submission order. Should be order independent.
-        // For now this is ok, but it means the responsibility of ordering the tasks of the graph is no in the hands of the application.
+        // For now this is ok, but it means the responsibility of ordering the tasks of the graph is no in the
+        // hands of the application.
         for (auto accessPair : logicalResourceUses_) {
             auto resourceHandle = accessPair.first;
             auto accesses = accessPair.second;
@@ -192,7 +193,7 @@ namespace hammock::renderer {
 
     core::ResourceHandle DependencyGraphCompiler::createPhysicalImageResource(
         LogicalImageResource* logicalImageResource) {
-        return core::ResourceManager::getInstance().createResource<core::Image>(core::ImageDesc{
+        return ctx_.resourceManager->createResource<core::Image>(core::ImageDesc{
             .width = logicalImageResource->width,
             .height = logicalImageResource->height,
             .channels = logicalImageResource->channels,
@@ -205,7 +206,7 @@ namespace hammock::renderer {
     }
     core::ResourceHandle DependencyGraphCompiler::createPhysicalBufferResource(
         LogicalBufferResource* logicalBufferResource) {
-        return core::ResourceManager::getInstance().createResource<core::Buffer>(
+        return ctx_.resourceManager->createResource<core::Buffer>(
             core::BufferDesc{.type = logicalBufferResource->type,
                 .usage = logicalBufferResource->usage,
                 .instanceSize = logicalBufferResource->instanceSize,
@@ -480,7 +481,6 @@ namespace hammock::renderer {
         return std::move(compiledDependencyGraph_);
     }
 
-    void DependencyGraphCompiler::createComputePipeline(CompiledTask& task) {
-        
-    }
+    void DependencyGraphCompiler::createComputePipeline(CompiledTask& task) {}
+
 }  // namespace hammock::renderer

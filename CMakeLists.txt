@@ -43,7 +43,8 @@ add_subdirectory(src/renderer)
 add_subdirectory(src/dependency_graph)
 # This target compiles slang shaders into binary output directory
 add_subdirectory(src/renderer/shaders)
-add_subdirectory(src/engine)
+add_subdirectory(src/app)
+add_subdirectory(src/utils)
 
 
 # Add examples

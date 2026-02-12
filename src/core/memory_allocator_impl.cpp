@@ -3,4 +3,4 @@
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 
 // ReSharper disable once CppUnusedIncludeDirective
-#include "vk_mem_alloc/vk_mem_alloc.h"
+#include "vma/include/vk_mem_alloc.h"

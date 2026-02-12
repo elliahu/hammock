@@ -96,11 +96,6 @@ namespace hammock::core {
         device_.device().destroyDescriptorPool(descriptorPool_, nullptr);
     }
 
-    void DescriptorPool::initialize(Device &device, uint32_t maxSets, vk::DescriptorPoolCreateFlags poolFlags,
-        const std::vector<vk::DescriptorPoolSize> &poolSizes) {
-        Singleton<DescriptorPool>::initialize(device, maxSets, poolFlags, poolSizes);
-    }
-
     bool DescriptorPool::allocateDescriptor(
         const vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet &descriptor) const {
         vk::DescriptorSetAllocateInfo allocInfo{};

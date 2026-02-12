@@ -1,21 +1,18 @@
-#pragma once    
-#include <cstdint>
-#include <vector>
-#include <string>
-#include <cassert>
-#include <stdexcept>
+#pragma once
 #include <array>
+#include <cassert>
 #include <compare>
-#include "vulkan/vulkan.hpp"
-
+#include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "base_resource.hpp"
-#include "device.hpp"
-#include "utilities.hpp"
 #include "buffer.hpp"
+#include "device.hpp"
 #include "memory_allocator.hpp"
-
-
+#include "utilities.hpp"
+#include "vulkan/vulkan.hpp"
 
 namespace hammock::core {
     /// @enum ImageFormat
@@ -29,9 +26,8 @@ namespace hammock::core {
 
     /// @class VulkanImageFormat
     class VulkanImageFormat {
-    public:
-        constexpr VulkanImageFormat(ImageFormat fmt) : format(fmt) {
-        }
+       public:
+        constexpr VulkanImageFormat(ImageFormat fmt) : format(fmt) {}
 
         explicit constexpr operator vk::Format() const {
             switch (format) {
@@ -48,7 +44,7 @@ namespace hammock::core {
             throw std::runtime_error("unsupported format");
         }
 
-    private:
+       private:
         ImageFormat format;
     };
 
@@ -64,22 +60,17 @@ namespace hammock::core {
     };
 
     constexpr ImageUsage operator|(ImageUsage a, ImageUsage b) {
-        return static_cast<ImageUsage>(
-            static_cast<uint32_t>(a) | static_cast<uint32_t>(b)
-        );
+        return static_cast<ImageUsage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
     }
 
     constexpr ImageUsage operator&(ImageUsage a, ImageUsage b) {
-        return static_cast<ImageUsage>(
-            static_cast<uint32_t>(a) & static_cast<uint32_t>(b)
-        );
+        return static_cast<ImageUsage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
     }
 
     /// @class VulkanImageUsage
     class VulkanImageUsage {
-    public:
-        constexpr VulkanImageUsage(ImageUsage usage) : usage(usage) {
-        }
+       public:
+        constexpr VulkanImageUsage(ImageUsage usage) : usage(usage) {}
 
         explicit constexpr operator vk::ImageUsageFlags() const {
             vk::ImageUsageFlags flags{};
@@ -90,11 +81,9 @@ namespace hammock::core {
             if ((usage & ImageUsage::TransferDst) != ImageUsage::None)
                 flags |= vk::ImageUsageFlagBits::eTransferDst;
 
-            if ((usage & ImageUsage::Sampled) != ImageUsage::None)
-                flags |= vk::ImageUsageFlagBits::eSampled;
+            if ((usage & ImageUsage::Sampled) != ImageUsage::None) flags |= vk::ImageUsageFlagBits::eSampled;
 
-            if ((usage & ImageUsage::Storage) != ImageUsage::None)
-                flags |= vk::ImageUsageFlagBits::eStorage;
+            if ((usage & ImageUsage::Storage) != ImageUsage::None) flags |= vk::ImageUsageFlagBits::eStorage;
 
             if ((usage & ImageUsage::ColorAttachment) != ImageUsage::None)
                 flags |= vk::ImageUsageFlagBits::eColorAttachment;
@@ -105,7 +94,7 @@ namespace hammock::core {
             return flags;
         }
 
-    private:
+       private:
         ImageUsage usage;
     };
 
@@ -119,9 +108,8 @@ namespace hammock::core {
     };
 
     class VulkanImageType {
-    public:
-        constexpr VulkanImageType(ImageType type) : type_(type) {
-        }
+       public:
+        constexpr VulkanImageType(ImageType type) : type_(type) {}
 
         explicit constexpr operator vk::ImageType() const {
             switch (type_) {
@@ -157,10 +145,9 @@ namespace hammock::core {
             throw std::runtime_error("unsupported type");
         }
 
-    private:
+       private:
         ImageType type_;
     };
-
 
     /// @struct ImageDesc
     /// @brief Describes a general image
@@ -179,19 +166,17 @@ namespace hammock::core {
         struct {
             CommandQueueFamily currentQueueFamily = CommandQueueFamily::Ignored;
             std::vector<CommandQueueFamily> queueFamilies{
-                CommandQueueFamily::Graphics, CommandQueueFamily::Compute, CommandQueueFamily::Transfer
-            };
+                CommandQueueFamily::Graphics, CommandQueueFamily::Compute, CommandQueueFamily::Transfer};
             vk::SharingMode sharingMode = vk::SharingMode::eConcurrent;
             vk::MemoryPropertyFlagBits memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
             vk::ImageTiling tiling = vk::ImageTiling::eOptimal;
         } advanced{};
     };
 
-
     /// @class Image
     /// @brief General Vulkan image resource
     class Image : public BaseResource {
-    protected:
+       protected:
         // Format and usage
         vk::Format format_;
         vk::ImageUsageFlags usage_;
@@ -219,8 +204,8 @@ namespace hammock::core {
 
         vk::Sampler sampler_{};
 
-    public:
-        Image(Device &device, std::uint64_t id, const ImageDesc &desc);
+       public:
+        Image(Device& device, std::uint64_t id, const ImageDesc& desc);
 
         ~Image() override;
 
@@ -251,7 +236,8 @@ namespace hammock::core {
         /// @brief Ge the rendering attachment info when using this image as a render target
         [[nodiscard]] vk::RenderingAttachmentInfo getRenderingAttachmentInfo() const;
 
-        /// @brief Get the descriptor image info when using this image in a descriptor set with external sampler
+        /// @brief Get the descriptor image info when using this image in a descriptor set with external
+        /// sampler
         [[nodiscard]] vk::DescriptorImageInfo getDescriptorImageInfo(vk::Sampler sampler) const;
 
         /// @brief Get the descriptor image info when using this image in a descriptor set
@@ -261,7 +247,8 @@ namespace hammock::core {
         vk::ImageAspectFlags getAspectMask() const;
 
         /// @brief This creates a sampler and returns it.
-        /// @note This does not asign the sampler to the image. To create a sampler for this image, call createSampler()
+        /// @note This does not asign the sampler to the image. To create a sampler for this image, call
+        /// createSampler()
         [[nodiscard]] vk::Sampler createAndGetSampler() const;
 
         /// @brief Creates a sampler and retains it
@@ -278,24 +265,16 @@ namespace hammock::core {
         void queueImageLayoutTransition(vk::ImageLayout newLayout);
 
         vk::ImageSubresourceRange getSubresourceRange(
-            std::uint32_t baseMipLevel = 0,
-            std::uint32_t baseArrayLayer = 0) const;
+            std::uint32_t baseMipLevel = 0, std::uint32_t baseArrayLayer = 0) const;
 
         /**
          * Applies a pipeline barrier to the image. New layout is tracked internally. Layout tracking is not
          * thread safe, so do not call this from multiple threads.
          */
-        void recordPipelineBarrier(
-            vk::CommandBuffer cmd,
-            vk::PipelineStageFlags2 srcStageMask,
-            vk::AccessFlags2 srcAccessMask,
-            vk::PipelineStageFlags2 dstStageMask,
-            vk::AccessFlags2 dstAccessMask,
-            vk::ImageLayout oldLayout,
-            vk::ImageLayout newLayout,
-            std::uint32_t srcQueueFamilyIndex,
-            std::uint32_t dstQueueFamilyIndex);
-
+        void recordPipelineBarrier(vk::CommandBuffer cmd, vk::PipelineStageFlags2 srcStageMask,
+            vk::AccessFlags2 srcAccessMask, vk::PipelineStageFlags2 dstStageMask,
+            vk::AccessFlags2 dstAccessMask, vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
+            std::uint32_t srcQueueFamilyIndex, std::uint32_t dstQueueFamilyIndex);
 
         /**
          * Copy data from buffer into this image
@@ -323,7 +302,7 @@ namespace hammock::core {
         void generateMips();
     };
 
-    template<>
+    template <>
     struct ResourceTypeTraits<Image> {
         static constexpr ResourceType type = ResourceType::Image;
     };
@@ -359,8 +338,8 @@ namespace hammock::core {
         std::uint32_t mips_;
         float mipLodBias_;
 
-    public:
-        Sampler(Device &device, std::uint64_t id, const SamplerDesc &desc);
+       public:
+        Sampler(Device& device, std::uint64_t id, const SamplerDesc& desc);
 
         ~Sampler() override;
 
@@ -372,8 +351,8 @@ namespace hammock::core {
         [[nodiscard]] VkSampler getSampler() const { return sampler_; }
     };
 
-    template<>
+    template <>
     struct ResourceTypeTraits<Sampler> {
         static constexpr ResourceType type = ResourceType::Sampler;
     };
-} // namespace hammock::core
+}  // namespace hammock::core

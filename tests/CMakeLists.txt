@@ -13,7 +13,7 @@ target_include_directories(unit_tests PUBLIC
     "${PROJECT_SOURCE_DIR}/third_party"
     "${PROJECT_SOURCE_DIR}/src/core"
     "${PROJECT_SOURCE_DIR}/src/renderer"
-    "${PROJECT_SOURCE_DIR}/src/engine"
+    "${PROJECT_SOURCE_DIR}/src/app"
     "${PROJECT_SOURCE_DIR}/src/dependency_graph"
     "${PROJECT_SOURCE_DIR}/third_party/imgui"
     "${Vulkan_INCLUDE_DIR}" # imgui needs vulkan.h

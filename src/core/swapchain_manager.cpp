@@ -102,9 +102,7 @@ registerOnSwapChainRecreatedCallback(const OnSwapChainRecreatedCallback &callbac
     onSwapChainRecreated_.push_back(std::move(callback));
 }
 
-void hammock::core::SwapChainManager::blitToSwapChainImage(CommandBuffer &commandBuffer, ResourceHandle src) {
-    auto image = ResourceManager::getInstance().getResource<Image>(src);
-
+void hammock::core::SwapChainManager::blitToSwapChainImage(CommandBuffer &commandBuffer, Image * image) {
     swapChain_->recordPipelineBarrier(
         currentImageIndex_,
         commandBuffer.getCommandBuffer(),

@@ -45,6 +45,7 @@ namespace hammock::core {
      * @class Device
      * @brief This class represents both logical and physical graphics device (GPU).
      * Along with Instance, Device is a core component of a Vulkan application
+     * TODO Remove headless
      */
     class Device {
     public:
@@ -120,7 +121,7 @@ namespace hammock::core {
 
         /// @brief Allocates a command buffer from the graphics queue
         /// Call endSingleTimeCommands to submit
-        [[nodiscard]] vk::CommandBuffer beginSingleTimeCommands() const;
+        [[nodiscard]] vk::CommandBuffer beginSingleTimeCommands(CommandQueueFamily family = CommandQueueFamily::Graphics) const;
 
         /// @brief submits given command buffer into graphics queue
         void endSingleTimeCommands(vk::CommandBuffer commandBuffer) const;

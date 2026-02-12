@@ -5,7 +5,7 @@
 
 #include "window.hpp"
 
-hammock::engine::Window::Window(const std::string &title, core::Instance &instance, const uint32_t width,
+hammock::app::Window::Window(const std::string &title, core::Instance &instance, const uint32_t width,
     const uint32_t height, const uint32_t x, const uint32_t y): instance_(instance) {
 
     window_ = Surfer::Window::createWindow("Hammock engine", width, height, static_cast<int32_t>(x),
@@ -17,18 +17,18 @@ hammock::engine::Window::Window(const std::string &title, core::Instance &instan
     surface_ = vk::SurfaceKHR(cSurface);
 }
 
-hammock::engine::Window::~Window() {
+hammock::app::Window::~Window() {
     instance_.getInstance().destroySurfaceKHR(surface_, nullptr);
     Surfer::Window::destroyWindow(window_);
 }
 
-bool hammock::engine::Window::shouldClose() const {
+bool hammock::app::Window::shouldClose() const {
     return window_->shouldClose();
 }
 
-void hammock::engine::Window::pollEvents() const { window_->pollEvents(); }
+void hammock::app::Window::pollEvents() const { window_->pollEvents(); }
 
-vk::Extent2D hammock::engine::Window::getExtent() const {
+vk::Extent2D hammock::app::Window::getExtent() const {
     uint32_t w, h;
     window_->getWindowSize(w, h);
     return vk::Extent2D(w, h);

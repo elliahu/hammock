@@ -4,19 +4,19 @@
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
+#include "core/vulkan_context.hpp"
 #include "window.hpp"
 #include "ui.hpp"
 #include "presentation_engine.hpp"
-#include "hammock_renderer.hpp"
+#include "renderer/renderer.hpp"
 
-namespace hammock::engine {
+namespace hammock::app {
 
     /// @enum RunnerMode
     /// @brief Defines how the runner launches the engine
     enum class RunnerMode {
-        Headless, /// Running without a rendering surface
-        Editor, /// Surface rendering without tooling
-        Runtime, /// Both tooling and surface rendering
+        Tooling, 
+        Game, 
     };
 
     /// @class Runner
@@ -27,7 +27,7 @@ namespace hammock::engine {
     /// - Handles application-level events and lifecycle
     class Runner {
     public:
-        Runner(RunnerMode mode, renderer::GraphicsContext& context);
+        Runner(RunnerMode mode, core::VulkanContext& vulkanContext);
         ~Runner();
 
         /// @brief Start the editor main loop
@@ -44,7 +44,7 @@ namespace hammock::engine {
         // Core Systems (in order of ownership dependency)
 
         /// Graphics context (reference, owned by Application)
-        renderer::GraphicsContext& context_;
+        core::VulkanContext& vulkanContext_;
 
         /// Window (owned by Editor)
         std::unique_ptr<Window> window_;
