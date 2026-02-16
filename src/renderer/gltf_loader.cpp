@@ -1,6 +1,6 @@
 #include "gltf_loader.hpp"
 
-
+hammock::renderer::GltfLoader::GltfLoader(core::VulkanContext& ctx) : ctx_(ctx) {}
 hammock::renderer::GltfLoader::~GltfLoader() {};
 
 void hammock::renderer::GltfLoader::checkResult(cgltf_result& result) {
@@ -31,7 +31,6 @@ void hammock::renderer::GltfLoader::checkResult(cgltf_result& result) {
     }
 }
 
-
 void hammock::renderer::GltfLoader::read(const std::string& glTF) {
     // Loading library options
     cgltf_options options = {
@@ -40,10 +39,16 @@ void hammock::renderer::GltfLoader::read(const std::string& glTF) {
     };
 
     // Parse file
-    cgltf_result result = cgltf_parse_file(&options, glTF.c_str(), &data_);
 
     // Check result
     try {
+        cgltf_result result = cgltf_parse_file(&options, glTF.c_str(), &data_);
+        checkResult(result);
+
+        result = cgltf_load_buffers(&options, data_, glTF.c_str());
+        checkResult(result);
+
+        result = cgltf_validate(data_);
         checkResult(result);
     } catch (std::runtime_error err) {
         throw std::runtime_error("failed to parse glTF file: " + std::string(err.what()));

@@ -34,8 +34,4 @@ namespace hammock::renderer {
             };
         }
     };
-
-    struct Triangle {
-        Vertex v0, v1, v2;
-    };
 }

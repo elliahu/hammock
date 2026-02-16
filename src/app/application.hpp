@@ -1,19 +1,19 @@
 #pragma once
 #include <memory>
 
-#include "runner.hpp"
 #include "core/vulkan_context.hpp"
-
+#include "runner.hpp"
 
 namespace hammock::app {
     class Application final {
-    public:
+       public:
         explicit Application(RunnerMode mode);
 
         void launch() const;
+        core::VulkanContext& getVulkanContext() { return *context_; }
 
-    private:
+       private:
         std::unique_ptr<core::VulkanContext> context_;
         std::unique_ptr<Runner> runner_;
     };
-}
+}  // namespace hammock::app

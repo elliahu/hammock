@@ -3,7 +3,9 @@
 #include <stdexcept>
 #include <vector>
 
+#include "base_resource.hpp"
 #include "stage_types.hpp"
+#include "vertex.hpp"
 
 namespace hammock::renderer {
 
@@ -22,10 +24,12 @@ namespace hammock::renderer {
         std::vector<Scene> scenes;
         std::vector<SceneNode> nodes;
         std::vector<Material> materials;
+        std::vector<Primitive> primitives;
+        std::vector<Vertex> vertexBuffer{};
+        std::vector<std::uint32_t> indexBuffer{};
 
        public:
         ~Stage() override = default;
-
     };
 
 }  // namespace hammock::renderer

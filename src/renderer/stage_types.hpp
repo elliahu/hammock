@@ -40,45 +40,36 @@ namespace hammock::renderer {
     /// @struct Light
     /// Represents a light source
     struct Light {
-        struct PunctualLight {
-            std::array<float, 3> color;
-            float intensity;
-        };
-
         LightType type;
-        union {
-            PunctualLight punctual;
-        };
+        std::array<float, 3> color;
+        float intensity;
     };
-
-    /// @enum MaterialWorkflow
-    enum class MaterialWorkflow : std::uint8_t { PbrMetallicRoughness };
 
     /// @struct Material
     /// Represents a material
     /// @note For now, we ignore textured materials for simplicity
     struct Material {
-        struct PbrMetallicRoughness {
-            std::array<float, 4> baseColorFactor;
-            float roughnessFactor;
-            float metallicFactor;
-        };
-        MaterialWorkflow workflow;
+        struct PbrMetallicRoughness {};
+        struct PbrSpecularGlossiness {};
         bool doubleSided;
-        const char* name;
-        union {
-            PbrMetallicRoughness pbrMetallicRoughness;
-        };
+        std::array<float, 4> baseColorFactor = {1.f, 1.f, 1.f, 1.f};
+        float roughnessFactor = 1.f;
+        float metallicFactor = 1.f;
     };
 
-
+    /// @struct Primitive
+    /// Represents a single drawable entity (like a single draw call)
+    struct Primitive {
+        std::uint32_t materialIndex;
+        std::uint32_t firstIndex;
+        std::uint32_t indexCount;
+    };
 
     /// @struct Mesh
     /// Represents renderable mesh
     struct Mesh {
-        std::uint32_t materialIndex;
-        std::uint32_t firstIndex;
-        std::uint32_t indexCount;
+        std::uint32_t firstInstance;
+        std::uint32_t instanceCount;
     };
 
     /// @enum SceneNodeBaseType
@@ -90,11 +81,9 @@ namespace hammock::renderer {
     /// Composition used instead of inheritance for better performance
     struct SceneNode {
         SceneNodeBaseType baseType;
-        union {
-            Camera camera;
-            Light light;
-            Mesh mesh;
-        };
+        Camera camera;
+        Light light;
+        Mesh mesh;
     };
 
     /// @struct Hierarchy

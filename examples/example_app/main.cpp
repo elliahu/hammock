@@ -11,7 +11,7 @@ using namespace hammock;
 int main() {
     auto app = std::make_unique<app::Application>(app::RunnerMode::Tooling);
 
-    auto loader = std::make_unique<renderer::GltfLoader>();
+    auto loader = std::make_unique<renderer::GltfLoader>(app->getVulkanContext());
     auto stage = std::make_unique<renderer::Stage>();
     try {
         loader->load("../../../data/scenes/cube_and_light/cube_and_light.glb", *stage);
