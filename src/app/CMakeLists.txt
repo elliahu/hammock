@@ -13,12 +13,6 @@ add_library(hammock_app
         "runner.cpp"
         "application.cpp"
         "window.cpp"
-        
-        "${IMGUI_DIR}/imgui.cpp"
-        "${IMGUI_DIR}/imgui_draw.cpp"
-        "${IMGUI_DIR}/imgui_tables.cpp"
-        "${IMGUI_DIR}/imgui_widgets.cpp"
-        "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp"
 )
 
 
@@ -28,7 +22,6 @@ add_library(hammock_app
 target_include_directories(hammock_app PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         "${PROJECT_SOURCE_DIR}/third_party"
-        "${PROJECT_SOURCE_DIR}/third_party/imgui"
         "${Vulkan_INCLUDE_DIR}" # imgui needs vulkan.h
         "${PROJECT_SOURCE_DIR}/src"
 )

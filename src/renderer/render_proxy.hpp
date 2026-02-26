@@ -1,6 +1,5 @@
 #pragma once
 #include "core/swapchain.hpp"
-#include "imgui_club/imgui_threaded_rendering/imgui_threaded_rendering.h"
 #include "render_types.hpp"
 #include "utils/spsc_queue.hpp"
 
@@ -21,7 +20,6 @@ namespace hammock::renderer {
         RenderCommandType type = RenderCommandType::None;
         uint32_t width{0};
         uint32_t height{0};
-        ImDrawData* ui;
     };
 
     using RenderQueue = threading::SPSCQueue<RenderSnapshot, core::SwapChain::MAX_FRAMES_IN_FLIGHT>;

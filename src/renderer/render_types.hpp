@@ -2,7 +2,6 @@
 #include <memory>
 #include <vector>
 
-#include "imgui_club/imgui_threaded_rendering/imgui_threaded_rendering.h"
 #include "math.hpp"
 
 namespace hammock::renderer {
