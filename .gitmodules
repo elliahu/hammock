@@ -15,3 +15,9 @@
 [submodule "third_party/vma"]
 	path = third_party/vma
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "third_party/imgui_club"]
+	path = third_party/imgui_club
+	url = https://github.com/ocornut/imgui_club
+[submodule "third_party/clay"]
+	path = third_party/clay
+	url = https://github.com/nicbarker/clay
