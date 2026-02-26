@@ -13,6 +13,29 @@ hammock::renderer::RenderFrontend::RenderFrontend(
 void hammock::renderer::RenderFrontend::start() {
     core::Logger::debug("Logic thread %d", std::this_thread::get_id());
 
+    Ui::initialize(surfaceProvider_.getExtent().width, surfaceProvider_.getExtent().height);
+    Ui::instance().setUiCallback([] {
+        // Declare UI using Clay macros — runs on logic thread, no GPU state
+        CLAY(CLAY_ID("Root"),
+            {
+                .layout =
+                    {
+                        .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
+                        .padding = CLAY_PADDING_ALL(16),
+                        .childGap = 8,
+                        .layoutDirection = CLAY_TOP_TO_BOTTOM,
+                    },
+                .backgroundColor = {20, 20, 20, 200},
+            }) {
+            CLAY_TEXT(CLAY_STRING("Loading..."),
+                CLAY_TEXT_CONFIG({
+                    .textColor = {255, 255, 255, 255},
+                    .fontId = 0,
+                    .fontSize = 24,
+                }));
+        }
+    });
+
     // Send frontend ready
     proxy_.getFtbCommandQueue().push(RenderCommand{.type = RenderCommandType::Ready});
 
@@ -35,6 +58,9 @@ void hammock::renderer::RenderFrontend::start() {
 
         // Send the render snap
         proxy_.getRenderQueue().push(buildRenderSnapshot());
+
+        UiSnapshot snap = Ui::instance().lay();
+        proxy_.getUserInterfaceQueue().push(snap);
     }
 
     // Notify close

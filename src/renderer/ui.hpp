@@ -3,18 +3,13 @@
 #include <functional>
 #include <vector>
 
+#include "render_types.hpp"
 #include "clay/clay.h"
 #include "utils/singleton_base.hpp"
 
 namespace hammock::renderer {
 
-    // A deep-copied, thread-safe snapshot of Clay render commands.
-    // Generated on the logic thread, consumed on the render thread.
-    struct UiSnapshot {
-        std::vector<Clay_RenderCommand> commands;
-        uint32_t width{0};
-        uint32_t height{0};
-    };
+    
 
     using LayUiCallback = std::function<void()>;
 

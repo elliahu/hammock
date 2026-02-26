@@ -4,6 +4,7 @@
 
 #include "command_buffer.hpp"
 #include "render_proxy.hpp"
+#include "ui.hpp"
 #include "utilities.hpp"
 
 hammock::renderer::RenderBackend::RenderBackend(
@@ -62,8 +63,9 @@ void hammock::renderer::RenderBackend::start() {
                     // Render UI (editor only)
                     surfaceStrategy->submitUI(
                         *frameCtx, [this](core::CommandBuffer& cmd, std::uint32_t frameIndex) {
-                            RenderCommand uiCmd;
-                            if (proxy_.getFtbCommandQueue().pop(uiCmd)) {
+                            UiSnapshot uiSnap;
+                            if (proxy_.getUserInterfaceQueue().pop(uiSnap)) {
+                                core::Logger::debug("Drawing %d commands", uiSnap.commands.size());
                             }
                         });
                 }

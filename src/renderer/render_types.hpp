@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "math.hpp"
+#include "clay/clay.h"
 
 namespace hammock::renderer {
 
@@ -64,6 +65,7 @@ namespace hammock::renderer {
         std::uint32_t cascadeCount;
     };
 
+    /// @structDebugDrawBatch
     struct DebugDrawBatch {
         std::vector<math::Vec3> lineStarts;
         std::vector<math::Vec3> lineEnds;
@@ -82,6 +84,15 @@ namespace hammock::renderer {
     struct ViewData {
         math::Mat4 view;
         math::Mat4 projection;
+    };
+
+    // @struct UiSnapshot
+    // A deep-copied, thread-safe snapshot of Clay render commands.
+    // Generated on the logic thread, consumed on the render thread.
+    struct UiSnapshot {
+        std::vector<Clay_RenderCommand> commands;
+        uint32_t width{0};
+        uint32_t height{0};
     };
 
     /// @struct RenderPacket
