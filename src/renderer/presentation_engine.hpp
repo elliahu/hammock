@@ -13,7 +13,7 @@
 #include "core/surface_provider_iface.hpp"
 
 
-namespace hammock::app {
+namespace hammock::renderer {
     /// @brief Context provided to the renderer for each frame
     struct FrameContext {
         core::ResourceHandle renderTarget;
@@ -97,6 +97,8 @@ namespace hammock::app {
 
     // Concrete Strategies - Only implement presentation differences
 
+    typedef std::function<void(core::CommandBuffer&, std::uint32_t)> RenderUiCallback;
+
     /// @class SurfacePresentationStrategy
     /// @brief Surface-based rendering - framebuffer + swapchain presentation
     class SurfacePresentationStrategy : public BasePresentationStrategy {
@@ -116,7 +118,7 @@ namespace hammock::app {
 
         /// @brief Submit UI rendering commands (Editor mode only)
         void submitUI(const FrameContext &ctx,
-                      std::function<void(core::ResourceHandle, std::uint32_t, core::Semaphore &, core::Semaphore &)>
+                      RenderUiCallback
                       uiRenderFunc);
 
         /// @brief Get the swapchain image view for direct rendering
@@ -145,6 +147,7 @@ namespace hammock::app {
             std::unique_ptr<core::CommandBuffer> presentCommandBuffer;
             // Editor mode only
             std::unique_ptr<core::Semaphore> uiFinished;
+            std::unique_ptr<core::CommandBuffer> uiCommandBuffer;
         };
 
         std::vector<SurfacePerFrameResources> surfacePerFrameResources_;

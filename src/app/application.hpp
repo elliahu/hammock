@@ -1,13 +1,14 @@
 #pragma once
 #include <memory>
 
+#include "application_types.hpp"
 #include "core/vulkan_context.hpp"
 #include "runner.hpp"
 
 namespace hammock::app {
     class Application final {
        public:
-        explicit Application(RunnerMode mode);
+        explicit Application(ExecutionMode mode);
 
         void launch() const;
         core::VulkanContext& getVulkanContext() { return *context_; }

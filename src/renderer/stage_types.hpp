@@ -28,10 +28,8 @@ namespace hammock::renderer {
         };
         CameraType type = CameraType::Perspective;
         std::uint32_t node;  // Index into spacial graph
-        union {
-            PerspectiveCamera perspective;
-            OrthographicCamera orthographic;
-        };
+        PerspectiveCamera perspective;
+        OrthographicCamera orthographic;
     };
 
     /// @enum LightType
@@ -81,9 +79,9 @@ namespace hammock::renderer {
     /// Composition used instead of inheritance for better performance
     struct SceneNode {
         SceneNodeBaseType baseType;
-        Camera camera;
-        Light light;
-        Mesh mesh;
+        std::uint32_t camera;
+        std::uint32_t light;
+        std::uint32_t mesh;
     };
 
     /// @struct Hierarchy

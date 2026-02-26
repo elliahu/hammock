@@ -1,15 +1,22 @@
-#include <string>
-#include <compare>
-#include <vulkan/vulkan.hpp>
-#include <VulkanSurfer/VulkanSurfer.h>
-
 #include "window.hpp"
 
-hammock::app::Window::Window(const std::string &title, core::Instance &instance, const uint32_t width,
-    const uint32_t height, const uint32_t x, const uint32_t y): instance_(instance) {
+#include <VulkanSurfer/VulkanSurfer.h>
 
-    window_ = Surfer::Window::createWindow("Hammock engine", width, height, static_cast<int32_t>(x),
-                                          static_cast<int32_t>(y));
+#include <compare>
+#include <string>
+#include <vulkan/vulkan.hpp>
+
+
+hammock::app::Window::Window(const std::string& title, core::Instance& instance, const uint32_t width,
+    const uint32_t height, const uint32_t x, const uint32_t y)
+    : instance_(instance) {
+    window_ = Surfer::Window::createWindow(
+        "Hammock engine", width, height, static_cast<int32_t>(x), static_cast<int32_t>(y));
+
+    // Resize
+    window_->registerResizeCallback([this](uint32_t width, uint32_t height) {
+        resized_ = true;
+    });
 
     // Create surface
     VkSurfaceKHR cSurface;
@@ -22,9 +29,7 @@ hammock::app::Window::~Window() {
     Surfer::Window::destroyWindow(window_);
 }
 
-bool hammock::app::Window::shouldClose() const {
-    return window_->shouldClose();
-}
+bool hammock::app::Window::shouldClose() const { return window_->shouldClose(); }
 
 void hammock::app::Window::pollEvents() const { window_->pollEvents(); }
 

@@ -25,6 +25,9 @@ namespace hammock::renderer {
         std::vector<SceneNode> nodes;
         std::vector<Material> materials;
         std::vector<Primitive> primitives;
+        std::vector<Mesh> meshes;
+        std::vector<Camera> cameras;
+        std::vector<Light> lights;
         std::vector<Vertex> vertexBuffer{};
         std::vector<std::uint32_t> indexBuffer{};
 

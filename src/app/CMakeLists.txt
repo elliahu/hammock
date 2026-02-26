@@ -8,16 +8,12 @@ add_library(hammock_app
         "runner.hpp"
         "application.hpp"
         "window.hpp"
-        "ui.hpp"
-        "framebuffer.hpp"
-        "presentation_engine.hpp"
+        
 
         "runner.cpp"
         "application.cpp"
-        "framebuffer.cpp"
-        "ui.cpp"
         "window.cpp"
-        "presentation_engine.cpp"
+        
         "${IMGUI_DIR}/imgui.cpp"
         "${IMGUI_DIR}/imgui_draw.cpp"
         "${IMGUI_DIR}/imgui_tables.cpp"

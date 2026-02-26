@@ -4,6 +4,8 @@ cmake_minimum_required(VERSION 3.30)
 add_library(hammock_utils
         "filesystem.hpp"
         "math.hpp"
+        "thread_pool.hpp"
+        "spsc_queue.hpp"
 
         "filesystem_impl.cpp"
         "math.cpp"

@@ -280,9 +280,9 @@ namespace hammock::core {
          * Copy data from buffer into this image
          * @param buffer Buffer to copy from
          */
-        void queueCopyFromBuffer(Buffer buffer) const;
+        void queueCopyFromBuffer(Buffer& buffer) const;
 
-        void queueCopyFromImage(Image image) const;
+        void queueCopyFromImage(Image& image) const;
 
         /**
          * Creates the resource on device. This is called when ever this resource is requested and is not

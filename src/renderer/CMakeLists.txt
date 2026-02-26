@@ -4,22 +4,34 @@ cmake_minimum_required(VERSION 3.30)
 add_library(hammock_renderer
         "spirv_reflection.hpp"
         "renderer.hpp"
-        "thread_pool.hpp"
+        "render_frontend.hpp"
+        "render_backend.hpp"
+        "render_proxy.hpp"
         "vertex.hpp"
         "gltf_loader.hpp"
         "stage_types.hpp"
         "stage.hpp"
+        "framebuffer.hpp"
+        "presentation_engine.hpp"
+        "ui.hpp"
 
+        "ui.cpp"
         "renderer.cpp"
+        "presentation_engine.cpp"
+        "framebuffer.cpp"
         "stage.cpp"
         "gltf_loader.cpp"
         "cgltf_impl.cpp"
+        "render_frontend.cpp"
+        "render_backend.cpp"
+        "render_proxy.cpp"
 )
 
 
 # Include directories for legacy headers
 target_include_directories(hammock_renderer PUBLIC
     "${PROJECT_SOURCE_DIR}/third_party"
+    "${PROJECT_SOURCE_DIR}/third_party/imgui"
     "${PROJECT_SOURCE_DIR}/src/core"
     "${PROJECT_SOURCE_DIR}/src/renderer"
     "${PROJECT_SOURCE_DIR}/src/engine"

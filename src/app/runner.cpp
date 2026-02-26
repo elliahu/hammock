@@ -1,40 +1,28 @@
 #include "runner.hpp"
 
-#include <compare>
 #include <memory>
+#include <thread>
 #include <vulkan/vulkan.hpp>
 
+#include "application_types.hpp"
 #include "core/vulkan_context.hpp"
+#include "render_backend.hpp"
+#include "render_frontend.hpp"
+#include "render_proxy.hpp"
+#include "thread_pool.hpp"
+#include "ui.hpp"
 
-hammock::app::Runner::Runner(RunnerMode mode, core::VulkanContext& context) : vulkanContext_(context) {
+hammock::app::Runner::Runner(ExecutionMode mode, core::VulkanContext& context) : vulkanContext_(context) {
     // Create window
     window_ = std::make_unique<Window>("Hammock", *context.instance, 1920u, 1080u);
-
-    std::unique_ptr<BasePresentationStrategy> strategy;
 
     // Attach surface
     vulkanContext_.initialize(*window_);
 
-    // Select strategy
-    strategy = std::make_unique<SurfacePresentationStrategy>(vulkanContext_,
-        *window_,  // Window implements BaseSurfaceProvider
-        mode == RunnerMode::Tooling ? SurfacePresentationStrategy::Mode::Tooling
-                                   : SurfacePresentationStrategy::Mode::Game);
-
-    // Ui only in surface mode
-    ui_ = std::make_unique<Ui>(window_->getWindowPtr(), vulkanContext_);
-
-    // Register resize callback
-    strategy->onResolutionChanged([this](uint32_t width, uint32_t height) {
-        // Handle resolution changes (update camera aspect ratio, etc.)
-        // TODO
-    });
-
-    // Initialize the presentation engine
-    presentationEngine_ = std::make_unique<PresentationEngine>(std::move(strategy));
-
-    // Initialize renderer
-    renderer_ = std::make_unique<renderer::Renderer>(vulkanContext_);
+    /// Set the threads
+    renderProxy_ = std::make_unique<renderer::RenderProxy>();
+    renderFrontend_ = std::make_unique<renderer::RenderFrontend>(*renderProxy_, *window_);
+    renderBackend_ = std::make_unique<renderer::RenderBackend>(*renderProxy_, vulkanContext_, *window_);
 }
 
 hammock::app::Runner::~Runner() {
@@ -42,39 +30,13 @@ hammock::app::Runner::~Runner() {
     vulkanContext_.device->waitIdle();
 }
 
-void hammock::app::Runner::launch() { loop(); }
+void hammock::app::Runner::launch() {
+    core::Logger::debug("Main thread %d", std::this_thread::get_id());
+    // Backend must start before frontend as the frontend runs on this (main) thread
+    renderBackend_->start();
+    // Start the frontend
+    renderFrontend_->start();
 
-void hammock::app::Runner::loop() {
-    while (!window_->shouldClose()) {
-        window_->pollEvents();
-        handleInput();
-
-        float deltaTime = 0.016f;  // TODO: actual timing
-        update(deltaTime);
-
-        if (auto frameCtx = presentationEngine_->beginFrame()) {
-            renderer_->drawFrame(
-                frameCtx->renderTarget, presentationEngine_->getFrameIndex(), frameCtx->renderFinished);
-
-            // Render UI (editor only)
-            if (auto* surfaceStrategy = presentationEngine_->getStrategyAs<SurfacePresentationStrategy>()) {
-                surfaceStrategy->submitUI(*frameCtx,
-                    [this](core::ResourceHandle target,
-                        std::uint32_t frameIndex,
-                        core::Semaphore& wait,
-                        core::Semaphore& signal) { ui_->renderFrame(target, frameIndex, wait, signal); });
-            }
-
-            // Present
-            presentationEngine_->endFrame(*frameCtx);
-        }
-    }
-}
-
-void hammock::app::Runner::handleInput() {
-    // TODO
-}
-
-void hammock::app::Runner::update(float deltaTime) {
-    // TODO
+    // Join the threads
+    renderBackend_->join();
 }

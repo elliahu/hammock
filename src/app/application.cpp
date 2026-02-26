@@ -5,7 +5,7 @@
 
 #include "application.hpp"
 
-hammock::app::Application::Application(RunnerMode mode) {
+hammock::app::Application::Application(hammock::app::ExecutionMode mode) {
     // Create graphics context
     context_ = std::make_unique<core::VulkanContext>();
 

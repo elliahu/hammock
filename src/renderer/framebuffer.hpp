@@ -11,7 +11,7 @@
 #include "utils/math.hpp"
 
 
-namespace hammock::app {
+namespace hammock::renderer {
 
     /// @class Framebuffer
     /// @brief This class represents offscreen framebuffer used by the engine editor

@@ -5,35 +5,35 @@
 #include "framebuffer.hpp"
 #include "core/vulkan_context.hpp"
 
-hammock::app::Framebuffer::Framebuffer(core::VulkanContext &ctx, std::uint32_t framesInFlight, math::Vec2 resolution,
+hammock::renderer::Framebuffer::Framebuffer(core::VulkanContext &ctx, std::uint32_t framesInFlight, math::Vec2 resolution,
                                           core::ImageFormat format) : ctx_(ctx), resolution_(resolution),
                                                                framesInFlight_(framesInFlight) {
     createImages(resolution, format);
 }
 
-hammock::app::Framebuffer::~Framebuffer() {
+hammock::renderer::Framebuffer::~Framebuffer() {
     for (auto &i: images_) {
         ctx_.resourceManager->releaseResource(i.getUid());
     }
 }
 
-vk::Extent2D hammock::app::Framebuffer::getExtent() const {
+vk::Extent2D hammock::renderer::Framebuffer::getExtent() const {
     return vk::Extent2D(
         static_cast<std::uint32_t>(resolution_.X),
         static_cast<std::uint32_t>(resolution_.Y)
     );
 }
 
-void hammock::app::Framebuffer::swapImages() {
+void hammock::renderer::Framebuffer::swapImages() {
     currentFrame_ = (currentFrame_ + 1) % framesInFlight_;
 }
 
-hammock::core::ResourceHandle hammock::app::Framebuffer::getFrontbufferImage() const {
+hammock::core::ResourceHandle hammock::renderer::Framebuffer::getFrontbufferImage() const {
     return images_[currentFrame_];
 }
 
 
-void hammock::app::Framebuffer::createImages(math::Vec2 resolution, core::ImageFormat format) {
+void hammock::renderer::Framebuffer::createImages(math::Vec2 resolution, core::ImageFormat format) {
     for (int i = 0; i < framesInFlight_; i++) {
         auto handle = ctx_.resourceManager->createResource<core::Image>(core::ImageDesc{
             .width = static_cast<std::uint32_t>(resolution.X),

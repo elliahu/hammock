@@ -4,7 +4,8 @@
 #include <stdexcept>
 
 #include "core/swapchain.hpp"
-
+#include "utilities.hpp"
+#include "vulkan/vulkan.hpp"
 
 hammock::renderer::Renderer::Renderer(core::VulkanContext& context) : ctx_(context) {
     core::SwapChain::forEachFrameInFlight([this](int i) {
@@ -15,12 +16,12 @@ hammock::renderer::Renderer::Renderer(core::VulkanContext& context) : ctx_(conte
 }
 
 void hammock::renderer::Renderer::drawFrame(
-    core::ResourceHandle target, std::uint32_t frameIndex, core::Semaphore& signal) const {
+    core::ResourceHandle target, RenderSnapshot& snap, core::Semaphore& signal) {
     if (!target.isValid() || target.getType() != core::ResourceType::Image) {
         throw std::runtime_error("Invalid rendering target");
     }
 
-    auto& commandBuffer = *commandBuffers_[frameIndex];
+    auto& commandBuffer = *commandBuffers_[currentFrameIdx_];
     auto image = ctx_.resourceManager->getResource<core::Image>(target);
 
     commandBuffer.addSignalSemaphore(signal);
@@ -40,6 +41,9 @@ void hammock::renderer::Renderer::drawFrame(
     auto attachment = image->getRenderingAttachmentInfo();
     attachment.loadOp = vk::AttachmentLoadOp::eClear;
     attachment.storeOp = vk::AttachmentStoreOp::eStore;
+    attachment.clearValue.setColor(vk::ClearColorValue(std::array<float, 4>{snap.x / 255.f, snap.x / 255.f, snap.x / 255.f, 1.0f}));
+
+   // core::Logger::debug("Packet x: %d", packet.x);
 
     vk::RenderingInfo renderInfo{};
     renderInfo.renderArea = vk::Rect2D{{0, 0}, {image->getExtent().width, image->getExtent().height}};
@@ -51,4 +55,11 @@ void hammock::renderer::Renderer::drawFrame(
     commandBuffer.getCommandBuffer().endRendering();
 
     commandBuffer.submit();
+
+    // Update the frame index
+    nextFrameIdx();
+}
+
+void hammock::renderer::Renderer::nextFrameIdx() {
+    currentFrameIdx_ = (currentFrameIdx_ + 1) % core::SwapChain::MAX_FRAMES_IN_FLIGHT;
 }

@@ -2,6 +2,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "application_types.hpp"
 #include "renderer/gltf_loader.hpp"
 #include "app/application.hpp"
 #include "stage.hpp"
@@ -9,7 +10,7 @@
 using namespace hammock;
 
 int main() {
-    auto app = std::make_unique<app::Application>(app::RunnerMode::Tooling);
+    auto app = std::make_unique<app::Application>(app::ExecutionMode::Engine);
 
     auto loader = std::make_unique<renderer::GltfLoader>(app->getVulkanContext());
     auto stage = std::make_unique<renderer::Stage>();

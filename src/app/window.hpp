@@ -23,9 +23,9 @@ namespace hammock::app {
 
         [[nodiscard]] vk::SurfaceKHR getSurface() const override { return surface_; }
 
-        bool shouldClose() const;
+        bool shouldClose() const override;
 
-        void pollEvents() const;
+        void pollEvents() const override;
 
         [[nodiscard]] vk::Extent2D getExtent() const override;;
 

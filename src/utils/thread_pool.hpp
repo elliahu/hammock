@@ -6,7 +6,7 @@
 #include <thread>
 
 
-namespace hammock::renderer {
+namespace hammock::threading {
     class ThreadPool {
     public:
         ThreadPool()
