@@ -4,6 +4,7 @@
 
 #include "math.hpp"
 #include "clay/clay.h"
+#include "vertex.hpp"
 
 namespace hammock::renderer {
 
@@ -54,6 +55,7 @@ namespace hammock::renderer {
         std::uint32_t count;
     };
 
+    /// @struct ShadowCascadeBatch
     struct ShadowCascadeBatch {
         struct Cascade {
             math::Mat4 viewProjMatrix;
@@ -86,13 +88,9 @@ namespace hammock::renderer {
         math::Mat4 projection;
     };
 
-    // @struct UiSnapshot
-    // A deep-copied, thread-safe snapshot of Clay render commands.
-    // Generated on the logic thread, consumed on the render thread.
-    struct UiSnapshot {
-        std::vector<Clay_RenderCommand> commands;
-        uint32_t width{0};
-        uint32_t height{0};
+    /// @struct UserInterfaceDrawBatch
+    struct UserInterfaceDrawBatch{
+        std::vector<UiVertex> vertices;
     };
 
     /// @struct RenderPacket
@@ -115,6 +113,9 @@ namespace hammock::renderer {
 
         // Debug
         DebugDrawBatch debugDraws;
+
+        // User Interface
+        UserInterfaceDrawBatch uiDraws;
 
         uint32_t x;
 

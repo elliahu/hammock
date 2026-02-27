@@ -45,6 +45,7 @@ add_subdirectory(src/dependency_graph)
 add_subdirectory(src/renderer/shaders)
 add_subdirectory(src/app)
 add_subdirectory(src/utils)
+add_subdirectory(src/ui)
 
 
 # Add examples

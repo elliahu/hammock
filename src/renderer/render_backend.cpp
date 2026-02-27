@@ -4,7 +4,6 @@
 
 #include "command_buffer.hpp"
 #include "render_proxy.hpp"
-#include "ui.hpp"
 #include "utilities.hpp"
 
 hammock::renderer::RenderBackend::RenderBackend(
@@ -15,7 +14,7 @@ hammock::renderer::RenderBackend::RenderBackend(
     // That is because if the ui is not present, empty draw command is submitted
     // Might rework this later
     auto presentStrategy = std::make_unique<SurfacePresentationStrategy>(
-        ctx, surfaceProvider, SurfacePresentationStrategy::Mode::Tooling);
+        ctx, surfaceProvider, SurfacePresentationStrategy::Mode::Game);
     presentationEngine_ = std::make_unique<PresentationEngine>(std::move(presentStrategy));
 
     // Initialize renderer
@@ -63,10 +62,7 @@ void hammock::renderer::RenderBackend::start() {
                     // Render UI (editor only)
                     surfaceStrategy->submitUI(
                         *frameCtx, [this](core::CommandBuffer& cmd, std::uint32_t frameIndex) {
-                            UiSnapshot uiSnap;
-                            if (proxy_.getUserInterfaceQueue().pop(uiSnap)) {
-                                core::Logger::debug("Drawing %d commands", uiSnap.commands.size());
-                            }
+
                         });
                 }
 

@@ -13,9 +13,8 @@ add_library(hammock_renderer
         "stage.hpp"
         "framebuffer.hpp"
         "presentation_engine.hpp"
-        "ui.hpp"
+  
 
-        "ui.cpp"
         "renderer.cpp"
         "presentation_engine.cpp"
         "framebuffer.cpp"
@@ -35,10 +34,11 @@ target_include_directories(hammock_renderer PUBLIC
     "${PROJECT_SOURCE_DIR}/src/renderer"
     "${PROJECT_SOURCE_DIR}/src/engine"
     "${PROJECT_SOURCE_DIR}/src/utils"
+    "${PROJECT_SOURCE_DIR}/src/ui"
 )
 
 # Link core (which provides Vulkan transitively)
-target_link_libraries(hammock_renderer PUBLIC hammock_core hammock_utils hammock_dependency_graph)
+target_link_libraries(hammock_renderer PUBLIC hammock_core hammock_utils hammock_ui hammock_dependency_graph)
 
 # Compiler features
 target_compile_features(hammock_renderer PUBLIC cxx_std_23)

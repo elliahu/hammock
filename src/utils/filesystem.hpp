@@ -7,8 +7,7 @@
 #include <filesystem>
 #include <regex>
 
-#include "hammock_core.hpp"
-
+#include "core/utilities.hpp"
 
 namespace hammock::filesystem {
     /// Check if file exists

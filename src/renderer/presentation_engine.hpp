@@ -157,6 +157,7 @@ namespace hammock::renderer {
 
     /// @class PresentationEngine
     /// @brief Main presentation engine - delegates to strategy
+    /// TODO IMPORTANT rework this as soon as possible, it is ridiculus
     class PresentationEngine {
     public:
         explicit PresentationEngine(std::unique_ptr<BasePresentationStrategy> &&strategy)

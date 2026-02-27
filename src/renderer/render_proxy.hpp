@@ -25,7 +25,6 @@ namespace hammock::renderer {
 
     using RenderQueue = threading::SPSCQueue<RenderSnapshot, core::SwapChain::MAX_FRAMES_IN_FLIGHT>;
     using CommandQueue = threading::SPSCQueue<RenderCommand, 16>;
-    using UserInterfaceQueue = threading::SPSCQueue<UiSnapshot, core::SwapChain::MAX_FRAMES_IN_FLIGHT>;
 
     /// @class RenderProx
     /// relays messages between rendering frontend and rendering backend via thread safe queues
@@ -35,12 +34,10 @@ namespace hammock::renderer {
         RenderQueue renderQueue_;
         CommandQueue ftbCommandQueue_;
         CommandQueue btfCommandQueue_;
-        UserInterfaceQueue userInterfaceQueue_;
 
        public:
         RenderQueue& getRenderQueue();
         CommandQueue& getFtbCommandQueue();
         CommandQueue& getBtfCommandQueue();
-        UserInterfaceQueue& getUserInterfaceQueue() { return userInterfaceQueue_; }
     };
 }  // namespace hammock::renderer

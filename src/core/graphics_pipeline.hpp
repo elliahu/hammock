@@ -144,11 +144,11 @@ namespace hammock::core {
 
         /// @brief Set vertex shader bytecode
         GraphicsPipelineBuilder &setVertexShader(const std::vector<char> &byteCode,
-                                                 const std::string &entry = "vertMain");
+                                                 const std::string &entry = "main");
 
         /// @brief Set fragment shader bytecode
         GraphicsPipelineBuilder &setFragmentShader(const std::vector<char> &byteCode,
-                                                   const std::string &entry = "fragMain");
+                                                   const std::string &entry = "main");
 
         /// @brief Add descriptor set layout (call this for each layout)
         GraphicsPipelineBuilder &

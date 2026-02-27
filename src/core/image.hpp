@@ -20,6 +20,7 @@ namespace hammock::core {
     enum class ImageFormat {
         Undefined,
         R8G8B8A8Uint,
+        R8Uint,
         R16G16B16A16Sfloat,
         R32G32B32A32Sfloat,
     };
@@ -33,6 +34,8 @@ namespace hammock::core {
             switch (format) {
                 case ImageFormat::R8G8B8A8Uint:
                     return vk::Format::eR8G8B8A8Unorm;
+                case ImageFormat::R8Uint:
+                    return vk::Format::eR8Unorm;
                 case ImageFormat::R16G16B16A16Sfloat:
                     return vk::Format::eR16G16B16A16Sfloat;
                 case ImageFormat::R32G32B32A32Sfloat:

@@ -150,6 +150,9 @@ namespace hammock::core {
         void release() override;
 
         /// @brief Get Vulkan buffer handle
+        [[nodiscard]] vk::Buffer* getBufferPtr() { return &buffer_; }
+
+        /// @brief Get Vulkan buffer handle
         [[nodiscard]] vk::Buffer getBuffer() const { return buffer_; }
 
         /// @brief Get mapped memory pointer
