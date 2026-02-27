@@ -62,6 +62,7 @@ const uint8_t* hammock::renderer::GltfLoader::getAccessorData(const cgltf_access
 
     return static_cast<const uint8_t*>(buffer->data) + view->offset + accessor->offset;
 }
+
 void hammock::renderer::GltfLoader::loadIndices(const cgltf_accessor* accessor, uint32_t vertexOffset,
     std::vector<uint32_t>& indexBuffer, uint32_t& outFirstIndex, uint32_t& outIndexCount) {
     outFirstIndex = indexBuffer.size();

@@ -2,10 +2,11 @@
 #include <memory>
 #include <stdexcept>
 
-#include "application_types.hpp"
+
 #include "renderer/gltf_loader.hpp"
+#include "app/application_types.hpp"
 #include "app/application.hpp"
-#include "stage.hpp"
+#include "renderer/stage.hpp"
 
 using namespace hammock;
 

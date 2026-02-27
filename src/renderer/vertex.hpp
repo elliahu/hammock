@@ -3,7 +3,7 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "math.hpp"
+#include "utils/math.hpp"
 
 using namespace hammock::math;
 

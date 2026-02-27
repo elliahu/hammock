@@ -2,7 +2,7 @@
 #include <memory>
 #include <vector>
 
-#include "math.hpp"
+#include "utils/math.hpp"
 #include "clay/clay.h"
 #include "vertex.hpp"
 

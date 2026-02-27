@@ -1,7 +1,7 @@
 #pragma once
 #include "core/swapchain.hpp"
 #include "render_types.hpp"
-#include "ui.hpp"
+#include "ui/ui.hpp"
 #include "utils/spsc_queue.hpp"
 
 namespace hammock::renderer {

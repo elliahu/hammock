@@ -11,7 +11,7 @@
 #include "render_frontend.hpp"
 #include "render_proxy.hpp"
 #include "window.hpp"
-#include "ui.hpp"
+#include "ui/ui.hpp"
 #include "renderer/presentation_engine.hpp"
 #include "application_types.hpp"
 

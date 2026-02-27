@@ -4,12 +4,11 @@
 
 #include "cgltf/cgltf.h"
 #include "core/utilities.hpp"
-#include "math.hpp"
 #include "stage.hpp"
 #include "stage_types.hpp"
 #include "utils/math.hpp"
 #include "vertex.hpp"
-#include "vulkan_context.hpp"
+#include "core/vulkan_context.hpp"
 #include "stage_loader_iface.hpp"
 
 /// hammock uses glTF 2 file format for stage representation

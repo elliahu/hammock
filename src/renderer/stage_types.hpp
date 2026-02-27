@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "math.hpp"
+#include "utils/math.hpp"
 
 namespace hammock::renderer {
 

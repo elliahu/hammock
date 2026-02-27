@@ -30,11 +30,7 @@ add_library(hammock_renderer
 # Include directories for legacy headers
 target_include_directories(hammock_renderer PUBLIC
     "${PROJECT_SOURCE_DIR}/third_party"
-    "${PROJECT_SOURCE_DIR}/src/core"
-    "${PROJECT_SOURCE_DIR}/src/renderer"
-    "${PROJECT_SOURCE_DIR}/src/engine"
-    "${PROJECT_SOURCE_DIR}/src/utils"
-    "${PROJECT_SOURCE_DIR}/src/ui"
+    "${PROJECT_SOURCE_DIR}/src"
 )
 
 # Link core (which provides Vulkan transitively)

@@ -5,7 +5,7 @@
 #include "render_proxy.hpp"
 #include "render_types.hpp"
 #include "utilities.hpp"
-#include "ui.hpp"
+#include "ui/ui.hpp"
 
 hammock::renderer::RenderFrontend::RenderFrontend(
     RenderProxy& proxy, core::SurfaceProviderIface& surfaceProvider)

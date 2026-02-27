@@ -12,8 +12,7 @@
 #include "render_frontend.hpp"
 #include "render_proxy.hpp"
 #include "render_types.hpp"
-#include "thread_pool.hpp"
-#include "ui.hpp"
+#include "ui/ui.hpp"
 
 hammock::app::Runner::Runner(ExecutionMode mode, core::VulkanContext& context) : vulkanContext_(context) {
     // Create window
@@ -31,7 +30,6 @@ hammock::app::Runner::Runner(ExecutionMode mode, core::VulkanContext& context) :
             {
                 .layout =
                     {
-                        .sizing = {.width = CLAY_SIZING_FIT({}), .height = CLAY_SIZING_FIXED(50)},
                         .padding = CLAY_PADDING_ALL(16),
                         .childGap = 8,
                     },
@@ -44,30 +42,6 @@ hammock::app::Runner::Runner(ExecutionMode mode, core::VulkanContext& context) :
                     .textColor = {0, 0, 0, 255},
                     .fontId = 0,
                     .fontSize = 12,
-                }));
-            CLAY_TEXT(CLAY_STRING("Large red text"),
-                CLAY_TEXT_CONFIG({
-                    .textColor = {255, 0, 0, 255},
-                    .fontId = 0,
-                    .fontSize = 24,
-                }));
-            CLAY_TEXT(CLAY_STRING("Large red text"),
-                CLAY_TEXT_CONFIG({
-                    .textColor = {255, 0, 0, 255},
-                    .fontId = 0,
-                    .fontSize = 24,
-                }));
-            CLAY_TEXT(CLAY_STRING("Large red text"),
-                CLAY_TEXT_CONFIG({
-                    .textColor = {255, 0, 0, 255},
-                    .fontId = 0,
-                    .fontSize = 24,
-                }));
-            CLAY_TEXT(CLAY_STRING("Large red text"),
-                CLAY_TEXT_CONFIG({
-                    .textColor = {255, 0, 0, 255},
-                    .fontId = 0,
-                    .fontSize = 24,
                 }));
         }
     });
