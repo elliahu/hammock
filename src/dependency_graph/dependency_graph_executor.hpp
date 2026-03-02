@@ -2,7 +2,7 @@
 
 #include "dependency_graph_compiler.hpp"
 
-namespace hammock::renderer {
+namespace hammock::graph {
 
     /// @class DependencyGraphExecutor
     /// @brief Executes compiled graph, orchestrates the recording and submission of command buffers

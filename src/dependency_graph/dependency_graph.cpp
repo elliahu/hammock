@@ -8,7 +8,7 @@
 #include "gpu_task.hpp"
 
 
-namespace hammock::renderer {
+namespace hammock::graph {
     LogicalResourceHandle DependencyGraph::resource(LogicalResourceInterface iface) {
         std::uint32_t idx;
 
@@ -67,7 +67,7 @@ namespace hammock::renderer {
     }
 
     void DependencyGraph::remove(LogicalResourceHandle h) {
-       // TODO
+       // TODO Implement removing logical resources
     }
 
     void DependencyGraph::dependency(

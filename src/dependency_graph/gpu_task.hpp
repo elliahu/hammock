@@ -10,7 +10,7 @@
 #include "core/utilities.hpp"
 #include "push_constants.hpp"
 
-namespace hammock::renderer {
+namespace hammock::graph {
 
     // ********** Bse GPU task **********
 

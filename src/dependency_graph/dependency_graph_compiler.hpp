@@ -11,7 +11,7 @@
 #include "gpu_task.hpp"
 #include "core/vulkan_context.hpp"
 
-namespace hammock::renderer {
+namespace hammock::graph {
 
     /// @struct ResourceInitState
     /// @brief Describes the state of the initialization
@@ -165,7 +165,7 @@ namespace hammock::renderer {
        public:
         DependencyGraphCompiler(core::VulkanContext& ctx);
         /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
-        CompiledDependencyGraph compile(DependencyGraph& dependencyGraph);
+        [[nodiscard]] CompiledDependencyGraph compile(DependencyGraph& dependencyGraph);
     };
 
 }  // namespace hammock::renderer

@@ -8,7 +8,7 @@
 
 #include "utils/math.hpp"
 
-namespace hammock::renderer {
+namespace hammock::graph {
     /// @enum PushConstantFieldType
     /// @brief Describes the type of the field
     enum class PushConstantFieldType {

@@ -10,11 +10,12 @@
 #include "core/base_resource.hpp"
 #include "core/buffer.hpp"
 #include "core/command_buffer.hpp"
+#include "core/image.hpp"
 #include "gpu_task.hpp"
 #include "utils/math.hpp"
-#include "core/image.hpp"
 
-namespace hammock::renderer {
+
+namespace hammock::graph {
 
     /// @struct LogicalImageResource
     /// Describes logical image resource
@@ -45,8 +46,7 @@ namespace hammock::renderer {
 
     /// @typedef LogicalResourceInterface
     /// Describes an option between LogicalImageResource and LogicalBufferResource
-    using LogicalResourceInterface =
-        std::variant<LogicalImageResource, LogicalBufferResource>;
+    using LogicalResourceInterface = std::variant<LogicalImageResource, LogicalBufferResource>;
 
     /// @enum DependencyType
     /// @brief Describes a type of dependency between two tasks
@@ -92,7 +92,7 @@ namespace hammock::renderer {
         TaskHandle presentTaskHandle_;
         LogicalResourceHandle presentResourceHandle_;
 
-        struct InitDefault{};
+        struct InitDefault {};
 
         struct InitCopyBuffer {
             std::reference_wrapper<core::Buffer> buffer;
@@ -107,21 +107,23 @@ namespace hammock::renderer {
             std::array<float, 2> clearDepthStencil;
         };
 
-        using InitResourceInterface = std::variant<InitDefault, InitCopyBuffer, InitCopyImage, InitClearImage>;
+        using InitResourceInterface =
+            std::variant<InitDefault, InitCopyBuffer, InitCopyImage, InitClearImage>;
 
-        std::unordered_map<LogicalResourceHandle, InitResourceInterface, LogicalResourceHandleHash> resourceInits_{};
+        std::unordered_map<LogicalResourceHandle, InitResourceInterface, LogicalResourceHandleHash>
+            resourceInits_{};
 
        public:
         /// @brief Adds a resource to the graph
-        LogicalResourceHandle resource(LogicalResourceInterface iface = {});
+        [[nodiscard]] LogicalResourceHandle resource(LogicalResourceInterface iface = {});
 
         /// @brief Adds an image to the graph
         /// @note Wrapper around addResource
-        LogicalResourceHandle image(LogicalImageResource imageResource);
+        [[nodiscard]] LogicalResourceHandle image(LogicalImageResource imageResource);
 
         /// @brief Adds a buffer to the graph
         /// @note Wrapper around addResource
-        LogicalResourceHandle buffer(LogicalBufferResource bufferResource);
+        [[nodiscard]] LogicalResourceHandle buffer(LogicalBufferResource bufferResource);
 
         /// @brief Copy buffer contents into target resource
         void initCopyBuffer(LogicalResourceHandle target, core::Buffer& src);
@@ -131,13 +133,14 @@ namespace hammock::renderer {
 
         /// @brief Clear target image
         /// @pre target must be image, if not, throws
-        void initClearImage(LogicalResourceHandle target, std::array<float, 4> clearColor, std::array<float, 2> clearDepthStencil = {1.f, 1.f});
+        void initClearImage(LogicalResourceHandle target, std::array<float, 4> clearColor,
+            std::array<float, 2> clearDepthStencil = {1.f, 1.f});
 
         /// @brief Returns true if a handle is valid
         [[nodiscard]] bool isHandleValid(TaskHandle h) const;
 
         /// @brief Adds a gpu task to the graph
-        TaskHandle task(std::unique_ptr<BaseGpuTask>&& task);
+        [[nodiscard]] TaskHandle task(std::unique_ptr<BaseGpuTask>&& task);
 
         /// @brief Removes a task from the graph
         void remove(TaskHandle h);
@@ -152,4 +155,4 @@ namespace hammock::renderer {
         /// This will end the execution of the render graph when the task marked present is executed
         void present(TaskHandle presentTaskHandle, LogicalResourceHandle presentResourceHandle);
     };
-}  // namespace hammock::renderer
+}  // namespace hammock::graph

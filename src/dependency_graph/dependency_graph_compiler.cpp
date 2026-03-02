@@ -20,7 +20,7 @@
 #include "core/resource_manager.hpp"
 #include "core/swapchain.hpp"
 
-namespace hammock::renderer {
+namespace hammock::graph {
 
     DependencyGraphCompiler::DependencyGraphCompiler(core::VulkanContext& ctx) : ctx_(ctx) {}
 
@@ -83,7 +83,7 @@ namespace hammock::renderer {
 
         // Detect hazards
         // FIXME this part is essentially iterating in the task submission order. Should be order independent.
-        // For now this is ok, but it means the responsibility of ordering the tasks of the graph is no in the
+        // For now this is ok, but it means the responsibility of ordering the tasks of the graph is now in the
         // hands of the application.
         for (auto accessPair : logicalResourceUses_) {
             auto resourceHandle = accessPair.first;
@@ -274,12 +274,10 @@ namespace hammock::renderer {
                 // Task type and pipeline
                 if (srcTask->getAs<ComputeTask>()) {
                     dstTask.type = CompiledTaskType::Compute;
-                    // create compute pipeline
-                    // TODO
+                    // TODO create compute pipeline
                 } else if (srcTask->getAs<GraphicsTask>()) {
                     dstTask.type = CompiledTaskType::Graphics;
-                    // create graphics pipeline
-                    // TODO
+                    // TODO create graphics pipeline
                 }
 
                 // Compile resource accesses

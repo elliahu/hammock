@@ -10,7 +10,7 @@
 #include <vulkan/vulkan.hpp>
 
 
-namespace hammock::renderer {
+namespace hammock::graph {
 
     PushConstantsBlock* BaseGpuTask::addPushConstantBlock(std::unique_ptr<PushConstantsBlock>&& block) {
         if (pushConstantsBlock_ != nullptr) {
