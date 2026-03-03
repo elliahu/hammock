@@ -76,7 +76,7 @@ namespace hammock::core {
         virtual void release() = 0;
 
         [[nodiscard]] std::uint64_t getUid() const { return uid; }
-        bool isResident() const { return resident; }
+        inline bool isResident() const { return resident; }
         [[nodiscard]] vk::DeviceSize getSize() const { return size; }  // for now
     };
 }

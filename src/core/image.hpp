@@ -53,7 +53,7 @@ namespace hammock::core {
 
     /// @enum ImageUsage
     enum class ImageUsage : uint32_t {
-        None = 0,
+        Invalid = 0,
         TransferSrc = 1 << 0,
         TransferDst = 1 << 1,
         Sampled = 1 << 2,
@@ -78,20 +78,20 @@ namespace hammock::core {
         explicit constexpr operator vk::ImageUsageFlags() const {
             vk::ImageUsageFlags flags{};
 
-            if ((usage & ImageUsage::TransferSrc) != ImageUsage::None)
+            if ((usage & ImageUsage::TransferSrc) != ImageUsage::Invalid)
                 flags |= vk::ImageUsageFlagBits::eTransferSrc;
 
-            if ((usage & ImageUsage::TransferDst) != ImageUsage::None)
+            if ((usage & ImageUsage::TransferDst) != ImageUsage::Invalid)
                 flags |= vk::ImageUsageFlagBits::eTransferDst;
 
-            if ((usage & ImageUsage::Sampled) != ImageUsage::None) flags |= vk::ImageUsageFlagBits::eSampled;
+            if ((usage & ImageUsage::Sampled) != ImageUsage::Invalid) flags |= vk::ImageUsageFlagBits::eSampled;
 
-            if ((usage & ImageUsage::Storage) != ImageUsage::None) flags |= vk::ImageUsageFlagBits::eStorage;
+            if ((usage & ImageUsage::Storage) != ImageUsage::Invalid) flags |= vk::ImageUsageFlagBits::eStorage;
 
-            if ((usage & ImageUsage::ColorAttachment) != ImageUsage::None)
+            if ((usage & ImageUsage::ColorAttachment) != ImageUsage::Invalid)
                 flags |= vk::ImageUsageFlagBits::eColorAttachment;
 
-            if ((usage & ImageUsage::DepthStencil) != ImageUsage::None)
+            if ((usage & ImageUsage::DepthStencil) != ImageUsage::Invalid)
                 flags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
 
             return flags;

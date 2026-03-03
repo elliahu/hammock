@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "Debug",
-      "type": "cppvsdbg",
+      "type": "cppdbg",
       "request": "launch",
       "program": "${command:cmake.launchTargetPath}",
       "args": [],

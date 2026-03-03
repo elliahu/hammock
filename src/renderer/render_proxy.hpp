@@ -8,7 +8,7 @@ namespace hammock::renderer {
     /// @enum RenderCommandType
     /// @brief Describes the type of a render command
     enum class RenderCommandType {
-        None,
+        Invalid,
         Resize,
         Stop,
         Ready,
@@ -18,7 +18,7 @@ namespace hammock::renderer {
     /// @struct RenderCommand
     /// @brief Command data relayed between render queues
     struct RenderCommand {
-        RenderCommandType type = RenderCommandType::None;
+        RenderCommandType type = RenderCommandType::Invalid;
         uint32_t width{0};
         uint32_t height{0};
     };

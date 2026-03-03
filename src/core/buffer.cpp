@@ -1,5 +1,6 @@
 #include <compare>
 #include <vulkan/vulkan.hpp>
+#include "base_resource.hpp"
 #include "vulkan/vulkan.hpp"
 
 #include "buffer.hpp"
@@ -40,8 +41,8 @@ hammock::core::Buffer::Buffer(Device &device, uint64_t id,
 }
 
 hammock::core::Buffer::~Buffer() {
-    if (isResident()) {
-        Buffer::release();
+    if (resident) {
+        release();
     }
 }
 
@@ -174,7 +175,7 @@ void hammock::core::Buffer::copyFromImage(vk::CommandBuffer commandBuffer, vk::I
     region.imageOffset = offset;
     region.imageExtent = extent;
 
-    commandBuffer.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, buffer_, 1, &region);
+    commandBuffer.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, buffer_, {region});
 }
 vk::DeviceAddress hammock::core::Buffer::queryDeviceAddress() {
     vk::BufferDeviceAddressInfo deviceAddressInfo{

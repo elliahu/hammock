@@ -1,8 +1,8 @@
 #pragma once
-#include <memory>
-#include <functional>
 #include <array>
 #include <compare>
+#include <functional>
+#include <memory>
 #include <vulkan/vulkan.hpp>
 
 #include "device.hpp"
@@ -22,24 +22,28 @@ namespace hammock::core {
 
     /// @class SwapChain
     /// @brief Wrapper around a vulkan swapchain.
-    /// On its own, it does not do much but with SwapChainManager, it is used to handle image submition and presentation.
+    /// On its own, it does not do much but with SwapChainManager, it is used to handle image submition and
+    /// presentation.
     class SwapChain {
-    public:
+       public:
         /// Describes how many images are being worked at while different image is being presented
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-        SwapChain(Device &deviceRef, vk::SurfaceKHR surface, vk::Extent2D windowExtent);
-        SwapChain(Device &deviceRef, vk::SurfaceKHR surface, vk::Extent2D windowExtent, const std::shared_ptr<SwapChain> &previous);
+        SwapChain(Device& deviceRef, vk::SurfaceKHR surface, vk::Extent2D windowExtent);
+        SwapChain(Device& deviceRef, vk::SurfaceKHR surface, vk::Extent2D windowExtent,
+            const std::shared_ptr<SwapChain>& previous);
         ~SwapChain();
 
-        SwapChain(const SwapChain &) = delete;
-        SwapChain &operator=(const SwapChain &) = delete;
+        SwapChain(const SwapChain&) = delete;
+        SwapChain& operator=(const SwapChain&) = delete;
 
         /// @brief Get Vulkan handle of the given swapchain image
         [[nodiscard]] vk::Image getImage(const int index) const { return swapChainImages_[index]; }
 
         /// @brief Get vulkan handle of the given swapchain image view
-        [[nodiscard]] vk::ImageView getImageView(const int index) const { return swapChainImageViews_[index]; }
+        [[nodiscard]] vk::ImageView getImageView(const int index) const {
+            return swapChainImageViews_[index];
+        }
 
         /// @brief Get the count of images (usually MAX_FRAMES_IN_FLIGHT + 1, not guaranteed)
         [[nodiscard]] size_t imageCount() const { return swapChainImages_.size(); }
@@ -59,43 +63,65 @@ namespace hammock::core {
         [[nodiscard]] const FrameSyncObjects& getSyncObjects(const uint32_t frameIndex) const;
 
         /// @brief Acquire next image for rendering
-        vk::Result acquireNextImage(uint32_t frameIndex, uint32_t *imageIndex);
+        vk::Result acquireNextImage(uint32_t frameIndex, uint32_t* imageIndex);
 
         /// @brief Present the rendered image
         vk::Result present(uint32_t frameIndex, uint32_t imageIndex);
 
         /// @brief Pipeline barrier helper.
         /// This is used to perform layout transition on the swapchain images
-        void recordPipelineBarrier(
-            std::uint32_t imageIndex,
-            vk::CommandBuffer cmd,
-            vk::PipelineStageFlags2 srcStageMask,
-            vk::AccessFlags2 srcAccessMask,
-            vk::PipelineStageFlags2 dstStageMask,
-            vk::AccessFlags2 dstAccessMask,
-            vk::ImageLayout oldLayout,
-            vk::ImageLayout newLayout,
-            uint32_t srcQueueFamilyIndex,
-            uint32_t dstQueueFamilyIndex
-        ) const;
+        void recordPipelineBarrier(std::uint32_t imageIndex, vk::CommandBuffer cmd,
+            vk::PipelineStageFlags2 srcStageMask, vk::AccessFlags2 srcAccessMask,
+            vk::PipelineStageFlags2 dstStageMask, vk::AccessFlags2 dstAccessMask, vk::ImageLayout oldLayout,
+            vk::ImageLayout newLayout, uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex) const;
 
-        [[nodiscard]] bool compareSwapFormats(const SwapChain &swapChain) const;
+        [[nodiscard]] bool compareSwapFormats(const SwapChain& swapChain) const;
 
+        static void forEachFrameInFlight(const std::function<void(int frame)>& cb);
 
-        static void forEachFrameInFlight(const std::function<void(int frame)> &cb);
-
-    private:
+       private:
         void init();
         void createSwapChain();
         void createImageViews();
         void createSyncObjects();
 
         // Helper functions
-        static vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
-            const std::vector<vk::SurfaceFormatKHR> &availableFormats);
-        static vk::PresentModeKHR chooseSwapPresentMode(
-            const std::vector<vk::PresentModeKHR> &availablePresentModes);
-        [[nodiscard]] vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabilities) const;
+        inline vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
+            const std::vector<vk::SurfaceFormatKHR>& availableFormats) const {
+            for (const auto& availableFormat : availableFormats) {
+                if (availableFormat.format == vk::Format::eB8G8R8A8Unorm &&
+                    availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+                    return availableFormat;
+                }
+            }
+            return availableFormats[0];
+        }
+
+        inline vk::PresentModeKHR chooseSwapPresentMode(
+            const std::vector<vk::PresentModeKHR>& availablePresentModes) {
+            for (const auto& availablePresentMode : availablePresentModes) {
+                if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
+                    Logger::info("Present mode: Mailbox");
+                    return availablePresentMode;
+                }
+                
+                if (availablePresentMode == vk::PresentModeKHR::eFifoRelaxed) {
+                    Logger::info("Present mode: V-Sync Relaxed");
+                    return availablePresentMode;
+                }
+
+                if (availablePresentMode == vk::PresentModeKHR::eImmediate) {
+                    Logger::info("Present mode: Immediate");
+                    return availablePresentMode;
+                }
+                
+            }
+
+            Logger::info("Present mode: V-Sync");
+            return vk::PresentModeKHR::eFifo;
+        }
+        
+        [[nodiscard]] vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities) const;
 
         // SwapChain resources
         vk::Format swapChainImageFormat_{};
@@ -103,7 +129,7 @@ namespace hammock::core {
         std::vector<vk::Image> swapChainImages_;
         std::vector<vk::ImageView> swapChainImageViews_;
 
-        Device &device_;
+        Device& device_;
         vk::SurfaceKHR surface_;
         vk::Extent2D windowExtent_;
         vk::SwapchainKHR swapChain_;
@@ -112,4 +138,4 @@ namespace hammock::core {
         // Per-frame synchronization objects (indexed by frame, not by SwapChain)
         std::array<FrameSyncObjects, MAX_FRAMES_IN_FLIGHT> frameSyncObjects_;
     };
-} // namespace hammock::core
+}  // namespace hammock::core

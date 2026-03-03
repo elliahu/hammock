@@ -39,7 +39,7 @@ namespace hammock::core {
 
 
     enum class BufferUsage : uint32_t {
-        None = 0,
+        Invalid = 0,
         TransferSrc = 1 << 0,
         TransferDst = 1 << 1,
         UniformBuffer = 1 << 2,
@@ -69,25 +69,25 @@ namespace hammock::core {
         explicit constexpr operator vk::BufferUsageFlags() const {
             vk::BufferUsageFlags flags{};
 
-            if ((usage & BufferUsage::TransferSrc) != BufferUsage::None)
+            if ((usage & BufferUsage::TransferSrc) != BufferUsage::Invalid)
                 flags |= vk::BufferUsageFlagBits::eTransferSrc;
 
-            if ((usage & BufferUsage::TransferDst) != BufferUsage::None)
+            if ((usage & BufferUsage::TransferDst) != BufferUsage::Invalid)
                 flags |= vk::BufferUsageFlagBits::eTransferDst;
 
-            if ((usage & BufferUsage::UniformBuffer) != BufferUsage::None)
+            if ((usage & BufferUsage::UniformBuffer) != BufferUsage::Invalid)
                 flags |= vk::BufferUsageFlagBits::eUniformBuffer;
 
-            if ((usage & BufferUsage::StorageBuffer) != BufferUsage::None)
+            if ((usage & BufferUsage::StorageBuffer) != BufferUsage::Invalid)
                 flags |= vk::BufferUsageFlagBits::eStorageBuffer;
 
-            if ((usage & BufferUsage::IndexBuffer) != BufferUsage::None)
+            if ((usage & BufferUsage::IndexBuffer) != BufferUsage::Invalid)
                 flags |= vk::BufferUsageFlagBits::eIndexBuffer;
 
-            if ((usage & BufferUsage::VertexBuffer) != BufferUsage::None)
+            if ((usage & BufferUsage::VertexBuffer) != BufferUsage::Invalid)
                 flags |= vk::BufferUsageFlagBits::eVertexBuffer;
 
-            if ((usage & BufferUsage::IndirectBuffer) != BufferUsage::None)
+            if ((usage & BufferUsage::IndirectBuffer) != BufferUsage::Invalid)
                 flags |= vk::BufferUsageFlagBits::eIndirectBuffer;
 
             return flags;
@@ -102,7 +102,7 @@ namespace hammock::core {
     /// @brief Describes general buffer
     struct BufferDesc {
         BufferType type = BufferType::HostVisible;
-        BufferUsage usage = BufferUsage::None;
+        BufferUsage usage = BufferUsage::Invalid;
         std::uint64_t instanceSize = 0;
         uint32_t instanceCount = 0;
         struct {

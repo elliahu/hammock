@@ -57,7 +57,7 @@ hammock::core::Image::Image(Device& device, uint64_t id, const ImageDesc& desc) 
 }
 
 hammock::core::Image::~Image() {
-    if (isResident()) {
+    if (resident) {
         Image::release();
     }
 }

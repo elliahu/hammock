@@ -247,35 +247,6 @@ namespace hammock::core {
     }
 
 
-    vk::SurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
-        for (const auto &availableFormat: availableFormats) {
-            if (availableFormat.format == vk::Format::eB8G8R8A8Unorm &&
-                availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
-                return availableFormat;
-            }
-        }
-        return availableFormats[0];
-    }
-
-    vk::PresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR> &availablePresentModes) {
-        for (const auto &availablePresentMode: availablePresentModes) {
-            if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
-                Logger::info("Present mode: Mailbox");
-                return availablePresentMode;
-            }
-            if (availablePresentMode == vk::PresentModeKHR::eImmediate) {
-                Logger::info("Present mode: Immediate");
-                return availablePresentMode;
-            }
-            if (availablePresentMode == vk::PresentModeKHR::eFifoRelaxed) {
-                Logger::info("Present mode: V-Sync Relaxed");
-                return availablePresentMode;
-            }
-        }
-        Logger::info("Present mode: V-Sync");
-        return vk::PresentModeKHR::eFifo;
-    }
-
     vk::Extent2D SwapChain::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabilities) const {
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;

@@ -12,7 +12,7 @@ using namespace hammock;
 int main() {
     auto app = std::make_unique<app::Application>(app::ExecutionMode::Engine);
 
-    auto dg = std::make_unique<graph::DependencyGraph>();
+   /* auto dg = std::make_unique<graph::DependencyGraph>();
 
     auto targetHandle = dg->image({
         .format = core::ImageFormat::R8G8B8A8Uint,
@@ -31,9 +31,9 @@ int main() {
     dg->present(taskHandle, targetHandle);
 
     auto comp = std::make_unique<graph::DependencyGraphCompiler>(app->getVulkanContext());
-    auto cpg = comp->compile(*dg);
+    auto cpg = comp->compile(*dg);*/
 
-    // app->launch();
+    app->launch();
 
     return EXIT_SUCCESS;
 }
