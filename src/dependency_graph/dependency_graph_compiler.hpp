@@ -6,122 +6,139 @@
 #include <vulkan/vulkan.hpp>
 
 #include "core/base_pipeline.hpp"
-#include "dependency_graph.hpp"
 #include "core/descriptors.hpp"
+#include "core/vulkan_context.hpp"
+#include "dependency_graph.hpp"
 #include "device.hpp"
 #include "gpu_task.hpp"
-#include "core/vulkan_context.hpp"
 
 namespace hammock::graph {
 
-    /// @struct CompiledLogicalResource
-    /// @brief Represents compiled resource that is linked to the physical resources
+    // ---------------------
+    // Compiled output types
+    // ---------------------
+
+    /// @brief A logical resource after compilation, linked to physical resource handles.
     struct CompiledLogicalResource final {
-        /// Original resource handle for debugging
         LogicalResourceHandle origin;
-        /// Handles of physical resources (may be multiple for resources that need to have a copy for each
-        /// frame in flight)
+        /// One handle per frame-in-flight copy (frameLocal resources), otherwise exactly one.
         std::vector<core::ResourceHandle> handles{};
-        /// Persistent resource keeps its content across frames.
-        /// Non-persistent resource may be cleared after each frame
         bool persistent = true;
     };
 
-    /// @struct CompiledTask
-    /// @brief Represents a GPU task that has been compiled by the graph compiler.
-    /// Usually lives inside CompiledGraph
+    /// @brief A GPU task after compilation, ready for execution.
     struct CompiledTask final {
-        /// Original task before compilation (for debug)
         TaskHandle origin;
-
-        /// Type of task
         core::CommandQueueFamily family;
-
-        /// Execution function
         TaskExecutionFunction execFunc{nullptr};
 
-        /// Compiled resource accesses
+        /// Indices into CompiledDependencyGraph::compiledLogicalResources accessed by this task.
         std::vector<uint32_t> compiledResourceAccesses{};
 
-        /// Image barriers that need to be applied before this task executes
+        /// Barriers to insert *before* this task runs (includes UNDEFINED->layout init barriers).
         std::vector<vk::ImageMemoryBarrier2> imageBarriers{};
-
-        /// Buffer barriers that need to be applied before this task executes
         std::vector<vk::BufferMemoryBarrier2> bufferBarriers{};
     };
 
-    /// @struct CompiledDependencyGraph
-    /// @brief Represents output of graph compiler
+    /// @brief Full output of the compiler.
     struct CompiledDependencyGraph final {
         std::vector<CompiledLogicalResource> compiledLogicalResources{};
         std::vector<CompiledTask> compiledTasks{};
-        std::vector<std::vector<std::uint32_t>> executionLevels{};
-        std::int32_t rootIdx = -1;
+        /// Topological levels: tasks within the same level may run in parallel.
+        std::vector<std::vector<uint32_t>> executionLevels{};
+        /// Index of the present / root task (-1 if not yet set).
+        int32_t rootIdx = -1;
     };
 
-    /// @struct TaskNode
-    /// @brief Internal node representation for graph compilation
-    struct TaskNode {
-        GpuTask* task = nullptr;
-        std::vector<std::uint32_t> outgoing{};
-        std::vector<std::uint32_t> incoming{};
-        std::uint32_t indegree = 0;
-    };
+    // --------
+    // Compiler
+    // --------
 
-    /// @enum ReadWriteIntent
-    enum class ReadWriteIntent { Read, Write, ReadWrite };
-
-    /// @class DependencyGraphCompiler
-    /// @brief Outputs compiled graph
     class DependencyGraphCompiler final {
-        core::VulkanContext& ctx_;
-        /// Internal structure to pair up task and access
-        struct TaskHandleLogicalResourceAccessPair {
-            TaskHandle task;
+       public:
+        explicit DependencyGraphCompiler(core::VulkanContext& ctx);
+
+        /// Compile a DependencyGraph into a CompiledDependencyGraph.
+        /// The result is self-contained and can be passed directly to the executor.
+        [[nodiscard]] CompiledDependencyGraph compile(DependencyGraph& dependencyGraph);
+
+       private:
+        // ----- types ---------------------------------------------------------
+
+        enum class ReadWriteIntent { Read, Write, ReadWrite };
+
+        /// One entry per (task, access) pair recorded for a logical resource.
+        struct ResourceUseEntry {
+            uint32_t taskIdx;
             AccessInterface access;
         };
 
-        std::vector<TaskNode> nodes_;  /// Intermediate graph structure
-        std::unordered_map<LogicalResourceHandle, std::vector<TaskHandleLogicalResourceAccessPair>,
-            LogicalResourceHandleHash>
-            logicalResourceUses_;  /// Stores where is each resources accessed and how
-        CompiledDependencyGraph
-            compiledDependencyGraph_{};  /// The final compiled graph that will be returned
+        /// Internal adjacency-list node used during graph analysis.
+        struct TaskNode {
+            GpuTask* task = nullptr;
+            std::vector<uint32_t> outgoing{};
+            std::vector<uint32_t> incoming{};
+            uint32_t indegree = 0;
+        };
 
-        // Populates nodes_ list
-        void buildGraphNodes(DependencyGraph& dependencyGraph);
-        void addEdge(std::uint32_t aidx, std::uint32_t bidx);
-        ReadWriteIntent determineReadWriteIntent(AccessInterface accessIface);
-        bool isHazard(ReadWriteIntent a, ReadWriteIntent b);
-        void handleExplicitDependencies(DependencyGraph& dependencyGraph);
+        // ----- data ----------------------------------------------------------
 
-        // Creates physical resources from logical resources and wraps them in compiled logical resources
-        void compileLogicalResources(DependencyGraph& dependencyGraph);
-        core::ResourceHandle createPhysicalImageResource(LogicalImageResource* logicalImageResource);
-        core::ResourceHandle createPhysicalBufferResource(LogicalBufferResource* logicalBufferResource);
+        core::VulkanContext& ctx_;
+        std::vector<TaskNode> nodes_;
 
-        /// Assert debug edges
-        void assertDebugEdges(DependencyGraph& dependencyGraph);
+        /// resource handle -> ordered list of (taskIdx, access) pairs.
+        /// Ordering is determined by data-flow (writes before reads), NOT declaration order.
+        std::unordered_map<LogicalResourceHandle, std::vector<ResourceUseEntry>, LogicalResourceHandleHash>
+            resourceUses_;
 
-        /// Determine execution levels.
-        /// Task is ready if indegree == 0.
-        /// Ready task does not need to wait for any other tasks to finish.
-        /// Tasks in the same execution level can run in parallel.
-        void determineExecutionLevels();
+        CompiledDependencyGraph result_;
 
-        // Task compilation
-        void compileTasks(DependencyGraph& dependencyGraph);
-        void compileBarrier(
-            const LogicalResourceAccess& prev, const LogicalResourceAccess& curr, CompiledTask& dstTask);
-        vk::PipelineStageFlags2 stagesFromAccess(AccessInterface accessIface);
-        vk::AccessFlags2 accessFlagsFromAccess(AccessInterface accessIface);
-        vk::ImageLayout layoutFromAccess(ImageAccess access);
-        void createComputePipeline(CompiledTask& task);
+        // ----- graph analysis ------------------------------------------------
 
-       public:
-        DependencyGraphCompiler(core::VulkanContext& ctx);
-        /// @brief Compiles the dependency. Result can be executed by DependencyGraphExecutor
-        [[nodiscard]] CompiledDependencyGraph compile(DependencyGraph& dependencyGraph);
+        /// Populate nodes_ and resourceUses_ from the dependency graph.
+        void buildNodes(DependencyGraph& dg);
+
+        /// Add a directed edge src->dst (idempotent).
+        void addEdge(uint32_t src, uint32_t dst);
+
+        /// Apply explicit (user-declared) execution and debug dependencies.
+        void applyExplicitDependencies(DependencyGraph& dg);
+
+        /// For each shared resource, insert edges between all writer->reader and
+        /// writer->writer pairs, regardless of declaration order.
+        void buildDataFlowEdges();
+
+        /// Validate that every debug-asserted edge actually exists.
+        void assertDebugEdges(DependencyGraph& dg) const;
+
+        /// Topological sort into execution levels (Kahn's algorithm).
+        void buildExecutionLevels();
+
+        // ----- resource compilation ------------------------------------------
+
+        void compileResources(DependencyGraph& dg);
+        core::ResourceHandle makeImage(LogicalImageResource* r);
+        core::ResourceHandle makeBuffer(LogicalBufferResource* r);
+
+        // ----- task & barrier compilation ------------------------------------
+
+        void compileTasks(DependencyGraph& dg);
+
+        /// Emit a barrier between prev and curr accesses of the same resource.
+        void emitBarrier(
+            const LogicalResourceAccess& prev, const LogicalResourceAccess& curr, CompiledTask& dst);
+
+        /// Emit an initialisation barrier for a resource that has no prior access
+        /// (UNDEFINED -> first-use layout / buffer acquire).
+        void emitInitBarrier(const LogicalResourceAccess& firstUse, CompiledTask& dst);
+
+        // ----- access helpers (easy to extend) -------------------------------
+
+        static ReadWriteIntent intentOf(AccessInterface a);
+        static bool isHazard(ReadWriteIntent a, ReadWriteIntent b);
+        static vk::PipelineStageFlags2 stageOf(AccessInterface a);
+        static vk::AccessFlags2 accessOf(AccessInterface a);
+        static vk::ImageLayout layoutOf(ImageAccess a);
     };
 
-}  // namespace hammock::renderer
+}  // namespace hammock::graph
