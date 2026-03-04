@@ -1,14 +1,19 @@
 #pragma once
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
+#include "base_resource.hpp"
+#include "command_buffer.hpp"
 #include "core/utilities.hpp"
-#include "push_constants.hpp"
+#include "device.hpp"
 
 namespace hammock::graph {
 
@@ -30,49 +35,6 @@ namespace hammock::graph {
         }
     };
 
-    /// @enum SocketUsageStageFlagBits
-    /// @brief Describes the stage at which the socket is used
-    enum class DescriptorUsageStage : std::uint32_t {
-        Unused = 0,
-        ComputeShader = 1 << 0,
-        VertexShader = 1 << 1,
-        FragmentShader = 1 << 2,
-    };
-
-    constexpr DescriptorUsageStage operator|(DescriptorUsageStage lhs, DescriptorUsageStage rhs) {
-        return static_cast<DescriptorUsageStage>(
-            static_cast<std::uint32_t>(lhs) | static_cast<std::uint32_t>(rhs));
-    }
-
-    constexpr DescriptorUsageStage operator&(DescriptorUsageStage lhs, DescriptorUsageStage rhs) {
-        return static_cast<DescriptorUsageStage>(
-            static_cast<std::uint32_t>(lhs) & static_cast<std::uint32_t>(rhs));
-    }
-
-    constexpr DescriptorUsageStage& operator|=(DescriptorUsageStage& lhs, DescriptorUsageStage rhs) {
-        lhs = lhs | rhs;
-        return lhs;
-    }
-
-    /// @struct DescriptorBinding
-    /// @brief Describes descriptor binding info (if the socket is descriptor)
-    struct DescriptorBinding {
-        std::uint32_t set;
-        std::uint32_t binding;
-        DescriptorUsageStage usage;
-        std::uint32_t count = 1u;
-    };
-
-    /// @struct AttachmentLocation
-    /// @brief Describes attachment location info (if the socket is attachment)
-    struct AttachmentLocation {
-        std::uint32_t location = 0u;  // color attachment index or depth/stencil slot
-    };
-
-    /// @typedef BindingInterface
-    /// @brief Defines how exactly is the resource bound in the task. One of DescriptorBinding or
-    /// AttachmentLocation.
-    using BindingInterface = std::variant<DescriptorBinding, AttachmentLocation>;
 
     /// @enum ImageAccess
     /// @breif Describes how the image in the socket is used by the task
@@ -102,7 +64,6 @@ namespace hammock::graph {
     struct LogicalResourceAccess {
         LogicalResourceHandle handle;
         AccessInterface access;
-        BindingInterface binding;
     };
 
     /// @struct TaskHandle
@@ -117,57 +78,111 @@ namespace hammock::graph {
         }
     };
 
+    /// @typedef GpuTaskContextResolverFunction
+    using GpuTaskContextResolverFunction =
+        std::function<core::ResourceHandle(LogicalResourceHandle, uint32_t)>;
+
+    /// @class GpuTaskContext
+    /// @brief Represents a context given to each GPU task when it is executed
+    /// Can be used to access resources in the execution function and perform custom logic
+    class GpuTaskExecContext final {
+        friend class DependencyGraphCompiler;
+
+       public:
+        explicit GpuTaskExecContext(core::CommandBuffer& cmd, uint32_t frameIdx)
+            : cmd_(cmd), frameIdx_(frameIdx) {}
+
+        /// @brief Returns the index of the current frame
+        /// Use this to select a resource for the frame in flight
+        uint32_t getFrameIndex() { return frameIdx_; }
+
+        /// @brief Returns the command buffer for this gpu task
+        core::CommandBuffer& getCommandBuffer() { return cmd_; }
+
+        /// @brief Resolves the actual physical resource handle created by the resource manager from the
+        /// logical resource handle created by the graph
+        core::ResourceHandle resolveResource(LogicalResourceHandle handle);
+
+       private:
+        /// This function is used to resolve the actual physical resource handle created by the resource
+        /// manager from the logical resource handle creates by high level graph
+        GpuTaskContextResolverFunction resolver_{nullptr};
+        core::CommandBuffer& cmd_;
+        uint32_t frameIdx_;
+    };
+
+    /// @class GpuTaskCompileContext
+    /// @brief Represents a context given to a task during a compilation.
+    /// Use this to create you pipelines / descriptors etc.
+    class GpuTaskCompileContext final {
+        friend class DependencyGraphCompiler;
+
+       public:
+        // TODO
+    };
+
+    /// @class GpuTaskDeclBuilder
+    /// @brief Build that is used to declare resource accesses
+    class GpuTaskDeclBuilder final {
+        std::vector<LogicalResourceAccess> logicalResourceAccesses_{};
+
+       public:
+        void access(LogicalResourceAccess access);
+    };
+
+    /// @typedef TaskExecutionFunction
+    /// @brief A function that gets executed when task is run
+    /// Do your rendering here
+    using TaskExecutionFunction = std::function<void(GpuTaskExecContext& ctx)>;
+
+    /// @typedef TaskCompilationFunction
+    /// @brief A function that gets executed when task is being compiled
+    /// Do your pipeline/descriptor setup here
+    using TaskCompilationFunction = std::function<void(GpuTaskCompileContext& ctx)>;
+
+    /// @typedef TaskDeclarationFunction
+    /// @brief A function that gets executed when graph is declared
+    /// Do your resource declaration here
+    using TaskDeclarationFunction = std::function<void(GpuTaskDeclBuilder& builder)>;
+
     /// @interface BaseGpuTask
     /// Interface representing general GPU task that has input and outputs (sockets)
-    class BaseGpuTask : public core::DynamicCastHelper {
+    class GpuTask final {
         friend class DependencyGraphCompiler;
+        friend class GpuTaskDeclBuilder;
 
        public:
-        virtual ~BaseGpuTask() = default;
+        explicit GpuTask(core::CommandQueueFamily family = core::CommandQueueFamily::Ignored)
+            : family_(family) {}
+        ~GpuTask() = default;
 
-        /// @brief Add push constant block to the task
-        /// @returns reference to the added push constant block
-        PushConstantsBlock* addPushConstantBlock(std::unique_ptr<PushConstantsBlock>&& block);
+        /// @brief Returns a command queue family of the task
+        core::CommandQueueFamily getFamily() { return family_; }
 
         /// @brief Declare resource access for this task
+        /// @note It is recommended that you use decl callback for this as this method might get removed in
+        /// future versions.
         void access(LogicalResourceAccess access);
 
+        /// @brief Declaration time callback
+        /// here you declare the tasks resource accesses
+        void decl(TaskDeclarationFunction func) { declFunc_ = std::move(func); }
+
+        /// @brief Compilation time callback
+        /// here you create your pipelines and descriptors and do your initialization
+        void compile(TaskCompilationFunction func) { compFunc_ = std::move(func); }
+
+        /// @brief Execution time callback
+        /// here you do your rendering / dispatch / transfer
+        void exec(TaskExecutionFunction func) { execFunc_ = std::move(func); }
+
        protected:
-        std::unique_ptr<PushConstantsBlock> pushConstantsBlock_{
-            nullptr};  // Single push constant block allowed
-        std::vector<LogicalResourceAccess> logicalResourceAccesses_;
+        core::CommandQueueFamily family_ =
+            core::CommandQueueFamily::Graphics;  // What type of the task we have
+        std::vector<LogicalResourceAccess> logicalResourceAccesses_{};
+        TaskDeclarationFunction declFunc_{nullptr};  // Declaration function
+        TaskCompilationFunction compFunc_{nullptr};  // Compilation function
+        TaskExecutionFunction execFunc_{nullptr};    // Execution function
     };
 
-    // ************ Graphics Task *************
-
-    /// @class GraphicsTask
-    /// @brief Specialized task that uses standard raster pipline.
-    /// Vertex and fragment shaders required
-    /// TODO use reflection to build the task from SPIR-V shader
-    class GraphicsTask final : public BaseGpuTask {
-        friend class DependencyGraphCompiler;
-
-       public:
-        GraphicsTask(const std::string& vertexShaderFile, const std::string& fragmentShaderFile)
-            : vertexShaderFile_(vertexShaderFile), fragmentShaderFile_(fragmentShaderFile) {}
-
-       private:
-        std::string vertexShaderFile_;
-        std::string fragmentShaderFile_;
-    };
-
-    // *********** Compute Task ***********
-
-    /// @class ComputeTask
-    /// @brief Specialized task that uses GPU compute via compute shader
-    /// /// TODO use reflection to build the task from SPIR-V shader
-    class ComputeTask final : public BaseGpuTask {
-        friend class DependencyGraphCompiler;
-
-       public:
-        explicit ComputeTask(const std::string& computeShaderFile) : computeShaderFile_(computeShaderFile) {}
-
-       private:
-        std::string computeShaderFile_;
-    };
-}  // namespace hammock::renderer
+}  // namespace hammock::graph

@@ -8,14 +8,11 @@
 #include "core/base_pipeline.hpp"
 #include "dependency_graph.hpp"
 #include "core/descriptors.hpp"
+#include "device.hpp"
 #include "gpu_task.hpp"
 #include "core/vulkan_context.hpp"
 
 namespace hammock::graph {
-
-    /// @struct ResourceInitState
-    /// @brief Describes the state of the initialization
-    enum class ResourceInitState { Uninitialized, Initialized };
 
     /// @struct CompiledLogicalResource
     /// @brief Represents compiled resource that is linked to the physical resources
@@ -25,40 +22,9 @@ namespace hammock::graph {
         /// Handles of physical resources (may be multiple for resources that need to have a copy for each
         /// frame in flight)
         std::vector<core::ResourceHandle> handles{};
-        /// Store information about init state of the physical resources for each frame in flight.
-        /// Same expected length as handles
-        std::vector<ResourceInitState> initStates;
-        /// Stores how should the physical resoure be initialized
-        DependencyGraph::InitResourceInterface initContext = DependencyGraph::InitDefault{};
         /// Persistent resource keeps its content across frames.
         /// Non-persistent resource may be cleared after each frame
         bool persistent = true;
-    };
-
-    /// @struct CompiledLogicalResourceAccess
-    /// @brief Stores how is resource accessed in a task
-    struct CompiledLogicalResourceAccess {
-        /// Compiled logical resource
-        CompiledLogicalResource* compiledLogicalResource{nullptr};
-
-        /// Binding information (one of DescriptorBinding or AttachmentLocation)
-        BindingInterface bindingIface{};
-
-        /// What kind of resource
-        vk::DescriptorType descriptorType;
-    };
-
-    /// @enum CompiledTaskType
-    enum class CompiledTaskType { Compute, Graphics };
-
-    /// @struct DispatchInfo
-    struct DispatchInfo {
-        // TODO
-    };
-
-    /// @struct Drawinfo
-    struct DrawInfo {
-        // TODO
     };
 
     /// @struct CompiledTask
@@ -67,27 +33,21 @@ namespace hammock::graph {
     struct CompiledTask final {
         /// Original task before compilation (for debug)
         TaskHandle origin;
+
         /// Type of task
-        CompiledTaskType type;
-        /// Constructed pipeline
-        std::unique_ptr<core::BasePipeline> pipeline{nullptr};
-        
-        /// Descriptor set layouts
-        std::vector<core::DescriptorSetLayout> descriptorSetLayouts{};
+        core::CommandQueueFamily family;
+
+        /// Execution function
+        TaskExecutionFunction execFunc{nullptr};
 
         /// Compiled resource accesses
-        std::vector<CompiledLogicalResourceAccess> compiledResourceAccesses{};
+        std::vector<uint32_t> compiledResourceAccesses{};
 
         /// Image barriers that need to be applied before this task executes
         std::vector<vk::ImageMemoryBarrier2> imageBarriers{};
+
         /// Buffer barriers that need to be applied before this task executes
         std::vector<vk::BufferMemoryBarrier2> bufferBarriers{};
-
-        // Execution parameters
-        /// Dispatch info for compute tasks
-        DispatchInfo dispatchInfo{};
-        /// Drawing info for graphics tasks
-        DrawInfo drawInfo{};
     };
 
     /// @struct CompiledDependencyGraph
@@ -96,14 +56,13 @@ namespace hammock::graph {
         std::vector<CompiledLogicalResource> compiledLogicalResources{};
         std::vector<CompiledTask> compiledTasks{};
         std::vector<std::vector<std::uint32_t>> executionLevels{};
-        std::int32_t presentResourceIdx = -1;
-        std::int32_t presentTaskIdx = -1;
+        std::int32_t rootIdx = -1;
     };
 
     /// @struct TaskNode
     /// @brief Internal node representation for graph compilation
     struct TaskNode {
-        BaseGpuTask* task = nullptr;
+        GpuTask* task = nullptr;
         std::vector<std::uint32_t> outgoing{};
         std::vector<std::uint32_t> incoming{};
         std::uint32_t indegree = 0;
@@ -140,7 +99,6 @@ namespace hammock::graph {
         void compileLogicalResources(DependencyGraph& dependencyGraph);
         core::ResourceHandle createPhysicalImageResource(LogicalImageResource* logicalImageResource);
         core::ResourceHandle createPhysicalBufferResource(LogicalBufferResource* logicalBufferResource);
-        void setInitializer(DependencyGraph& dependencyGraph, CompiledLogicalResource& resource);
 
         /// Assert debug edges
         void assertDebugEdges(DependencyGraph& dependencyGraph);
@@ -153,8 +111,6 @@ namespace hammock::graph {
 
         // Task compilation
         void compileTasks(DependencyGraph& dependencyGraph);
-        void compileTaskResourceAccesses(BaseGpuTask* srcTask, CompiledTask& dstTask);
-        vk::DescriptorType determineDescriptorType(AccessInterface access);
         void compileBarrier(
             const LogicalResourceAccess& prev, const LogicalResourceAccess& curr, CompiledTask& dstTask);
         vk::PipelineStageFlags2 stagesFromAccess(AccessInterface accessIface);

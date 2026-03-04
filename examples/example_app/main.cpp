@@ -1,10 +1,13 @@
 #include <memory>
+#include <print>
 
 #include "app/application.hpp"
 #include "app/application_types.hpp"
 #include "dependency_graph/dependency_graph.hpp"
 #include "dependency_graph/dependency_graph_compiler.hpp"
+#include "dependency_graph/dependency_graph_executor.hpp"
 #include "dependency_graph/gpu_task.hpp"
+#include "device.hpp"
 #include "image.hpp"
 
 using namespace hammock;
@@ -12,7 +15,7 @@ using namespace hammock;
 int main() {
     auto app = std::make_unique<app::Application>(app::ExecutionMode::Engine);
 
-   /* auto dg = std::make_unique<graph::DependencyGraph>();
+    auto dg = std::make_unique<graph::DependencyGraph>();
 
     auto targetHandle = dg->image({
         .format = core::ImageFormat::R8G8B8A8Uint,
@@ -21,17 +24,22 @@ int main() {
         .height = 1080u,
     });
 
-    auto task = std::make_unique<graph::GraphicsTask>(
-        "../../spv/user_interface.vert.spv", "../../spv/user_interface.frag.spv");
+    auto task = graph::GpuTask(core::CommandQueueFamily::Graphics);
 
-    task->access(graph::LogicalResourceAccess{
-        targetHandle, graph::ImageAccess::ColorAttachmentWrite, graph::AttachmentLocation{0}});
+    task.access({targetHandle, graph::ImageAccess::ColorAttachmentWrite});
+
+    task.compile([](graph::GpuTaskCompileContext& ctx) { std::println("Compiling"); });
+
+    task.exec([](graph::GpuTaskExecContext& ctx) { std::println("Executing"); });
 
     auto taskHandle = dg->task(std::move(task));
-    dg->present(taskHandle, targetHandle);
+    dg->root(taskHandle);
 
     auto comp = std::make_unique<graph::DependencyGraphCompiler>(app->getVulkanContext());
-    auto cpg = comp->compile(*dg);*/
+    auto cdg = comp->compile(*dg);
+
+    auto exec = std::make_unique<graph::DependencyGraphExecutor>();
+    exec->execute(cdg);
 
     app->launch();
 

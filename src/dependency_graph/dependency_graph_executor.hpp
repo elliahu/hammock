@@ -9,7 +9,15 @@ namespace hammock::graph {
     class DependencyGraphExecutor final {
     public:
         /// @brief Executes the compiled dependency graph
-        void execute(const CompiledDependencyGraph& compiledGraph);
+        inline void execute(const CompiledDependencyGraph& compiledGraph){
+            for(auto execLevel: compiledGraph.executionLevels){
+                for(auto gidx : execLevel){
+                    if(compiledGraph.compiledTasks[gidx].execFunc){
+                        //compiledGraph.compiledTasks[gidx].execFunc();
+                    }
+                }
+            }
+        }
     };
 
 

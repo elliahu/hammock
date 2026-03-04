@@ -12,18 +12,20 @@
 
 namespace hammock::graph {
 
-    PushConstantsBlock* BaseGpuTask::addPushConstantBlock(std::unique_ptr<PushConstantsBlock>&& block) {
-        if (pushConstantsBlock_ != nullptr) {
-            throw std::runtime_error("push constant block already set");
-        }
-
-        if (!block) return nullptr;
-
-        pushConstantsBlock_ = std::move(block);
-        return pushConstantsBlock_.get();
-    }
-
-    void BaseGpuTask::access(LogicalResourceAccess access) {
+    void GpuTask::access(LogicalResourceAccess access) {
         logicalResourceAccesses_.push_back(access);
     }
-}  // namespace hammock::renderer
+
+
+    core::ResourceHandle GpuTaskExecContext::resolveResource(LogicalResourceHandle handle) {
+        if (resolver_ == nullptr) {
+            throw std::runtime_error("resolver is invalid. this should not happen.");
+        }
+
+        return resolver_(handle, frameIdx_);
+    }
+    
+    void GpuTaskDeclBuilder::access(LogicalResourceAccess access) {
+        logicalResourceAccesses_.push_back(access);
+    }
+}  // namespace hammock::graph

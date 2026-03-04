@@ -24,10 +24,15 @@ void hammock::renderer::RenderFrontend::start() {
 
         // Handle resize
         if (surfaceProvider_.wasResized()) {
+            // Get current extent
             auto extent = surfaceProvider_.getExtent();
+            // Send resize command
             RenderCommand cmd{
                 .type = RenderCommandType::Resize, .width = extent.width, .height = extent.height};
             proxy_.getFtbCommandQueue().push(std::move(cmd));
+            // Inform ui about the resize
+            ui::Ui::instance().setDisplaySize(extent.width, extent.height);
+            // Resize handled
             surfaceProvider_.resetResized();
         }
 

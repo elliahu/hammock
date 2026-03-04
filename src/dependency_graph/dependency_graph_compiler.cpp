@@ -14,11 +14,12 @@
 #include "core/base_resource.hpp"
 #include "core/buffer.hpp"
 #include "core/compute_pipeline.hpp"
-#include "dependency_graph.hpp"
-#include "gpu_task.hpp"
 #include "core/image.hpp"
 #include "core/resource_manager.hpp"
 #include "core/swapchain.hpp"
+#include "dependency_graph.hpp"
+#include "device.hpp"
+#include "gpu_task.hpp"
 
 namespace hammock::graph {
 
@@ -57,7 +58,7 @@ namespace hammock::graph {
         nodes_.resize(dependencyGraph.tasks_.size());
         compiledDependencyGraph_.compiledTasks.resize(dependencyGraph.tasks_.size());
         for (std::uint32_t idx = 0; idx < dependencyGraph.tasks_.size(); idx++) {
-            auto task = dependencyGraph.tasks_[idx].task.get();
+            auto task = &dependencyGraph.tasks_[idx].task;
             nodes_[idx].task = task;
 
             // If the task is present task, mark it
@@ -66,8 +67,8 @@ namespace hammock::graph {
                 .generation = dependencyGraph.tasks_[idx].generation,
             };
 
-            if (taskHandle == dependencyGraph.presentTaskHandle_) {
-                compiledDependencyGraph_.presentTaskIdx = static_cast<std::int32_t>(idx);
+            if (taskHandle == dependencyGraph.root_) {
+                compiledDependencyGraph_.rootIdx = static_cast<std::int32_t>(idx);
             }
 
             // This will fill out the logicalResourceUses_
@@ -83,8 +84,8 @@ namespace hammock::graph {
 
         // Detect hazards
         // FIXME this part is essentially iterating in the task submission order. Should be order independent.
-        // For now this is ok, but it means the responsibility of ordering the tasks of the graph is now in the
-        // hands of the application.
+        // For now this is ok, but it means the responsibility of ordering the tasks of the graph is now in
+        // the hands of the application.
         for (auto accessPair : logicalResourceUses_) {
             auto resourceHandle = accessPair.first;
             auto accesses = accessPair.second;
@@ -126,7 +127,7 @@ namespace hammock::graph {
 
     void DependencyGraphCompiler::compileLogicalResources(DependencyGraph& dependencyGraph) {
         // First of all, check if the dependency graph has a present set
-        if (!dependencyGraph.isPresentSet_) {
+        if (!dependencyGraph.hasRoot_) {
             throw std::runtime_error("no present set for the graph, cannot compile");
         }
 
@@ -137,13 +138,6 @@ namespace hammock::graph {
             compiledLogicalResource.origin = LogicalResourceHandle{
                 .index = idx, .generation = dependencyGraph.logicalResources_[idx].generation};
 
-            // Set the initializer
-            setInitializer(dependencyGraph, compiledLogicalResource);
-
-            // If the resource is present resource, mark it
-            if (compiledLogicalResource.origin == dependencyGraph.presentResourceHandle_) {
-                compiledDependencyGraph_.presentResourceIdx = static_cast<std::int32_t>(idx);
-            }
 
             // Determine the type of the resource
             // Image resource
@@ -156,7 +150,6 @@ namespace hammock::graph {
                 for (int i = 0; i < numOfCopies; i++) {
                     core::ResourceHandle handle = createPhysicalImageResource(logicalImageResource);
                     compiledLogicalResource.handles.push_back(handle);
-                    compiledLogicalResource.initStates.push_back(ResourceInitState::Uninitialized);
                     compiledLogicalResource.persistent = logicalImageResource->persistent;
                 }
             }
@@ -171,7 +164,6 @@ namespace hammock::graph {
                 for (int i = 0; i < numOfCopies; i++) {
                     core::ResourceHandle handle = createPhysicalBufferResource(logicalBufferResource);
                     compiledLogicalResource.handles.push_back(handle);
-                    compiledLogicalResource.initStates.push_back(ResourceInitState::Uninitialized);
                     compiledLogicalResource.persistent = logicalBufferResource->persistent;
                 }
             }
@@ -180,16 +172,7 @@ namespace hammock::graph {
         }
     }
 
-    void DependencyGraphCompiler::setInitializer(
-        DependencyGraph& dependencyGraph, CompiledLogicalResource& resource) {
-        // Check if we have a user defined initializer, if not, add default one
-        DependencyGraph::InitResourceInterface initIface = DependencyGraph::InitDefault{};
-        if (dependencyGraph.resourceInits_.contains(resource.origin)) {
-            initIface = dependencyGraph.resourceInits_[resource.origin];
-        }
 
-        resource.initContext = initIface;
-    }
 
     core::ResourceHandle DependencyGraphCompiler::createPhysicalImageResource(
         LogicalImageResource* logicalImageResource) {
@@ -265,27 +248,26 @@ namespace hammock::graph {
     void DependencyGraphCompiler::compileTasks(DependencyGraph& dependencyGraph) {
         for (auto& level : compiledDependencyGraph_.executionLevels) {
             for (auto i : level) {
-                BaseGpuTask* srcTask = nodes_[i].task;
+                GpuTask* srcTask = nodes_[i].task;
                 CompiledTask& dstTask = compiledDependencyGraph_.compiledTasks[i];
 
                 // Origin
                 dstTask.origin = TaskHandle{.index = i, .generation = dependencyGraph.tasks_[i].generation};
 
-                // Task type and pipeline
-                if (srcTask->getAs<ComputeTask>()) {
-                    dstTask.type = CompiledTaskType::Compute;
-                    // TODO create compute pipeline
-                } else if (srcTask->getAs<GraphicsTask>()) {
-                    dstTask.type = CompiledTaskType::Graphics;
-                    // TODO create graphics pipeline
-                }
+                // Exec function
+                dstTask.execFunc = std::move(srcTask->execFunc_);
 
-                // Compile resource accesses
-                compileTaskResourceAccesses(srcTask, dstTask);
+                // Task family
+                dstTask.family = srcTask->getFamily();
+
+                // Resource accesses
+                for (auto& access : srcTask->logicalResourceAccesses_) {
+                    dstTask.compiledResourceAccesses.push_back(access.handle.index);
+                }
 
                 // Compile barriers
                 for (auto p : nodes_[i].incoming) {
-                    BaseGpuTask* prevTask = nodes_[p].task;
+                    GpuTask* prevTask = nodes_[p].task;
                     for (auto& prevAccess : prevTask->logicalResourceAccesses_) {
                         for (auto& currAccess : srcTask->logicalResourceAccesses_) {
                             if (prevAccess.handle != currAccess.handle) continue;
@@ -299,55 +281,14 @@ namespace hammock::graph {
                         }
                     }
                 }
+
+                // Call the compile time callbacks
+                GpuTaskCompileContext ctx{};
+                if(srcTask->compFunc_){
+                    srcTask->compFunc_(ctx);
+                }
             }
         }
-    }
-
-    void DependencyGraphCompiler::compileTaskResourceAccesses(BaseGpuTask* srcTask, CompiledTask& dstTask) {
-        for (auto& access : srcTask->logicalResourceAccesses_) {
-            CompiledLogicalResourceAccess compiledAccess{};
-
-            // Map logical → compiled resource
-            compiledAccess.compiledLogicalResource =
-                &compiledDependencyGraph_.compiledLogicalResources[access.handle.index];
-
-            // Binding info is copied verbatim
-            compiledAccess.bindingIface = access.binding;
-
-            // Descriptor type is decided here
-            compiledAccess.descriptorType = determineDescriptorType(access.access);
-
-            dstTask.compiledResourceAccesses.push_back(compiledAccess);
-        }
-    }
-
-    vk::DescriptorType DependencyGraphCompiler::determineDescriptorType(AccessInterface access) {
-        if (auto imageAccess = std::get_if<ImageAccess>(&access)) {
-            switch (*imageAccess) {
-                case ImageAccess::ColorAttachmentWrite:
-                case ImageAccess::DepthAttachmentWrite:
-                    return vk::DescriptorType::eInputAttachment;
-                case ImageAccess::StorageReadWrite:
-                    return vk::DescriptorType::eStorageImage;
-                case ImageAccess::SampledRead:
-                    return vk::DescriptorType::eCombinedImageSampler;
-                default:
-                    throw std::runtime_error("could not determine descriptor type for image");
-            }
-        }
-
-        else if (auto bufferAccess = std::get_if<BufferAccess>(&access)) {
-            switch (*bufferAccess) {
-                case BufferAccess::UniformRead:
-                    return vk::DescriptorType::eUniformBuffer;
-                case BufferAccess::StorageReadWrite:
-                    return vk::DescriptorType::eStorageBuffer;
-                default:
-                    throw std::runtime_error("could not determine descriptor type for buffer");
-            }
-        }
-
-        throw std::runtime_error("could not determine descriptor type");
     }
 
     void DependencyGraphCompiler::compileBarrier(
@@ -481,4 +422,4 @@ namespace hammock::graph {
 
     void DependencyGraphCompiler::createComputePipeline(CompiledTask& task) {}
 
-}  // namespace hammock::renderer
+}  // namespace hammock::graph

@@ -57,11 +57,13 @@ namespace hammock::graph {
 
     /// @class DependencyGraph
     /// @brief Represents DAG of tasks and resources
+    /// TODO alow import of externally owned resources
     class DependencyGraph final {
         friend class DependencyGraphCompiler;
         friend struct CompiledLogicalResource;
+
         struct TaskSlot {
-            std::unique_ptr<BaseGpuTask> task;
+            GpuTask task;
             std::uint32_t generation;
             std::uint32_t nextFreeSlot;
             bool active = false;
@@ -88,34 +90,12 @@ namespace hammock::graph {
         std::vector<LogicalResourceSlot> logicalResources_;
         std::int32_t firstFreeLogicalResourceSlot_ = -1;
 
-        bool isPresentSet_ = false;
-        TaskHandle presentTaskHandle_;
-        LogicalResourceHandle presentResourceHandle_;
-
-        struct InitDefault {};
-
-        struct InitCopyBuffer {
-            std::reference_wrapper<core::Buffer> buffer;
-        };
-
-        struct InitCopyImage {
-            std::reference_wrapper<core::Image> image;
-        };
-
-        struct InitClearImage {
-            std::array<float, 4> clearColor;
-            std::array<float, 2> clearDepthStencil;
-        };
-
-        using InitResourceInterface =
-            std::variant<InitDefault, InitCopyBuffer, InitCopyImage, InitClearImage>;
-
-        std::unordered_map<LogicalResourceHandle, InitResourceInterface, LogicalResourceHandleHash>
-            resourceInits_{};
+        TaskHandle root_;
+        bool hasRoot_{false};
 
        public:
         /// @brief Adds a resource to the graph
-        [[nodiscard]] LogicalResourceHandle resource(LogicalResourceInterface iface = {});
+        [[nodiscard]] LogicalResourceHandle resource(LogicalResourceInterface riface);
 
         /// @brief Adds an image to the graph
         /// @note Wrapper around addResource
@@ -140,7 +120,7 @@ namespace hammock::graph {
         [[nodiscard]] bool isHandleValid(TaskHandle h) const;
 
         /// @brief Adds a gpu task to the graph
-        [[nodiscard]] TaskHandle task(std::unique_ptr<BaseGpuTask>&& task);
+        [[nodiscard]] TaskHandle task(GpuTask&& task);
 
         /// @brief Removes a task from the graph
         void remove(TaskHandle h);
@@ -151,8 +131,8 @@ namespace hammock::graph {
         /// @brief Declares an explicit execution dependency between two tasks.
         void dependency(TaskHandle srcTaskHandle, TaskHandle dstTaskHandle, DependencyType dependencyType);
 
-        /// @brief Marks this task as present and a resource as present target
-        /// This will end the execution of the render graph when the task marked present is executed
-        void present(TaskHandle presentTaskHandle, LogicalResourceHandle presentResourceHandle);
+        /// @brief Marks this task as root (last task)
+        /// Tasks that do not contribute to the root task might get culled out during compilation.
+        void root(TaskHandle task);
     };
 }  // namespace hammock::graph

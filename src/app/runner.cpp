@@ -25,7 +25,6 @@ hammock::app::Runner::Runner(ExecutionMode mode, core::VulkanContext& context) :
     ui::Ui::initialize(window_->getExtent().width, window_->getExtent().height);
 
     ui::Ui::instance().setUiCallback([] {
-        // Declare UI using Clay macros — runs on logic thread, no GPU state
         CLAY(CLAY_ID("Root"),
             {
                 .layout =

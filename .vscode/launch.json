@@ -4,6 +4,13 @@
     {
       "name": "Debug",
       "type": "cppdbg",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
       "request": "launch",
       "program": "${command:cmake.launchTargetPath}",
       "args": [],

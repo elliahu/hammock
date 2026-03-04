@@ -10,7 +10,6 @@ add_library(hammock_dependency_graph
     "dependency_graph.hpp"
     "gpu_task.cpp"
     "gpu_task.hpp"
-    "push_constants.hpp"
 )
 
 
