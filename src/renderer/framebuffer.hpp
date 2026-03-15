@@ -17,9 +17,6 @@ namespace hammock::renderer {
     public:
         Framebuffer(core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, core::ImageFormat format);
 
-        // Framebuffer lifetime is expected to be smaller than resource managers lifetime.
-        // It is also expected that framebuffer will be recreated many times .
-        // This means we cannot rely on resource manager to delete the resource in its destructor.
         ~Framebuffer();
 
         /// @brief Get the extent of the framebuffer

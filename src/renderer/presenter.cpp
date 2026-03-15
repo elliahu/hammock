@@ -2,18 +2,24 @@
 
 #include <stdexcept>
 
+#include "utilities.hpp"
+#include "utils/math.hpp"
+
 namespace hammock::renderer {
 
-    Presenter::Presenter(core::Device& device, core::SurfaceProviderIface& surfaceProvider)
-        : device_(device), framesInFlight_(core::SwapChain::MAX_FRAMES_IN_FLIGHT) {
+    Presenter::Presenter(
+        core::Device& device, core::SurfaceProviderIface& surfaceProvider, const PresenterDesc& desc)
+        : device_(device), framesInFlight_(core::SwapChain::MAX_FRAMES_IN_FLIGHT), desc_(desc) {
+        // The swapchain is always the size of the surface
         swapchainManager_ = std::make_unique<core::SwapChainManager>(surfaceProvider, device_);
 
-        // Match initial framebuffer size to swapchain
-        const auto extent = swapchainManager_->getSwapChain().getExtent();
-        framebuffer_ = std::make_unique<Framebuffer>(device_,
-            framesInFlight_,
-            math::Vec2{static_cast<float>(extent.width), static_cast<float>(extent.height)},
-            core::ImageFormat::R8G8B8A8Uint);
+        // Create the framebuffer
+        auto framebufferSuze = getFramebufferSize();
+        core::Logger::debug("Initializing presenter with framebuffer res %.0f px X %.0f px",
+            framebufferSuze.X,
+            framebufferSuze.Y);
+        framebuffer_ = std::make_unique<Framebuffer>(
+            device_, framesInFlight_, framebufferSuze, core::ImageFormat::R8G8B8A8Uint);
 
         // Recreate framebuffer whenever the swapchain is rebuilt
         swapchainManager_->registerOnSwapChainRecreatedCallback(
@@ -79,12 +85,15 @@ namespace hammock::renderer {
     }
 
     void Presenter::recreateFramebuffer(vk::Extent2D newResolution) {
-        device_.waitIdle();
+        device_.waitIdle();  // Wait for the device to be idle before recreating the framebuffer
         framebuffer_.reset();
-        framebuffer_ = std::make_unique<Framebuffer>(device_,
-            framesInFlight_,
-            math::Vec2{static_cast<float>(newResolution.width), static_cast<float>(newResolution.height)},
-            getFormat());
+
+        auto framebufferSuze = getFramebufferSize();
+        core::Logger::debug(
+            "Recreating framebuffer with res %.0f px X %.0f px", framebufferSuze.X, framebufferSuze.Y);
+
+        framebuffer_ =
+            std::make_unique<Framebuffer>(device_, framesInFlight_, getFramebufferSize(), getFormat());
         notifyResolutionChanged(newResolution.width, newResolution.height);
     }
 
@@ -107,4 +116,18 @@ namespace hammock::renderer {
         for (auto& cb : resolutionCallbacks_) cb(width, height);
     }
 
+    math::Vec2 Presenter::getFramebufferSize() const {
+        // Set the initial frambuffer size
+        const auto swapchainExtent = swapchainManager_->getSwapChain().getExtent();
+        math::Vec2 framebufferSize = {};
+
+        if (desc_.frameBufferRelativeSize == PresenterFrameBufferSize::SwapchainRelative) {
+            framebufferSize = {static_cast<float>(swapchainExtent.width) * desc_.frameBufferSize.X,
+                static_cast<float>(swapchainExtent.height) * desc_.frameBufferSize.Y};
+        } else if (desc_.frameBufferRelativeSize == PresenterFrameBufferSize::Absolute) {
+            framebufferSize = desc_.frameBufferSize;
+        }
+
+        return framebufferSize;
+    }
 }  // namespace hammock::renderer

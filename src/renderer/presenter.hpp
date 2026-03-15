@@ -10,6 +10,7 @@
 #include "core/swapchain_manager.hpp"
 #include "framebuffer.hpp"
 #include "resource_manager.hpp"
+#include "utils/math.hpp"
 
 namespace hammock::renderer {
 
@@ -38,14 +39,31 @@ namespace hammock::renderer {
         virtual void onResolutionChanged(std::function<void(uint32_t, uint32_t)> callback) = 0;
     };
 
+    /// @enum PresenterFrameBufferSize
+    /// @brief Specifies the size of the internal framebuffer used by the presenter.
+    enum class PresenterFrameBufferSize { SwapchainRelative, Absolute };
+
+    /// @struct PresenterDesc
+    /// @brief Describes the configuration for creating a Presenter.
+    struct PresenterDesc {
+        PresenterFrameBufferSize frameBufferRelativeSize = PresenterFrameBufferSize::SwapchainRelative;
+        math::Vec2 frameBufferSize = {1.f, 1.f}; // Relative to the setting in frameBufferRelativeSize
+    };
+
     /// @class SurfacePresenter
-    /// @brief Implements the IPresenter interface using a Vulkan swapchain for frame presentation.
+    /// @brief Implements the PresenterIface interface using a Vulkan swapchain for frame presentation.
+    /// Presenter creates internal framebuffer that is the size of the surface (window) and blits it to the
+    /// swapchain. This way both can be resized independently.
     class Presenter final : public PresenterIface {
        public:
-        Presenter(core::Device& device, core::SurfaceProviderIface& surfaceProvider);
+        Presenter(core::Device& device, core::SurfaceProviderIface& surfaceProvider, const PresenterDesc& desc);
         ~Presenter() override = default;
 
+        /// @brief Begins a new frame for rendering.
+        /// @return An optional FrameContext if a new frame was successfully started, otherwise std::nullopt.
         std::optional<FrameContext> beginFrame() override;
+
+        /// @brief Ends the current frame, presenting it to the swapchain.
         void endFrame(const FrameContext& ctx) override;
 
         [[nodiscard]] vk::Extent2D getResolution() const override;
@@ -59,6 +77,7 @@ namespace hammock::renderer {
         void recreateFramebuffer(vk::Extent2D newResolution);
         void blitFramebufferToSwapchain(const FrameContext& ctx);
         void notifyResolutionChanged(uint32_t width, uint32_t height);
+        math::Vec2 getFramebufferSize() const;
 
         core::Device& device_;
         std::unique_ptr<Framebuffer> framebuffer_;
@@ -68,6 +87,8 @@ namespace hammock::renderer {
             core::Handle<core::Semaphore> renderingFinished;
             core::Handle<core::CommandBuffer> presentCommandBuffer;
         };
+
+        PresenterDesc desc_;
 
         core::ResourceManager<core::Semaphore> semaphores_{};
         core::ResourceManager<core::CommandBuffer> commandBuffers_{};

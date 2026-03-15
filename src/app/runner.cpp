@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include "VulkanSurfer/VulkanSurfer.h"
+#include "presenter.hpp"
 #include "render_backend.hpp"
 #include "render_frontend.hpp"
 #include "render_proxy.hpp"
@@ -88,7 +89,12 @@ hammock::app::Runner::Runner() {
     });
 
     // Initialize presenter
-    auto presenter = std::make_unique<renderer::Presenter>(renderer->getDevice(), *window_);
+    auto presenter = std::make_unique<renderer::Presenter>(renderer->getDevice(), *window_, renderer::PresenterDesc{});
+
+    // Set up resolution change callback that will resize ui
+    presenter->onResolutionChanged([this](uint32_t width, uint32_t height){
+        ui::Ui::instance().setDisplaySize(width, height);
+    });
 
     // Create render backend by moving the renderer
     renderBackend_ = std::make_unique<renderer::RenderBackend>(*renderProxy_, *window_, std::move(renderer), std::move(presenter));

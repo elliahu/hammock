@@ -2,7 +2,6 @@
 
 #include <thread>
 
-#include "command_buffer.hpp"
 #include "render_proxy.hpp"
 #include "utilities.hpp"
 
@@ -32,13 +31,16 @@ void hammock::renderer::RenderBackend::start() {
                 }
                 if (cmd.type == RenderCommandType::Resize) {
                     renderer_->handleResize(cmd);
+                    // Resize handled
+                    surfaceProvider_.resetResized();
                 }
             }
 
             // Consume render packet
-            // Skip rendering if no packet is added
             RenderSnapshot renderSnap;
             if (!proxy_.getRenderQueue().pop(renderSnap)) {
+                // No packet, skip frame, this indicates the logic thread is still working on a new frame
+                // Might be due to heavy logic thread workload
                 continue;
             }
 
@@ -59,5 +61,7 @@ void hammock::renderer::RenderBackend::start() {
 }
 
 void hammock::renderer::RenderBackend::stop() { running_.store(false, std::memory_order_release); }
+
 bool hammock::renderer::RenderBackend::isRunning() const { return running_.load(std::memory_order_relaxed); }
+
 void hammock::renderer::RenderBackend::join() { thread_.join(); }
