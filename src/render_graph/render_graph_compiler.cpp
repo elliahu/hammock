@@ -1,4 +1,4 @@
-#include "dependency_graph_compiler.hpp"
+#include "render_graph_compiler.hpp"
 
 #include <algorithm>
 #include <queue>
@@ -7,20 +7,23 @@
 #include <unordered_set>
 #include <variant>
 
-#include "dependency_graph.hpp"
-#include "gpu_task.hpp"
+#include "render_graph.hpp"
+#include "render_pass.hpp"
 
 namespace hammock::graph {
 
     // Construction / top-level compile
 
-    DependencyGraphCompiler::DependencyGraphCompiler() {}
+    RenderGraphCompiler::RenderGraphCompiler() {}
 
-    CompiledDependencyGraph DependencyGraphCompiler::compile(DependencyGraph& dg) {
+    CompiledRenderGraph RenderGraphCompiler::compile(RenderGraph& dg) {
         // Reset internal state so the compiler object can be reused
         nodes_.clear();
         resourceUses_.clear();
         result_ = {};
+
+        // Call the declaration callbacks
+        callDeclFuncs(dg);
 
         // Graph analysis
         buildNodes(dg);  // populate nodes_ & resourceUses_
@@ -33,54 +36,54 @@ namespace hammock::graph {
         compileResources(dg);
 
         // Task + barrier compilation
-        compileTasks(dg);
+        compileRenderPasses(dg);
 
         return std::move(result_);
     }
 
     // Graph analysis
 
-    void DependencyGraphCompiler::buildNodes(DependencyGraph& dg) {
-        const auto count = static_cast<uint32_t>(dg.tasks_.size());
+    void RenderGraphCompiler::buildNodes(RenderGraph& dg) {
+        const auto count = static_cast<uint32_t>(dg.passes_.size());
         nodes_.resize(count);
-        result_.compiledTasks.resize(count);
+        result_.compiledRenderPasses.resize(count);
 
         for (uint32_t i = 0; i < count; ++i) {
-            nodes_[i].task = &dg.tasks_[i].task;
+            nodes_[i].pass = &dg.passes_[i].pass;
 
-            TaskHandle handle{.index = i, .generation = dg.tasks_[i].generation};
+            RenderPassHandle handle{.index = i, .generation = dg.passes_[i].generation};
             if (handle == dg.root_) {
                 result_.rootIdx = static_cast<int32_t>(i);
             }
 
             // Record every resource access for this task (un-ordered at this point)
-            for (const auto& acc : nodes_[i].task->logicalResourceAccesses_) {
-                resourceUses_[acc.handle].push_back(ResourceUseEntry{.taskIdx = i, .access = acc.access});
+            for (const auto& acc : nodes_[i].pass->logicalResourceAccesses_) {
+                resourceUses_[acc.handle].push_back(ResourceUseEntry{.passIdx = i, .access = acc.access});
             }
         }
     }
 
-    void DependencyGraphCompiler::addEdge(uint32_t src, uint32_t dst) {
+    void RenderGraphCompiler::addEdge(uint32_t src, uint32_t dst) {
         if (std::ranges::contains(nodes_[src].outgoing, dst)) return;  // already exists
         nodes_[src].outgoing.push_back(dst);
         nodes_[dst].incoming.push_back(src);
         ++nodes_[dst].indegree;
     }
 
-    void DependencyGraphCompiler::applyExplicitDependencies(DependencyGraph& dg) {
+    void RenderGraphCompiler::applyExplicitDependencies(RenderGraph& dg) {
         for (const auto& dep : dg.explicitDependencies_) {
-            if (!dg.isHandleValid(dep.srcTaskHandle) || !dg.isHandleValid(dep.dstTaskHandle)) {
+            if (!dg.isHandleValid(dep.srcPassHandle) || !dg.isHandleValid(dep.dstPassHandle)) {
                 throw std::runtime_error(
                     "DependencyGraphCompiler: invalid task handle in explicit dependency");
             }
             if (dep.dependencyType == DependencyType::Execution) {
-                addEdge(dep.srcTaskHandle.index, dep.dstTaskHandle.index);
+                addEdge(dep.srcPassHandle.index, dep.dstPassHandle.index);
             }
             // Debug edges are only asserted, not structural – handled in assertDebugEdges
         }
     }
 
-    void DependencyGraphCompiler::buildDataFlowEdges() {
+    void RenderGraphCompiler::buildDataFlowEdges() {
         // For each logical resource, look at every pair of tasks that access it.
         // Insert an edge whenever the pair constitutes a hazard (write involved).
         //
@@ -107,24 +110,24 @@ namespace hammock::graph {
                     if (!isHazard(intentA, intentB)) continue;  // RR – skip
 
                     // intentA is Write or ReadWrite -> B must wait for A
-                    addEdge(uses[a].taskIdx, uses[b].taskIdx);
+                    addEdge(uses[a].passIdx, uses[b].passIdx);
                 }
             }
         }
     }
 
-    void DependencyGraphCompiler::assertDebugEdges(DependencyGraph& dg) const {
+    void RenderGraphCompiler::assertDebugEdges(RenderGraph& dg) const {
         for (const auto& dep : dg.explicitDependencies_) {
             if (dep.dependencyType != DependencyType::Debug) continue;
-            const uint32_t src = dep.srcTaskHandle.index;
-            const uint32_t dst = dep.dstTaskHandle.index;
+            const uint32_t src = dep.srcPassHandle.index;
+            const uint32_t dst = dep.dstPassHandle.index;
             if (!std::ranges::contains(nodes_[src].outgoing, dst)) {
                 throw std::runtime_error("DependencyGraphCompiler: expected debug edge not found");
             }
         }
     }
 
-    void DependencyGraphCompiler::buildExecutionLevels() {
+    void RenderGraphCompiler::buildExecutionLevels() {
         // Work on a copy of indegrees so the original nodes_ are preserved for
         // the barrier compilation step that follows.
         std::vector<uint32_t> indegree(nodes_.size());
@@ -156,7 +159,7 @@ namespace hammock::graph {
 
     // Resource compilation
 
-    void DependencyGraphCompiler::compileResources(DependencyGraph& dg) {
+    void RenderGraphCompiler::compileResources(RenderGraph& dg) {
         if (!dg.hasRoot_) {
             throw std::runtime_error("DependencyGraphCompiler: dependency graph has no root task");
         }
@@ -177,17 +180,17 @@ namespace hammock::graph {
 
     // Task & barrier compilation
 
-    void DependencyGraphCompiler::compileTasks(DependencyGraph& dg) {
+    void RenderGraphCompiler::compileRenderPasses(RenderGraph& dg) {
         // Track which resources have already received their init barrier so we
         // only emit it once (for the first task to use them).
         std::unordered_set<LogicalResourceHandle, LogicalResourceHandleHash> initialised;
 
         for (auto& level : result_.executionLevels) {
             for (uint32_t i : level) {
-                GpuTask* src = nodes_[i].task;
-                CompiledTask& dst = result_.compiledTasks[i];
+                RenderPass* src = nodes_[i].pass;
+                CompiledRenderPass& dst = result_.compiledRenderPasses[i];
 
-                dst.origin = TaskHandle{.index = i, .generation = dg.tasks_[i].generation};
+                dst.origin = RenderPassHandle{.index = i, .generation = dg.passes_[i].generation};
                 dst.execFunc = std::move(src->execFunc_);
                 dst.family = src->getFamily();
 
@@ -204,7 +207,7 @@ namespace hammock::graph {
 
                 // Transition barriers between predecessor tasks
                 for (uint32_t p : nodes_[i].incoming) {
-                    GpuTask* prev = nodes_[p].task;
+                    RenderPass* prev = nodes_[p].pass;
 
                     for (const auto& prevAcc : prev->logicalResourceAccesses_) {
                         for (const auto& currAcc : src->logicalResourceAccesses_) {
@@ -219,15 +222,15 @@ namespace hammock::graph {
 
                 // Compile-time callbacks
                 if (src->compFunc_) {
-                    GpuTaskCompileContext ctx{};
+                    RenderPassComplContext ctx{};
                     src->compFunc_(ctx);
                 }
             }
         }
     }
 
-    void DependencyGraphCompiler::emitBarrier(
-        const LogicalResourceAccess& prev, const LogicalResourceAccess& curr, CompiledTask& dst) {
+    void RenderGraphCompiler::emitBarrier(
+        const LogicalResourceAccess& prev, const LogicalResourceAccess& curr, CompiledRenderPass& dst) {
         const vk::PipelineStageFlags2 srcStage = stageOf(prev.access);
         const vk::PipelineStageFlags2 dstStage = stageOf(curr.access);
         const vk::AccessFlags2 srcAccess = accessOf(prev.access);
@@ -256,7 +259,7 @@ namespace hammock::graph {
         }
     }
 
-    void DependencyGraphCompiler::emitInitBarrier(const LogicalResourceAccess& firstUse, CompiledTask& dst) {
+    void RenderGraphCompiler::emitInitBarrier(const LogicalResourceAccess& firstUse, CompiledRenderPass& dst) {
         const vk::PipelineStageFlags2 dstStage = stageOf(firstUse.access);
         const vk::AccessFlags2 dstAccess = accessOf(firstUse.access);
 
@@ -285,7 +288,7 @@ namespace hammock::graph {
 
     // Access helpers
 
-    DependencyGraphCompiler::ReadWriteIntent DependencyGraphCompiler::intentOf(AccessInterface a) {
+    RenderGraphCompiler::ReadWriteIntent RenderGraphCompiler::intentOf(AccessInterface a) {
         if (auto* img = std::get_if<ImageAccess>(&a)) {
             switch (*img) {
                 case ImageAccess::SampledRead:
@@ -313,12 +316,12 @@ namespace hammock::graph {
         throw std::runtime_error("intentOf: unknown AccessInterface variant");
     }
 
-    bool DependencyGraphCompiler::isHazard(ReadWriteIntent a, ReadWriteIntent b) {
+    bool RenderGraphCompiler::isHazard(ReadWriteIntent a, ReadWriteIntent b) {
         // Read–Read is safe; everything else requires synchronisation.
         return !(a == ReadWriteIntent::Read && b == ReadWriteIntent::Read);
     }
 
-    vk::PipelineStageFlags2 DependencyGraphCompiler::stageOf(AccessInterface a) {
+    vk::PipelineStageFlags2 RenderGraphCompiler::stageOf(AccessInterface a) {
         if (auto* img = std::get_if<ImageAccess>(&a)) {
             switch (*img) {
                 case ImageAccess::ColorAttachmentWrite:
@@ -346,7 +349,7 @@ namespace hammock::graph {
         throw std::runtime_error("stageOf: unknown AccessInterface variant");
     }
 
-    vk::AccessFlags2 DependencyGraphCompiler::accessOf(AccessInterface a) {
+    vk::AccessFlags2 RenderGraphCompiler::accessOf(AccessInterface a) {
         if (auto* img = std::get_if<ImageAccess>(&a)) {
             switch (*img) {
                 case ImageAccess::ColorAttachmentWrite:
@@ -374,7 +377,7 @@ namespace hammock::graph {
         throw std::runtime_error("accessOf: unknown AccessInterface variant");
     }
 
-    vk::ImageLayout DependencyGraphCompiler::layoutOf(ImageAccess a) {
+    vk::ImageLayout RenderGraphCompiler::layoutOf(ImageAccess a) {
         switch (a) {
             case ImageAccess::ColorAttachmentWrite:
                 return vk::ImageLayout::eColorAttachmentOptimal;
@@ -389,4 +392,11 @@ namespace hammock::graph {
         }
     }
 
+    void RenderGraphCompiler::callDeclFuncs(RenderGraph& dg) {
+        for (auto& pass : dg.passes_) {
+            RenderPassBuilder builder{};
+            pass.pass.declFunc_(builder);
+            pass.pass.logicalResourceAccesses_.swap(builder.logicalResourceAccesses_);
+        }
+    }
 }  // namespace hammock::graph

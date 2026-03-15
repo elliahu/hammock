@@ -39,7 +39,7 @@ endif()
 # Add libraries in dependency order
 add_subdirectory(src/core)
 add_subdirectory(src/renderer)
-add_subdirectory(src/dependency_graph)
+add_subdirectory(src/render_graph)
 add_subdirectory(src/app)
 add_subdirectory(src/utils)
 add_subdirectory(src/ui)

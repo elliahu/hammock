@@ -1,12 +1,12 @@
-#include "dependency_graph.hpp"
+#include "render_graph.hpp"
 
 #include <cstdint>
 #include <vector>
 
-#include "gpu_task.hpp"
+#include "render_pass.hpp"
 
 namespace hammock::graph {
-    LogicalResourceHandle DependencyGraph::resource(LogicalResourceInterface riface) {
+    LogicalResourceHandle RenderGraph::resource(LogicalResourceInterface riface) {
         std::uint32_t idx;
 
         if (firstFreeLogicalResourceSlot_ != -1) {
@@ -27,63 +27,63 @@ namespace hammock::graph {
         return handle;
     }
 
-    bool DependencyGraph::isHandleValid(TaskHandle h) const {
-        return h.index < tasks_.size() && tasks_[h.index].generation == h.generation &&
-               tasks_[h.index].active;
+    bool RenderGraph::isHandleValid(RenderPassHandle h) const {
+        return h.index < passes_.size() && passes_[h.index].generation == h.generation &&
+               passes_[h.index].active;
     }
 
-    TaskHandle DependencyGraph::task(GpuTask&& task) {
+    RenderPassHandle RenderGraph::pass(RenderPass&& pass) {
 
         std::uint32_t idx;
 
-        if (firstFreeTaskSlot_ != -1) {
+        if (firstFreePassSlot_ != -1) {
             // Reuse an empty slot
-            idx = firstFreeTaskSlot_;
-            firstFreeTaskSlot_ = static_cast<std::int32_t>(tasks_[idx].nextFreeSlot);
+            idx = firstFreePassSlot_;
+            firstFreePassSlot_ = static_cast<std::int32_t>(passes_[idx].nextFreeSlot);
         } else {
             // No empty slots, grow the vector
-            idx = static_cast<uint32_t>(tasks_.size());
-            tasks_.resize(tasks_.size() + 1);
+            idx = static_cast<uint32_t>(passes_.size());
+            passes_.resize(passes_.size() + 1);
         }
 
-        TaskSlot& slot = tasks_[idx];
-        slot.task = std::move(task);
+        RenderPassSlot& slot = passes_[idx];
+        slot.pass = std::move(pass);
         slot.active = true;
         // Note: We don't increment generation here; we do it on removal
         return {idx, slot.generation};
     }
 
-    void DependencyGraph::remove(TaskHandle h) {
+    void RenderGraph::remove(RenderPassHandle h) {
         if (isHandleValid(h)) {
-            TaskSlot& slot = tasks_[h.index];
+            RenderPassSlot& slot = passes_[h.index];
             slot.active = false;
             slot.generation++;  // This invalidates all existing handles to this slot
 
             // Push this slot onto the front of the free list
-            slot.nextFreeSlot = firstFreeTaskSlot_;
-            firstFreeTaskSlot_ = static_cast<std::int32_t>(h.index);
+            slot.nextFreeSlot = firstFreePassSlot_;
+            firstFreePassSlot_ = static_cast<std::int32_t>(h.index);
         }
     }
 
-    void DependencyGraph::remove(LogicalResourceHandle h) {
+    void RenderGraph::remove(LogicalResourceHandle h) {
         // TODO Implement removing logical resources
     }
 
-    void DependencyGraph::dependency(
-        TaskHandle srcTaskHandle, TaskHandle dstTaskHandle, DependencyType dependencyType) {
-        explicitDependencies_.push_back({srcTaskHandle, dstTaskHandle, dependencyType});
+    void RenderGraph::dependency(
+        RenderPassHandle srcPassHandle, RenderPassHandle dstPassHandle, DependencyType dependencyType) {
+        explicitDependencies_.push_back({srcPassHandle, dstPassHandle, dependencyType});
     }
 
-    LogicalResourceHandle DependencyGraph::image(LogicalImageResource imageResource) {
+    LogicalResourceHandle RenderGraph::image(LogicalImageResource imageResource) {
         return resource(imageResource);
     }
 
-    LogicalResourceHandle DependencyGraph::buffer(LogicalBufferResource bufferResource) {
+    LogicalResourceHandle RenderGraph::buffer(LogicalBufferResource bufferResource) {
         return resource(bufferResource);
     }
 
-    void DependencyGraph::root(TaskHandle task) {
-        root_ = task;
+    void RenderGraph::root(RenderPassHandle pass) {
+        root_ = pass;
         hasRoot_ = true;
     }
 }  // namespace hammock::graph

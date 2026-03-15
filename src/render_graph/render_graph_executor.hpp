@@ -1,18 +1,18 @@
 #pragma once
 
-#include "dependency_graph_compiler.hpp"
+#include "render_graph_compiler.hpp"
 
 namespace hammock::graph {
 
-    /// @class DependencyGraphExecutor
+    /// @class RenderGraphExecutor
     /// @brief Executes compiled graph, orchestrates the recording and submission of command buffers
-    class DependencyGraphExecutor final {
+    class RenderGraphExecutor final {
     public:
         /// @brief Executes the compiled dependency graph
-        inline void execute(const CompiledDependencyGraph& compiledGraph){
+        inline void execute(const CompiledRenderGraph& compiledGraph){
             for(auto execLevel: compiledGraph.executionLevels){
                 for(auto gidx : execLevel){
-                    if(compiledGraph.compiledTasks[gidx].execFunc){
+                    if(compiledGraph.compiledRenderPasses[gidx].execFunc){
                         //compiledGraph.compiledTasks[gidx].execFunc();
                     }
                 }
