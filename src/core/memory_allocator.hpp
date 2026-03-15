@@ -1,6 +1,4 @@
 #pragma once
-#include <compare>
-#include <vector>
 #include <stdexcept>
 #include <vulkan/vulkan.hpp>
 
@@ -31,7 +29,7 @@ namespace hammock::core::allocator {
     /// Create memory allocator
     inline void createAllocator(AllocatorCreateInfo * allocatorInfo, Allocator * allocator) {
         if (auto result = vmaCreateAllocator(allocatorInfo, allocator); result != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create allocator, code: " + result);
+            throw std::runtime_error("Failed to create allocator, code: " + std::to_string(result));
         }
     }
 
@@ -50,7 +48,7 @@ namespace hammock::core::allocator {
 
         if (auto result = vmaCreateBuffer(allocator, &bufferInfo, allocationCreateInfo, &rawBuffer, allocation,
                                           allocInfo); result != VK_SUCCESS) {
-            throw std::runtime_error("failed to create buffer, code: " + result);
+            throw std::runtime_error("failed to create buffer, code: " +  std::to_string(result));
         }
 
         buffer = vk::Buffer(rawBuffer);
@@ -64,7 +62,7 @@ namespace hammock::core::allocator {
     /// Map memory
     inline void mapMemory(Allocator allocator, Allocation allocation, void **pData) {
         if (auto result = vmaMapMemory(allocator, allocation, pData); result != VK_SUCCESS) {
-            throw std::runtime_error("failed to map memory, code: " + result);
+            throw std::runtime_error("failed to map memory, code: " +  std::to_string(result));
         }
     }
 
@@ -76,14 +74,14 @@ namespace hammock::core::allocator {
     /// Flush memory
     inline void flushAllocation(Allocator allocator, Allocation allocation, vk::DeviceSize offset, vk::DeviceSize size) {
         if (auto result = vmaFlushAllocation(allocator, allocation, offset, size); result != VK_SUCCESS) {
-            throw std::runtime_error("failed to flush memory, code: " + result);
+            throw std::runtime_error("failed to flush memory, code: " +  std::to_string(result));
         }
     }
 
     /// Invalidate allocation to make it visible to the host
     inline void invalidateAllocation(Allocator allocator, Allocation allocation, vk::DeviceSize offset, vk::DeviceSize size) {
         if (auto result = vmaInvalidateAllocation(allocator, allocation, offset, size); result != VK_SUCCESS) {
-            throw std::runtime_error("failed to invalidate memory, code: " + result);
+            throw std::runtime_error("failed to invalidate memory, code: " +  std::to_string(result));
         }
     }
 
@@ -94,7 +92,7 @@ namespace hammock::core::allocator {
         VkImageCreateInfo imageInfo = static_cast<VkImageCreateInfo>(imageCreateInfo);
         VkImage rawImage = VK_NULL_HANDLE;
         if (auto result = vmaCreateImage(allocator, &imageInfo, allocationCreateInfo, &rawImage, allocation, allocInfo); result != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image, code: " + result);
+            throw std::runtime_error("failed to create image, code: " +  std::to_string(result));
         }
 
         image = vk::Image(rawImage);

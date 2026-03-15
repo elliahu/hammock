@@ -1,18 +1,17 @@
 #pragma once
 #include <cstdint>
 #include <memory>
-#include <stdexcept>
+#include <functional>
 
-#include "base_resource.hpp"
 #include "core/command_buffer.hpp"
-#include "descriptors.hpp"
-#include "device.hpp"
-#include "image.hpp"
-#include "instance.hpp"
-#include "pipeline.hpp"
+#include "core/descriptors.hpp"
+#include "core/device.hpp"
+#include "core/image.hpp"
+#include "core/instance.hpp"
+#include "core/pipeline.hpp"
 #include "render_types.hpp"
-#include "resource_manager.hpp"
-#include "semaphore.hpp"
+#include "core/resource_manager.hpp"
+#include "core/semaphore.hpp"
 #include "vulkan/vulkan.hpp"
 
 namespace hammock::renderer {

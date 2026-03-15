@@ -1,12 +1,7 @@
-#pragma once 
+#pragma once
 
-#include <array>
 #include <cassert>
-#include <compare>
 #include <cstdint>
-#include <stdexcept>
-#include <string>
-#include <vector>
 
 #include "base_resource.hpp"
 #include "device.hpp"

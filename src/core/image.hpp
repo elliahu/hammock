@@ -1,17 +1,13 @@
 #pragma once
 #include <array>
 #include <cassert>
-#include <compare>
 #include <cstdint>
 #include <stdexcept>
-#include <string>
 #include <vector>
 
 #include "base_resource.hpp"
 #include "device.hpp"
 #include "memory_allocator.hpp"
-#include "resource_manager.hpp"
-#include "utilities.hpp"
 #include "vulkan/vulkan.hpp"
 
 namespace hammock::core {

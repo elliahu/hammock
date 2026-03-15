@@ -1,17 +1,12 @@
 #pragma once
-#include <cstddef>
 #include <memory>
-#include <array>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "render_backend.hpp"
 #include "render_frontend.hpp"
 #include "render_proxy.hpp"
 #include "window.hpp"
-#include "ui/ui.hpp"
-#include "renderer/presentation_engine.hpp"
-#include "application_types.hpp"
+
 
 namespace hammock::app {
 
@@ -26,7 +21,7 @@ namespace hammock::app {
         void launch();
 
     private:
-        /// Window 
+        /// Window
         std::unique_ptr<Window> window_;
 
         /// Render proxy

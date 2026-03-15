@@ -1,7 +1,4 @@
 #pragma once
-#include <compare>
-#include <cstdint>
-#include <string>
 #include <vulkan/vulkan.hpp>
 
 #include "device.hpp"

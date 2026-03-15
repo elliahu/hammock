@@ -1,5 +1,5 @@
 #include <stdexcept>
-#include <compare>
+#include <algorithm>
 #include <vulkan/vulkan.hpp>
 
 #include "command_buffer.hpp"

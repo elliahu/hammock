@@ -1,7 +1,5 @@
 #include "render_frontend.hpp"
 
-#include <stdexcept>
-
 #include "render_proxy.hpp"
 #include "render_types.hpp"
 #include "utilities.hpp"

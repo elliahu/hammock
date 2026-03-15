@@ -1,7 +1,6 @@
 #pragma once
 #include <memory>
 #include <optional>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 #include <functional>
 
@@ -105,8 +104,8 @@ namespace hammock::renderer {
     class SurfacePresentationStrategy : public BasePresentationStrategy {
     public:
         enum class Mode {
-            Tooling, 
-            Game 
+            Tooling,
+            Game
         };
 
         SurfacePresentationStrategy(

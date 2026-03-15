@@ -1,6 +1,5 @@
 #include "buffer.hpp"
 
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "base_resource.hpp"

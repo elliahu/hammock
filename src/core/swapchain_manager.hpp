@@ -1,13 +1,10 @@
 #pragma once
-#include <stdexcept>
 #include <vector>
 #include <memory>
 #include <functional>
 
 #include "device.hpp"
-#include "utilities.hpp"
 #include "surface_provider_iface.hpp"
-#include "base_resource.hpp"
 #include "swapchain.hpp"
 #include "command_buffer.hpp"
 #include "image.hpp"

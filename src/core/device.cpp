@@ -46,7 +46,7 @@ namespace hammock::core {
         Logger::info("Physical device: %s", physicalDeviceProperties_.deviceName);
 
         if (runningHeadless()) {
-            Logger::info("Running in headless mode");
+            Logger::info("%s", "Running in headless mode");
         }
     }
 
@@ -118,7 +118,6 @@ namespace hammock::core {
         createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions_.size());
         createInfo.ppEnabledExtensionNames = deviceExtensions_.data();
         createInfo.pNext = &deviceFeatures2;  // Pass the device features structure
-        createInfo.enabledLayerCount = 0;
 
         if (physicalDevice_.createDevice(&createInfo, nullptr, &device_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to create logical device!");

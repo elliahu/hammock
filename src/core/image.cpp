@@ -1,6 +1,5 @@
 #include "image.hpp"
 
-#include <compare>
 #include <cstdint>
 #include <vulkan/vulkan.hpp>
 

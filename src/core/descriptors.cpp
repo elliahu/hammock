@@ -2,7 +2,6 @@
 #include <stdexcept>
 #include <vector>
 #include <unordered_map>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "descriptors.hpp"
@@ -112,10 +111,13 @@ namespace hammock::core {
     }
 
     void DescriptorPool::freeDescriptors(const std::vector<vk::DescriptorSet> &descriptors) const {
-        device_.device().freeDescriptorSets(
+        auto res = device_.device().freeDescriptorSets(
             descriptorPool_,
             static_cast<uint32_t>(descriptors.size()),
             descriptors.data());
+        if (res != vk::Result::eSuccess) {
+            throw std::runtime_error("Failed to free descriptor sets");
+        }
     }
 
     void DescriptorPool::resetPool() const {

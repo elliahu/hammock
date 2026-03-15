@@ -13,7 +13,7 @@ add_library(hammock_renderer
         "stage.hpp"
         "framebuffer.hpp"
         "presentation_engine.hpp"
-  
+
 
         "renderer.cpp"
         "presentation_engine.cpp"
@@ -25,6 +25,10 @@ add_library(hammock_renderer
         "render_backend.cpp"
         "render_proxy.cpp"
 )
+
+# Compile slang shaders
+add_subdirectory(shaders)
+add_dependencies(hammock_renderer process_slang_files)
 
 
 # Include directories for legacy headers

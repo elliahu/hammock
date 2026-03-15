@@ -107,23 +107,23 @@ namespace hammock::core {
             const std::vector<vk::PresentModeKHR>& availablePresentModes) {
             for (const auto& availablePresentMode : availablePresentModes) {
                 if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
-                    Logger::info("Present mode: Mailbox");
+                    Logger::info("%s", "Present mode: Mailbox");
                     return availablePresentMode;
                 }
 
                 if (availablePresentMode == vk::PresentModeKHR::eFifoRelaxed) {
-                    Logger::info("Present mode: V-Sync Relaxed");
+                    Logger::info("%s", "Present mode: V-Sync Relaxed");
                     return availablePresentMode;
                 }
 
                 if (availablePresentMode == vk::PresentModeKHR::eImmediate) {
-                    Logger::info("Present mode: Immediate");
+                    Logger::info("%s", "Present mode: Immediate");
                     return availablePresentMode;
                 }
 
             }
 
-            Logger::info("Present mode: V-Sync");
+            Logger::info("%s", "Present mode: V-Sync");
             return vk::PresentModeKHR::eFifo;
         }
 

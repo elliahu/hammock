@@ -1,5 +1,4 @@
 #include <stdexcept>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "semaphore.hpp"

@@ -1,6 +1,4 @@
 #pragma once
-#include <stdexcept>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "device.hpp"

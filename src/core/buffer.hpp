@@ -1,15 +1,11 @@
 #pragma once
-#include <stdexcept>
+
 #include <vector>
-#include <string>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 
 #include "base_resource.hpp"
 #include "device.hpp"
-#include "resource_manager.hpp"
-#include "utilities.hpp"
 #include "memory_allocator.hpp"
 
 namespace hammock::core {

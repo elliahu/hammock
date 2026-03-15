@@ -1,7 +1,5 @@
 #include <iostream>
-#include <string>
 #include <cassert>
-#include <compare>
 #include <memory>
 #include <vulkan/vulkan.hpp>
 

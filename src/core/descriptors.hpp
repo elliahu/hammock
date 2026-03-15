@@ -1,11 +1,9 @@
 #pragma once
-#include <compare>
 #include <memory>
 #include <unordered_map>
 #include <vulkan/vulkan.hpp>
 
 #include "device.hpp"
-#include "utilities.hpp"
 
 namespace hammock::core {
     typedef const uint32_t Binding;

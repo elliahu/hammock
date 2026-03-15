@@ -1,5 +1,4 @@
 #pragma once
-#include <compare>
 #include <vulkan/vulkan.hpp>
 #include "instance.hpp"
 

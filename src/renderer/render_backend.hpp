@@ -5,7 +5,6 @@
 
 #include "presentation_engine.hpp"
 #include "render_proxy.hpp"
-#include "render_types.hpp"
 #include "renderer.hpp"
 #include "surface_provider_iface.hpp"
 

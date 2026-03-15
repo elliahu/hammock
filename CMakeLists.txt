@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.30)
 
-set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(hammock LANGUAGES CXX)
@@ -41,8 +40,6 @@ endif()
 add_subdirectory(src/core)
 add_subdirectory(src/renderer)
 add_subdirectory(src/dependency_graph)
-# This target compiles slang shaders into binary output directory
-add_subdirectory(src/renderer/shaders)
 add_subdirectory(src/app)
 add_subdirectory(src/utils)
 add_subdirectory(src/ui)

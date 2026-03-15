@@ -4,7 +4,6 @@
 #include <memory>
 #include <vector>
 #include <functional>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "swapchain.hpp"

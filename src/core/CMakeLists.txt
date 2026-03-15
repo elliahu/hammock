@@ -10,7 +10,7 @@ add_library(hammock_core
         "descriptors.hpp"
         "device.hpp"
         "swapchain_manager.hpp"
-        "image.hpp" 
+        "image.hpp"
         "instance.hpp"
         "memory_allocator.hpp"
         "resource_manager.hpp"
@@ -27,7 +27,6 @@ add_library(hammock_core
         "device.cpp"
         "swapchain_manager.cpp"
         "memory_allocator_impl.cpp"
-        "resource_manager.cpp"
         "swapchain.cpp"
         "semaphore.cpp"
 )
@@ -46,4 +45,3 @@ target_link_libraries(hammock_core PUBLIC Vulkan::Vulkan)
 
 # Compiler features
 target_compile_features(hammock_core PUBLIC cxx_std_23)
-

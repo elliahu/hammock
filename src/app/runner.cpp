@@ -2,15 +2,14 @@
 
 #include <cstdint>
 #include <memory>
-#include <thread>
 #include <vulkan/vulkan.hpp>
 
 #include "VulkanSurfer/VulkanSurfer.h"
-#include "application_types.hpp"
 #include "render_backend.hpp"
 #include "render_frontend.hpp"
 #include "render_proxy.hpp"
 #include "render_types.hpp"
+#include "ui/ui.hpp"
 #include "ui/ui.hpp"
 
 hammock::app::Runner::Runner() {

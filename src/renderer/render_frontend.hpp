@@ -1,8 +1,4 @@
 #pragma once
-
-#include <functional>
-#include <thread>
-
 #include "render_proxy.hpp"
 #include "render_types.hpp"
 #include "surface_provider_iface.hpp"

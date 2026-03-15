@@ -1,13 +1,10 @@
 #include "presentation_engine.hpp"
 
-#include <compare>
 #include <functional>
 #include <memory>
-#include <thread>
 #include <vulkan/vulkan.hpp>
 
 #include "semaphore.hpp"
-#include "utilities.hpp"
 
 // ************ Base presentation strategy *************
 

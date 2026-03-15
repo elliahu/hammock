@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "framebuffer.hpp"

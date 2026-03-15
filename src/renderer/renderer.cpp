@@ -18,7 +18,7 @@
 #include "vertex.hpp"
 #include "vulkan/vulkan.hpp"
 
-hammock::renderer::Renderer::Renderer(SurfaceFactory surfaceFactory, SurfaceDestructor surfaceDestructor)
+hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactory surfaceFactory, hammock::renderer::Renderer::SurfaceDestructor surfaceDestructor)
     : instance_{},
       surface_(surfaceFactory(instance_)),
       device_(instance_, surface_),
