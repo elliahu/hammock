@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <span>
 #include <unordered_map>
 #include <vulkan/vulkan.hpp>
 
@@ -20,8 +21,8 @@ namespace hammock::core {
     class DescriptorSetLayout {
        public:
         DescriptorSetLayout(Device& device,
-            const std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding>& bindings,
-            const std::unordered_map<uint32_t, vk::DescriptorBindingFlags>& flags);
+            std::span<vk::DescriptorSetLayoutBinding> bindings,
+            std::span<vk::DescriptorBindingFlags> flags);
 
         ~DescriptorSetLayout();
 

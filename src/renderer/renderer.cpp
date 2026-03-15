@@ -18,7 +18,8 @@
 #include "vertex.hpp"
 #include "vulkan/vulkan.hpp"
 
-hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactory surfaceFactory, hammock::renderer::Renderer::SurfaceDestructor surfaceDestructor)
+hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactory surfaceFactory,
+    hammock::renderer::Renderer::SurfaceDestructor surfaceDestructor)
     : instance_{},
       surface_(surfaceFactory(instance_)),
       device_(instance_, surface_),
@@ -92,13 +93,15 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
     buffers_.destroy(atlasStagingBufferHandle);
 
     // Create font atlas descriptor
-    userInterfaceDescLayout_ =
-        core::DescriptorSetLayoutBuilder(device_)
-            .addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment)
-            .build();
+    auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{{.binding = 0,
+        .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eFragment}};
+    auto flags = std::vector<vk::DescriptorBindingFlags>{};
+    userInterfaceDescLayoutHandle_ = descriptorSetLayouts_.create(device_,bindings, flags);
     auto imageInfo = fontAtlas->getDescriptorImageInfo(fontAtlas->getSampler());
     imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    core::DescriptorWriter(*userInterfaceDescLayout_, descriptorPools_.ref(descriptorPoolHandle_).get())
+    core::DescriptorWriter(*descriptorSetLayouts_.ref(userInterfaceDescLayoutHandle_), descriptorPools_.ref(descriptorPoolHandle_).get())
         .writeImage(0, &imageInfo)
         .build(userInterfaceDescSet_);
 
@@ -109,7 +112,7 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
             .addPushConstantRange(vk::PushConstantRange{.stageFlags = vk::ShaderStageFlagBits::eVertex,
                 .offset = 0,
                 .size = sizeof(UserInterfacePushConstants)})
-            .addDescriptorSetLayout(userInterfaceDescLayout_)
+            .addDescriptorSetLayout(descriptorSetLayouts_.ref(userInterfaceDescLayoutHandle_))
             .setDepthTest(false)
             .setCullMode(vk::CullModeFlagBits::eNone)
             .addBlendAttachmentState(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |

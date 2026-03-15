@@ -80,6 +80,7 @@ namespace hammock::renderer {
         core::ResourceManager<core::Buffer> buffers_{};
         core::ResourceManager<core::Image> images_{};
         core::ResourceManager<core::DescriptorPool> descriptorPools_{};
+        core::ResourceManager<core::DescriptorSetLayout> descriptorSetLayouts_{};
         core::ResourceManager<core::Pipeline> pipelines_{};
 
         // pool
@@ -97,7 +98,7 @@ namespace hammock::renderer {
 
         core::Handle<core::Pipeline> userInterfacePipeline_;
 
-        std::unique_ptr<core::DescriptorSetLayout> userInterfaceDescLayout_;
+        core::Handle<core::DescriptorSetLayout> userInterfaceDescLayoutHandle_;
         core::DescriptorSet userInterfaceDescSet_;
 
         core::Handle<core::Buffer> userInterfaceVertexBuffer_;

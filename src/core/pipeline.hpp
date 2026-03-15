@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include "descriptors.hpp"
+#include "resource_manager.hpp"
 #include "device.hpp"
 
 namespace hammock::core {
@@ -116,7 +117,7 @@ namespace hammock::core {
 
         /// @brief Add descriptor set layout (call for each descriptor set layout)
         PipelineBuilder& addDescriptorSetLayout(
-            const std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
+            ResourceRef<DescriptorSetLayout> descriptorSetLayout);
 
         /// @brief Add push constant range (call for each range)
         PipelineBuilder& addPushConstantRange(vk::PushConstantRange pushConstantRange);

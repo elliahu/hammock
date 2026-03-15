@@ -291,7 +291,7 @@ namespace hammock::core {
     }
 
     PipelineBuilder &PipelineBuilder::addDescriptorSetLayout(
-        const std::unique_ptr<DescriptorSetLayout> &descriptorSetLayout) {
+        ResourceRef<DescriptorSetLayout> descriptorSetLayout) {
         createInfo_.descriptorSetLayouts.push_back(descriptorSetLayout->getDescriptorSetLayout());
         return *this;
     }

@@ -28,35 +28,40 @@ namespace hammock::core {
     }
 
     std::unique_ptr<DescriptorSetLayout> DescriptorSetLayoutBuilder::build() const {
-        return std::make_unique<DescriptorSetLayout>(device_, bindings_, bindingFlags_);
+        std::vector<vk::DescriptorSetLayoutBinding> setLayoutBindings{};
+        std::vector<vk::DescriptorBindingFlags> setLayoutBindingFlags{};
+        for (auto [fst, snd]: bindings_) {
+            setLayoutBindings.push_back(snd);
+        }
+
+        for (auto [fst, snd]: bindingFlags_) {
+            setLayoutBindingFlags.push_back(snd);
+        }
+
+        return std::make_unique<DescriptorSetLayout>(device_, setLayoutBindings, setLayoutBindingFlags);
     }
 
     // *************** Descriptor Set Layout *********************
 
     DescriptorSetLayout::DescriptorSetLayout(
-        Device &device, const std::unordered_map<uint32_t,
-            vk::DescriptorSetLayoutBinding> &bindings,
-        const std::unordered_map<uint32_t, vk::DescriptorBindingFlags> &flags)
-        : device_{device}, bindings_{bindings} {
-        std::vector<vk::DescriptorSetLayoutBinding> setLayoutBindings{};
-        std::vector<vk::DescriptorBindingFlags> setLayoutBindingFlags{};
-        for (auto [fst, snd]: bindings) {
-            setLayoutBindings.push_back(snd);
-        }
+        Device &device, std::span<vk::DescriptorSetLayoutBinding> bindings,
+        std::span<vk::DescriptorBindingFlags> flags)
+        : device_{device}{
 
-        for (auto [fst, snd]: flags) {
-            setLayoutBindingFlags.push_back(snd);
+        for(auto& b : bindings) {
+            bindings_.emplace(b.binding, b);
         }
 
         vk::DescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo = {};
-        bindingFlagsInfo.bindingCount = static_cast<uint32_t>(setLayoutBindingFlags.size());
-        bindingFlagsInfo.pBindingFlags = setLayoutBindingFlags.data();
+        bindingFlagsInfo.bindingCount = static_cast<uint32_t>(flags.size());
+        bindingFlagsInfo.pBindingFlags = flags.data();
+
 
         vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
-        descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-        descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
+        descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+        descriptorSetLayoutInfo.pBindings = bindings.data();
         descriptorSetLayoutInfo.pNext = &bindingFlagsInfo;
-        descriptorSetLayoutInfo.flags = {}; //VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+        descriptorSetLayoutInfo.flags = {};
 
 
         if (device.device().createDescriptorSetLayout(
