@@ -26,7 +26,6 @@ namespace hammock::renderer {
 
         RenderProxy& proxy_;
         core::SurfaceProviderIface& surfaceProvider_;
-        std::thread thread_;
 
         float x = 0;
     };

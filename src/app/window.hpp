@@ -15,11 +15,14 @@ namespace hammock::app {
     /// @brief Class represents OS window and handles user I/O
     class Window final : public core::SurfaceProviderIface {
     public:
-        Window(const std::string &title, core::Instance &instance, const std::uint32_t width,
+        Window(const std::string &title,const std::uint32_t width,
                const std::uint32_t height, const std::uint32_t x = 100u,
                const std::uint32_t y = 100u);
 
         ~Window() override;
+
+        void createVulkanSurface(core::Instance& instance) override;
+        void destroyVulkanSurface(core::Instance& instance) override;
 
         [[nodiscard]] vk::SurfaceKHR getSurface() const override { return surface_; }
 
@@ -37,7 +40,6 @@ namespace hammock::app {
 
     private:
         bool resized_ = false;
-        core::Instance &instance_;
         Surfer::Window *window_ = nullptr;
         vk::SurfaceKHR surface_ = nullptr;
     };

@@ -1,6 +1,6 @@
 #include "gltf_loader.hpp"
 
-hammock::renderer::GltfLoader::GltfLoader(core::VulkanContext& ctx) : ctx_(ctx) {}
+hammock::renderer::GltfLoader::GltfLoader(core::Device& device) : device_(device) {}
 hammock::renderer::GltfLoader::~GltfLoader() {};
 
 void hammock::renderer::GltfLoader::checkResult(cgltf_result& result) {

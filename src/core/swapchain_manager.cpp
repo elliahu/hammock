@@ -102,10 +102,10 @@ registerOnSwapChainRecreatedCallback(const OnSwapChainRecreatedCallback &callbac
     onSwapChainRecreated_.push_back(std::move(callback));
 }
 
-void hammock::core::SwapChainManager::blitToSwapChainImage(CommandBuffer &commandBuffer, Image * image) {
+void hammock::core::SwapChainManager::blitToSwapChainImage(ResourceRef<CommandBuffer> commandBuffer, ResourceRef<Image> image) {
     swapChain_->recordPipelineBarrier(
         currentImageIndex_,
-        commandBuffer.getCommandBuffer(),
+        commandBuffer->getCommandBuffer(),
         vk::PipelineStageFlagBits2::eNone,
         vk::AccessFlagBits2::eNone,
         vk::PipelineStageFlagBits2::eTransfer,
@@ -140,7 +140,7 @@ void hammock::core::SwapChainManager::blitToSwapChainImage(CommandBuffer &comman
         1
     };
 
-    commandBuffer.getCommandBuffer().blitImage(
+    commandBuffer->getCommandBuffer().blitImage(
         image->getImage(), vk::ImageLayout::eTransferSrcOptimal,
         swapChain_->getImage(currentImageIndex_), vk::ImageLayout::eTransferDstOptimal,
         1,
@@ -151,7 +151,7 @@ void hammock::core::SwapChainManager::blitToSwapChainImage(CommandBuffer &comman
 
     swapChain_->recordPipelineBarrier(
         currentImageIndex_,
-        commandBuffer.getCommandBuffer(),
+        commandBuffer->getCommandBuffer(),
         vk::PipelineStageFlagBits2::eTransfer,
         vk::AccessFlagBits2::eTransferWrite,
         vk::PipelineStageFlagBits2::eBottomOfPipe,

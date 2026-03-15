@@ -1,43 +1,42 @@
+#include "buffer.hpp"
+
 #include <compare>
 #include <vulkan/vulkan.hpp>
+
 #include "base_resource.hpp"
 #include "vulkan/vulkan.hpp"
 
-#include "buffer.hpp"
-
-vk::DeviceSize hammock::core::Buffer::getAlignment(const vk::DeviceSize instanceSize,
-                                                   const vk::DeviceSize minOffsetAlignment) {
+vk::DeviceSize hammock::core::Buffer::getAlignment(
+    const vk::DeviceSize instanceSize, const vk::DeviceSize minOffsetAlignment) {
     if (minOffsetAlignment > 0) {
         return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
     }
     return instanceSize;
 }
 
-hammock::core::Buffer::Buffer(Device &device, uint64_t id,
-                              const BufferDesc &desc) : BaseResource(
-    device, id) {
+hammock::core::Buffer::Buffer(Device& device, const BufferDesc& desc) : BaseResource(device) {
     alignmentSize_ = getAlignment(desc.instanceSize, desc.advanced.minOffsetAlignment);
     bufferSize_ = alignmentSize_ * desc.instanceCount;
     instanceCount_ = desc.instanceCount;
     instanceSize_ = desc.instanceSize;
     usageFlags_ = static_cast<vk::BufferUsageFlags>(VulkanBufferUsage{desc.usage});
-    memoryPropertyFlags_ = static_cast<allocator::AllocationCreateFlags>(VulkanBufferAllocationFlags{desc.type});
+    memoryPropertyFlags_ =
+        static_cast<allocator::AllocationCreateFlags>(VulkanBufferAllocationFlags{desc.type});
 
     // queue family indices
-    for (auto &family: desc.advanced.queueFamilies) {
+    for (auto& family : desc.advanced.queueFamilies) {
         if (family == CommandQueueFamily::Graphics)
-            queueFamilyIndices_.push_back(
-                device.getGraphicsQueueFamilyIndex());
+            queueFamilyIndices_.push_back(device.getGraphicsQueueFamilyIndex());
         if (family == CommandQueueFamily::Compute)
-            queueFamilyIndices_.push_back(
-                device.getComputeQueueFamilyIndex());
+            queueFamilyIndices_.push_back(device.getComputeQueueFamilyIndex());
         if (family == CommandQueueFamily::Transfer)
-            queueFamilyIndices_.push_back(
-                device.getTransferQueueFamilyIndex());
+            queueFamilyIndices_.push_back(device.getTransferQueueFamilyIndex());
     }
 
     queueFamily_ = desc.advanced.currentQueueFamily;
     sharingMode_ = desc.advanced.sharingMode;
+
+    create();
 }
 
 hammock::core::Buffer::~Buffer() {
@@ -49,18 +48,20 @@ hammock::core::Buffer::~Buffer() {
 void hammock::core::Buffer::create() {
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = bufferSize_;
-    bufferInfo.usage = usageFlags_ | vk::BufferUsageFlagBits::eShaderDeviceAddress; // So that we can reference buffer via pointers in shaders
+    bufferInfo.usage =
+        usageFlags_ | vk::BufferUsageFlagBits::eShaderDeviceAddress;  // So that we can reference buffer via
+                                                                      // pointers in shaders
     bufferInfo.sharingMode = sharingMode_;
     bufferInfo.queueFamilyIndexCount = queueFamilyIndices_.size();
     bufferInfo.pQueueFamilyIndices = queueFamilyIndices_.data();
 
     allocator::AllocationCreateInfo allocInfo = {};
     allocInfo.usage = allocator::MemoryUsage::VMA_MEMORY_USAGE_AUTO;
-    allocInfo.flags = memoryPropertyFlags_ ;
+    allocInfo.flags = memoryPropertyFlags_;
 
     try {
         allocator::createBuffer(device.allocator(), bufferInfo, &allocInfo, buffer_, &allocation_, nullptr);
-    } catch (std::runtime_error &err) {
+    } catch (std::runtime_error& err) {
         throw;
     }
     resident = true;
@@ -80,7 +81,7 @@ vk::Result hammock::core::Buffer::map(vk::DeviceSize size, vk::DeviceSize offset
     if (!mapped_) {
         try {
             allocator::mapMemory(device.allocator(), allocation_, &mapped_);
-        } catch (std::runtime_error &err) {
+        } catch (std::runtime_error& err) {
             throw;
         }
     }
@@ -94,7 +95,8 @@ void hammock::core::Buffer::unmap() {
     }
 }
 
-void hammock::core::Buffer::writeToBuffer(const void *data, vk::DeviceSize size, vk::DeviceSize offset) const {
+void hammock::core::Buffer::writeToBuffer(
+    const void* data, vk::DeviceSize size, vk::DeviceSize offset) const {
     if (!mapped_) {
         throw std::runtime_error("Cannot copy to unmapped buffer");
     }
@@ -102,7 +104,7 @@ void hammock::core::Buffer::writeToBuffer(const void *data, vk::DeviceSize size,
     if (size == vk::WholeSize) {
         memcpy(mapped_, data, bufferSize_);
     } else {
-        char *memOffset = static_cast<char *>(mapped_);
+        char* memOffset = static_cast<char*>(mapped_);
         memOffset += offset;
         memcpy(memOffset, data, size);
     }
@@ -112,12 +114,13 @@ vk::Result hammock::core::Buffer::flush(vk::DeviceSize size, vk::DeviceSize offs
     try {
         allocator::flushAllocation(device.allocator(), allocation_, offset, size);
         return vk::Result::eSuccess;
-    } catch (std::runtime_error &err) {
+    } catch (std::runtime_error& err) {
         throw;
     }
 }
 
-vk::DescriptorBufferInfo hammock::core::Buffer::descriptorInfo(vk::DeviceSize size, vk::DeviceSize offset) const {
+vk::DescriptorBufferInfo hammock::core::Buffer::descriptorInfo(
+    vk::DeviceSize size, vk::DeviceSize offset) const {
     return vk::DescriptorBufferInfo{
         buffer_,
         offset,
@@ -129,12 +132,12 @@ vk::Result hammock::core::Buffer::invalidate(vk::DeviceSize size, vk::DeviceSize
     try {
         allocator::invalidateAllocation(device.allocator(), allocation_, offset, size);
         return vk::Result::eSuccess;
-    } catch (std::runtime_error &err) {
+    } catch (std::runtime_error& err) {
         throw;
     }
 }
 
-void hammock::core::Buffer::writeToIndex(const void *data, int index) const {
+void hammock::core::Buffer::writeToIndex(const void* data, int index) const {
     writeToBuffer(data, instanceSize_, index * alignmentSize_);
 }
 
@@ -150,37 +153,9 @@ vk::Result hammock::core::Buffer::invalidateIndex(int index) const {
     return invalidate(alignmentSize_, index * alignmentSize_);
 }
 
-void hammock::core::Buffer::queuCopyFromBuffer(Buffer buffer, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset,
-    vk::DeviceSize size) const {
-    vk::BufferCopy copyRegion{};
-    copyRegion.srcOffset = srcOffset;
-    copyRegion.dstOffset = dstOffset;
-    copyRegion.size = size;
 
-    auto cmd = device.beginSingleTimeCommands();
-    cmd.copyBuffer(buffer.getBuffer(), buffer_, 1, &copyRegion);
-    device.endSingleTimeCommands(cmd);
-}
-
-void hammock::core::Buffer::copyFromImage(vk::CommandBuffer commandBuffer, vk::Image src, vk::Extent3D extent,
-    uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t layerCount, vk::Offset3D offset) const {
-    vk::BufferImageCopy region = {};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-    region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-    region.imageSubresource.mipLevel = mipLevel;
-    region.imageSubresource.baseArrayLayer = baseArrayLayer;
-    region.imageSubresource.layerCount = layerCount;
-    region.imageOffset = offset;
-    region.imageExtent = extent;
-
-    commandBuffer.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, buffer_, {region});
-}
 vk::DeviceAddress hammock::core::Buffer::queryDeviceAddress() {
-    vk::BufferDeviceAddressInfo deviceAddressInfo{
-        .buffer = buffer_
-    };
+    vk::BufferDeviceAddressInfo deviceAddressInfo{.buffer = buffer_};
 
     return device.device().getBufferAddress(&deviceAddressInfo);
 }

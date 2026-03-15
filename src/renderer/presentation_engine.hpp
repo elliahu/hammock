@@ -9,15 +9,15 @@
 #include "core/command_buffer.hpp"
 #include "core/swapchain_manager.hpp"
 #include "framebuffer.hpp"
-#include "core/vulkan_context.hpp"
 #include "core/surface_provider_iface.hpp"
+#include "resource_manager.hpp"
 
 
 namespace hammock::renderer {
     /// @brief Context provided to the renderer for each frame
     struct FrameContext {
-        core::ResourceHandle renderTarget;
-        core::Semaphore &renderFinished;
+        core::ResourceRef<core::Image> renderTarget;
+        core::ResourceRef<core::Semaphore> renderFinished;
         uint32_t frameIndex;
     };
 
@@ -52,7 +52,7 @@ namespace hammock::renderer {
     protected:
         // Protected Constructor (only subclasses can instantiate)
         BasePresentationStrategy(
-            core::VulkanContext &ctx,
+             core::Device &device,
             vk::Extent2D resolution,
             core::ImageFormat format,
             uint32_t framesInFlight
@@ -79,13 +79,14 @@ namespace hammock::renderer {
         void notifyResolutionChanged(uint32_t width, uint32_t height);
 
         struct PerFrameResources {
-            std::unique_ptr<core::Semaphore> renderingFinished;
+            core::Handle<core::Semaphore> renderingFinished;
         };
 
         // Protected Members (accessible by subclasses)
 
-        core::VulkanContext &ctx_;
+        core::Device &device_;
         std::unique_ptr<Framebuffer> framebuffer_;
+        core::ResourceManager<core::Semaphore> semaphores_{};
         std::vector<PerFrameResources> perFrameResources_;
 
         uint32_t currentFrameIndex_ = 0;
@@ -109,7 +110,7 @@ namespace hammock::renderer {
         };
 
         SurfacePresentationStrategy(
-            core::VulkanContext &ctx,
+            core::Device &device,
             core::SurfaceProviderIface &surfaceProvider,
             Mode mode = Mode::Tooling
         );
@@ -144,12 +145,13 @@ namespace hammock::renderer {
 
         // Additional per-frame resources for surface presentation
         struct SurfacePerFrameResources {
-            std::unique_ptr<core::CommandBuffer> presentCommandBuffer;
+            core::Handle<core::CommandBuffer> presentCommandBuffer;
             // Editor mode only
-            std::unique_ptr<core::Semaphore> uiFinished;
-            std::unique_ptr<core::CommandBuffer> uiCommandBuffer;
+            core::Handle<core::Semaphore> uiFinished;
+            core::Handle<core::CommandBuffer> uiCommandBuffer;
         };
 
+        core::ResourceManager<core::CommandBuffer> commandBuffers_{};
         std::vector<SurfacePerFrameResources> surfacePerFrameResources_;
 
         uint32_t currentSwapchainImageIndex_ = 0;

@@ -1,34 +1,26 @@
 #pragma once
 #include <cstdint>
-#include <memory>
 #include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "core/base_pipeline.hpp"
-#include "core/descriptors.hpp"
-#include "core/vulkan_context.hpp"
 #include "dependency_graph.hpp"
 #include "device.hpp"
 #include "gpu_task.hpp"
 
 namespace hammock::graph {
 
-    // ---------------------
     // Compiled output types
-    // ---------------------
 
-    /// @brief A logical resource after compilation, linked to physical resource handles.
+    /// @brief A logical resource after compilation
     struct CompiledLogicalResource final {
-        LogicalResourceHandle origin;
-        /// One handle per frame-in-flight copy (frameLocal resources), otherwise exactly one.
-        std::vector<core::ResourceHandle> handles{};
-        bool persistent = true;
+        LogicalResourceHandle origin; // For debugging and identification
+        LogicalResourceInterface resource;
     };
 
     /// @brief A GPU task after compilation, ready for execution.
     struct CompiledTask final {
-        TaskHandle origin;
+        TaskHandle origin; // For debugging and identification
         core::CommandQueueFamily family;
         TaskExecutionFunction execFunc{nullptr};
 
@@ -50,13 +42,11 @@ namespace hammock::graph {
         int32_t rootIdx = -1;
     };
 
-    // --------
     // Compiler
-    // --------
 
     class DependencyGraphCompiler final {
        public:
-        explicit DependencyGraphCompiler(core::VulkanContext& ctx);
+        explicit DependencyGraphCompiler();
 
         /// Compile a DependencyGraph into a CompiledDependencyGraph.
         /// The result is self-contained and can be passed directly to the executor.
@@ -83,7 +73,6 @@ namespace hammock::graph {
 
         // ----- data ----------------------------------------------------------
 
-        core::VulkanContext& ctx_;
         std::vector<TaskNode> nodes_;
 
         /// resource handle -> ordered list of (taskIdx, access) pairs.
@@ -117,8 +106,6 @@ namespace hammock::graph {
         // ----- resource compilation ------------------------------------------
 
         void compileResources(DependencyGraph& dg);
-        core::ResourceHandle makeImage(LogicalImageResource* r);
-        core::ResourceHandle makeBuffer(LogicalBufferResource* r);
 
         // ----- task & barrier compilation ------------------------------------
 

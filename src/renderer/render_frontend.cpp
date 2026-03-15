@@ -12,7 +12,7 @@ hammock::renderer::RenderFrontend::RenderFrontend(
     : proxy_(proxy), surfaceProvider_(surfaceProvider) {}
 
 void hammock::renderer::RenderFrontend::start() {
-    core::Logger::debug("Logic thread %d", std::this_thread::get_id());   
+    core::Logger::debug("%s", "Logic thread created");
 
     // Send frontend ready
     proxy_.getFtbCommandQueue().push(RenderCommand{.type = RenderCommandType::Ready});
@@ -46,6 +46,7 @@ void hammock::renderer::RenderFrontend::start() {
     }
 
     // Notify close
+    core::Logger::debug("%s", "Window closed, sending stop command to backend");
     proxy_.getFtbCommandQueue().push(RenderCommand{.type = RenderCommandType::Stop});
 }
 

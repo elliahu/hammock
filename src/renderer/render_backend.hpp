@@ -8,13 +8,11 @@
 #include "render_types.hpp"
 #include "renderer.hpp"
 #include "surface_provider_iface.hpp"
-#include "vulkan_context.hpp"
 
 namespace hammock::renderer {
     class RenderBackend {
        public:
-        explicit RenderBackend(
-            RenderProxy& proxy, core::VulkanContext& ctx, core::SurfaceProviderIface& surfaceProvider);
+        explicit RenderBackend(RenderProxy& proxy, core::SurfaceProviderIface& surfaceProvider);
 
         void start();
 
@@ -27,11 +25,10 @@ namespace hammock::renderer {
        private:
         RenderProxy& proxy_;
         std::atomic<bool> running_{false};
-        core::VulkanContext& ctx_;
         std::thread thread_;
         core::SurfaceProviderIface& surfaceProvider_;
+        std::unique_ptr<RendererIface> renderer_{nullptr};
         std::unique_ptr<PresentationEngine> presentationEngine_{nullptr};
-        std::unique_ptr<RendererIface> renderer_;
         bool readySent_{false};
     };
 }  // namespace hammock::renderer

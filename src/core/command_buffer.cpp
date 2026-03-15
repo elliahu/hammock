@@ -109,16 +109,189 @@ hammock::core::CommandBuffer::~CommandBuffer() {
     }
 }
 
-auto hammock::core::CommandBuffer::addWaitSemaphore(Semaphore &semaphore,
+auto hammock::core::CommandBuffer::addWaitSemaphore(ResourceRef<Semaphore> semaphore,
                                                    vk::PipelineStageFlagBits2 stageFlagBits) -> void {
     waitSemaphoreSubmitInfos_.push_back(vk::SemaphoreSubmitInfo{
-        .semaphore = semaphore.getVulkanSemaphore(),
+        .semaphore = semaphore->getVulkanSemaphore(),
         .stageMask = stageFlagBits,
     });
 }
 
-auto hammock::core::CommandBuffer::addSignalSemaphore(Semaphore &semaphore) -> void {
+auto hammock::core::CommandBuffer::addSignalSemaphore(ResourceRef<Semaphore> semaphore) -> void {
     signalSemaphoreSubmitInfos_.push_back(vk::SemaphoreSubmitInfo{
-        .semaphore = semaphore.getVulkanSemaphore(),
+        .semaphore = semaphore->getVulkanSemaphore(),
     });
+}
+auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
+    std::span<vk::RenderingAttachmentInfo> colorAttachments,
+    std::optional<vk::RenderingAttachmentInfo> depthAttachment,
+    std::optional<vk::RenderingAttachmentInfo> stencilAttachment, uint32_t layerCount) -> void {
+    vk::RenderingInfo renderInfo{
+        .renderArea = renderArea,
+        .layerCount = layerCount,
+        .colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size()),
+        .pColorAttachments = colorAttachments.data(),
+        .pDepthAttachment = depthAttachment ? &*depthAttachment : nullptr,
+        .pStencilAttachment = stencilAttachment ? &*stencilAttachment : nullptr,
+    };
+
+    commandBuffer_.beginRendering(&renderInfo);
+}
+auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
+    std::span<ResourceRef<Image>> colorAttachments, std::span<vk::ImageLayout> colorAttachmentLayouts,
+    std::optional<ResourceRef<Image>> depthAttachment, std::optional<vk::ImageLayout> depthAttachmentLayout,
+    std::optional<ResourceRef<Image>> stencilAttachment, std::optional<vk::ImageLayout> stencilAttachmentLayout,
+    uint32_t layerCount) -> void {
+
+    std::vector<vk::RenderingAttachmentInfo> colors(colorAttachments.size());
+
+    for (size_t i = 0; i < colorAttachments.size(); ++i) {
+        auto info = colorAttachments[i]->getRenderingAttachmentInfo();
+        info.imageLayout = colorAttachmentLayouts[i];
+        colors[i] = info;
+    }
+
+    std::optional<vk::RenderingAttachmentInfo> depthInfo;
+    std::optional<vk::RenderingAttachmentInfo> stencilInfo;
+
+    if (depthAttachment) depthInfo = depthAttachment->get().getRenderingAttachmentInfo();
+
+    if (stencilAttachment) stencilInfo = stencilAttachment->get().getRenderingAttachmentInfo();
+
+    return beginRendering(renderArea, colors, depthInfo, stencilInfo, layerCount);
+}
+
+auto hammock::core::CommandBuffer::endRendering() -> void { commandBuffer_.endRendering(); }
+
+auto hammock::core::CommandBuffer::copyImageToBuffer(ResourceRef<Image> src, ResourceRef<Buffer> dst,
+    vk::Extent3D extent, uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t layerCount,
+    vk::Offset3D offset) -> void{
+    vk::BufferImageCopy region = {};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.imageSubresource.mipLevel = mipLevel;
+    region.imageSubresource.baseArrayLayer = baseArrayLayer;
+    region.imageSubresource.layerCount = layerCount;
+    region.imageOffset = offset;
+    region.imageExtent = extent;
+
+    commandBuffer_.copyImageToBuffer(
+        src->getImage(), vk::ImageLayout::eTransferSrcOptimal, dst->getBuffer(), {region});
+}
+
+auto hammock::core::CommandBuffer::copyBufferToBuffer(ResourceRef<Buffer> src, ResourceRef<Buffer> dst,
+    vk::DeviceSize srcOffset, vk::DeviceSize dstOffset, vk::DeviceSize size) -> void {
+    vk::BufferCopy copyRegion{};
+    copyRegion.srcOffset = srcOffset;
+    copyRegion.dstOffset = dstOffset;
+    copyRegion.size = size;
+
+    commandBuffer_.copyBuffer(src->getBuffer(), dst->getBuffer(), 1, &copyRegion);
+}
+
+auto hammock::core::CommandBuffer::copyBufferToImage(ResourceRef<Buffer> src, ResourceRef<Image> dst,
+    vk::DeviceSize srcOffset, vk::Offset3D dstOffset, uint32_t mipLevel)-> void  {
+    vk::BufferImageCopy region{};
+    region.bufferOffset = srcOffset;
+    region.bufferRowLength = 0;    // tightly packed
+    region.bufferImageHeight = 0;  // tightly packed
+
+    region.imageSubresource.aspectMask = dst->getAspectMask();
+    region.imageSubresource.mipLevel = mipLevel;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = dst->getLayerLevel();
+
+    region.imageOffset = dstOffset;
+    region.imageExtent = dst->getExtent();
+
+    commandBuffer_.copyBufferToImage(
+        src->getBuffer(), dst->getImage(), vk::ImageLayout::eTransferDstOptimal, 1, &region);
+}
+
+auto hammock::core::CommandBuffer::copyImageToImage(
+    ResourceRef<Image> src, ResourceRef<Image> dst, vk::Offset3D srcOffset, vk::Offset3D dstOffset)-> void {
+    vk::ImageCopy region{};
+    region.srcSubresource.aspectMask = src->getAspectMask();
+    region.srcSubresource.mipLevel = 0;
+    region.srcSubresource.baseArrayLayer = 0;
+    region.srcSubresource.layerCount = src->getLayerLevel();
+    region.srcOffset = srcOffset;
+
+    region.dstSubresource.aspectMask = dst->getAspectMask();
+    region.dstSubresource.mipLevel = 0;
+    region.dstSubresource.baseArrayLayer = 0;
+    region.dstSubresource.layerCount = dst->getLayerLevel();
+    region.dstOffset = dstOffset;
+    region.extent = dst->getExtent();
+
+    commandBuffer_.copyImage(src->getImage(),
+        vk::ImageLayout::eTransferSrcOptimal,
+        dst->getImage(),
+        vk::ImageLayout::eTransferDstOptimal,
+        1,
+        &region);
+}
+
+auto hammock::core::CommandBuffer::imagePipelineBarrier(ResourceRef<Image> image,
+    vk::PipelineStageFlags2 srcStageMask, vk::AccessFlags2 srcAccessMask,
+    vk::PipelineStageFlags2 dstStageMask, vk::AccessFlags2 dstAccessMask, vk::ImageLayout oldLayout,
+    vk::ImageLayout newLayout) -> void {
+    // Subresource range
+    vk::ImageSubresourceRange subresourceRange = image->getSubresourceRange();
+
+    vk::ImageMemoryBarrier2 imageBarrier = {
+        .srcStageMask = srcStageMask,
+        .srcAccessMask = srcAccessMask,
+        .dstStageMask = dstStageMask,
+        .dstAccessMask = dstAccessMask,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,  // Optional: layout transition
+        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .image = image->getImage(),
+        .subresourceRange = subresourceRange,
+    };
+
+    vk::DependencyInfo depInfo = {
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageBarrier,
+    };
+
+    commandBuffer_.pipelineBarrier2(&depInfo);
+}
+
+auto hammock::core::CommandBuffer::bindPipeline(ResourceRef<Pipeline> pipeline) -> void {
+    if (pipeline->getType() == PipelineType::Compute) {
+        commandBuffer_.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->getPipeline());
+    } else {
+        commandBuffer_.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->getPipeline());
+    }
+}
+
+auto hammock::core::CommandBuffer::bindVertexBuffers(
+    std::span<ResourceRef<Buffer>> buffers, std::span<vk::DeviceSize> offsets) -> void {
+    std::vector<vk::Buffer> buffs(buffers.size());
+    std::transform(
+        buffers.begin(), buffers.end(), buffs.begin(), [](const auto& b) { return b->getBuffer(); });
+    commandBuffer_.bindVertexBuffers(0, buffers.size(), buffs.data(), offsets.data());
+}
+
+auto hammock::core::CommandBuffer::bindDescriptorSets(
+    vk::PipelineBindPoint bindPoint, ResourceRef<Pipeline> pipeline, std::span<DescriptorSet> sets) -> void{
+    commandBuffer_.bindDescriptorSets(bindPoint, pipeline->getPipelineLayout(), 0, sets, nullptr);
+}
+
+auto hammock::core::CommandBuffer::setViewport(vk::Viewport viewport) -> void {
+    commandBuffer_.setViewport(0, 1, &viewport);
+}
+
+auto hammock::core::CommandBuffer::setScissor(vk::Rect2D scissor) -> void {
+    commandBuffer_.setScissor(0, 1, &scissor);
+}
+
+auto hammock::core::CommandBuffer::pushConstants(ResourceRef<Pipeline> pipeline, vk::ShaderStageFlags stages,
+    uint32_t offset, uint32_t size, const void* data) -> void {
+    commandBuffer_.pushConstants(pipeline->getPipelineLayout(), stages, offset, size, data);
 }

@@ -7,7 +7,9 @@
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-#include "core/vulkan_context.hpp"
+#include "core/device.hpp"
+#include "image.hpp"
+#include "resource_manager.hpp"
 #include "utils/math.hpp"
 
 
@@ -17,7 +19,7 @@ namespace hammock::renderer {
     /// @brief This class represents offscreen framebuffer used by the engine editor
     class Framebuffer final {
     public:
-        Framebuffer(core::VulkanContext &ctx, std::uint32_t framesInFlight, math::Vec2 resolution, core::ImageFormat format);
+        Framebuffer(core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, core::ImageFormat format);
 
         // Framebuffer lifetime is expected to be smaller than resource managers lifetime.
         // It is also expected that framebuffer will be recreated many times .
@@ -31,13 +33,14 @@ namespace hammock::renderer {
         void swapImages();
 
         /// @brief Get current front buffer image
-        [[nodiscard]] core::ResourceHandle getFrontbufferImage() const;
+        [[nodiscard]] core::ResourceRef<core::Image> getFrontbufferImage();
 
     private:
         void createImages(math::Vec2 resolution, core::ImageFormat format);
 
-        core::VulkanContext& ctx_;
-        std::vector<core::ResourceHandle> images_;
+        core::Device& device_;
+        std::vector<core::Handle<core::Image>> handles_;
+        core::ResourceManager<core::Image> images_{};
         std::uint32_t framesInFlight_ = 0;
         std::uint32_t currentFrame_ = 0;
         math::Vec2 resolution_;

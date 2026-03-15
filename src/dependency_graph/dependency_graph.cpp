@@ -1,8 +1,6 @@
 #include "dependency_graph.hpp"
 
 #include <cstdint>
-#include <memory>
-#include <stdexcept>
 #include <vector>
 
 #include "gpu_task.hpp"

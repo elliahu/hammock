@@ -78,9 +78,13 @@ namespace hammock::graph {
         }
     };
 
-    /// @typedef GpuTaskContextResolverFunction
-    using GpuTaskContextResolverFunction =
-        std::function<core::ResourceHandle(LogicalResourceHandle, uint32_t)>;
+    /// @typedef GpuTaskContextImageResolverFunction
+    using GpuTaskContextImageResolverFunction =
+        std::function<core::Handle<core::Image>(LogicalResourceHandle, uint32_t)>;
+
+        /// @typedef GpuTaskContextBufferResolverFunction
+    using GpuTaskContextBufferResolverFunction =
+        std::function<core::Handle<core::Buffer>(LogicalResourceHandle, uint32_t)>;
 
     /// @class GpuTaskContext
     /// @brief Represents a context given to each GPU task when it is executed
@@ -99,14 +103,14 @@ namespace hammock::graph {
         /// @brief Returns the command buffer for this gpu task
         core::CommandBuffer& getCommandBuffer() { return cmd_; }
 
-        /// @brief Resolves the actual physical resource handle created by the resource manager from the
-        /// logical resource handle created by the graph
-        core::ResourceHandle resolveResource(LogicalResourceHandle handle);
+        core::Handle<core::Image> resolveImage(LogicalResourceHandle handle);
+        core::Handle<core::Buffer> resolveBuffer(LogicalResourceHandle handle);
 
        private:
         /// This function is used to resolve the actual physical resource handle created by the resource
         /// manager from the logical resource handle creates by high level graph
-        GpuTaskContextResolverFunction resolver_{nullptr};
+        GpuTaskContextImageResolverFunction imageResolver_{nullptr};
+        GpuTaskContextBufferResolverFunction bufferResolver_{nullptr};
         core::CommandBuffer& cmd_;
         uint32_t frameIdx_;
     };

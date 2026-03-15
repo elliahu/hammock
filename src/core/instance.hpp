@@ -1,10 +1,6 @@
 #pragma once
 #include <vector>
-#include <compare>
 #include <vulkan/vulkan.hpp>
-
-
-#include "utilities.hpp"
 
 
 namespace hammock::core {

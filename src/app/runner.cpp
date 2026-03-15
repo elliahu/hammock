@@ -7,19 +7,15 @@
 
 #include "VulkanSurfer/VulkanSurfer.h"
 #include "application_types.hpp"
-#include "core/vulkan_context.hpp"
 #include "render_backend.hpp"
 #include "render_frontend.hpp"
 #include "render_proxy.hpp"
 #include "render_types.hpp"
 #include "ui/ui.hpp"
 
-hammock::app::Runner::Runner(ExecutionMode mode, core::VulkanContext& context) : vulkanContext_(context) {
+hammock::app::Runner::Runner() {
     // Create window
-    window_ = std::make_unique<Window>("Hammock", *context.instance, 1920u, 1080u);
-
-    // Attach surface
-    vulkanContext_.initialize(*window_);
+    window_ = std::make_unique<Window>("Hammock", 1920u, 1080u);
 
     // Init ui
     ui::Ui::initialize(window_->getExtent().width, window_->getExtent().height);
@@ -82,16 +78,13 @@ hammock::app::Runner::Runner(ExecutionMode mode, core::VulkanContext& context) :
     /// Set the threads
     renderProxy_ = std::make_unique<renderer::RenderProxy>();
     renderFrontend_ = std::make_unique<renderer::RenderFrontend>(*renderProxy_, *window_);
-    renderBackend_ = std::make_unique<renderer::RenderBackend>(*renderProxy_, vulkanContext_, *window_);
+    renderBackend_ = std::make_unique<renderer::RenderBackend>(*renderProxy_, *window_);
 }
 
 hammock::app::Runner::~Runner() {
-    // Wait for GPU to finish before destroying resources
-    vulkanContext_.device->waitIdle();
 }
 
 void hammock::app::Runner::launch() {
-    core::Logger::debug("Main thread %d", std::this_thread::get_id());
     // Backend must start before frontend as the frontend runs on this (main) thread
     renderBackend_->start();
     // Start the frontend

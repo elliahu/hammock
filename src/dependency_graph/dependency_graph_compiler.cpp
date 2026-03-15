@@ -7,22 +7,14 @@
 #include <unordered_set>
 #include <variant>
 
-#include "core/base_resource.hpp"
-#include "core/buffer.hpp"
-#include "core/compute_pipeline.hpp"
-#include "core/image.hpp"
-#include "core/resource_manager.hpp"
-#include "core/swapchain.hpp"
 #include "dependency_graph.hpp"
 #include "gpu_task.hpp"
 
 namespace hammock::graph {
 
-    // --------------------------------
     // Construction / top-level compile
-    // --------------------------------
 
-    DependencyGraphCompiler::DependencyGraphCompiler(core::VulkanContext& ctx) : ctx_(ctx) {}
+    DependencyGraphCompiler::DependencyGraphCompiler() {}
 
     CompiledDependencyGraph DependencyGraphCompiler::compile(DependencyGraph& dg) {
         // Reset internal state so the compiler object can be reused
@@ -30,25 +22,23 @@ namespace hammock::graph {
         resourceUses_.clear();
         result_ = {};
 
-        // --- Graph analysis ---------------------------------------------------
+        // Graph analysis
         buildNodes(dg);  // populate nodes_ & resourceUses_
         applyExplicitDependencies(dg);
         buildDataFlowEdges();  // order-independent hazard edges
         assertDebugEdges(dg);
         buildExecutionLevels();  // Kahn topological sort
 
-        // --- Resource compilation ---------------------------------------------
+        // Resource compilation
         compileResources(dg);
 
-        // --- Task + barrier compilation ---------------------------------------
+        // Task + barrier compilation
         compileTasks(dg);
 
         return std::move(result_);
     }
 
-    // --------------------------------
     // Graph analysis
-    // --------------------------------
 
     void DependencyGraphCompiler::buildNodes(DependencyGraph& dg) {
         const auto count = static_cast<uint32_t>(dg.tasks_.size());
@@ -164,9 +154,7 @@ namespace hammock::graph {
         }
     }
 
-    // --------------------------------
     // Resource compilation
-    // --------------------------------
 
     void DependencyGraphCompiler::compileResources(DependencyGraph& dg) {
         if (!dg.hasRoot_) {
@@ -181,50 +169,13 @@ namespace hammock::graph {
 
             CompiledLogicalResource compiled{};
             compiled.origin = LogicalResourceHandle{.index = i, .generation = entry.generation};
-
-            if (auto* img = std::get_if<LogicalImageResource>(&iface)) {
-                const uint32_t copies = img->frameLocal ? core::SwapChain::MAX_FRAMES_IN_FLIGHT : 1u;
-                compiled.persistent = img->persistent;
-                for (uint32_t c = 0; c < copies; ++c) {
-                    compiled.handles.push_back(makeImage(img));
-                }
-            } else if (auto* buf = std::get_if<LogicalBufferResource>(&iface)) {
-                const uint32_t copies = buf->frameLocal ? core::SwapChain::MAX_FRAMES_IN_FLIGHT : 1u;
-                compiled.persistent = buf->persistent;
-                for (uint32_t c = 0; c < copies; ++c) {
-                    compiled.handles.push_back(makeBuffer(buf));
-                }
-            }
+            compiled.resource = entry.resource; // We coppy the data here
 
             result_.compiledLogicalResources.push_back(std::move(compiled));
         }
     }
 
-    core::ResourceHandle DependencyGraphCompiler::makeImage(LogicalImageResource* r) {
-        return ctx_.resourceManager->createResource<core::Image>(core::ImageDesc{
-            .width = r->width,
-            .height = r->height,
-            .channels = r->channels,
-            .depth = r->depth,
-            .layers = r->layers,
-            .format = r->format,
-            .usage = r->usage,
-            .type = r->type,
-        });
-    }
-
-    core::ResourceHandle DependencyGraphCompiler::makeBuffer(LogicalBufferResource* r) {
-        return ctx_.resourceManager->createResource<core::Buffer>(core::BufferDesc{
-            .type = r->type,
-            .usage = r->usage,
-            .instanceSize = r->instanceSize,
-            .instanceCount = r->instanceCount,
-        });
-    }
-
-    // --------------------------------
     // Task & barrier compilation
-    // --------------------------------
 
     void DependencyGraphCompiler::compileTasks(DependencyGraph& dg) {
         // Track which resources have already received their init barrier so we
@@ -244,14 +195,14 @@ namespace hammock::graph {
                     dst.compiledResourceAccesses.push_back(acc.handle.index);
                 }
 
-                // --- Init barriers (UNDEFINED -> first layout) --------------------
+                // Init barriers (UNDEFINED -> first layout)
                 for (const auto& currAcc : src->logicalResourceAccesses_) {
                     if (initialised.contains(currAcc.handle)) continue;
                     initialised.insert(currAcc.handle);
                     emitInitBarrier(currAcc, dst);
                 }
 
-                // --- Transition barriers between predecessor tasks ---------------
+                // Transition barriers between predecessor tasks
                 for (uint32_t p : nodes_[i].incoming) {
                     GpuTask* prev = nodes_[p].task;
 
@@ -266,7 +217,7 @@ namespace hammock::graph {
                     }
                 }
 
-                // --- Compile-time callbacks --------------------------------------
+                // Compile-time callbacks
                 if (src->compFunc_) {
                     GpuTaskCompileContext ctx{};
                     src->compFunc_(ctx);
@@ -332,9 +283,7 @@ namespace hammock::graph {
         }
     }
 
-    // --------------------------------
     // Access helpers
-    // --------------------------------
 
     DependencyGraphCompiler::ReadWriteIntent DependencyGraphCompiler::intentOf(AccessInterface a) {
         if (auto* img = std::get_if<ImageAccess>(&a)) {

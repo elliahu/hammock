@@ -1,21 +1,30 @@
 #pragma once
-#include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <memory>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 
-#include "core/base_resource.hpp"
 #include "core/buffer.hpp"
-#include "core/command_buffer.hpp"
 #include "core/image.hpp"
 #include "gpu_task.hpp"
-#include "utils/math.hpp"
 
 
 namespace hammock::graph {
+
+    /// @typedef ImportedResourceResolver
+    /// Function signature for resource resolver callback
+    using ImportedImageResolver = std::function<core::Handle<core::Image>(uint32_t)>;
+    using ImportedBufferResolver = std::function<core::Handle<core::Image>(uint32_t)>;
+
+    /// @struct ImportedImageResource
+    struct ImportedImageResource{
+        ImportedImageResolver resolver{nullptr};
+    };
+
+    /// @struct ImportedBufferResource
+    struct ImportedBufferResource{
+        ImportedBufferResolver resolver{nullptr};
+    };
 
     /// @struct LogicalImageResource
     /// Describes logical image resource
@@ -46,7 +55,7 @@ namespace hammock::graph {
 
     /// @typedef LogicalResourceInterface
     /// Describes an option between LogicalImageResource and LogicalBufferResource
-    using LogicalResourceInterface = std::variant<LogicalImageResource, LogicalBufferResource>;
+    using LogicalResourceInterface = std::variant<LogicalImageResource, LogicalBufferResource, ImportedImageResource, ImportedBufferResource>;
 
     /// @enum DependencyType
     /// @brief Describes a type of dependency between two tasks

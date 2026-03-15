@@ -7,25 +7,30 @@
 #include "utilities.hpp"
 
 hammock::renderer::RenderBackend::RenderBackend(
-    RenderProxy& proxy, core::VulkanContext& ctx, core::SurfaceProviderIface& surfaceProvider)
-    : proxy_(proxy), ctx_(ctx), surfaceProvider_(surfaceProvider) {
+    RenderProxy& proxy, core::SurfaceProviderIface& surfaceProvider)
+    : proxy_(proxy), surfaceProvider_(surfaceProvider) {
+    // Initialize renderer
+    renderer_ = std::make_unique<renderer::Renderer>([&](core::Instance& instance) {
+        surfaceProvider.createVulkanSurface(instance);
+        return surfaceProvider.getSurface();
+    }, [&](core::Instance& instance, vk::SurfaceKHR surface) {
+        surfaceProvider.destroyVulkanSurface(instance);
+    });
+
     // Initialize presentation engine
     // We are using the tooling mode (with ui) even if no ui is present
     // That is because if the ui is not present, empty draw command is submitted
     // Might rework this later
     auto presentStrategy = std::make_unique<SurfacePresentationStrategy>(
-        ctx, surfaceProvider, SurfacePresentationStrategy::Mode::Game);
+        renderer_->getDevice(), surfaceProvider, SurfacePresentationStrategy::Mode::Game);
     presentationEngine_ = std::make_unique<PresentationEngine>(std::move(presentStrategy));
-
-    // Initialize renderer
-    renderer_ = std::make_unique<renderer::Renderer>(ctx);
 }
 
 void hammock::renderer::RenderBackend::start() {
     running_.store(true);
 
     thread_ = std::thread([this]() {
-        core::Logger::debug("Render thread %d", std::this_thread::get_id());
+        core::Logger::debug("%s", "Render thread created");
 
         proxy_.getBtfCommandQueue().push(RenderCommand{.type = RenderCommandType::Ready});
 
@@ -35,7 +40,9 @@ void hammock::renderer::RenderBackend::start() {
             RenderCommand cmd;
             while (proxy_.getFtbCommandQueue().pop(cmd)) {
                 if (cmd.type == RenderCommandType::Stop) {
-                    return;  // Exit thread
+                    core::Logger::debug("%s", "Stop command received, exiting backend thread");
+                    stop();
+                    break;  // Exit thread
                 }
                 if (cmd.type == RenderCommandType::Resize) {
                     // TODO
@@ -62,7 +69,7 @@ void hammock::renderer::RenderBackend::start() {
                     // Render UI (editor only)
                     surfaceStrategy->submitUI(
                         *frameCtx, [this](core::CommandBuffer& cmd, std::uint32_t frameIndex) {
-
+                            // This is left empty intentionally
                         });
                 }
 
@@ -70,6 +77,8 @@ void hammock::renderer::RenderBackend::start() {
                 presentationEngine_->endFrame(*frameCtx);
             }
         }
+
+        renderer_->getDevice().waitIdle();
     });
 }
 

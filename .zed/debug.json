@@ -1,0 +1,14 @@
+[
+  {
+    "label": "Debug native binary",
+    "build": {
+      "command": "cmake",
+      "args": ["--build", "--preset debug", "--target example_app"],
+      "cwd": "$ZED_WORKTREE_ROOT",
+    },
+    "program": "$ZED_WORKTREE_ROOT/build/examples/example_app/example_app",
+    "cwd": "$ZED_WORKTREE_ROOT/build/examples/example_app",
+    "request": "launch",
+    "adapter": "CodeLLDB",
+  },
+]

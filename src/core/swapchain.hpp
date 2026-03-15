@@ -1,12 +1,13 @@
 #pragma once
 #include <array>
-#include <compare>
 #include <functional>
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
 #include "device.hpp"
+#include "resource_manager.hpp"
 #include "semaphore.hpp"
+#include "utilities.hpp"
 
 #define FB_COLOR_FORMAT VK_FORMAT_R8G8B8A8_UNORM
 
@@ -14,8 +15,15 @@ namespace hammock::core {
     /// @struct FrameSyncObjects
     /// @brief Struct to hold per-frame synchronization objects
     struct FrameSyncObjects {
-        std::unique_ptr<Semaphore> imageAvailable;
-        std::unique_ptr<Semaphore> frameFinished;
+        Handle<Semaphore> imageAvailable;
+        Handle<Semaphore> frameFinished;
+        vk::Fence inFlightFence;
+        vk::Fence releaseFence;
+    };
+
+    struct FrameSyncObjectsRef {
+        ResourceRef<Semaphore> imageAvailable;
+        ResourceRef<Semaphore> frameFinished;
         vk::Fence inFlightFence;
         vk::Fence releaseFence;
     };
@@ -58,9 +66,7 @@ namespace hammock::core {
         [[nodiscard]] vk::Format getSupportedDepthFormat() const;
 
         /// @brief Get the sync objects for a given frame
-        [[nodiscard]] FrameSyncObjects& getSyncObjects(const uint32_t frameIndex);
-
-        [[nodiscard]] const FrameSyncObjects& getSyncObjects(const uint32_t frameIndex) const;
+        [[nodiscard]] FrameSyncObjectsRef getSyncObjects(const uint32_t frameIndex);
 
         /// @brief Acquire next image for rendering
         vk::Result acquireNextImage(uint32_t frameIndex, uint32_t* imageIndex);
@@ -104,7 +110,7 @@ namespace hammock::core {
                     Logger::info("Present mode: Mailbox");
                     return availablePresentMode;
                 }
-                
+
                 if (availablePresentMode == vk::PresentModeKHR::eFifoRelaxed) {
                     Logger::info("Present mode: V-Sync Relaxed");
                     return availablePresentMode;
@@ -114,13 +120,13 @@ namespace hammock::core {
                     Logger::info("Present mode: Immediate");
                     return availablePresentMode;
                 }
-                
+
             }
 
             Logger::info("Present mode: V-Sync");
             return vk::PresentModeKHR::eFifo;
         }
-        
+
         [[nodiscard]] vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities) const;
 
         // SwapChain resources
@@ -136,6 +142,7 @@ namespace hammock::core {
         std::shared_ptr<SwapChain> oldSwapChain_;
 
         // Per-frame synchronization objects (indexed by frame, not by SwapChain)
+        ResourceManager<Semaphore> semaphores_{};
         std::array<FrameSyncObjects, MAX_FRAMES_IN_FLIGHT> frameSyncObjects_;
     };
 }  // namespace hammock::core

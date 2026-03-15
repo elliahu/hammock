@@ -8,7 +8,6 @@
 #include "stage_types.hpp"
 #include "utils/math.hpp"
 #include "vertex.hpp"
-#include "core/vulkan_context.hpp"
 #include "stage_loader_iface.hpp"
 
 /// hammock uses glTF 2 file format for stage representation
@@ -20,7 +19,7 @@ namespace hammock::renderer {
     /// Concrete loader for glTF files
     class GltfLoader : public StageLoaderIface {
        private:
-        core::VulkanContext& ctx_;
+       core::Device& device_;
         // Loaded data
         cgltf_data* data_ = nullptr;
 
@@ -44,7 +43,7 @@ namespace hammock::renderer {
         void parse(Stage& stage);
 
        public:
-        GltfLoader(core::VulkanContext& ctx);
+        GltfLoader(core::Device& device);
         ~GltfLoader() override;
 
         void load(const std::string& glTF, Stage& stage) override;

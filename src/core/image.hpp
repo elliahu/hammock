@@ -8,9 +8,9 @@
 #include <vector>
 
 #include "base_resource.hpp"
-#include "buffer.hpp"
 #include "device.hpp"
 #include "memory_allocator.hpp"
+#include "resource_manager.hpp"
 #include "utilities.hpp"
 #include "vulkan/vulkan.hpp"
 
@@ -192,7 +192,6 @@ namespace hammock::core {
         // Vulkan handles
         vk::Image image_{};
         vk::ImageView view_{};
-        vk::ImageLayout layout_{};
         allocator::Allocation allocation_ = nullptr;
 
         // Attachment
@@ -208,12 +207,9 @@ namespace hammock::core {
         vk::Sampler sampler_{};
 
        public:
-        Image(Device& device, std::uint64_t id, const ImageDesc& desc);
+        Image(Device& device, const ImageDesc& desc);
 
         ~Image() override;
-
-        /// @brief Get image layout
-        [[nodiscard]] vk::ImageLayout getLayout() const { return layout_; }
 
         /// @brief Get vulkan image handle
         [[nodiscard]] vk::Image getImage() const { return image_; }
@@ -260,32 +256,9 @@ namespace hammock::core {
         /// @brief Get vulkan sampler handle for this image (if not set may be nullptr)
         [[nodiscard]] vk::Sampler getSampler() const { return sampler_; }
 
-        /**
-         * Transitions to new layout. Transition is recorder to separate command buffer that is submitted
-         * after at the end of the call. Might cause sync hazard. Do not call in frame.
-         * @param newLayout New layout
-         */
-        void queueImageLayoutTransition(vk::ImageLayout newLayout);
-
         vk::ImageSubresourceRange getSubresourceRange(
             std::uint32_t baseMipLevel = 0, std::uint32_t baseArrayLayer = 0) const;
 
-        /**
-         * Applies a pipeline barrier to the image. New layout is tracked internally. Layout tracking is not
-         * thread safe, so do not call this from multiple threads.
-         */
-        void recordPipelineBarrier(vk::CommandBuffer cmd, vk::PipelineStageFlags2 srcStageMask,
-            vk::AccessFlags2 srcAccessMask, vk::PipelineStageFlags2 dstStageMask,
-            vk::AccessFlags2 dstAccessMask, vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
-            std::uint32_t srcQueueFamilyIndex, std::uint32_t dstQueueFamilyIndex);
-
-        /**
-         * Copy data from buffer into this image
-         * @param buffer Buffer to copy from
-         */
-        void queueCopyFromBuffer(Buffer& buffer) const;
-
-        void queueCopyFromImage(Image& image) const;
 
         /**
          * Creates the resource on device. This is called when ever this resource is requested and is not
@@ -298,64 +271,7 @@ namespace hammock::core {
          * is needed in device memory.
          */
         void release() override;
-
-        /**
-         * Generates mip map chain for this image
-         */
-        void generateMips();
     };
 
-    template <>
-    struct ResourceTypeTraits<Image> {
-        static constexpr ResourceType type = ResourceType::Image;
-    };
 
-    /// @struct SamplerDesc
-    /// @brief Describes a vulkan sampler
-    struct SamplerDesc {
-        vk::Filter magFilter = vk::Filter::eLinear;
-        vk::Filter minFilter = vk::Filter::eLinear;
-        vk::SamplerAddressMode addressModeU = vk::SamplerAddressMode::eRepeat;
-        vk::SamplerAddressMode addressModeV = vk::SamplerAddressMode::eRepeat;
-        vk::SamplerAddressMode addressModeW = vk::SamplerAddressMode::eRepeat;
-        vk::Bool32 anisotropyEnable = true;
-        vk::BorderColor borderColor = vk::BorderColor::eIntOpaqueBlack;
-        vk::SamplerMipmapMode mipmapMode = vk::SamplerMipmapMode::eLinear;
-        std::uint32_t mips = 1;
-        float mipLodBias = 0.0f;
-    };
-
-    /// @class Sampler
-    /// @brief Wrapper around vulkan sampler handle
-    class Sampler : public BaseResource {
-        vk::Sampler sampler_ = nullptr;
-        vk::Filter magFilter_;
-        vk::Filter minFilter_;
-        vk::SamplerAddressMode addressModeU_;
-        vk::SamplerAddressMode addressModeV_;
-        vk::SamplerAddressMode addressModeW_;
-        vk::Bool32 anisotropyEnable_;
-        float maxAnisotropy_;
-        vk::BorderColor borderColor_;
-        vk::SamplerMipmapMode mipmapMode_;
-        std::uint32_t mips_;
-        float mipLodBias_;
-
-       public:
-        Sampler(Device& device, std::uint64_t id, const SamplerDesc& desc);
-
-        ~Sampler() override;
-
-        void create() override;
-
-        void release() override;
-
-        /// @brief Get the vulkan sampler handle
-        [[nodiscard]] VkSampler getSampler() const { return sampler_; }
-    };
-
-    template <>
-    struct ResourceTypeTraits<Sampler> {
-        static constexpr ResourceType type = ResourceType::Sampler;
-    };
 }  // namespace hammock::core

@@ -8,6 +8,7 @@
 
 #include "base_resource.hpp"
 #include "device.hpp"
+#include "resource_manager.hpp"
 #include "utilities.hpp"
 #include "memory_allocator.hpp"
 
@@ -139,7 +140,7 @@ namespace hammock::core {
         vk::DeviceSize getAlignment(const vk::DeviceSize instanceSize, const vk::DeviceSize minOffsetAlignment);
 
     public:
-        Buffer(Device &device, uint64_t id, const BufferDesc &desc);
+        Buffer(Device &device, const BufferDesc &desc);
 
         ~Buffer() override;
 
@@ -271,35 +272,8 @@ namespace hammock::core {
         vk::Result invalidateIndex(int index) const;
 
         /**
-         * Copies data from source buffer into this buffer
-         * @param src Source buffer
-         * @param size Size of the copy region
-         */
-        void queuCopyFromBuffer(Buffer buffer, vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0,
-                                vk::DeviceSize size = vk::WholeSize) const;
-
-
-        /**
-         * Copies data from image into this buffer
-         * @param commandBuffer Command buffer
-         * @param src Source image
-         * @param extent Extent of the image
-         * @param mipLevel mip level
-         * @param baseArrayLayer  base array layer
-         * @param layerCount layer count
-         * @param offset offset
-         */
-        void copyFromImage(vk::CommandBuffer commandBuffer, vk::Image src, vk::Extent3D extent, uint32_t mipLevel = 0,
-                           uint32_t baseArrayLayer = 0, uint32_t layerCount = 1, vk::Offset3D offset = {0, 0, 0}) const;
-
-        /**
          * Retrieves device address of the buffer
          */
         vk::DeviceAddress queryDeviceAddress();
-    };
-
-    template<>
-    struct ResourceTypeTraits<Buffer> {
-        static constexpr ResourceType type = ResourceType::Buffer;
     };
 }

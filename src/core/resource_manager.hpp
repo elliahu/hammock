@@ -1,140 +1,147 @@
 #pragma once
-#include <compare>
+#include <cassert>
 #include <memory>
-#include <unordered_map>
+#include <utility>
+#include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "base_resource.hpp"
-#include "buffer.hpp"
-#include "device.hpp"
-#include "image.hpp"
-#include "utilities.hpp"
-
 namespace hammock::core {
+
+    /// @struct Handle
+    /// @brief Generational type safe handle
+    template <typename T>
+    struct Handle {
+        uint32_t index = 0;
+        uint32_t generation = 0;
+
+        bool operator==(const Handle&) const = default;
+    };
+
+    /// @struct ResourceSlot
+    /// @brief Resource slot
+    template <typename T>
+    struct ResourceSlot {
+        std::unique_ptr<T> resource;
+        uint32_t generation = 1;
+    };
+
+    // Forward declaration for use in ResourceRef
+    template <typename T>
     class ResourceManager;
 
-    /// @class ResourceFactory
-    /// At this point it is not really necessary :)
-    class ResourceFactory final {
-        friend class ResourceManager;
-
-        template <typename T, typename... Args>
-        static std::unique_ptr<T> create(Device& device, uint64_t id, Args&&... args) {
-            return std::make_unique<T>(device, id, std::forward<Args>(args)...);
-        }
-    };
-
-    // TODO use the same generational handle system as TaskGraph
-
-    /// @class ResourceManager
-    /// Instance of this class is responsible for keeping and cleaning resources allocated on the GPU
-    class ResourceManager final{
-        friend class Singleton<ResourceManager>;
-
-       private:
-        using ResourceMap = std::unordered_map<uint64_t, std::unique_ptr<BaseResource> >;
-
-        Device& device_;
-        ResourceMap resources_;
-
-        vk::DeviceSize totalMemoryUsed_;
-        vk::DeviceSize memoryBudget_;
-        uint64_t nextId_;
-
-        // Cache for frequently used resources
-        struct CacheEntry {
-            uint64_t lastUsed;
-            uint64_t useCount;
-        };
-
-        std::unordered_map<uint64_t, CacheEntry> resourceCache_;
-
+    /// @class ResourceRef
+    /// @brief Light-weight resource reference that only knows how to get a resource
+    template <typename T>
+    class ResourceRef {
        public:
-        explicit ResourceManager(Device& device, vk::DeviceSize memoryBudget = 6ULL * 1024 * 1024 * 1024)
-            // 6GB default
-            : device_(device), totalMemoryUsed_(0), memoryBudget_(memoryBudget), nextId_(1) {}
+        ResourceRef() = default;
 
-        /// @brief Create a resource
-        template <typename T, typename... Args>
-        [[nodiscard]] ResourceHandle createResource(Args&&... args);
+        ResourceRef(ResourceManager<T>* manager, Handle<T> handle) : manager(manager), handle(handle) {}
 
-        template <typename T, typename... Args>
-        ResourceHandle addResource(Args&&... args);
+        /// @brief Get the actual resource reference
+        T& get() const {
+            assert(manager->isValid(handle));
+            return manager->get(handle);
+        }
 
-        template <typename T>
-        T* getResource(ResourceHandle handle);
+        T* operator->() const { return &get(); }
 
-        void releaseResource(uint64_t id);
+        T& operator*() const { return get(); }
+
+        explicit operator bool() const { return valid(); }
+
+        bool valid() const;
 
        private:
-        static uint64_t getCurrentTimestamp();
-
-        void evictResources(vk::DeviceSize requiredSize);
+        ResourceManager<T>* manager = nullptr;
+        Handle<T> handle;
     };
-
-    template <typename T, typename... Args>
-    ResourceHandle ResourceManager::createResource(Args&&... args) {
-        static_assert(ResourceTypeTraits<T>::type != ResourceType::Invalid,
-            "Resource type not registered in ResourceTypeTraits");
-
-        auto resource = ResourceFactory::create<T>(device_, nextId_, std::forward<Args>(args)...);
-        uint64_t id = nextId_++;
-
-        // if (totalMemoryUsed + resource->getSize() > memoryBudget) {
-        //     evictResources(resource->getSize());
-        // }
-
-        resource->create();
-
-        resources_[id] = std::move(resource);
-        resourceCache_[id] = {getCurrentTimestamp(), 0};
-
-        auto handle = ResourceHandle::create(ResourceTypeTraits<T>::type, id);
-
-        Logger::debug("creating resource type %d with id %llu - packed handle %llu",
-            handle.getType(),
-            handle.getUid(),
-            handle.getPackedHandle());
-
-        return handle;
-    }
-
-    template <typename T, typename... Args>
-    ResourceHandle ResourceManager::addResource(Args&&... args) {
-        static_assert(ResourceTypeTraits<T>::type != ResourceType::Invalid,
-            "Resource type not registered in ResourceTypeTraits");
-
-        auto resource = ResourceFactory::create<T>(device_, nextId_, std::forward<Args>(args)...);
-        uint64_t id = nextId_++;
-
-        resources_[id] = std::move(resource);
-        resourceCache_[id] = {getCurrentTimestamp(), 0};
-
-        return ResourceHandle::create(ResourceTypeTraits<T>::type, id);
-    }
 
     template <typename T>
-    T* ResourceManager::getResource(ResourceHandle handle) {
-        // Type check
-        if (ResourceTypeTraits<T>::type != handle.getType()) {
-            return nullptr;
-        }
-
-        auto it = resources_.find(handle.getUid());
-        if (it != resources_.end()) {
-            auto* resource = static_cast<T*>(it->second.get());
-
-            // Update cache information
-            resourceCache_[handle.getUid()].lastUsed = getCurrentTimestamp();
-            resourceCache_[handle.getUid()].useCount++;
-
-            // Load if not resident
-            if (!resource->isResident()) {
-                resource->create();
-                totalMemoryUsed_ += resource->getSize();
-            }
-            return resource;
-        }
-        return nullptr;
+    bool ResourceRef<T>::valid() const {
+        return manager && manager->isValid(handle);
     }
+
+    /// @class ResourceManager
+    /// @brief Class for managing resources of a single type
+    template <typename T>
+    class ResourceManager {
+       public:
+        /// Destructor releases all resources
+        ~ResourceManager() { destroyAll(); }
+
+        /// @brief Create a new resource and return its handle
+        template <typename... Args>
+        Handle<T> create(Args&&... args) {
+            uint32_t index;
+
+            if (!freeList.empty()) {
+                index = freeList.back();
+                freeList.pop_back();
+            } else {
+                index = slots.size();
+                slots.emplace_back();
+            }
+
+            auto& slot = slots[index];
+
+            // Create the resource in-place and store it in unique_ptr
+            slot.resource = std::make_unique<T>(std::forward<Args>(args)...);
+
+            return Handle<T>{index, slot.generation};
+        }
+
+        /// @brief Destroy a resource by its handle
+        void destroy(Handle<T> handle) {
+            if (!isValid(handle)) return;
+
+            auto& slot = slots[handle.index];
+
+            slot.resource.reset();  // destroy resource
+            slot.generation++;
+
+            freeList.push_back(handle.index);
+        }
+
+        /// @brief Destroy all resources
+        void destroyAll() {
+            for (int i = 0; i < slots.size(); i++) {
+                auto& slot = slots[i];
+                if (slot.resource) {        // Only destroy if the resource is valid
+                    slot.resource.reset();  // destroy resource
+                    slot.generation++;
+                    freeList.push_back(i);
+                }
+            }
+        }
+
+        /// @brief Get a resource by its handle
+        T& get(Handle<T> handle) {
+            auto& slot = slots[handle.index];
+            assert(isValid(handle));
+            return *slot.resource;
+        }
+
+        /// @brief Get a resource by its handle (const)
+        const T& get(Handle<T> handle) const {
+            const auto& slot = slots[handle.index];
+            assert(isValid(handle));
+            return *slot.resource;
+        }
+
+        /// @brief Check if a handle is valid
+        bool isValid(Handle<T> handle) const {
+            if (handle.index >= slots.size()) return false;
+            const auto& slot = slots[handle.index];
+            return slot.resource != nullptr && slot.generation == handle.generation;
+        }
+
+        /// @brief Get a resource reference by its handle
+        ResourceRef<T> ref(Handle<T> handle) { return ResourceRef<T>(this, handle); }
+
+       private:
+        std::vector<ResourceSlot<T>> slots;
+        std::vector<uint32_t> freeList;
+    };
+
 }  // namespace hammock::core

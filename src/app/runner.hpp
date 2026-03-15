@@ -5,8 +5,6 @@
 #include <compare>
 #include <vulkan/vulkan.hpp>
 
-#include "core/vulkan_context.hpp"
-
 #include "render_backend.hpp"
 #include "render_frontend.hpp"
 #include "render_proxy.hpp"
@@ -21,19 +19,14 @@ namespace hammock::app {
     /// @brief High-level application coordinator
     class Runner {
     public:
-        Runner(ExecutionMode mode, core::VulkanContext& vulkanContext);
+        Runner();
         ~Runner();
 
         /// @brief Start the editor main loop
         void launch();
 
     private:
-        // Core Systems (in order of ownership dependency)
-
-        /// Graphics context (reference, owned by Application)
-        core::VulkanContext& vulkanContext_;
-
-        /// Window (owned by Editor)
+        /// Window 
         std::unique_ptr<Window> window_;
 
         /// Render proxy

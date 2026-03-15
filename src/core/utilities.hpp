@@ -3,7 +3,7 @@
 #include <functional>
 #include <memory>
 #include <stdexcept>
-
+#include <thread>
 
 namespace hammock::core {
 
@@ -57,15 +57,13 @@ namespace hammock::core {
 
     template <typename T>
     T* DynamicCastHelper::getAs() {
-        static_assert(std::is_base_of_v<DynamicCastHelper, T>,
-                  "T must derive from DynamicCast");
+        static_assert(std::is_base_of_v<DynamicCastHelper, T>, "T must derive from DynamicCast");
         return dynamic_cast<T*>(this);
     }
 
     template <typename T>
     const T* DynamicCastHelper::getAs() const {
-        static_assert(std::is_base_of_v<DynamicCastHelper, T>,
-                  "T must derive from DynamicCast");
+        static_assert(std::is_base_of_v<DynamicCastHelper, T>, "T must derive from DynamicCast");
         return dynamic_cast<const T*>(this);
     }
 
@@ -176,24 +174,30 @@ namespace hammock::core {
             // Determine the prefix based on the log level
             switch (level) {
                 case LOG_LEVEL_DEBUG:
-                    prefix = "DEBUG: ";
+                    prefix = "DEBUG";
                     break;
                 case LOG_LEVEL_INFO:
-                    prefix = "INFO: ";
+                    prefix = "INFO";
                     break;
                 case LOG_LEVEL_WARN:
-                    prefix = "WARNING: ";
+                    prefix = "WARNING";
                     break;
                 case LOG_LEVEL_ERROR:
-                    prefix = "ERROR: ";
+                    prefix = "ERROR";
                     break;
                 default:
                     // Do nothing for NONE or unrecognized
                     return;
             }
 
-            // Print the prefix first
-            std::printf("%s", prefix);
+            // Obtain thread ID (hashed for stable printf formatting)
+            auto tid = std::hash<std::thread::id>{}(std::this_thread::get_id());
+
+            // Lock the log mutex to ensure thread-safe output
+            std::lock_guard<std::mutex> lock(log_mutex);
+
+            /// Print prefix + thread id
+            std::printf("[%s][T%zu] \t", prefix, tid);
 
             // Print the formatted message using printf with forwarded arguments
             std::printf(format, std::forward<Args>(args)...);
@@ -202,6 +206,8 @@ namespace hammock::core {
             std::printf("\n");
             std::fflush(stdout);
         }
+
+        static inline std::mutex log_mutex;
     };
 
     class AutoDispose {

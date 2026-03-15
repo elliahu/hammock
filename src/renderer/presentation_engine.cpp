@@ -6,7 +6,7 @@
 #include <thread>
 #include <vulkan/vulkan.hpp>
 
-#include "core/vulkan_context.hpp"
+#include "semaphore.hpp"
 #include "utilities.hpp"
 
 // ************ Base presentation strategy *************
@@ -23,15 +23,18 @@ std::optional<hammock::renderer::FrameContext> hammock::renderer::BasePresentati
     }
 
     // Per frame resources
-    auto& frameRes = perFrameResources_[currentFrameIndex_];
+    auto frameRes = perFrameResources_[currentFrameIndex_];
 
     // Swap buffers
     framebuffer_->swapImages();
 
     frameInProgress_ = true;
-    return FrameContext{.renderTarget = framebuffer_->getFrontbufferImage(),
-        .renderFinished = *frameRes.renderingFinished,
-        .frameIndex = currentFrameIndex_};
+
+    return FrameContext{
+        .renderTarget = framebuffer_->getFrontbufferImage(),
+        .renderFinished = semaphores_.ref(frameRes.renderingFinished),
+        .frameIndex = currentFrameIndex_,
+    };
 }
 
 void hammock::renderer::BasePresentationStrategy::endFrame(const FrameContext& ctx) {
@@ -56,10 +59,10 @@ hammock::core::ImageFormat hammock::renderer::BasePresentationStrategy::getForma
 }
 
 hammock::renderer::BasePresentationStrategy::BasePresentationStrategy(
-    core::VulkanContext& ctx, vk::Extent2D resolution, core::ImageFormat format, uint32_t framesInFlight)
-    : ctx_(ctx), framesInFlight_(framesInFlight) {
+    core::Device& device, vk::Extent2D resolution, core::ImageFormat format, uint32_t framesInFlight)
+    : device_(device), framesInFlight_(framesInFlight) {
     // Create framebuffer (shared by all strategies)
-    framebuffer_ = std::make_unique<Framebuffer>(ctx_,
+    framebuffer_ = std::make_unique<Framebuffer>(device_,
         framesInFlight_,
         math::Vec2{static_cast<float>(resolution.width), static_cast<float>(resolution.height)},
         format);
@@ -67,19 +70,19 @@ hammock::renderer::BasePresentationStrategy::BasePresentationStrategy(
     // Create per-frame synchronization (shared by all strategies)
     perFrameResources_.resize(framesInFlight_);
     for (auto& frameRes : perFrameResources_) {
-        frameRes.renderingFinished = std::make_unique<core::Semaphore>(*ctx_.device);
+        frameRes.renderingFinished = semaphores_.create(device_);
     }
 }
 
 void hammock::renderer::BasePresentationStrategy::recreateFramebuffer(vk::Extent2D newResolution) {
     // Wait for GPU to finish
-    ctx_.device->waitIdle();
+    device_.waitIdle();
 
     // Destroy old framebuffer
     framebuffer_.reset();
 
     // Create new framebuffer
-    framebuffer_ = std::make_unique<Framebuffer>(ctx_,
+    framebuffer_ = std::make_unique<Framebuffer>(device_,
         framesInFlight_,
         math::Vec2{static_cast<float>(newResolution.width), static_cast<float>(newResolution.height)},
         getFormat());
@@ -100,14 +103,14 @@ void hammock::renderer::BasePresentationStrategy::notifyResolutionChanged(uint32
 // ***************** Surface presentation strategy *************
 
 hammock::renderer::SurfacePresentationStrategy::SurfacePresentationStrategy(
-    core::VulkanContext& ctx, core::SurfaceProviderIface& surfaceProvider, Mode mode)
-    : BasePresentationStrategy(ctx, vk::Extent2D{1920, 1080},  // Initial size, will be updated
+    core::Device& device, core::SurfaceProviderIface& surfaceProvider, Mode mode)
+    : BasePresentationStrategy(device, vk::Extent2D{1920, 1080},  // Initial size, will be updated
           core::ImageFormat::R8G8B8A8Uint,
           core::SwapChain::MAX_FRAMES_IN_FLIGHT  // Surface rendering typically uses 2 frames in flight
           ),
       mode_(mode) {
     // Initialize swapchain manager
-    swapchainManager_ = std::make_unique<core::SwapChainManager>(surfaceProvider, *ctx_.device);
+    swapchainManager_ = std::make_unique<core::SwapChainManager>(surfaceProvider, device);
 
     // Register swapchain recreation callback
     swapchainManager_->registerOnSwapChainRecreatedCallback(
@@ -117,13 +120,11 @@ hammock::renderer::SurfacePresentationStrategy::SurfacePresentationStrategy(
 
     surfacePerFrameResources_.resize(framesInFlight_);
     for (auto& surfaceRes : surfacePerFrameResources_) {
-        surfaceRes.presentCommandBuffer =
-            std::make_unique<core::CommandBuffer>(*ctx_.device, core::CommandQueueFamily::Graphics);
+        surfaceRes.presentCommandBuffer = commandBuffers_.create(device, core::CommandQueueFamily::Graphics);
 
         if (mode_ == Mode::Tooling) {
-            surfaceRes.uiFinished = std::make_unique<core::Semaphore>(*ctx_.device);
-            surfaceRes.uiCommandBuffer =
-                std::make_unique<core::CommandBuffer>(*ctx_.device, core::CommandQueueFamily::Graphics);
+            surfaceRes.uiFinished = semaphores_.create(device_);
+            surfaceRes.uiCommandBuffer = commandBuffers_.create(device, core::CommandQueueFamily::Graphics);
         }
     }
 
@@ -142,7 +143,7 @@ void hammock::renderer::SurfacePresentationStrategy::submitUI(
     }
     auto frameIndex = swapchainManager_->getFrameIndex();
 
-    auto targetImage = ctx_.resourceManager->getResource<core::Image>(framebuffer_->getFrontbufferImage());
+    auto targetImage = framebuffer_->getFrontbufferImage();
     vk::RenderingAttachmentInfo colorAttachment = targetImage->getRenderingAttachmentInfo();
     colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
     colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
@@ -154,15 +155,15 @@ void hammock::renderer::SurfacePresentationStrategy::submitUI(
     renderInfo.colorAttachmentCount = 1;
     renderInfo.pColorAttachments = &colorAttachment;
 
-    auto& cmd = *surfacePerFrameResources_[frameIndex].uiCommandBuffer;
-    cmd.addWaitSemaphore(*perFrameResources_[frameIndex].renderingFinished,
+    auto cmd = commandBuffers_.ref(surfacePerFrameResources_[frameIndex].uiCommandBuffer);
+    cmd->addWaitSemaphore(semaphores_.ref(perFrameResources_[frameIndex].renderingFinished),
         vk::PipelineStageFlagBits2::eColorAttachmentOutput);
-    cmd.addSignalSemaphore(*surfacePerFrameResources_[frameIndex].uiFinished);
-    cmd.begin();
-    cmd.getCommandBuffer().beginRendering(&renderInfo);
-    uiRenderFunc(cmd, frameIndex);
-    cmd.getCommandBuffer().endRendering();
-    cmd.submit();
+    cmd->addSignalSemaphore(semaphores_.ref(surfacePerFrameResources_[frameIndex].uiFinished));
+    cmd->begin();
+    cmd->getCommandBuffer().beginRendering(&renderInfo);
+    uiRenderFunc(cmd.get(), frameIndex);
+    cmd->getCommandBuffer().endRendering();
+    cmd->submit();
 }
 
 vk::ImageView hammock::renderer::SurfacePresentationStrategy::getSwapchainImageView(uint32_t index) const {
@@ -182,35 +183,33 @@ bool hammock::renderer::SurfacePresentationStrategy::onBeginFrame() {
 
 void hammock::renderer::SurfacePresentationStrategy::onPresent(const FrameContext& ctx) {
     auto& swapChain = swapchainManager_->getSwapChain();
-    auto& syncObjects = swapChain.getSyncObjects(ctx.frameIndex);
-    auto& frameRes = perFrameResources_[ctx.frameIndex];
-    auto& surfaceRes = surfacePerFrameResources_[ctx.frameIndex];
-    auto& presentCmd = *surfaceRes.presentCommandBuffer;
+    auto syncObjects = swapChain.getSyncObjects(ctx.frameIndex);
+    auto presentCmd = commandBuffers_.ref(surfacePerFrameResources_[ctx.frameIndex].presentCommandBuffer);
 
     // Determine which semaphore to wait on
 
-    core::Semaphore* waitSemaphore = nullptr;
+    core::ResourceRef<core::Semaphore> waitSemaphore;
 
     if (mode_ == Mode::Tooling) {
         // Wait for UI to finish
-        waitSemaphore = surfaceRes.uiFinished.get();
+        waitSemaphore = semaphores_.ref(surfacePerFrameResources_[ctx.frameIndex].uiFinished);
     } else {
         // Wait for scene rendering to finish
-        waitSemaphore = frameRes.renderingFinished.get();
+        waitSemaphore = semaphores_.ref(perFrameResources_[ctx.frameIndex].renderingFinished);
     }
 
     // Set up presentation command buffer
     // Wai wait for two semaphores here
-    presentCmd.addWaitSemaphore(*waitSemaphore, vk::PipelineStageFlagBits2::eTopOfPipe);
-    presentCmd.addWaitSemaphore(
-        *syncObjects.imageAvailable, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
-    presentCmd.addSignalSemaphore(*syncObjects.frameFinished);
+    presentCmd->addWaitSemaphore(waitSemaphore, vk::PipelineStageFlagBits2::eTopOfPipe);
+    presentCmd->addWaitSemaphore(
+        syncObjects.imageAvailable, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+    presentCmd->addSignalSemaphore(syncObjects.frameFinished);
 
     // Record blit operation
 
-    presentCmd.begin();
+    presentCmd->begin();
     blitFramebufferToSwapchain(ctx);
-    presentCmd.submit(
+    presentCmd->submit(
         swapchainManager_->getSwapChain().getSyncObjects(swapchainManager_->getFrameIndex()).inFlightFence);
 
     // Present
@@ -226,20 +225,17 @@ void hammock::renderer::SurfacePresentationStrategy::onFramebufferRecreated() {
 
 void hammock::renderer::SurfacePresentationStrategy::blitFramebufferToSwapchain(const FrameContext& ctx) {
     auto& surfaceRes = surfacePerFrameResources_[ctx.frameIndex];
-    auto& presentCmd = *surfaceRes.presentCommandBuffer;
-    auto imageHandle = framebuffer_->getFrontbufferImage();
-    auto image = ctx_.resourceManager->getResource<core::Image>(imageHandle);
+    auto presentCmd = commandBuffers_.ref(surfaceRes.presentCommandBuffer);
+    auto image = framebuffer_->getFrontbufferImage();
 
     // Transition the target image to transfer scr optimal
-    image->recordPipelineBarrier(presentCmd.getCommandBuffer(),
+    presentCmd->imagePipelineBarrier(image,
         vk::PipelineStageFlagBits2::eColorAttachmentOutput,
         vk::AccessFlagBits2::eColorAttachmentWrite,
         vk::PipelineStageFlagBits2::eTransfer,
         vk::AccessFlagBits2::eTransferRead,
         vk::ImageLayout::eColorAttachmentOptimal,
-        vk::ImageLayout::eTransferSrcOptimal,
-        vk::QueueFamilyIgnored,
-        vk::QueueFamilyIgnored);
+        vk::ImageLayout::eTransferSrcOptimal);
 
     swapchainManager_->blitToSwapChainImage(presentCmd, image);
 }

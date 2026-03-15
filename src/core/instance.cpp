@@ -1,8 +1,9 @@
+#include "instance.hpp"
+
 #include <iostream>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
-#include "instance.hpp"
+#include "utilities.hpp"
 
 hammock::core::Instance::Instance() {
     createInstance();
@@ -12,10 +13,7 @@ hammock::core::Instance::Instance() {
 hammock::core::Instance::~Instance() {
     if (enableValidationLayers && debugMessenger_ && pfnDestroyDebugUtilsMessengerEXT) {
         // Use the manually loaded function
-        pfnDestroyDebugUtilsMessengerEXT(
-            instance_,
-            debugMessenger_,
-            nullptr);
+        pfnDestroyDebugUtilsMessengerEXT(instance_, debugMessenger_, nullptr);
     }
     if (instance_) {
         instance_.destroy();
@@ -28,25 +26,21 @@ void hammock::core::Instance::setupDebugMessenger() {
     }
 
     // Load both functions
-    pfnCreateDebugUtilsMessengerEXT =
-            reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-                instance_.getProcAddr("vkCreateDebugUtilsMessengerEXT"));
+    pfnCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+        instance_.getProcAddr("vkCreateDebugUtilsMessengerEXT"));
 
-    pfnDestroyDebugUtilsMessengerEXT =
-            reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-                instance_.getProcAddr("vkDestroyDebugUtilsMessengerEXT"));
+    pfnDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+        instance_.getProcAddr("vkDestroyDebugUtilsMessengerEXT"));
 
     if (!pfnCreateDebugUtilsMessengerEXT) {
-        Logger::log(LOG_LEVEL_WARN, "Failed to load vkCreateDebugUtilsMessengerEXT");
+        Logger::warn("%s", "Failed to load vkCreateDebugUtilsMessengerEXT");
         return;
     }
 
-    vk::DebugUtilsMessengerCreateInfoEXT createInfo =
-            populateDebugMessengerCreateInfo();
+    vk::DebugUtilsMessengerCreateInfoEXT createInfo = populateDebugMessengerCreateInfo();
 
     VkDebugUtilsMessengerEXT rawMessenger;
-    VkResult result = pfnCreateDebugUtilsMessengerEXT(
-        instance_,
+    VkResult result = pfnCreateDebugUtilsMessengerEXT(instance_,
         reinterpret_cast<const VkDebugUtilsMessengerCreateInfoEXT*>(&createInfo),
         nullptr,
         &rawMessenger);
@@ -54,47 +48,39 @@ void hammock::core::Instance::setupDebugMessenger() {
     if (result == VK_SUCCESS) {
         debugMessenger_ = rawMessenger;
     } else {
-        Logger::log(LOG_LEVEL_WARN, "Failed to create debug messenger");
+        Logger::warn("%s", "Failed to create debug messenger");
     }
 }
 
 void hammock::core::Instance::createInstance() {
     if (enableValidationLayers && !validationLayersSupported()) {
-        Logger::log(
-            LOG_LEVEL_WARN,
-            "Validation layers requested, but not available. Validation layers not used!");
+        Logger::warn("%s", "Validation layers requested, but not available. Validation layers not used!");
         enableValidationLayers = false;
     }
 
-    vk::ApplicationInfo appInfo{
-        .pApplicationName = "hammock::core Engine App",
+    vk::ApplicationInfo appInfo{.pApplicationName = "hammock::core Engine App",
         .applicationVersion = vk::makeVersion(1, 0, 0),
         .pEngineName = "hammock::core Engine",
         .engineVersion = vk::makeVersion(0, 5, 0),
-        .apiVersion = vk::makeApiVersion(0, 1, 3, 0)
-    };
+        .apiVersion = vk::makeApiVersion(0, 1, 3, 0)};
 
     auto extensions = getRequiredExtensions();
 
     vk::InstanceCreateInfo createInfo{};
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledLayerCount = enableValidationLayers
-                                       ? static_cast<uint32_t>(validationLayers_.size())
-                                       : 0;
-    createInfo.ppEnabledLayerNames = enableValidationLayers
-                                         ? validationLayers_.data()
-                                         : nullptr;
+    createInfo.enabledLayerCount =
+        enableValidationLayers ? static_cast<uint32_t>(validationLayers_.size()) : 0;
+    createInfo.ppEnabledLayerNames = enableValidationLayers ? validationLayers_.data() : nullptr;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
-
     vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
     if (enableValidationLayers) {
-        Logger::log(LOG_LEVEL_INFO, "Validation layers available");
+        Logger::debug("%s", "Validation layers enabled");
         debugCreateInfo = populateDebugMessengerCreateInfo();
         createInfo.pNext = &debugCreateInfo;
     } else {
-        Logger::log(LOG_LEVEL_INFO, "Validation layers unavailable");
+        Logger::debug("%s", "Validation layers disabled");
         createInfo.pNext = nullptr;
     }
 
@@ -102,13 +88,12 @@ void hammock::core::Instance::createInstance() {
 }
 
 bool hammock::core::Instance::validationLayersSupported() const {
-    auto availableLayers =
-            vk::enumerateInstanceLayerProperties();
+    auto availableLayers = vk::enumerateInstanceLayerProperties();
 
-    for (const char *layerName: validationLayers_) {
+    for (const char* layerName : validationLayers_) {
         bool layerFound = false;
 
-        for (const auto &layerProperties: availableLayers) {
+        for (const auto& layerProperties : availableLayers) {
             if (std::strcmp(layerName, layerProperties.layerName) == 0) {
                 layerFound = true;
                 break;
@@ -123,8 +108,8 @@ bool hammock::core::Instance::validationLayersSupported() const {
     return true;
 }
 
-std::vector<const char *> hammock::core::Instance::getRequiredExtensions() const {
-    std::vector<const char *> extensions;
+std::vector<const char*> hammock::core::Instance::getRequiredExtensions() const {
+    std::vector<const char*> extensions;
 
     // Common extension for all platforms
     extensions.push_back(vk::KHRSurfaceExtensionName);
@@ -148,19 +133,17 @@ std::vector<const char *> hammock::core::Instance::getRequiredExtensions() const
 }
 
 /// @brief debug callback function for collecting messages from the API
-static vk::Bool32 debugCallback(
-    vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+static vk::Bool32 debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     vk::DebugUtilsMessageTypeFlagsEXT messageType,
-    const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData,
-    void *pUserData) {
+    const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
     return vk::False;
 }
 
 vk::DebugUtilsMessengerCreateInfoEXT hammock::core::Instance::populateDebugMessengerCreateInfo() {
     auto debug = vk::DebugUtilsMessengerCreateInfoEXT{};
-    debug.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+    debug.messageSeverity =
+        vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
     debug.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
                         vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
                         vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;

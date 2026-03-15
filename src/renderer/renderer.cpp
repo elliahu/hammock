@@ -1,72 +1,115 @@
 #include "renderer.hpp"
 
+#include <functional>
 #include <memory>
-#include <stdexcept>
+#include <span>
 
 #include "buffer.hpp"
 #include "core/swapchain.hpp"
 #include "descriptors.hpp"
-#include "utils/filesystem.hpp"
-#include "ui/font.hpp"
-#include "graphics_pipeline.hpp"
+#include "device.hpp"
 #include "image.hpp"
+#include "instance.hpp"
+#include "pipeline.hpp"
+#include "resource_manager.hpp"
+#include "ui/font.hpp"
 #include "ui/ui.hpp"
+#include "utils/filesystem.hpp"
 #include "vertex.hpp"
 #include "vulkan/vulkan.hpp"
 
-hammock::renderer::Renderer::Renderer(core::VulkanContext& context) : ctx_(context) {
+hammock::renderer::Renderer::Renderer(SurfaceFactory surfaceFactory, SurfaceDestructor surfaceDestructor)
+    : instance_{},
+      surface_(surfaceFactory(instance_)),
+      device_(instance_, surface_),
+      surfaceDestructor_(std::move(surfaceDestructor)) {
+    // create the descriptor pool
+    descriptorPoolHandle_ = descriptorPools_.create(device_,
+        10000,
+        vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        std::vector<vk::DescriptorPoolSize>{
+            {vk::DescriptorType::eSampler, 1000},
+            {vk::DescriptorType::eCombinedImageSampler, 1000},
+            {vk::DescriptorType::eSampledImage, 1000},
+            {vk::DescriptorType::eStorageImage, 1000},
+            {vk::DescriptorType::eUniformTexelBuffer, 1000},
+            {vk::DescriptorType::eStorageTexelBuffer, 1000},
+            {vk::DescriptorType::eUniformBuffer, 1000},
+            {vk::DescriptorType::eStorageBuffer, 1000},
+            {vk::DescriptorType::eUniformBufferDynamic, 1000},
+            {vk::DescriptorType::eStorageBufferDynamic, 1000},
+            {vk::DescriptorType::eInputAttachment, 1000},
+        });
+
     core::SwapChain::forEachFrameInFlight([this](int i) {
-        auto commandBuffer =
-            std::make_unique<core::CommandBuffer>(*ctx_.device, core::CommandQueueFamily::Graphics);
-        commandBuffers_.push_back(std::move(commandBuffer));
+        auto commandBuffer = commandBuffers_.create(device_, core::CommandQueueFamily::Graphics);
+        cmds.push_back(commandBuffer);
     });
 
     // Create font atlas GPU resource
     ui::FontAtlas& atlas = ui::Ui::instance().getFontAtlas();
-    fontAtlasHandle =
-        context.resourceManager->createResource<core::Image>(core::ImageDesc{.width = ui::ATLAS_WIDTH,
+    fontAtlasHandle = images_.create(device_,
+        core::ImageDesc{.width = ui::ATLAS_WIDTH,
             .height = ui::ATLAS_HEIGHT,
             .channels = 1,
             .format = core::ImageFormat::R8Uint,
             .usage = core::ImageUsage::Sampled | core::ImageUsage::TransferDst,
             .type = core::ImageType::Type2D});
-    core::Image* fontAtlas = context.resourceManager->getResource<core::Image>(fontAtlasHandle);
+    auto fontAtlas = images_.ref(fontAtlasHandle);
     fontAtlas->createSampler();
-    core::ResourceHandle atlasStagingBufferHandle = context.resourceManager->createResource<core::Buffer>(
+    auto atlasStagingBufferHandle = buffers_.create(device_,
         core::BufferDesc{.type = core::BufferType::HostVisible,
             .usage = core::BufferUsage::TransferSrc | core::BufferUsage::TransferDst,
             .instanceSize = sizeof(uint8_t),
             .instanceCount = ui::ATLAS_WIDTH * ui::ATLAS_HEIGHT});
-    core::Buffer* atlasStagingBuffer =
-        context.resourceManager->getResource<core::Buffer>(atlasStagingBufferHandle);
+    auto atlasStagingBuffer = buffers_.ref(atlasStagingBufferHandle);
     atlasStagingBuffer->map();
     atlasStagingBuffer->writeToBuffer(atlas.bitmap.data());
-    fontAtlas->queueImageLayoutTransition(vk::ImageLayout::eTransferDstOptimal);
-    fontAtlas->queueCopyFromBuffer(*atlasStagingBuffer);
-    fontAtlas->queueImageLayoutTransition(vk::ImageLayout::eShaderReadOnlyOptimal);
-    context.device->waitIdle();
+
+    auto prepCmdHandle = commandBuffers_.create(device_, core::CommandQueueFamily::Graphics);
+    auto prepCmd = commandBuffers_.ref(prepCmdHandle);
+
+    prepCmd->begin();
+    prepCmd->imagePipelineBarrier(fontAtlas,
+        vk::PipelineStageFlagBits2::eNone,
+        vk::AccessFlagBits2::eNone,
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferWrite,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eTransferDstOptimal);
+    prepCmd->copyBufferToImage(atlasStagingBuffer, fontAtlas);
+    prepCmd->imagePipelineBarrier(fontAtlas,
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferWrite,
+        vk::PipelineStageFlagBits2::eFragmentShader,
+        vk::AccessFlagBits2::eShaderRead,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::eShaderReadOnlyOptimal);
+    prepCmd->submit();
+
+    device_.waitIdle();
     atlasStagingBuffer->unmap();
-    context.resourceManager->releaseResource(atlasStagingBufferHandle.getUid());
+    buffers_.destroy(atlasStagingBufferHandle);
 
     // Create font atlas descriptor
     userInterfaceDescLayout_ =
-        core::DescriptorSetLayoutBuilder(*context.device)
+        core::DescriptorSetLayoutBuilder(device_)
             .addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment)
             .build();
     auto imageInfo = fontAtlas->getDescriptorImageInfo(fontAtlas->getSampler());
-    core::DescriptorWriter(*userInterfaceDescLayout_, *context.descriptorPool)
+    imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    core::DescriptorWriter(*userInterfaceDescLayout_, descriptorPools_.ref(descriptorPoolHandle_).get())
         .writeImage(0, &imageInfo)
         .build(userInterfaceDescSet_);
 
     // Build the user interface pipeline
-    userInterfacePipeline_ =
-        core::GraphicsPipelineBuilder(*context.device)
+    userInterfacePipeline_ = pipelines_.create(core::PipelineBuilder(device_)
+            .setVertexShader(filesystem::readFile("../../spv/user_interface.vert.spv"), "main")
+            .setFragmentShader(filesystem::readFile("../../spv/user_interface.frag.spv"), "main")
             .addPushConstantRange(vk::PushConstantRange{.stageFlags = vk::ShaderStageFlagBits::eVertex,
                 .offset = 0,
                 .size = sizeof(UserInterfacePushConstants)})
             .addDescriptorSetLayout(userInterfaceDescLayout_)
-            .setVertexShader(filesystem::readFile("../../spv/user_interface.vert.spv"), "main")
-            .setFragmentShader(filesystem::readFile("../../spv/user_interface.frag.spv"), "main")
             .setDepthTest(false)
             .setCullMode(vk::CullModeFlagBits::eNone)
             .addBlendAttachmentState(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
@@ -75,94 +118,89 @@ hammock::renderer::Renderer::Renderer(core::VulkanContext& context) : ctx_(conte
             .setVertexInputAttributeDescriptions(UiVertex::getInputAttributeDescriptions())
             .setVertexInputBindingDescriptions(UiVertex::getInputBindingDescriptions())
             .addColorAttachmentFormat(vk::Format::eR8G8B8A8Unorm)
-            .build();
+            .buildCreateInfo());
 
     // Create the user interface vertex buffer
-    userInterfaceVertexBuffer_ = context.resourceManager->createResource<core::Buffer>(core::BufferDesc{
-        .type = core::BufferType::HostVisible,
-        .usage = core::BufferUsage::VertexBuffer | core::BufferUsage::TransferDst,
-        .instanceSize = sizeof(UiVertex),
-        .instanceCount = 10000  // for now
-    });
-    context.resourceManager->getResource<core::Buffer>(userInterfaceVertexBuffer_)->map();
+    userInterfaceVertexBuffer_ = buffers_.create(device_,
+        core::BufferDesc{
+            .type = core::BufferType::HostVisible,
+            .usage = core::BufferUsage::VertexBuffer | core::BufferUsage::TransferDst,
+            .instanceSize = sizeof(UiVertex),
+            .instanceCount = 10000  // for now
+        });
+    buffers_.ref(userInterfaceVertexBuffer_)->map();  // make it constantly mapped
 }
 
+hammock::renderer::Renderer::~Renderer() { surfaceDestructor_(instance_, surface_); }
+
 void hammock::renderer::Renderer::drawFrame(
-    core::ResourceHandle target, RenderSnapshot& snap, core::Semaphore& signal) {
-    if (!target.isValid() || target.getType() != core::ResourceType::Image) {
-        throw std::runtime_error("Invalid rendering target");
-    }
+    core::ResourceRef<core::Image> target, RenderSnapshot& snap, core::ResourceRef<core::Semaphore> signal) {
+    // Get the command buffer reference from the manager
+    auto commandBuffer = commandBuffers_.ref(cmds[currentFrameIdx_]);
 
-    auto& commandBuffer = *commandBuffers_[currentFrameIdx_];
-    auto image = ctx_.resourceManager->getResource<core::Image>(target);
-
-    commandBuffer.addSignalSemaphore(signal);
-    commandBuffer.begin();
+    commandBuffer->addSignalSemaphore(signal);
+    commandBuffer->begin();
 
     // Attachment needs to be in color attachment optimal layout
-    image->recordPipelineBarrier(commandBuffer.getCommandBuffer(),
+    commandBuffer->imagePipelineBarrier(target,
         vk::PipelineStageFlagBits2::eNone,
         vk::AccessFlagBits2::eNone,
         vk::PipelineStageFlagBits2::eColorAttachmentOutput,
         vk::AccessFlagBits2::eColorAttachmentWrite,
         vk::ImageLayout::eUndefined,
-        vk::ImageLayout::eColorAttachmentOptimal,
-        vk::QueueFamilyIgnored,
-        vk::QueueFamilyIgnored);
+        vk::ImageLayout::eColorAttachmentOptimal);
 
-    auto attachment = image->getRenderingAttachmentInfo();
-    attachment.loadOp = vk::AttachmentLoadOp::eClear;
-    attachment.storeOp = vk::AttachmentStoreOp::eStore;
-    attachment.clearValue.setColor(
-        vk::ClearColorValue(std::array<float, 4>{snap.x / 255.f, snap.x / 255.f, snap.x / 255.f, 1.0f}));
+    auto attachment = target->getRenderingAttachmentInfo();
+    attachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
 
-    // core::Logger::debug("Packet x: %d", packet.x);
+    auto targets = std::array<core::ResourceRef<core::Image>, 1>{target};
+    auto layouts = std::array<vk::ImageLayout, 1>{vk::ImageLayout::eColorAttachmentOptimal};
 
-    vk::RenderingInfo renderInfo{};
-    renderInfo.renderArea = vk::Rect2D{{0, 0}, {image->getExtent().width, image->getExtent().height}};
-    renderInfo.layerCount = 1;
-    renderInfo.colorAttachmentCount = 1;
-    renderInfo.pColorAttachments = &attachment;
-
-    commandBuffer.getCommandBuffer().beginRendering(&renderInfo);
+    commandBuffer->beginRendering(
+        {{0, 0}, {target->getExtent().width, target->getExtent().height}}, targets, layouts);
 
     // Render the ui
     // Update the ui vert buffer
-    core::Buffer* uiVertBuffer = ctx_.resourceManager->getResource<core::Buffer>(userInterfaceVertexBuffer_);
+    auto uiVertBuffer = buffers_.ref(userInterfaceVertexBuffer_);
     uiVertBuffer->writeToBuffer(
         snap.uiDraws.vertices.data(), snap.uiDraws.vertices.size() * sizeof(UiVertex));
     // Bind the ui vert buffer
     vk::DeviceSize offsets[1]{0};
-    commandBuffer.getCommandBuffer().bindVertexBuffers(0, 1, uiVertBuffer->getBufferPtr(), offsets);
+    commandBuffer->getCommandBuffer().bindVertexBuffers(0, 1, uiVertBuffer->getBufferPtr(), offsets);
+    commandBuffer->bindVertexBuffers(std::span(&uiVertBuffer, 1), offsets);
 
     // Bind the ui pipeline
-    userInterfacePipeline_->bind(commandBuffer);
+    commandBuffer->bindPipeline(pipelines_.ref(userInterfacePipeline_));
 
     // Bind the descriptor set
-    commandBuffer.getCommandBuffer().bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-        userInterfacePipeline_->getPipelineLayout(),
-        0,
-        userInterfaceDescSet_,
-        nullptr);
+    commandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+        pipelines_.ref(userInterfacePipeline_),
+        std::span(&userInterfaceDescSet_, 1));
 
     // Scissors and viewport
-    userInterfacePipeline_->setViewport(
-        commandBuffer, 0, 0, image->getExtent().width, image->getExtent().height, 0, 1);
-    userInterfacePipeline_->setScissor(commandBuffer,
-        {.x = 0, .y = 0},
-        {.width = image->getExtent().width, .height = image->getExtent().height});
+    commandBuffer->setViewport({0,
+        0,
+        static_cast<float>(target->getExtent().width),
+        static_cast<float>(target->getExtent().height),
+        0.f,
+        1.f});
+    commandBuffer->setScissor({0, 0, target->getExtent().width, target->getExtent().height});
 
     // Push constants
-    UserInterfacePushConstants push{
-        .screenSize = {static_cast<float>(image->getExtent().width), static_cast<float>(image->getExtent().height)}};
-    userInterfacePipeline_->pushConstants(commandBuffer, vk::ShaderStageFlagBits::eVertex, 0, sizeof(UserInterfacePushConstants), &push);
+    UserInterfacePushConstants push{.screenSize = {static_cast<float>(target->getExtent().width),
+                                        static_cast<float>(target->getExtent().height)}};
+    commandBuffer->pushConstants(pipelines_.ref(userInterfacePipeline_),
+        vk::ShaderStageFlagBits::eVertex,
+        0,
+        sizeof(UserInterfacePushConstants),
+        &push);
 
     // Draw the ui
-    commandBuffer.getCommandBuffer().draw(snap.uiDraws.vertices.size(), 1, 0, 0);
+    commandBuffer->getCommandBuffer().draw(snap.uiDraws.vertices.size(), 1, 0, 0);
 
-    commandBuffer.getCommandBuffer().endRendering();
+    commandBuffer->endRendering();
 
-    commandBuffer.submit();
+    commandBuffer->submit();
 
     // Update the frame index
     nextFrameIdx();

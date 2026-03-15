@@ -47,7 +47,7 @@ namespace hammock::core {
         return device_.device().acquireNextImageKHR(
             swapChain_,
             UINT64_MAX,
-            syncObjects.imageAvailable->getVulkanSemaphore(),
+            semaphores_.ref(syncObjects.imageAvailable)->getVulkanSemaphore(),
             nullptr,
             imageIndex
         );
@@ -63,7 +63,7 @@ namespace hammock::core {
 
 
         vk::Semaphore signalSemaphores[] = {
-            syncObjects.frameFinished->getVulkanSemaphore()
+            semaphores_.ref(syncObjects.frameFinished)->getVulkanSemaphore()
         };
 
         // Attach the fence to the presentation via pNext
@@ -233,8 +233,8 @@ namespace hammock::core {
         fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            frameSyncObjects_[i].imageAvailable = std::make_unique<Semaphore>(device_);
-            frameSyncObjects_[i].frameFinished = std::make_unique<Semaphore>(device_);
+            frameSyncObjects_[i].imageAvailable = semaphores_.create(device_);
+            frameSyncObjects_[i].frameFinished = semaphores_.create(device_);
 
             if (device_.device().createFence(&fenceInfo, nullptr, &frameSyncObjects_[i].inFlightFence) != vk::Result::eSuccess) {
                 throw std::runtime_error("failed to create synchronization objects for a frame!");
@@ -269,11 +269,13 @@ namespace hammock::core {
             vk::FormatFeatureFlagBits::eDepthStencilAttachment);
     }
 
-    FrameSyncObjects &SwapChain::getSyncObjects(const uint32_t frameIndex) {
-        return frameSyncObjects_[frameIndex];
-    }
-
-    const FrameSyncObjects &SwapChain::getSyncObjects(const uint32_t frameIndex) const {
-        return frameSyncObjects_[frameIndex];
+    FrameSyncObjectsRef SwapChain::getSyncObjects(const uint32_t frameIndex) {
+        auto &syncObjects = frameSyncObjects_[frameIndex];
+        return FrameSyncObjectsRef{
+            .imageAvailable = semaphores_.ref(syncObjects.imageAvailable),
+            .frameFinished = semaphores_.ref(syncObjects.frameFinished),
+            .inFlightFence = syncObjects.inFlightFence,
+            .releaseFence = syncObjects.releaseFence
+        };
     }
 } // namespace hammock::core

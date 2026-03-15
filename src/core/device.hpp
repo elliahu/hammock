@@ -1,11 +1,14 @@
 #pragma once
 #include <vector>
-#include <compare>
 #include <vulkan/vulkan.hpp>
 
 #include "instance.hpp"
-#include "memory_allocator.hpp"
 
+#ifndef NDEBUG
+#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
+#define VMA_DEBUG_DETECT_CORRUPTION 1
+#endif
+#include "memory_allocator.hpp"
 
 namespace hammock::core {
     /// @struct SwapChainSupportDetails
@@ -30,7 +33,8 @@ namespace hammock::core {
 
         /// @brief check for queue completeness (device has all queue types)
         [[nodiscard]] bool isComplete() const {
-            return graphicsFamilyHasValue && presentFamilyHasValue && computeFamilyHasValue && transferFamilyHasValue;
+            return graphicsFamilyHasValue && presentFamilyHasValue && computeFamilyHasValue &&
+                   transferFamilyHasValue;
         }
 
         [[nodiscard]] bool isHeadlessComplete() const {
@@ -48,19 +52,19 @@ namespace hammock::core {
      * TODO Remove headless
      */
     class Device {
-    public:
-        explicit Device(Instance &instance, vk::SurfaceKHR surface = vk::SurfaceKHR{});
+       public:
+        explicit Device(Instance& instance, vk::SurfaceKHR surface = vk::SurfaceKHR{});
 
         ~Device();
 
         // Not copyable or movable
-        Device(const Device &) = delete;
+        Device(const Device&) = delete;
 
-        Device &operator=(const Device &) = delete;
+        Device& operator=(const Device&) = delete;
 
-        Device(Device &&) = delete;
+        Device(Device&&) = delete;
 
-        Device &operator=(Device &&) = delete;
+        Device& operator=(Device&&) = delete;
 
         /// @brief Get Graphics command pool
         [[nodiscard]] vk::CommandPool getGraphicsCommandPool() const { return graphicsCommandPool_; }
@@ -102,13 +106,17 @@ namespace hammock::core {
         [[nodiscard]] uint32_t getTransferQueueFamilyIndex() const { return transferQueueFamilyIndex_; }
 
         /// @brief Get physical device properties
-        [[nodiscard]] vk::PhysicalDeviceProperties &getPhysicalDeviceProperties() { return physicalDeviceProperties_; }
+        [[nodiscard]] vk::PhysicalDeviceProperties& getPhysicalDeviceProperties() {
+            return physicalDeviceProperties_;
+        }
 
         /// @brief Get swap chain support details
         [[nodiscard]] SwapChainSupportDetails getSwapChainSupport() const;
 
         /// @brief Get queue families for the current physical device
-        [[nodiscard]] QueueFamilyIndices getPhysicalQueueFamilies() { return findQueueFamilies(physicalDevice_); }
+        [[nodiscard]] QueueFamilyIndices getPhysicalQueueFamilies() {
+            return findQueueFamilies(physicalDevice_);
+        }
 
         /// @brief Find memory type that supports the filtered values
         [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
@@ -116,12 +124,13 @@ namespace hammock::core {
         /// @brief Find supported format.
         /// Returns first format in a list that is supported by the GPU.
         /// @param candidates should be ordered list of candidate formats.
-        [[nodiscard]] vk::Format findSupportedFormat(
-            const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
+        [[nodiscard]] vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates,
+            vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
 
         /// @brief Allocates a command buffer from the graphics queue
         /// Call endSingleTimeCommands to submit
-        [[nodiscard]] vk::CommandBuffer beginSingleTimeCommands(CommandQueueFamily family = CommandQueueFamily::Graphics) const;
+        [[nodiscard]] vk::CommandBuffer beginSingleTimeCommands(
+            CommandQueueFamily family = CommandQueueFamily::Graphics) const;
 
         /// @brief submits given command buffer into graphics queue
         void endSingleTimeCommands(vk::CommandBuffer commandBuffer) const;
@@ -129,16 +138,15 @@ namespace hammock::core {
         /// @brief Submits a layout transition barrier into graphics queue
         [[deprecated("Manual pipeline barrier preferred")]]
         void queueImageLayoutTransition(vk::Image image, vk::ImageLayout layoutOld, vk::ImageLayout layoutNew,
-                                        uint32_t layerCount = 1, uint32_t baseLayer = 0, uint32_t levelCount = 1,
-                                        uint32_t baseLevel = 0,
-                                        vk::ImageAspectFlags aspectMask = vk::ImageAspectFlagBits::eColor) const;
+            uint32_t layerCount = 1, uint32_t baseLayer = 0, uint32_t levelCount = 1, uint32_t baseLevel = 0,
+            vk::ImageAspectFlags aspectMask = vk::ImageAspectFlagBits::eColor) const;
 
         /// @brief Block all GPU executions until all queues are empty
         /// Do not call in frame unless you know what you are doing.
         /// This performs a hard block and may cause stutters and performance problems.
         void waitIdle();
 
-    private:
+       private:
         void pickPhysicalDevice();
 
         void createLogicalDevice();
@@ -157,7 +165,7 @@ namespace hammock::core {
 
         SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device) const;
 
-        Instance &instance_;
+        Instance& instance_;
         vk::PhysicalDevice physicalDevice_;
         vk::CommandPool graphicsCommandPool_;
         vk::CommandPool transferCommandPool_;
@@ -175,7 +183,7 @@ namespace hammock::core {
         vk::PhysicalDeviceProperties physicalDeviceProperties_;
 
         // Enabled extensions
-        const std::vector<const char *> deviceExtensions_ = {
+        const std::vector<const char*> deviceExtensions_ = {
             // SwapChain support
             vk::KHRSwapchainExtensionName,
             // Dynamic rendering is preferred over render passes
@@ -183,7 +191,6 @@ namespace hammock::core {
             // Descriptor indexing is used
             vk::EXTDescriptorIndexingExtensionName,
             // For release semaphore on swapchain
-            vk::EXTSwapchainMaintenance1ExtensionName
-        };
+            vk::EXTSwapchainMaintenance1ExtensionName};
     };
-} // namespace hammock::core
+}  // namespace hammock::core

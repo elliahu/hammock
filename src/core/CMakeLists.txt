@@ -2,16 +2,14 @@ cmake_minimum_required(VERSION 3.30)
 
 # Core library
 add_library(hammock_core
-        "base_pipeline.hpp"
         "base_resource.hpp"
         "surface_provider_iface.hpp"
         "buffer.hpp"
         "command_buffer.hpp"
-        "compute_pipeline.hpp"
+        "pipeline.hpp"
         "descriptors.hpp"
         "device.hpp"
         "swapchain_manager.hpp"
-        "graphics_pipeline.hpp"
         "image.hpp" 
         "instance.hpp"
         "memory_allocator.hpp"
@@ -19,22 +17,19 @@ add_library(hammock_core
         "swapchain.hpp"
         "utilities.hpp"
         "semaphore.hpp"
-        "vulkan_context.hpp"
 
         "buffer.cpp"
         "image.cpp"
         "instance.cpp"
         "command_buffer.cpp"
-        "compute_pipeline.cpp"
+        "pipeline.cpp"
         "descriptors.cpp"
         "device.cpp"
         "swapchain_manager.cpp"
-        "graphics_pipeline.cpp"
         "memory_allocator_impl.cpp"
         "resource_manager.cpp"
         "swapchain.cpp"
         "semaphore.cpp"
-        "vulkan_context.cpp"
 )
 
 # Include directories for legacy headers

@@ -1,11 +1,10 @@
 #include "device.hpp"
 
-#include <compare>
 #include <set>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.hpp>
-
+#include "utilities.hpp"
 
 namespace hammock::core {
     Device::Device(Instance& instance, vk::SurfaceKHR surface) : instance_{instance}, surface_{surface} {
@@ -16,6 +15,12 @@ namespace hammock::core {
     }
 
     Device::~Device() {
+#ifndef NDEBUG
+        char* statsString = nullptr;
+        vmaBuildStatsString(allocator_, &statsString, VK_TRUE);
+        // Logger::debug("VMA stats: %s", statsString);
+        vmaFreeStatsString(allocator_, statsString);
+#endif
         allocator::destroyAllocator(allocator_);
         device_.destroyCommandPool(graphicsCommandPool_);
         device_.destroyCommandPool(transferCommandPool_);
@@ -333,7 +338,7 @@ namespace hammock::core {
     vk::CommandBuffer Device::beginSingleTimeCommands(CommandQueueFamily family) const {
         vk::CommandBufferAllocateInfo allocInfo{};
         allocInfo.level = vk::CommandBufferLevel::ePrimary;
-        if(family == CommandQueueFamily::Compute)
+        if (family == CommandQueueFamily::Compute)
             allocInfo.commandPool = computeCommandPool_;
         else if (family == CommandQueueFamily::Transfer)
             allocInfo.commandPool = transferCommandPool_;
