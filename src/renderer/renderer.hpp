@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
-#include <memory>
 #include <functional>
+#include <memory>
 
 #include "core/command_buffer.hpp"
 #include "core/descriptors.hpp"
@@ -9,22 +9,34 @@
 #include "core/image.hpp"
 #include "core/instance.hpp"
 #include "core/pipeline.hpp"
-#include "render_types.hpp"
 #include "core/resource_manager.hpp"
 #include "core/semaphore.hpp"
+#include "render_proxy.hpp"
+#include "render_types.hpp"
 #include "vulkan/vulkan.hpp"
 
 namespace hammock::renderer {
 
+    /// @brief Interface for a renderer
     class RendererIface {
        public:
         virtual ~RendererIface() = default;
+
+        /// @brief Draw frame onto a target
         virtual void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshot& snap,
             core::ResourceRef<core::Semaphore> signal) = 0;
 
+        /// @brief Get the device associated with this renderer
         virtual core::Device& getDevice() = 0;
+
+        /// @brief Wait for all in-flight frames to complete
+        virtual void waitIdle() = 0;
+
+        /// @brief Handle a resize event
+        virtual void handleResize(RenderCommand resizeCmd) = 0;
     };
 
+    /// @brief Default implementation of a renderer
     class Renderer : public RendererIface {
        public:
         using SurfaceFactory = std::function<vk::SurfaceKHR(core::Instance&)>;
@@ -39,7 +51,17 @@ namespace hammock::renderer {
         void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshot& snap,
             core::ResourceRef<core::Semaphore> signal) override;
 
+        /// @brief Get the device associated with this renderer
         core::Device& getDevice() override { return device_; }
+
+        /// @brief Wait for the device to become idle
+        /// You can use this to synchronize with the GPU before shutting down.
+        void waitIdle() override;
+
+        /// @brief Handle a resize event
+        void handleResize(RenderCommand resizeCmd) override {
+            // TODO handle resize event here, recreate buffers etc.
+        }
 
        private:
         core::Instance instance_;

@@ -209,3 +209,4 @@ void hammock::renderer::Renderer::drawFrame(
 void hammock::renderer::Renderer::nextFrameIdx() {
     currentFrameIdx_ = (currentFrameIdx_ + 1) % core::SwapChain::MAX_FRAMES_IN_FLIGHT;
 }
+void hammock::renderer::Renderer::waitIdle() { device_.waitIdle(); }

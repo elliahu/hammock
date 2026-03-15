@@ -7,23 +7,8 @@
 #include "utilities.hpp"
 
 hammock::renderer::RenderBackend::RenderBackend(
-    RenderProxy& proxy, core::SurfaceProviderIface& surfaceProvider)
-    : proxy_(proxy), surfaceProvider_(surfaceProvider) {
-    // Initialize renderer
-    renderer_ = std::make_unique<renderer::Renderer>([&](core::Instance& instance) {
-        surfaceProvider.createVulkanSurface(instance);
-        return surfaceProvider.getSurface();
-    }, [&](core::Instance& instance, vk::SurfaceKHR surface) {
-        surfaceProvider.destroyVulkanSurface(instance);
-    });
-
-    // Initialize presentation engine
-    // We are using the tooling mode (with ui) even if no ui is present
-    // That is because if the ui is not present, empty draw command is submitted
-    // Might rework this later
-    auto presentStrategy = std::make_unique<SurfacePresentationStrategy>(
-        renderer_->getDevice(), surfaceProvider, SurfacePresentationStrategy::Mode::Game);
-    presentationEngine_ = std::make_unique<PresentationEngine>(std::move(presentStrategy));
+    RenderProxy& proxy, core::SurfaceProviderIface& surfaceProvider, std::unique_ptr<RendererIface>&& renderer, std::unique_ptr<PresenterIface>&& presenter)
+    : proxy_(proxy), surfaceProvider_(surfaceProvider), renderer_(std::move(renderer)), presenter_(std::move(presenter)) {
 }
 
 void hammock::renderer::RenderBackend::start() {
@@ -32,6 +17,7 @@ void hammock::renderer::RenderBackend::start() {
     thread_ = std::thread([this]() {
         core::Logger::debug("%s", "Render thread created");
 
+        // Signal logic thread that backend is ready
         proxy_.getBtfCommandQueue().push(RenderCommand{.type = RenderCommandType::Ready});
 
         // Enter the loop
@@ -42,10 +28,10 @@ void hammock::renderer::RenderBackend::start() {
                 if (cmd.type == RenderCommandType::Stop) {
                     core::Logger::debug("%s", "Stop command received, exiting backend thread");
                     stop();
-                    break;  // Exit thread
+                    break;  // Break out of the render loop
                 }
                 if (cmd.type == RenderCommandType::Resize) {
-                    // TODO
+                    renderer_->handleResize(cmd);
                 }
             }
 
@@ -57,28 +43,18 @@ void hammock::renderer::RenderBackend::start() {
             }
 
             // Begin frame
-            if (auto frameCtx = presentationEngine_->beginFrame()) {
+            if(auto frameCtx = presenter_->beginFrame()) {
+
                 // Draw frame
                 renderer_->drawFrame(frameCtx->renderTarget, renderSnap, frameCtx->renderFinished);
 
-                // This here is a technical debt from one of the previous iterations of hammock
-                // Not time to redo this now, maybe some day
-                // The whole presentation engine is a mess
-                if (auto* surfaceStrategy =
-                        presentationEngine_->getStrategyAs<SurfacePresentationStrategy>()) {
-                    // Render UI (editor only)
-                    surfaceStrategy->submitUI(
-                        *frameCtx, [this](core::CommandBuffer& cmd, std::uint32_t frameIndex) {
-                            // This is left empty intentionally
-                        });
-                }
-
                 // Present
-                presentationEngine_->endFrame(*frameCtx);
+                presenter_->endFrame(*frameCtx);
             }
         }
 
-        renderer_->getDevice().waitIdle();
+        // Finish the rendering before stopping
+        renderer_->waitIdle();
     });
 }
 

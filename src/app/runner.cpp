@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 #include <vulkan/vulkan.hpp>
 
 #include "VulkanSurfer/VulkanSurfer.h"
@@ -74,10 +75,23 @@ hammock::app::Runner::Runner() {
         }
     });
 
-    /// Set the threads
+    // Create render proxy and frontend
     renderProxy_ = std::make_unique<renderer::RenderProxy>();
     renderFrontend_ = std::make_unique<renderer::RenderFrontend>(*renderProxy_, *window_);
-    renderBackend_ = std::make_unique<renderer::RenderBackend>(*renderProxy_, *window_);
+
+    // Initialize renderer
+    auto renderer = std::make_unique<renderer::Renderer>([&](core::Instance& instance) {
+        window_->createVulkanSurface(instance);
+        return window_->getSurface();
+    }, [&](core::Instance& instance, vk::SurfaceKHR surface) {
+        window_->destroyVulkanSurface(instance);
+    });
+
+    // Initialize presenter
+    auto presenter = std::make_unique<renderer::Presenter>(renderer->getDevice(), *window_);
+
+    // Create render backend by moving the renderer
+    renderBackend_ = std::make_unique<renderer::RenderBackend>(*renderProxy_, *window_, std::move(renderer), std::move(presenter));
 }
 
 hammock::app::Runner::~Runner() {

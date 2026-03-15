@@ -10,9 +10,7 @@ hammock::renderer::RenderFrontend::RenderFrontend(
     : proxy_(proxy), surfaceProvider_(surfaceProvider) {}
 
 void hammock::renderer::RenderFrontend::start() {
-    core::Logger::debug("%s", "Logic thread created");
-
-    // Send frontend ready
+    // Singnal render thread that logic thread is ready
     proxy_.getFtbCommandQueue().push(RenderCommand{.type = RenderCommandType::Ready});
 
     // Enter the logic loop

@@ -12,11 +12,11 @@ add_library(hammock_renderer
         "stage_types.hpp"
         "stage.hpp"
         "framebuffer.hpp"
-        "presentation_engine.hpp"
+        "presenter.hpp"
 
 
+        "presenter.cpp"
         "renderer.cpp"
-        "presentation_engine.cpp"
         "framebuffer.cpp"
         "stage.cpp"
         "gltf_loader.cpp"
