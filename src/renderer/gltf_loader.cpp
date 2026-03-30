@@ -1,5 +1,12 @@
 #include "gltf_loader.hpp"
 
+
+#include <stdexcept>
+
+#include "core/device.hpp"
+#include "core/utilities.hpp"
+#include "utils/math.hpp"
+
 hammock::renderer::GltfLoader::GltfLoader(core::Device& device) : device_(device) {}
 hammock::renderer::GltfLoader::~GltfLoader() {};
 

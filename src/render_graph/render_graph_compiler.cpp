@@ -46,14 +46,14 @@ namespace hammock::graph {
     void RenderGraphCompiler::buildNodes(RenderGraph& dg) {
         const auto count = static_cast<uint32_t>(dg.passes_.size());
         nodes_.resize(count);
-        result_.compiledRenderPasses.resize(count);
+        result_.passes.resize(count);
 
         for (uint32_t i = 0; i < count; ++i) {
             nodes_[i].pass = &dg.passes_[i].pass;
 
             RenderPassHandle handle{.index = i, .generation = dg.passes_[i].generation};
             if (handle == dg.root_) {
-                result_.rootIdx = static_cast<int32_t>(i);
+                result_.root = static_cast<int32_t>(i);
             }
 
             // Record every resource access for this task (un-ordered at this point)
@@ -153,7 +153,7 @@ namespace hammock::graph {
                     if (--indegree[next] == 0) ready.push(next);
                 }
             }
-            result_.executionLevels.push_back(std::move(level));
+            result_.levels.push_back(std::move(level));
         }
     }
 
@@ -164,7 +164,7 @@ namespace hammock::graph {
             throw std::runtime_error("DependencyGraphCompiler: dependency graph has no root task");
         }
 
-        result_.compiledLogicalResources.reserve(dg.logicalResources_.size());
+        result_.resources.reserve(dg.logicalResources_.size());
 
         for (uint32_t i = 0; i < dg.logicalResources_.size(); ++i) {
             auto& entry = dg.logicalResources_[i];
@@ -174,7 +174,7 @@ namespace hammock::graph {
             compiled.origin = LogicalResourceHandle{.index = i, .generation = entry.generation};
             compiled.resource = entry.resource; // We coppy the data here
 
-            result_.compiledLogicalResources.push_back(std::move(compiled));
+            result_.resources.push_back(std::move(compiled));
         }
     }
 
@@ -185,17 +185,18 @@ namespace hammock::graph {
         // only emit it once (for the first task to use them).
         std::unordered_set<LogicalResourceHandle, LogicalResourceHandleHash> initialised;
 
-        for (auto& level : result_.executionLevels) {
+        for (auto& level : result_.levels) {
             for (uint32_t i : level) {
                 RenderPass* src = nodes_[i].pass;
-                CompiledRenderPass& dst = result_.compiledRenderPasses[i];
+                CompiledRenderPass& dst = result_.passes[i];
 
                 dst.origin = RenderPassHandle{.index = i, .generation = dg.passes_[i].generation};
                 dst.execFunc = std::move(src->execFunc_);
                 dst.family = src->getFamily();
+                dst.dependencies = nodes_[i].incoming; // mark the dependencies
 
                 for (const auto& acc : src->logicalResourceAccesses_) {
-                    dst.compiledResourceAccesses.push_back(acc.handle.index);
+                    dst.resources.push_back(acc.handle.index);
                 }
 
                 // Init barriers (UNDEFINED -> first layout)
@@ -238,7 +239,7 @@ namespace hammock::graph {
 
         if (const auto* oldImg = std::get_if<ImageAccess>(&prev.access)) {
             if (const auto* newImg = std::get_if<ImageAccess>(&curr.access)) {
-                dst.imageBarriers.push_back(vk::ImageMemoryBarrier2{
+                dst.barriers.image.push_back(vk::ImageMemoryBarrier2{
                     .srcStageMask = srcStage,
                     .srcAccessMask = srcAccess,
                     .dstStageMask = dstStage,
@@ -249,7 +250,7 @@ namespace hammock::graph {
             }
         } else if (std::get_if<BufferAccess>(&prev.access)) {
             if (std::get_if<BufferAccess>(&curr.access)) {
-                dst.bufferBarriers.push_back(vk::BufferMemoryBarrier2{
+                dst.barriers.buffer.push_back(vk::BufferMemoryBarrier2{
                     .srcStageMask = srcStage,
                     .srcAccessMask = srcAccess,
                     .dstStageMask = dstStage,
@@ -265,7 +266,7 @@ namespace hammock::graph {
 
         if (const auto* imgAccess = std::get_if<ImageAccess>(&firstUse.access)) {
             // Transition from UNDEFINED – no src sync needed, nothing was written yet.
-            dst.imageBarriers.push_back(vk::ImageMemoryBarrier2{
+            dst.barriers.image.push_back(vk::ImageMemoryBarrier2{
                 .srcStageMask = vk::PipelineStageFlagBits2::eNone,
                 .srcAccessMask = vk::AccessFlagBits2::eNone,
                 .dstStageMask = dstStage,
@@ -277,7 +278,7 @@ namespace hammock::graph {
             // Buffers don't have layouts but we still emit an acquire-style barrier
             // so the executor can optionally insert it (most drivers are fine without
             // this for device-local buffers, but it makes validation layers happy).
-            dst.bufferBarriers.push_back(vk::BufferMemoryBarrier2{
+            dst.barriers.buffer.push_back(vk::BufferMemoryBarrier2{
                 .srcStageMask = vk::PipelineStageFlagBits2::eNone,
                 .srcAccessMask = vk::AccessFlagBits2::eNone,
                 .dstStageMask = dstStage,

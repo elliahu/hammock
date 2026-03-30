@@ -3,19 +3,21 @@
 #define CLAY_IMPLEMENTATION
 #include "clay/clay.h"
 
+#include <stdexcept>
+#include <vector>
 
-void hammock::ui::Ui::lay(hammock::renderer::UserInterfaceDrawBatch& uiDrawBatch) {
+void hammock::ui::Ui::beginLayout() {
     Clay_SetLayoutDimensions({static_cast<float>(width_), static_cast<float>(height_)});
     Clay_SetPointerState({pointerState.position.X, pointerState.position.Y}, pointerState.down);
     //Clay_UpdateScrollContainers(true, {pointerState.scrollDelta.X, pointerState.scrollDelta.Y}, 0.00694);
 
     Clay_BeginLayout();
-    if (layUiCallback_) {
-        layUiCallback_();
-    }
+}
+void hammock::ui::Ui::endLayout(renderer::UserInterfaceDrawBatch& uiDrawBatch) {
     Clay_RenderCommandArray cmds = Clay_EndLayout();
     createDrawBatch(uiDrawBatch, cmds, atlas);
 }
+
 hammock::ui::Ui::Ui(uint32_t width, uint32_t height) : width_(width), height_(height) {
     // Allocate Clay's arena
     const uint64_t memorySize = Clay_MinMemorySize();

@@ -520,4 +520,14 @@ namespace hammock::core {
     }
 
     void Device::waitIdle() { device().waitIdle(); }
+    [[nodiscard]] uint32_t Device::getQueueFamilyIndex(CommandQueueFamily family) {
+        if (family == CommandQueueFamily::Graphics)
+            return getGraphicsQueueFamilyIndex();
+        else if (family == CommandQueueFamily::Compute)
+            return getComputeQueueFamilyIndex();
+        else if (family == CommandQueueFamily::Transfer)
+            return getTransferQueueFamilyIndex();
+        else
+            throw std::runtime_error("queue family not present on device");
+    }
 }  // namespace hammock::core

@@ -4,8 +4,8 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-#include "render_graph.hpp"
 #include "device.hpp"
+#include "render_graph.hpp"
 #include "render_pass.hpp"
 
 namespace hammock::graph {
@@ -14,32 +14,31 @@ namespace hammock::graph {
 
     /// @brief A logical resource after compilation
     struct CompiledLogicalResource final {
-        LogicalResourceHandle origin; // For debugging and identification
-        LogicalResourceInterface resource;
+        LogicalResourceHandle origin;       // Original handle. For debugging and identification
+        LogicalResourceInterface resource;  // Resource that is being accessed by the pass
     };
 
     /// @brief A GPU pass after compilation, ready for execution.
     struct CompiledRenderPass final {
-        RenderPassHandle origin; // For debugging and identification
-        core::CommandQueueFamily family;
-        RenderPassExecFunc execFunc{nullptr};
+        RenderPassHandle origin;               // Original handle. For debugging and identification
+        core::CommandQueueFamily family;       // family of the queue this pass executes on
+        RenderPassExecFunc execFunc{nullptr};  // execution function for this pass
+        std::vector<uint32_t> resources{};     // indices of resources accessed by this pass
+        std::vector<uint32_t> dependencies{};  // indices of passes this pass depends on
 
-        /// Indices into CompiledDependencyGraph::compiledLogicalResources accessed by this pass.
-        std::vector<uint32_t> compiledResourceAccesses{};
-
-        /// Barriers to insert *before* this pass runs (includes UNDEFINED->layout init barriers).
-        std::vector<vk::ImageMemoryBarrier2> imageBarriers{};
-        std::vector<vk::BufferMemoryBarrier2> bufferBarriers{};
+        // Barriers need to be emitted
+        struct {
+            std::vector<vk::ImageMemoryBarrier2> image{};    // image barriers
+            std::vector<vk::BufferMemoryBarrier2> buffer{};  // buffer barriers
+        } barriers;
     };
 
     /// @brief Full output of the compiler.
     struct CompiledRenderGraph final {
-        std::vector<CompiledLogicalResource> compiledLogicalResources{};
-        std::vector<CompiledRenderPass> compiledRenderPasses{};
-        /// Topological levels: passes within the same level may run in parallel.
-        std::vector<std::vector<uint32_t>> executionLevels{};
-        /// Index of the present / root pass (-1 if not yet set).
-        int32_t rootIdx = -1;
+        std::vector<CompiledLogicalResource> resources{};      // Compiled resources
+        std::vector<CompiledRenderPass> passes{};              // Compiled passes
+        std::vector<std::vector<uint32_t>> levels{};  // Execution levels. Indices into of passes.
+        int32_t root = -1;  // Index of the root pass (present pass, last pass)
     };
 
     /// @class RenderGraphCompiler

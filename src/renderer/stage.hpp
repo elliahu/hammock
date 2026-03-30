@@ -1,9 +1,6 @@
 #pragma once
-#include <memory>
-#include <stdexcept>
 #include <vector>
 
-#include "base_resource.hpp"
 #include "stage_types.hpp"
 #include "vertex.hpp"
 

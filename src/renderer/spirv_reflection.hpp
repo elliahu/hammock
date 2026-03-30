@@ -4,10 +4,9 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include <memory>
 #include <functional>
 
-#include "filesystem.hpp"
+#include "utils/filesystem.hpp"
 
 
 
@@ -50,13 +49,13 @@ namespace hammock::renderer::reflection {
             uint32_t count = 0;
             if (auto result = spvReflectEnumerateDescriptorBindings(&module, &count, nullptr);
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to enumerate descriptor bindings, code: " + result);
+                throw std::runtime_error("failed to enumerate descriptor bindings, code: " + std::to_string(result));
             }
 
             std::vector<SpvReflectDescriptorBinding *> descriptorBindings(count);
             if (auto result = spvReflectEnumerateDescriptorBindings(&module, &count, descriptorBindings.data());
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to enumerate descriptor bindings, code: " + result);
+                throw std::runtime_error("failed to enumerate descriptor bindings, code: " + std::to_string(result));
             }
             return descriptorBindings;
         }
@@ -65,13 +64,13 @@ namespace hammock::renderer::reflection {
             uint32_t count = 0;
             if (auto result = spvReflectEnumerateInputVariables(&module, &count, nullptr);
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to enumerate input variables, code: " + result);
+                throw std::runtime_error("failed to enumerate input variables, code: " + std::to_string(result));
             }
 
             std::vector<SpvReflectInterfaceVariable *> inputVariables(count);
             if (auto result = spvReflectEnumerateInputVariables(&module, &count, inputVariables.data());
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to enumerate input variables, code: " + result);
+                throw std::runtime_error("failed to enumerate input variables, code: " + std::to_string(result));
             }
 
             return inputVariables;
@@ -81,13 +80,13 @@ namespace hammock::renderer::reflection {
             uint32_t count = 0;
             if (auto result = spvReflectEnumerateOutputVariables(&module, &count, nullptr);
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to enumerate output variables, code: " + result);
+                throw std::runtime_error("failed to enumerate output variables, code: " + std::to_string(result));
             }
 
             std::vector<SpvReflectInterfaceVariable *> inputVariables(count);
             if (auto result = spvReflectEnumerateOutputVariables(&module, &count, inputVariables.data());
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to enumerate output variables, code: " + result);
+                throw std::runtime_error("failed to enumerate output variables, code: " + std::to_string(result));
             }
 
             return inputVariables;
@@ -97,13 +96,13 @@ namespace hammock::renderer::reflection {
             uint32_t count = 0;
             if (auto result = spvReflectEnumeratePushConstantBlocks(&module, &count, nullptr);
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to enumerate push constants, code: " + result);
+                throw std::runtime_error("failed to enumerate push constants, code: " + std::to_string(result));
             }
 
             std::vector<SpvReflectBlockVariable *> pushConstantBlocks(count);
             if (auto result = spvReflectEnumeratePushConstantBlocks(&module, &count, pushConstantBlocks.data());
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to enumerate push constants, code: " + result);
+                throw std::runtime_error("failed to enumerate push constants, code: " + std::to_string(result));
             }
 
             return pushConstantBlocks;
@@ -138,7 +137,7 @@ namespace hammock::renderer::reflection {
         void createShaderModuleReflection(const void *data, size_t bytes) {
             if (auto result = spvReflectCreateShaderModule(bytes, data, &module);
                 result != SPV_REFLECT_RESULT_SUCCESS) {
-                throw std::runtime_error("failed to create shader module, code: " + result);
+                throw std::runtime_error("failed to create shader module, code: " + std::to_string(result));
             }
         }
     };

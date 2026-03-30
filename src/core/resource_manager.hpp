@@ -115,6 +115,12 @@ namespace hammock::core {
             }
         }
 
+        /// @brief Destroy all resources and reset to empty state
+        void clear() {
+            slots.clear();    // unique_ptr destructors fire here
+            freeList.clear(); // slots is now empty, freeList must match
+        }
+
         /// @brief Get a resource by its handle
         T& get(Handle<T> handle) {
             auto& slot = slots[handle.index];

@@ -64,8 +64,8 @@ hammock::core::Image::~Image() {
     }
 }
 
-vk::RenderingAttachmentInfo hammock::core::Image::getRenderingAttachmentInfo() const {
-    return {.imageView = view_, .clearValue = clearValue_};
+vk::RenderingAttachmentInfo hammock::core::Image::getRenderingAttachmentInfo(vk::ImageLayout layout) const {
+    return {.imageView = view_, .imageLayout = layout, .clearValue = clearValue_};
 }
 
 vk::DescriptorImageInfo hammock::core::Image::getDescriptorImageInfo(vk::Sampler sampler) const {

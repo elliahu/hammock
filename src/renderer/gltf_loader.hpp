@@ -1,12 +1,10 @@
 #pragma once
-#include <stdexcept>
 #include <string>
 
 #include "cgltf/cgltf.h"
-#include "core/utilities.hpp"
+#include "core/device.hpp"
 #include "stage.hpp"
 #include "stage_types.hpp"
-#include "utils/math.hpp"
 #include "vertex.hpp"
 #include "stage_loader_iface.hpp"
 

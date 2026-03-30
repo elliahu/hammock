@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 
+#include "command_buffer.hpp"
 #include "utilities.hpp"
 #include "utils/math.hpp"
 
@@ -25,11 +26,14 @@ namespace hammock::renderer {
         swapchainManager_->registerOnSwapChainRecreatedCallback(
             [this](uint32_t w, uint32_t h) { recreateFramebuffer(vk::Extent2D{w, h}); });
 
+        // Create command pool
+        graphicsCommandPoolHandle_ = commandPools_.create(device_, core::CommandQueueFamily::Graphics);
+
         // Per-frame GPU resources
         perFrameResources_.resize(framesInFlight_);
         for (auto& res : perFrameResources_) {
             res.renderingFinished = semaphores_.create(device_);
-            res.presentCommandBuffer = commandBuffers_.create(device_, core::CommandQueueFamily::Graphics);
+            res.presentCommandBuffer = commandBuffers_.create(commandPools_.get(graphicsCommandPoolHandle_));
         }
     }
 
@@ -60,9 +64,9 @@ namespace hammock::renderer {
 
         // Wait for the renderer to finish writing and for the swapchain image to be free
         presentCmd->addWaitSemaphore(
-            semaphores_.ref(res.renderingFinished), vk::PipelineStageFlagBits2::eTopOfPipe);
+            semaphores_.ref(res.renderingFinished), core::PipelineStage::AllCommands);
         presentCmd->addWaitSemaphore(
-            syncObjects.imageAvailable, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+            syncObjects.imageAvailable, core::PipelineStage::ColorAttachmentOutput);
         presentCmd->addSignalSemaphore(syncObjects.frameFinished);
 
         presentCmd->begin();
@@ -101,13 +105,10 @@ namespace hammock::renderer {
         auto presentCmd = commandBuffers_.ref(perFrameResources_[ctx.frameIndex].presentCommandBuffer);
         auto image = framebuffer_->getFrontbufferImage();
 
-        presentCmd->imagePipelineBarrier(image,
-            vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-            vk::AccessFlagBits2::eColorAttachmentWrite,
-            vk::PipelineStageFlagBits2::eTransfer,
-            vk::AccessFlagBits2::eTransferRead,
-            vk::ImageLayout::eColorAttachmentOptimal,
-            vk::ImageLayout::eTransferSrcOptimal);
+        std::array<core::ImageMemoryBarrier, 1> imgBarriers{
+            {image, core::ResourceState::ColorAttachment, core::ResourceState::TransferSrc}
+        };
+        presentCmd->pipelineBarrier(imgBarriers, {});
 
         swapchainManager_->blitToSwapChainImage(presentCmd, image);
     }

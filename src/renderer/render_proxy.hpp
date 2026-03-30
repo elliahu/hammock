@@ -1,7 +1,6 @@
 #pragma once
 #include "core/swapchain.hpp"
 #include "render_types.hpp"
-#include "ui/ui.hpp"
 #include "utils/spsc_queue.hpp"
 
 namespace hammock::renderer {
@@ -13,6 +12,7 @@ namespace hammock::renderer {
         Stop,
         Ready,
         Ui,
+        Frametime
     };
 
     /// @struct RenderCommand
@@ -21,6 +21,9 @@ namespace hammock::renderer {
         RenderCommandType type = RenderCommandType::Invalid;
         uint32_t width{0};
         uint32_t height{0};
+        float frametime{0.f};
+        float rendertime{0.f};
+        float cmdtime{0.f};
     };
 
     using RenderQueue = threading::SPSCQueue<RenderSnapshot, core::SwapChain::MAX_FRAMES_IN_FLIGHT>;

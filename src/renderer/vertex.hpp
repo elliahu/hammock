@@ -1,5 +1,4 @@
 #pragma once
-#include <compare>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
@@ -8,6 +7,9 @@
 using namespace hammock::math;
 
 namespace hammock::renderer {
+
+    /// @struct Vertex
+    /// @brief Represents a vertex in 3D space with position, normal, UV, and tangent.
     struct Vertex {
         Vec3 position{};
         Vec3 normal{};
@@ -30,6 +32,8 @@ namespace hammock::renderer {
         }
     };
 
+    /// @struct UiVertex
+    /// @brief Represents a vertex in 2D space for UI rendering with position, UV, color, and texture usage.
     struct UiVertex {
         Vec2 position{};  // screen position
         Vec2 uv{};        // texture coords (0,0 for solid color quads)

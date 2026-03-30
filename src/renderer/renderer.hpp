@@ -1,7 +1,6 @@
 #pragma once
 #include <cstdint>
 #include <functional>
-#include <memory>
 
 #include "core/command_buffer.hpp"
 #include "core/descriptors.hpp"
@@ -13,6 +12,8 @@
 #include "core/semaphore.hpp"
 #include "render_proxy.hpp"
 #include "render_types.hpp"
+#include "swapchain.hpp"
+#include "utils/thread_pool.hpp"
 #include "vulkan/vulkan.hpp"
 
 namespace hammock::renderer {
@@ -41,8 +42,13 @@ namespace hammock::renderer {
        public:
         using SurfaceFactory = std::function<vk::SurfaceKHR(core::Instance&)>;
         using SurfaceDestructor = std::function<void(core::Instance&, vk::SurfaceKHR)>;
+
+        /// @brief Construct a renderer with a custom surface factory and destructor
+        /// @param surfaceFactory Function to create the surface
+        /// @param surfaceDestructor Function to destroy the surface
         explicit Renderer(SurfaceFactory surfaceFactory, SurfaceDestructor surfaceDestructor);
 
+        /// @brief Destroys the renderer and release resources that are not released automatically
         ~Renderer() override;
 
         /// @brief Draw frame onto a target
@@ -64,30 +70,36 @@ namespace hammock::renderer {
         }
 
        private:
-        core::Instance instance_;
-        vk::SurfaceKHR surface_;
-        SurfaceDestructor surfaceDestructor_{nullptr};
-        core::Device device_;
-
         /// This function updates the frame index keeping it in range 0 -> MAX_FRAMES_IN_FLIGHT
         void nextFrameIdx();
+
+        core::Instance instance_;
+        vk::SurfaceKHR surface_;
+        SurfaceDestructor surfaceDestructor_{
+            nullptr};  // This is called in the desdtructor to destroy surface which is created externally
+        core::Device device_;
+        threading::ThreadPool threadPool_{};
 
         /// Index of the current frame
         std::uint32_t currentFrameIdx_ = 0;
 
         // Resource managers
-        core::ResourceManager<core::CommandBuffer> commandBuffers_{};
+        core::ResourceManager<core::CommandPool> commandPools_{};
         core::ResourceManager<core::Buffer> buffers_{};
         core::ResourceManager<core::Image> images_{};
         core::ResourceManager<core::DescriptorPool> descriptorPools_{};
         core::ResourceManager<core::DescriptorSetLayout> descriptorSetLayouts_{};
         core::ResourceManager<core::Pipeline> pipelines_{};
 
-        // pool
+        // pools
         core::Handle<core::DescriptorPool> descriptorPoolHandle_;
 
-        // Command buffers
-        std::vector<core::Handle<core::CommandBuffer>> cmds;
+        // Per frame in flight resources
+        std::array<core::Handle<core::CommandPool>, core::SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsCommandPoolsHandles_;
+        std::array<core::ResourceManager<core::CommandBuffer>, core::SwapChain::MAX_FRAMES_IN_FLIGHT> commandBufferManagers_{};
+
+
+        // Render batches
 
         /// Ui rendering
         struct UserInterfacePushConstants {

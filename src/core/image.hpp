@@ -22,10 +22,10 @@ namespace hammock::core {
     };
 
     /// @class VulkanImageFormat
+    /// Used to cast ImageFormat to vk::ImageFormat
     class VulkanImageFormat {
        public:
         constexpr VulkanImageFormat(ImageFormat fmt) : format(fmt) {}
-
         explicit constexpr operator vk::Format() const {
             switch (format) {
                 case ImageFormat::R8G8B8A8Uint:
@@ -67,6 +67,7 @@ namespace hammock::core {
     }
 
     /// @class VulkanImageUsage
+    /// Used to cast ImageUsage to vk::ImageUsage
     class VulkanImageUsage {
        public:
         constexpr VulkanImageUsage(ImageUsage usage) : usage(usage) {}
@@ -106,6 +107,8 @@ namespace hammock::core {
         TypeCubeArray,
     };
 
+    /// @class VulkanImageType
+    /// Used to cast ImageType to vk::ImageType
     class VulkanImageType {
        public:
         constexpr VulkanImageType(ImageType type) : type_(type) {}
@@ -229,7 +232,7 @@ namespace hammock::core {
         [[nodiscard]] vk::Extent3D getExtent() const { return {width_, height_, depth_}; }
 
         /// @brief Ge the rendering attachment info when using this image as a render target
-        [[nodiscard]] vk::RenderingAttachmentInfo getRenderingAttachmentInfo() const;
+        [[nodiscard]] vk::RenderingAttachmentInfo getRenderingAttachmentInfo(vk::ImageLayout layout) const;
 
         /// @brief Get the descriptor image info when using this image in a descriptor set with external
         /// sampler

@@ -5,10 +5,13 @@
 #include "render_proxy.hpp"
 #include "utilities.hpp"
 
-hammock::renderer::RenderBackend::RenderBackend(
-    RenderProxy& proxy, core::SurfaceProviderIface& surfaceProvider, std::unique_ptr<RendererIface>&& renderer, std::unique_ptr<PresenterIface>&& presenter)
-    : proxy_(proxy), surfaceProvider_(surfaceProvider), renderer_(std::move(renderer)), presenter_(std::move(presenter)) {
-}
+hammock::renderer::RenderBackend::RenderBackend(RenderProxy& proxy,
+    core::SurfaceProviderIface& surfaceProvider, std::unique_ptr<RendererIface>&& renderer,
+    std::unique_ptr<PresenterIface>&& presenter)
+    : proxy_(proxy),
+      surfaceProvider_(surfaceProvider),
+      renderer_(std::move(renderer)),
+      presenter_(std::move(presenter)) {}
 
 void hammock::renderer::RenderBackend::start() {
     running_.store(true);
@@ -21,6 +24,8 @@ void hammock::renderer::RenderBackend::start() {
 
         // Enter the loop
         while (running_.load(std::memory_order_acquire)) {
+            // measure frame start
+            auto frameStart = std::chrono::high_resolution_clock::now();
             // First process commands from the logic thread
             RenderCommand cmd;
             while (proxy_.getFtbCommandQueue().pop(cmd)) {
@@ -36,6 +41,8 @@ void hammock::renderer::RenderBackend::start() {
                 }
             }
 
+
+
             // Consume render packet
             RenderSnapshot renderSnap;
             if (!proxy_.getRenderQueue().pop(renderSnap)) {
@@ -44,15 +51,27 @@ void hammock::renderer::RenderBackend::start() {
                 continue;
             }
 
-            // Begin frame
-            if(auto frameCtx = presenter_->beginFrame()) {
+            auto commandProcessingEnd = std::chrono::high_resolution_clock::now();
 
+            // Begin frame
+            if (auto frameCtx = presenter_->beginFrame()) {
                 // Draw frame
                 renderer_->drawFrame(frameCtx->renderTarget, renderSnap, frameCtx->renderFinished);
 
                 // Present
                 presenter_->endFrame(*frameCtx);
             }
+
+            auto frameEnd = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<float, std::milli> commandProcessingTime =
+                commandProcessingEnd - frameStart;
+            std::chrono::duration<float, std::milli> frameTime = frameEnd - frameStart;
+            std::chrono::duration<float, std::milli> renderTime = frameEnd - commandProcessingEnd;
+            float lastFrameMs = frameTime.count();
+            float commandProcessingTimeMs = commandProcessingTime.count();
+            float renderTimeMs = renderTime.count();
+            proxy_.getBtfCommandQueue().push(
+                RenderCommand{.type = RenderCommandType::Frametime, .frametime = lastFrameMs, .rendertime = renderTimeMs, .cmdtime = commandProcessingTimeMs});
         }
 
         // Finish the rendering before stopping

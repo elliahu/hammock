@@ -91,7 +91,10 @@ namespace hammock::renderer {
         PresenterDesc desc_;
 
         core::ResourceManager<core::Semaphore> semaphores_{};
+        core::ResourceManager<core::CommandPool> commandPools_{};
         core::ResourceManager<core::CommandBuffer> commandBuffers_{};
+
+        core::Handle<core::CommandPool> graphicsCommandPoolHandle_;
         std::vector<PerFrameResources> perFrameResources_;
 
         uint32_t currentFrameIndex_ = 0;

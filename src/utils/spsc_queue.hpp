@@ -6,6 +6,7 @@
 namespace hammock::threading {
     /// @class SPSCQueue
     /// @brief Thread safe queue for one producer one consumer problem
+    /// TODO instead of silently dropping the push when queue is full, pop the front (the oldes) and then push
     template <typename T, size_t Capacity>
     class SPSCQueue {
         static_assert((Capacity & (Capacity - 1)) == 0, "Capacity must be a power of two");

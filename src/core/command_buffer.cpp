@@ -1,8 +1,24 @@
-#include <stdexcept>
+#include "command_buffer.hpp"
+
 #include <algorithm>
+#include <cstdint>
+#include <stdexcept>
 #include <vulkan/vulkan.hpp>
 
-#include "command_buffer.hpp"
+#include "vulkan/vulkan.hpp"
+
+hammock::core::CommandPool::CommandPool(Device& device, CommandQueueFamily family)
+    : device_(device), family_(family) {
+    vk::CommandPoolCreateInfo poolInfo = {
+        .flags =
+            vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = device_.getQueueFamilyIndex(family),
+    };
+
+    if (device.device().createCommandPool(&poolInfo, nullptr, &pool_) != vk::Result::eSuccess) {
+        throw std::runtime_error("failed to create graphics command pool!");
+    }
+}
 
 auto hammock::core::CommandBuffer::begin() -> void {
     if (inProgress_) {
@@ -20,7 +36,8 @@ auto hammock::core::CommandBuffer::begin() -> void {
 
 auto hammock::core::CommandBuffer::end() -> void {
     if (!inProgress_) {
-        throw std::runtime_error("Cannot end command buffer that has not started yet (forgot to call begin()?)");
+        throw std::runtime_error(
+            "Cannot end command buffer that has not started yet (forgot to call begin()?)");
     }
 
     commandBuffer_.end();
@@ -30,7 +47,8 @@ auto hammock::core::CommandBuffer::end() -> void {
 
 auto hammock::core::CommandBuffer::submit(vk::Fence fence) -> void {
     if (!inProgress_) {
-        throw std::runtime_error("Cannot submit command buffer that has not started yet (forgot to call begin()?)");
+        throw std::runtime_error(
+            "Cannot submit command buffer that has not started yet (forgot to call begin()?)");
     }
 
     vk::CommandBufferSubmitInfo cmdBufInfo = {
@@ -50,7 +68,7 @@ auto hammock::core::CommandBuffer::submit(vk::Fence fence) -> void {
 
     // find queue
     vk::Queue queue;
-    switch (queueFamily_) {
+    switch (family_) {
         case CommandQueueFamily::Graphics:
             queue = device_.graphicsQueue();
             break;
@@ -74,53 +92,60 @@ auto hammock::core::CommandBuffer::submit(vk::Fence fence) -> void {
     inProgress_ = false;
 }
 
-hammock::core::CommandBuffer::CommandBuffer(Device &device, CommandQueueFamily queueFamily): device_(device), queueFamily_(queueFamily) {
+hammock::core::CommandBuffer::CommandBuffer(CommandPool& pool, CommandBufferLevel level)
+    : device_(pool.device_), pool_(pool), family_(pool.getFamily()){
     try {
         vk::CommandBufferAllocateInfo allocInfo{};
-        allocInfo.level = vk::CommandBufferLevel::ePrimary;
+        allocInfo.level = static_cast<vk::CommandBufferLevel>(VulkanCommandBufferLevel(level));
         allocInfo.commandBufferCount = 1;
-        if (queueFamily == CommandQueueFamily::Graphics) {
-            allocInfo.commandPool = device.getGraphicsCommandPool();
-        }
-        if (queueFamily == CommandQueueFamily::Compute) {
-            allocInfo.commandPool = device.getComputeCommandPool();
-        }
-        if (queueFamily == CommandQueueFamily::Transfer) {
-            allocInfo.commandPool = device.getTransferCommandPool();
-        }
+        allocInfo.commandPool = pool.getCommandPool();
 
-        if (device.device().allocateCommandBuffers(&allocInfo, &commandBuffer_) != vk::Result::eSuccess) {
+        if (device_.device().allocateCommandBuffers(&allocInfo, &commandBuffer_) != vk::Result::eSuccess) {
             throw std::runtime_error("failed to allocate command buffer");
         }
-    } catch (std::exception &e) {
+    } catch (std::exception& e) {
         throw;
     }
 }
 
 hammock::core::CommandBuffer::~CommandBuffer() {
+    // Release only if auto free is true and command buffer is valid
     if (commandBuffer_) {
-        if (queueFamily_ == CommandQueueFamily::Graphics) {
-            device_.device().freeCommandBuffers( device_.getGraphicsCommandPool(), 1, &commandBuffer_);
-        } else if (queueFamily_ == CommandQueueFamily::Compute) {
-            device_.device().freeCommandBuffers(device_.getComputeCommandPool(), 1, &commandBuffer_);
-        } else if (queueFamily_ == CommandQueueFamily::Transfer) {
-            device_.device().freeCommandBuffers(device_.getTransferCommandPool(), 1, &commandBuffer_);
-        }
+        device_.device().freeCommandBuffers(pool_.getCommandPool(), 1, &commandBuffer_);
     }
 }
 
-auto hammock::core::CommandBuffer::addWaitSemaphore(ResourceRef<Semaphore> semaphore,
-                                                   vk::PipelineStageFlagBits2 stageFlagBits) -> void {
-    waitSemaphoreSubmitInfos_.push_back(vk::SemaphoreSubmitInfo{
+auto hammock::core::CommandBuffer::addWaitSemaphore(ResourceRef<Semaphore> semaphore, PipelineStage waitStage,
+    std::optional<uint64_t> waitSemaphoreValue) -> void {
+    vk::SemaphoreSubmitInfo submitInfo{
         .semaphore = semaphore->getVulkanSemaphore(),
-        .stageMask = stageFlagBits,
-    });
+        .stageMask = static_cast<vk::PipelineStageFlags2>(VulkanPipelineStageFlags(waitStage)),
+    };
+
+    vk::TimelineSemaphoreSubmitInfo timelineInfo{};
+    if (waitSemaphoreValue.has_value()) {
+        timelineInfo.waitSemaphoreValueCount = 1;
+        timelineInfo.pWaitSemaphoreValues = &waitSemaphoreValue.value();
+        submitInfo.pNext = &timelineInfo;
+    }
+
+    waitSemaphoreSubmitInfos_.push_back(submitInfo);
 }
 
-auto hammock::core::CommandBuffer::addSignalSemaphore(ResourceRef<Semaphore> semaphore) -> void {
-    signalSemaphoreSubmitInfos_.push_back(vk::SemaphoreSubmitInfo{
+auto hammock::core::CommandBuffer::addSignalSemaphore(
+    ResourceRef<Semaphore> semaphore, std::optional<uint64_t> signalValue) -> void {
+    vk::SemaphoreSubmitInfo submitInfo{
         .semaphore = semaphore->getVulkanSemaphore(),
-    });
+    };
+
+    vk::TimelineSemaphoreSubmitInfo timelineInfo{};
+    if (signalValue.has_value()) {
+        timelineInfo.signalSemaphoreValueCount = 1;
+        timelineInfo.pSignalSemaphoreValues = &signalValue.value();
+        submitInfo.pNext = &timelineInfo;
+    }
+
+    signalSemaphoreSubmitInfos_.push_back(submitInfo);
 }
 auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
     std::span<vk::RenderingAttachmentInfo> colorAttachments,
@@ -140,23 +165,23 @@ auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
 auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
     std::span<ResourceRef<Image>> colorAttachments, std::span<vk::ImageLayout> colorAttachmentLayouts,
     std::optional<ResourceRef<Image>> depthAttachment, std::optional<vk::ImageLayout> depthAttachmentLayout,
-    std::optional<ResourceRef<Image>> stencilAttachment, std::optional<vk::ImageLayout> stencilAttachmentLayout,
-    uint32_t layerCount) -> void {
-
+    std::optional<ResourceRef<Image>> stencilAttachment,
+    std::optional<vk::ImageLayout> stencilAttachmentLayout, uint32_t layerCount) -> void {
     std::vector<vk::RenderingAttachmentInfo> colors(colorAttachments.size());
 
     for (size_t i = 0; i < colorAttachments.size(); ++i) {
-        auto info = colorAttachments[i]->getRenderingAttachmentInfo();
-        info.imageLayout = colorAttachmentLayouts[i];
+        auto info = colorAttachments[i]->getRenderingAttachmentInfo(colorAttachmentLayouts[i]);
         colors[i] = info;
     }
 
     std::optional<vk::RenderingAttachmentInfo> depthInfo;
     std::optional<vk::RenderingAttachmentInfo> stencilInfo;
 
-    if (depthAttachment) depthInfo = depthAttachment->get().getRenderingAttachmentInfo();
+    if (depthAttachment && depthAttachmentLayout)
+        depthInfo = depthAttachment->get().getRenderingAttachmentInfo(depthAttachmentLayout.value());
 
-    if (stencilAttachment) stencilInfo = stencilAttachment->get().getRenderingAttachmentInfo();
+    if (stencilAttachment && stencilAttachmentLayout)
+        stencilInfo = stencilAttachment->get().getRenderingAttachmentInfo(stencilAttachmentLayout.value());
 
     return beginRendering(renderArea, colors, depthInfo, stencilInfo, layerCount);
 }
@@ -164,8 +189,8 @@ auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
 auto hammock::core::CommandBuffer::endRendering() -> void { commandBuffer_.endRendering(); }
 
 auto hammock::core::CommandBuffer::copyImageToBuffer(ResourceRef<Image> src, ResourceRef<Buffer> dst,
-    vk::Extent3D extent, uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t layerCount,
-    vk::Offset3D offset) -> void{
+    vk::Extent3D extent, uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t layerCount, vk::Offset3D offset)
+    -> void {
     vk::BufferImageCopy region = {};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
@@ -192,7 +217,7 @@ auto hammock::core::CommandBuffer::copyBufferToBuffer(ResourceRef<Buffer> src, R
 }
 
 auto hammock::core::CommandBuffer::copyBufferToImage(ResourceRef<Buffer> src, ResourceRef<Image> dst,
-    vk::DeviceSize srcOffset, vk::Offset3D dstOffset, uint32_t mipLevel)-> void  {
+    vk::DeviceSize srcOffset, vk::Offset3D dstOffset, uint32_t mipLevel) -> void {
     vk::BufferImageCopy region{};
     region.bufferOffset = srcOffset;
     region.bufferRowLength = 0;    // tightly packed
@@ -211,7 +236,7 @@ auto hammock::core::CommandBuffer::copyBufferToImage(ResourceRef<Buffer> src, Re
 }
 
 auto hammock::core::CommandBuffer::copyImageToImage(
-    ResourceRef<Image> src, ResourceRef<Image> dst, vk::Offset3D srcOffset, vk::Offset3D dstOffset)-> void {
+    ResourceRef<Image> src, ResourceRef<Image> dst, vk::Offset3D srcOffset, vk::Offset3D dstOffset) -> void {
     vk::ImageCopy region{};
     region.srcSubresource.aspectMask = src->getAspectMask();
     region.srcSubresource.mipLevel = 0;
@@ -233,34 +258,28 @@ auto hammock::core::CommandBuffer::copyImageToImage(
         1,
         &region);
 }
+auto hammock::core::CommandBuffer::pipelineBarrier(
+    std::span<ImageMemoryBarrier> images, std::span<BufferMemoryBarrier> buffers) -> void {
+    std::vector<vk::ImageMemoryBarrier2> imageBarriers{};
+    std::vector<vk::BufferMemoryBarrier2> bufferBarriers{};
 
-auto hammock::core::CommandBuffer::imagePipelineBarrier(ResourceRef<Image> image,
-    vk::PipelineStageFlags2 srcStageMask, vk::AccessFlags2 srcAccessMask,
-    vk::PipelineStageFlags2 dstStageMask, vk::AccessFlags2 dstAccessMask, vk::ImageLayout oldLayout,
-    vk::ImageLayout newLayout) -> void {
-    // Subresource range
-    vk::ImageSubresourceRange subresourceRange = image->getSubresourceRange();
+    for (auto& image : images) {
+        imageBarriers.push_back(static_cast<vk::ImageMemoryBarrier2>(VulkanImageMemoryBarrier(image)));
+    }
 
-    vk::ImageMemoryBarrier2 imageBarrier = {
-        .srcStageMask = srcStageMask,
-        .srcAccessMask = srcAccessMask,
-        .dstStageMask = dstStageMask,
-        .dstAccessMask = dstAccessMask,
-        .oldLayout = oldLayout,
-        .newLayout = newLayout,  // Optional: layout transition
-        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
-        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-        .image = image->getImage(),
-        .subresourceRange = subresourceRange,
-    };
+    for (auto& buffer : buffers) {
+        bufferBarriers.push_back(static_cast<vk::BufferMemoryBarrier2>(VulkanBufferMemoryBarrier(buffer)));
+    }
 
     vk::DependencyInfo depInfo = {
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &imageBarrier,
+        .bufferMemoryBarrierCount = static_cast<uint32_t>(bufferBarriers.size()),
+        .pBufferMemoryBarriers = bufferBarriers.data(),
+        .imageMemoryBarrierCount = static_cast<uint32_t>(imageBarriers.size()),
+        .pImageMemoryBarriers = imageBarriers.data(),
     };
 
     commandBuffer_.pipelineBarrier2(&depInfo);
-}
+};
 
 auto hammock::core::CommandBuffer::bindPipeline(ResourceRef<Pipeline> pipeline) -> void {
     if (pipeline->getType() == PipelineType::Compute) {
@@ -279,7 +298,7 @@ auto hammock::core::CommandBuffer::bindVertexBuffers(
 }
 
 auto hammock::core::CommandBuffer::bindDescriptorSets(
-    vk::PipelineBindPoint bindPoint, ResourceRef<Pipeline> pipeline, std::span<DescriptorSet> sets) -> void{
+    vk::PipelineBindPoint bindPoint, ResourceRef<Pipeline> pipeline, std::span<DescriptorSet> sets) -> void {
     commandBuffer_.bindDescriptorSets(bindPoint, pipeline->getPipelineLayout(), 0, sets, nullptr);
 }
 
@@ -295,3 +314,9 @@ auto hammock::core::CommandBuffer::pushConstants(ResourceRef<Pipeline> pipeline,
     uint32_t offset, uint32_t size, const void* data) -> void {
     commandBuffer_.pushConstants(pipeline->getPipelineLayout(), stages, offset, size, data);
 }
+hammock::core::CommandPool::~CommandPool() {
+    if (pool_) {
+        device_.device().destroyCommandPool(pool_);
+    }
+}
+void hammock::core::CommandPool::reset() { device_.device().resetCommandPool(pool_); }

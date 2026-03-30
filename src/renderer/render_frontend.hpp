@@ -22,7 +22,8 @@ namespace hammock::renderer {
 
         RenderProxy& proxy_;
         core::SurfaceProviderIface& surfaceProvider_;
-
-        float x = 0;
+        float frameTime_{0.f};
+        float renderTime_{0.f};
+        float cmdTime_{0.f};
     };
 }  // namespace hammock::renderer

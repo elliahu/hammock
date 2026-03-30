@@ -49,7 +49,8 @@ namespace hammock::core {
      * @class Device
      * @brief This class represents both logical and physical graphics device (GPU).
      * Along with Instance, Device is a core component of a Vulkan application
-     * TODO Remove headless
+     * It creates default queues and command pools of all available families for you automatically. To create
+     * your own, use their coresponign classes.
      */
     class Device {
        public:
@@ -66,13 +67,13 @@ namespace hammock::core {
 
         Device& operator=(Device&&) = delete;
 
-        /// @brief Get Graphics command pool
+        /// @brief Get DEFAULT Graphics command pool
         [[nodiscard]] vk::CommandPool getGraphicsCommandPool() const { return graphicsCommandPool_; }
 
-        /// @brief Get transfer command pool
+        /// @brief Get DEFAULT transfer command pool
         [[nodiscard]] vk::CommandPool getTransferCommandPool() const { return transferCommandPool_; }
 
-        /// @brief Get compute command pool
+        /// @brief Get DEFAULT compute command pool
         [[nodiscard]] vk::CommandPool getComputeCommandPool() const { return computeCommandPool_; }
 
         /// @brief Get Vulkan device
@@ -104,6 +105,9 @@ namespace hammock::core {
 
         /// @brief Get transfer queue family index
         [[nodiscard]] uint32_t getTransferQueueFamilyIndex() const { return transferQueueFamilyIndex_; }
+
+        /// @brief Get queue family index for give queue family
+        [[nodiscard]] uint32_t getQueueFamilyIndex(CommandQueueFamily family);
 
         /// @brief Get physical device properties
         [[nodiscard]] vk::PhysicalDeviceProperties& getPhysicalDeviceProperties() {
