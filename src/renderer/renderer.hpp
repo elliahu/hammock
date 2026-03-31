@@ -10,6 +10,7 @@
 #include "core/pipeline.hpp"
 #include "core/resource_manager.hpp"
 #include "core/semaphore.hpp"
+#include "frame_graph.hpp"
 #include "render_proxy.hpp"
 #include "render_types.hpp"
 #include "swapchain.hpp"
@@ -85,6 +86,7 @@ namespace hammock::renderer {
 
         // Resource managers
         core::ResourceManager<core::CommandPool> commandPools_{};
+        core::ResourceManager<core::CommandBuffer> commandBuffers_{};
         core::ResourceManager<core::Buffer> buffers_{};
         core::ResourceManager<core::Image> images_{};
         core::ResourceManager<core::DescriptorPool> descriptorPools_{};
@@ -93,10 +95,10 @@ namespace hammock::renderer {
 
         // pools
         core::Handle<core::DescriptorPool> descriptorPoolHandle_;
+        core::Handle<core::CommandPool> prepPoolHandle_;
 
-        // Per frame in flight resources
-        std::array<core::Handle<core::CommandPool>, core::SwapChain::MAX_FRAMES_IN_FLIGHT> graphicsCommandPoolsHandles_;
-        std::array<core::ResourceManager<core::CommandBuffer>, core::SwapChain::MAX_FRAMES_IN_FLIGHT> commandBufferManagers_{};
+        // Command caches
+        std::array<CommandBufferCache, core::SwapChain::MAX_FRAMES_IN_FLIGHT> commandCaches_{};
 
 
         // Render batches

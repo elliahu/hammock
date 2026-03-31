@@ -33,6 +33,28 @@ auto hammock::core::CommandBuffer::begin() -> void {
 
     inProgress_ = true;
 }
+auto hammock::core::CommandBuffer::begin(CommandBufferInheritanceInfo&& inheritance) -> void {
+    if (inProgress_) {
+        throw std::runtime_error("Cannot begin commandbuffer that is already in progress");
+    }
+
+    vk::CommandBufferInheritanceRenderingInfo inheritanceRenderingInfo{
+        .colorAttachmentCount = static_cast<uint32_t>(inheritance.colorAttachmentFormats.size()),
+        .pColorAttachmentFormats = inheritance.colorAttachmentFormats.data(),
+        .depthAttachmentFormat = inheritance.depthAttachmentFormat.value_or(vk::Format::eUndefined),
+        .stencilAttachmentFormat = inheritance.stencilAttachmentFormat.value_or(vk::Format::eUndefined)};
+
+    vk::CommandBufferInheritanceInfo inheritanceInfo{.pNext = &inheritanceRenderingInfo};
+
+    vk::CommandBufferBeginInfo beginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eRenderPassContinue, .pInheritanceInfo = &inheritanceInfo};
+
+    if (commandBuffer_.begin(&beginInfo) != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to begin recording a secondary command buffer");
+    }
+
+    inProgress_ = true;
+};
 
 auto hammock::core::CommandBuffer::end() -> void {
     if (!inProgress_) {
@@ -93,7 +115,7 @@ auto hammock::core::CommandBuffer::submit(vk::Fence fence) -> void {
 }
 
 hammock::core::CommandBuffer::CommandBuffer(CommandPool& pool, CommandBufferLevel level)
-    : device_(pool.device_), pool_(pool), family_(pool.getFamily()){
+    : device_(pool.device_), pool_(pool), family_(pool.getFamily()), level_(level){
     try {
         vk::CommandBufferAllocateInfo allocInfo{};
         allocInfo.level = static_cast<vk::CommandBufferLevel>(VulkanCommandBufferLevel(level));

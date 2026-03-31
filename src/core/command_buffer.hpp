@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <optional>
 #include <stdexcept>
-#include <tuple>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
@@ -294,6 +293,12 @@ namespace hammock::core {
         uint64_t offset_, size_;
     };
 
+    struct CommandBufferInheritanceInfo{
+        std::span<vk::Format> colorAttachmentFormats;
+        std::optional<vk::Format> depthAttachmentFormat;
+        std::optional<vk::Format> stencilAttachmentFormat;
+    };
+
     /// @class CommandBuffer
     /// Wrapper class around vulkan command buffer
     class CommandBuffer {
@@ -317,6 +322,9 @@ namespace hammock::core {
 
         /// @brief begin command buffer recording
         auto begin() -> void;
+
+        /// @brief begin secondary command buffer recording with inheritance info
+        auto begin(CommandBufferInheritanceInfo&& inheritance) -> void;
 
         /// @brief Call this function when you only need to END the command buffer
         /// @note To both end and submit call `submit()`
@@ -396,5 +404,6 @@ namespace hammock::core {
         std::vector<vk::SemaphoreSubmitInfo> waitSemaphoreSubmitInfos_;
         std::vector<vk::SemaphoreSubmitInfo> signalSemaphoreSubmitInfos_;
         bool inProgress_{false};
+        CommandBufferLevel level_{CommandBufferLevel::Primary};
     };
 }  // namespace hammock::core

@@ -3,10 +3,12 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
 #include "command_buffer.hpp"
+#include "device.hpp"
 #include "image.hpp"
 #include "resource_manager.hpp"
 #include "semaphore.hpp"
@@ -51,14 +53,36 @@ namespace hammock::renderer {
         core::PipelineStage waitStage = core::PipelineStage::Invalid;
     };
 
+    class CommandBufferCache {
+       public:
+        // Layz init
+        void init(core::Device& device, core::CommandQueueFamily family, uint32_t numThreads);
+        // Called at the start of the frame
+        void reset();
+        // Get a primary command buffer for the main thread
+        core::ResourceRef<core::CommandBuffer> getPrimaryCommandBuffer();
+        // Get a secondary command buffer for a specific worker thread
+        core::ResourceRef<core::CommandBuffer> getSecondaryCommandBuffer(uint32_t threadIndex);
+
+       private:
+        // Managers
+        core::ResourceManager<core::CommandPool> commandPools_;
+        core::ResourceManager<core::CommandBuffer> commandBuffers_;
+        // Main thread pool and buffers
+        core::Handle<core::CommandPool> mainPoolHndl_;
+        core::Handle<core::CommandBuffer> primaryBufferHndl_;
+
+        // Worker thread pools and buffers
+        struct ThreadCache {
+            core::Handle<core::CommandBuffer> secondaryBufferHdnl;
+        };
+        std::vector<ThreadCache> threadCaches_;
+    };
+
     struct FrameGraphDesc {
         std::vector<RenderBatchDesc> batches;
-        core::ResourceManager<core::CommandBuffer>& commandBufferManager;
+        CommandBufferCache& commandCache;
         threading::ThreadPool& threadPool;
-        std::optional<core::ResourceRef<core::CommandPool>> graphicsPool;
-        std::optional<core::ResourceRef<core::CommandPool>> computePool;
-        std::optional<core::ResourceRef<core::CommandPool>> transferPool;
-
     };
 
     class FrameGraph {
@@ -69,6 +93,7 @@ namespace hammock::renderer {
 
        private:
         void recordBarrier(PassTransitions& transitions, core::ResourceRef<core::CommandBuffer> cmd);
+
 
         FrameGraphDesc desc_;
     };

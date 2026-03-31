@@ -8,21 +8,8 @@
 hammock::renderer::FrameGraph::FrameGraph(FrameGraphDesc&& desc) : desc_{std::move(desc)} {}
 
 void hammock::renderer::FrameGraph::execute() {
-    // Release stale handles and reset the managers internal vectors
-    desc_.commandBufferManager.clear();
-
-    // Reset command pools
-    if (desc_.graphicsPool.has_value()) {
-        desc_.graphicsPool.value()->reset();
-    }
-
-    if (desc_.computePool.has_value()) {
-        desc_.computePool.value()->reset();
-    }
-
-    if (desc_.transferPool.has_value()) {
-        desc_.transferPool.value()->reset();
-    }
+    // Reset command pool to enable recording over alredy allocated command buffers
+    desc_.commandCache.reset();
 
     // For each batch determine its family and allocate command buffer
     for (auto& batch : desc_.batches) {
@@ -32,40 +19,8 @@ void hammock::renderer::FrameGraph::execute() {
             throw std::runtime_error("more than one type of passes in a batch is not supported");
         }
 
-        // Determine the batch family
-        // Allocate primary command buffer for this batch
-        core::Handle<core::CommandBuffer> primaryCmdHndl;
-        uint32_t variant = 0;
-        if (!batch.graphics.empty()) {
-            if (desc_.graphicsPool.has_value()) {
-                primaryCmdHndl = desc_.commandBufferManager.create(
-                    desc_.graphicsPool.value().get(), core::CommandBufferLevel::Primary);
-                variant = 0;
-            } else {
-                throw std::runtime_error(
-                    "batch type determined to be graphics but no graphics pool was provided");
-            }
-        } else if (!batch.compute.empty()) {
-            if (desc_.computePool.has_value()) {
-                primaryCmdHndl = desc_.commandBufferManager.create(
-                    desc_.computePool.value().get(), core::CommandBufferLevel::Primary);
-                variant = 1;
-            } else {
-                throw std::runtime_error(
-                    "batch type determined to be compute but no compute pool was provided");
-            }
-        } else if (!batch.transfer.empty()) {
-            if (desc_.transferPool.has_value()) {
-                primaryCmdHndl = desc_.commandBufferManager.create(
-                    desc_.transferPool.value().get(), core::CommandBufferLevel::Primary);
-                variant = 2;
-            } else {
-                throw std::runtime_error(
-                    "batch type determined to be transfer but no transfer pool was provided");
-            }
-        }
         // Get the primary cmd buffer reference
-        core::ResourceRef<core::CommandBuffer> primaryCmd = desc_.commandBufferManager.ref(primaryCmdHndl);
+        core::ResourceRef<core::CommandBuffer> primaryCmd = desc_.commandCache.getPrimaryCommandBuffer();
 
         // Begin command buffer
         primaryCmd->begin();
@@ -83,7 +38,8 @@ void hammock::renderer::FrameGraph::execute() {
             if (batch.strategy == RecordingStrategy::Multithreaded) {
                 for (auto& pass : batch.graphics) {
                     desc_.threadPool.submit([&, this](uint32_t t) {
-
+                        core::ResourceRef<core::CommandBuffer> scndryCmd = desc_.commandCache.getSecondaryCommandBuffer(t);
+                        // scndryCmd->begin();
                     });
                 }
 
@@ -111,7 +67,6 @@ void hammock::renderer::FrameGraph::execute() {
     }
 }
 
-
 void hammock::renderer::FrameGraph::recordBarrier(
     PassTransitions& transitions, core::ResourceRef<core::CommandBuffer> cmd) {
     if (!transitions.images.empty() || !transitions.buffers.empty()) {
@@ -128,4 +83,35 @@ void hammock::renderer::FrameGraph::recordBarrier(
 
         cmd->pipelineBarrier(imageBarriers, bufferBarriers);
     }
+}
+
+void hammock::renderer::CommandBufferCache::init(
+    core::Device& device, core::CommandQueueFamily family, uint32_t numThreads) {
+    commandPools_.clear();  // Clear first
+    commandBuffers_.clear();
+
+    // Create the main pool and primary command buffer
+    mainPoolHndl_ = commandPools_.create(device, family);
+    primaryBufferHndl_ =
+        commandBuffers_.create(commandPools_.get(mainPoolHndl_), core::CommandBufferLevel::Primary);
+
+    // Create per thread secondary command buffers
+    threadCaches_.resize(numThreads);
+    for (uint32_t i = 0; i < numThreads; i++) {
+        threadCaches_[i].secondaryBufferHdnl =
+            commandBuffers_.create(commandPools_.get(mainPoolHndl_), core::CommandBufferLevel::Secondary);
+    }
+}
+
+void hammock::renderer::CommandBufferCache::reset() { commandPools_.get(mainPoolHndl_).reset(); }
+
+hammock::core::ResourceRef<hammock::core::CommandBuffer>
+hammock::renderer::CommandBufferCache::getPrimaryCommandBuffer() {
+    return commandBuffers_.ref(primaryBufferHndl_);
+}
+
+hammock::core::ResourceRef<hammock::core::CommandBuffer>
+hammock::renderer::CommandBufferCache::getSecondaryCommandBuffer(uint32_t threadIndex) {
+    if (threadIndex >= threadCaches_.size()) throw std::out_of_range("thread index out of range");
+    return commandBuffers_.ref(threadCaches_[threadIndex].secondaryBufferHdnl);
 }

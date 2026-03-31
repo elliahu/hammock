@@ -44,9 +44,9 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
             {vk::DescriptorType::eInputAttachment, 1000},
         });
 
-    // Create graphics command pools for each frame in flight
-    core::SwapChain::forEachFrameInFlight([this](uint32_t frame){
-        graphicsCommandPoolsHandles_[frame] = commandPools_.create(device_, core::CommandQueueFamily::Graphics);
+    // Initialize command caches
+    core::SwapChain::forEachFrameInFlight([this](uint32_t frame) {
+        commandCaches_[frame].init(device_, core::CommandQueueFamily::Graphics, 1);
     });
 
     // Create thread pool
@@ -72,8 +72,9 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
     atlasStagingBuffer->map();
     atlasStagingBuffer->writeToBuffer(atlas.bitmap.data());
 
-    auto prepCmdHandle = commandBufferManagers_[0].create(commandPools_.get(graphicsCommandPoolsHandles_[0]));
-    auto prepCmd = commandBufferManagers_[0].ref(prepCmdHandle);
+    prepPoolHandle_ = commandPools_.create(device_, core::CommandQueueFamily::Graphics);
+    auto prepCmdHandle = commandBuffers_.create(commandPools_.get(prepPoolHandle_));
+    auto prepCmd = commandBuffers_.ref(prepCmdHandle);
 
     prepCmd->begin();
     std::array<core::ImageMemoryBarrier, 1> atlasNoneToTransfer{
@@ -88,7 +89,7 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
     device_.waitIdle();
     atlasStagingBuffer->unmap();
     buffers_.destroy(atlasStagingBufferHandle);
-    commandBufferManagers_[0].destroy(prepCmdHandle);
+    commandBuffers_.destroy(prepCmdHandle);  // Destroy the prep command buffer
 
     // Create font atlas descriptor
     auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{{.binding = 0,
@@ -211,9 +212,8 @@ void hammock::renderer::Renderer::drawFrame(
 
     FrameGraph graph{{
         .batches = {std::move(uiBatchDesc)},
-        .commandBufferManager = commandBufferManagers_[currentFrameIdx_],
+        .commandCache = commandCaches_[currentFrameIdx_],
         .threadPool = threadPool_,
-        .graphicsPool = commandPools_.ref(graphicsCommandPoolsHandles_[currentFrameIdx_]),
     }};
 
     graph.execute();
