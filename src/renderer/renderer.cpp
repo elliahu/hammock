@@ -142,23 +142,36 @@ hammock::renderer::Renderer::~Renderer() {
 
 void hammock::renderer::Renderer::drawFrame(
     core::ResourceRef<core::Image> target, RenderSnapshot& snap, core::ResourceRef<core::Semaphore> signal) {
+    UserInterfacePushConstants push{.screenSize = {static_cast<float>(target->getExtent2D().x),
+                                        static_cast<float>(target->getExtent2D().y)}};
+
     GraphicsPassDesc uiPassDesc{
         .name = "User Interface",
         .transitions =
             {
                 .images = {{target, core::ResourceState::Undefined, core::ResourceState::ColorAttachment}},
             },
-        .colorAttachments = {target},
+        .rendering =
+            {
+                .colorAttachments = {target},
+                .viewport = target->createViewport(),
+                .scissors = target->createScissor(),
+                .pipeline = pipelines_.ref(userInterfacePipeline_),
+            },
+        .data =
+            {
+                .descriptors = {userInterfaceDescSet_},
+                .constants =
+                    {
+                        .stages = core::ShaderStage::Vertex,
+                        .size = sizeof(UserInterfacePushConstants),
+                        .data = &push,
+                    },
+            },
         .execute =
             [&, this](core::ResourceRef<core::CommandBuffer> commandBuffer) {
                 // Signal rendering finished
                 commandBuffer->addSignalSemaphore(signal);
-
-                // Begin rendering
-                auto targets = std::array<core::ResourceRef<core::Image>, 1>{target};
-                auto layouts = std::array<vk::ImageLayout, 1>{vk::ImageLayout::eColorAttachmentOptimal};
-                commandBuffer->beginRendering(
-                    {{0, 0}, {target->getExtent().width, target->getExtent().height}}, targets, layouts);
 
                 // Render the ui
                 // Update the ui vert buffer
@@ -171,43 +184,13 @@ void hammock::renderer::Renderer::drawFrame(
                     0, 1, uiVertBuffer->getBufferPtr(), offsets);
                 commandBuffer->bindVertexBuffers(std::span(&uiVertBuffer, 1), offsets);
 
-                // Bind the ui pipeline
-                commandBuffer->bindPipeline(pipelines_.ref(userInterfacePipeline_));
-
-                // Bind the descriptor set
-                commandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                    pipelines_.ref(userInterfacePipeline_),
-                    std::span(&userInterfaceDescSet_, 1));
-
-                // Scissors and viewport
-                commandBuffer->setViewport({0,
-                    0,
-                    static_cast<float>(target->getExtent().width),
-                    static_cast<float>(target->getExtent().height),
-                    0.f,
-                    1.f});
-                commandBuffer->setScissor({0, 0, target->getExtent().width, target->getExtent().height});
-
-                // Push constants
-                UserInterfacePushConstants push{.screenSize = {static_cast<float>(target->getExtent().width),
-                                                    static_cast<float>(target->getExtent().height)}};
-                commandBuffer->pushConstants(pipelines_.ref(userInterfacePipeline_),
-                    vk::ShaderStageFlagBits::eVertex,
-                    0,
-                    sizeof(UserInterfacePushConstants),
-                    &push);
-
                 // Draw the ui
                 commandBuffer->getCommandBuffer().draw(snap.uiDraws.vertices.size(), 1, 0, 0);
-
-                // End rendering
-                commandBuffer->endRendering();
             },
     };
 
     RenderBatchDesc uiBatchDesc{
         .graphics = {std::move(uiPassDesc)},
-        .strategy = RecordingStrategy::Singlethreaded,
     };
 
     FrameGraph graph{{

@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
-#include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
@@ -20,17 +19,47 @@ namespace hammock::renderer {
         std::vector<core::BufferMemoryBarrier> buffers;
     };
 
+    struct PushConstants {
+        core::ShaderStage stages;
+        uint32_t size;
+        const void* data;
+    };
+
+    struct PassDataInfo{
+        std::vector<core::DescriptorSet> descriptors;
+        PushConstants constants;
+    };
+
+
+
+    struct GraphicsPassRenderingInfo {
+        std::vector<core::ResourceRef<core::Image>> colorAttachments;
+        std::optional<core::ResourceRef<core::Image>> depthAttachment;
+        std::optional<core::ResourceRef<core::Image>> stencilAttachment;
+        std::optional<core::Rect2D> area;
+        std::optional<core::Viewport> viewport;
+        std::optional<core::Rect2D> scissors;
+        std::optional<core::ResourceRef<core::Pipeline>> pipeline;
+    };
+
     struct GraphicsPassDesc {
         std::string name;
         PassTransitions transitions;
-        std::vector<core::ResourceRef<core::Image>> colorAttachments;
-        std::optional<core::ResourceRef<core::Image>> depthAttachment;
+        GraphicsPassRenderingInfo rendering;
+        PassDataInfo data;
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
+    };
+
+    struct ComputePassDispatchInfo {
+        std::vector<core::DescriptorSet> descriptors;
+        PushConstants constants;
     };
 
     struct ComputePassDesc {
         std::string name;
         PassTransitions transitions;
+        ComputePassDispatchInfo dispatch;
+        PassDataInfo data;
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
     };
 
@@ -40,13 +69,10 @@ namespace hammock::renderer {
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
     };
 
-    enum class RecordingStrategy { Singlethreaded, Multithreaded };
-
     struct RenderBatchDesc {
         std::vector<GraphicsPassDesc> graphics;
         std::vector<ComputePassDesc> compute;
         std::vector<TransferPassDesc> transfer;
-        RecordingStrategy strategy;
         std::optional<uint64_t> singal;  // signal value
         std::optional<uint64_t> wait;    // wait value
         std::optional<core::ResourceRef<core::Semaphore>> semaphore;
@@ -93,7 +119,7 @@ namespace hammock::renderer {
 
        private:
         void recordBarrier(PassTransitions& transitions, core::ResourceRef<core::CommandBuffer> cmd);
-
+        void recordGraphicsPass(GraphicsPassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd);
 
         FrameGraphDesc desc_;
     };

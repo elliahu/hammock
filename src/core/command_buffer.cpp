@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <vulkan/vulkan.hpp>
 
+#include "image.hpp"
 #include "vulkan/vulkan.hpp"
 
 hammock::core::CommandPool::CommandPool(Device& device, CommandQueueFamily family)
@@ -115,7 +116,7 @@ auto hammock::core::CommandBuffer::submit(vk::Fence fence) -> void {
 }
 
 hammock::core::CommandBuffer::CommandBuffer(CommandPool& pool, CommandBufferLevel level)
-    : device_(pool.device_), pool_(pool), family_(pool.getFamily()), level_(level){
+    : device_(pool.device_), pool_(pool), family_(pool.getFamily()), level_(level) {
     try {
         vk::CommandBufferAllocateInfo allocInfo{};
         allocInfo.level = static_cast<vk::CommandBufferLevel>(VulkanCommandBufferLevel(level));
@@ -169,12 +170,12 @@ auto hammock::core::CommandBuffer::addSignalSemaphore(
 
     signalSemaphoreSubmitInfos_.push_back(submitInfo);
 }
-auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
+auto hammock::core::CommandBuffer::beginRendering(Rect2D renderArea,
     std::span<vk::RenderingAttachmentInfo> colorAttachments,
     std::optional<vk::RenderingAttachmentInfo> depthAttachment,
     std::optional<vk::RenderingAttachmentInfo> stencilAttachment, uint32_t layerCount) -> void {
     vk::RenderingInfo renderInfo{
-        .renderArea = renderArea,
+        .renderArea = static_cast<vk::Rect2D>(VulkanRect2D(renderArea)),
         .layerCount = layerCount,
         .colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size()),
         .pColorAttachments = colorAttachments.data(),
@@ -184,26 +185,24 @@ auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
 
     commandBuffer_.beginRendering(&renderInfo);
 }
-auto hammock::core::CommandBuffer::beginRendering(vk::Rect2D renderArea,
-    std::span<ResourceRef<Image>> colorAttachments, std::span<vk::ImageLayout> colorAttachmentLayouts,
-    std::optional<ResourceRef<Image>> depthAttachment, std::optional<vk::ImageLayout> depthAttachmentLayout,
-    std::optional<ResourceRef<Image>> stencilAttachment,
-    std::optional<vk::ImageLayout> stencilAttachmentLayout, uint32_t layerCount) -> void {
+auto hammock::core::CommandBuffer::beginRendering(Rect2D renderArea,
+    std::span<ResourceRef<Image>> colorAttachments, std::optional<ResourceRef<Image>> depthAttachment,
+    std::optional<ResourceRef<Image>> stencilAttachment, uint32_t layerCount) -> void {
     std::vector<vk::RenderingAttachmentInfo> colors(colorAttachments.size());
 
     for (size_t i = 0; i < colorAttachments.size(); ++i) {
-        auto info = colorAttachments[i]->getRenderingAttachmentInfo(colorAttachmentLayouts[i]);
+        auto info = colorAttachments[i]->getRenderingAttachmentInfo(vk::ImageLayout::eColorAttachmentOptimal);
         colors[i] = info;
     }
 
     std::optional<vk::RenderingAttachmentInfo> depthInfo;
     std::optional<vk::RenderingAttachmentInfo> stencilInfo;
 
-    if (depthAttachment && depthAttachmentLayout)
-        depthInfo = depthAttachment->get().getRenderingAttachmentInfo(depthAttachmentLayout.value());
+    if (depthAttachment)
+        depthInfo = depthAttachment->get().getRenderingAttachmentInfo(vk::ImageLayout::eDepthAttachmentOptimal);
 
-    if (stencilAttachment && stencilAttachmentLayout)
-        stencilInfo = stencilAttachment->get().getRenderingAttachmentInfo(stencilAttachmentLayout.value());
+    if (stencilAttachment)
+        stencilInfo = stencilAttachment->get().getRenderingAttachmentInfo(vk::ImageLayout::eStencilAttachmentOptimal);
 
     return beginRendering(renderArea, colors, depthInfo, stencilInfo, layerCount);
 }
@@ -251,7 +250,7 @@ auto hammock::core::CommandBuffer::copyBufferToImage(ResourceRef<Buffer> src, Re
     region.imageSubresource.layerCount = dst->getLayerLevel();
 
     region.imageOffset = dstOffset;
-    region.imageExtent = dst->getExtent();
+    region.imageExtent = static_cast<vk::Extent3D>(VulkanExtent3D(dst->getExtent3D()));
 
     commandBuffer_.copyBufferToImage(
         src->getBuffer(), dst->getImage(), vk::ImageLayout::eTransferDstOptimal, 1, &region);
@@ -271,7 +270,7 @@ auto hammock::core::CommandBuffer::copyImageToImage(
     region.dstSubresource.baseArrayLayer = 0;
     region.dstSubresource.layerCount = dst->getLayerLevel();
     region.dstOffset = dstOffset;
-    region.extent = dst->getExtent();
+    region.extent = static_cast<vk::Extent3D>(VulkanExtent3D(dst->getExtent3D()));
 
     commandBuffer_.copyImage(src->getImage(),
         vk::ImageLayout::eTransferSrcOptimal,
@@ -324,17 +323,19 @@ auto hammock::core::CommandBuffer::bindDescriptorSets(
     commandBuffer_.bindDescriptorSets(bindPoint, pipeline->getPipelineLayout(), 0, sets, nullptr);
 }
 
-auto hammock::core::CommandBuffer::setViewport(vk::Viewport viewport) -> void {
-    commandBuffer_.setViewport(0, 1, &viewport);
+auto hammock::core::CommandBuffer::setViewport(Viewport viewport) -> void {
+    vk::Viewport vp = static_cast<vk::Viewport>(VulkanViewport(viewport));
+    commandBuffer_.setViewport(0, 1, &vp);
 }
 
-auto hammock::core::CommandBuffer::setScissor(vk::Rect2D scissor) -> void {
-    commandBuffer_.setScissor(0, 1, &scissor);
+auto hammock::core::CommandBuffer::setScissor(Rect2D scissor) -> void {
+    vk::Rect2D rect = static_cast<vk::Rect2D>(VulkanRect2D(scissor));
+    commandBuffer_.setScissor(0, 1, &rect);
 }
 
-auto hammock::core::CommandBuffer::pushConstants(ResourceRef<Pipeline> pipeline, vk::ShaderStageFlags stages,
+auto hammock::core::CommandBuffer::pushConstants(ResourceRef<Pipeline> pipeline, ShaderStage stages,
     uint32_t offset, uint32_t size, const void* data) -> void {
-    commandBuffer_.pushConstants(pipeline->getPipelineLayout(), stages, offset, size, data);
+    commandBuffer_.pushConstants(pipeline->getPipelineLayout(), static_cast<vk::ShaderStageFlags>(VulkanShaderStageFlags(stages)), offset, size, data);
 }
 hammock::core::CommandPool::~CommandPool() {
     if (pool_) {

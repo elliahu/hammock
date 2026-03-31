@@ -122,8 +122,8 @@ void hammock::core::SwapChainManager::blitToSwapChainImage(ResourceRef<CommandBu
     blit.srcSubresource.layerCount = 1;
     blit.srcOffsets[0] = vk::Offset3D{0, 0, 0};
     blit.srcOffsets[1] = vk::Offset3D{
-        static_cast<std::int32_t>(image->getExtent().width),
-        static_cast<std::int32_t>(image->getExtent().height),
+        static_cast<std::int32_t>(image->getExtent2D().x),
+        static_cast<std::int32_t>(image->getExtent2D().y),
         1
     };
 

@@ -146,6 +146,64 @@ namespace hammock::core {
         PipelineStage stage_;
     };
 
+    enum class ShaderStage : uint32_t {
+        Invalid = 0,
+        Vertex = 1 << 0,
+        TessellationControl = 1 << 1,
+        TessellationEvaluation = 1 << 2,
+        Geometry = 1 << 3,
+        Fragment = 1 << 4,
+        Compute = 1 << 5,
+        AllGraphics = 1 << 6,
+        All = 1 << 7
+    };
+
+    constexpr ShaderStage operator|(ShaderStage a, ShaderStage b) {
+        return static_cast<ShaderStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+    }
+
+    constexpr ShaderStage operator&(ShaderStage a, ShaderStage b) {
+        return static_cast<ShaderStage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+    }
+
+    class VulkanShaderStageFlags {
+       public:
+        VulkanShaderStageFlags(ShaderStage stage) : stage_(stage) {}
+
+        explicit constexpr operator vk::ShaderStageFlags() const {
+            vk::ShaderStageFlags flags{};
+
+            if ((stage_ & ShaderStage::Vertex) != ShaderStage::Invalid)
+                flags |= vk::ShaderStageFlagBits::eVertex;
+
+            if ((stage_ & ShaderStage::TessellationControl) != ShaderStage::Invalid)
+                flags |= vk::ShaderStageFlagBits::eTessellationControl;
+
+            if ((stage_ & ShaderStage::TessellationEvaluation) != ShaderStage::Invalid)
+                flags |= vk::ShaderStageFlagBits::eTessellationEvaluation;
+
+            if ((stage_ & ShaderStage::Geometry) != ShaderStage::Invalid)
+                flags |= vk::ShaderStageFlagBits::eGeometry;
+
+            if ((stage_ & ShaderStage::Fragment) != ShaderStage::Invalid)
+                flags |= vk::ShaderStageFlagBits::eFragment;
+
+            if ((stage_ & ShaderStage::Compute) != ShaderStage::Invalid)
+                flags |= vk::ShaderStageFlagBits::eCompute;
+
+            if ((stage_ & ShaderStage::AllGraphics) != ShaderStage::Invalid)
+                flags |= vk::ShaderStageFlagBits::eAllGraphics;
+
+            if ((stage_ & ShaderStage::All) != ShaderStage::Invalid)
+                flags |= vk::ShaderStageFlagBits::eAll;
+
+            return flags;
+        }
+
+       private:
+        ShaderStage stage_;
+    };
+
     /// @enum ResourceState
     /// Possible state of a resource
     enum class ResourceState {
@@ -293,7 +351,7 @@ namespace hammock::core {
         uint64_t offset_, size_;
     };
 
-    struct CommandBufferInheritanceInfo{
+    struct CommandBufferInheritanceInfo {
         std::span<vk::Format> colorAttachmentFormats;
         std::optional<vk::Format> depthAttachmentFormat;
         std::optional<vk::Format> stencilAttachmentFormat;
@@ -337,18 +395,15 @@ namespace hammock::core {
         auto getCommandBuffer() const -> vk::CommandBuffer { return commandBuffer_; }
 
         /// @brief Starts dynamic rendering into provided target images
-        auto beginRendering(vk::Rect2D renderArea, std::span<vk::RenderingAttachmentInfo> colorAttachments,
+        auto beginRendering(Rect2D renderArea, std::span<vk::RenderingAttachmentInfo> colorAttachments,
             std::optional<vk::RenderingAttachmentInfo> depthAttachment = std::nullopt,
             std::optional<vk::RenderingAttachmentInfo> stencilAttachment = std::nullopt,
             uint32_t layerCount = 1) -> void;
 
         /// @brief Starts dynamic rendering into provided target images
-        auto beginRendering(vk::Rect2D renderArea, std::span<ResourceRef<Image>> colorAttachments,
-            std::span<vk::ImageLayout> colorAttachmentLayouts,
+        auto beginRendering(Rect2D renderArea, std::span<ResourceRef<Image>> colorAttachments,
             std::optional<ResourceRef<Image>> depthAttachment = std::nullopt,
-            std::optional<vk::ImageLayout> depthAttachmentLayout = std::nullopt,
-            std::optional<ResourceRef<Image>> stencilAttachment = std::nullopt,
-            std::optional<vk::ImageLayout> stencilAttachmentLayout = std::nullopt, uint32_t layerCount = 1)
+            std::optional<ResourceRef<Image>> stencilAttachment = std::nullopt, uint32_t layerCount = 1)
             -> void;
 
         /// @brief End dynamic rendering
@@ -387,13 +442,13 @@ namespace hammock::core {
             std::span<DescriptorSet> sets) -> void;
 
         /// @brief Set viewport
-        auto setViewport(vk::Viewport viewport) -> void;
+        auto setViewport(Viewport viewport) -> void;
 
         /// @brief Set scissor
-        auto setScissor(vk::Rect2D scissor) -> void;
+        auto setScissor(Rect2D scissor) -> void;
 
         /// @brief Push constants
-        auto pushConstants(ResourceRef<Pipeline> pipeline, vk::ShaderStageFlags stages, uint32_t offset,
+        auto pushConstants(ResourceRef<Pipeline> pipeline, ShaderStage stages, uint32_t offset,
             uint32_t size, const void* data) -> void;
 
        private:

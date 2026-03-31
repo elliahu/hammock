@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include "command_buffer.hpp"
+#include "image.hpp"
 #include "resource_manager.hpp"
 
 hammock::renderer::FrameGraph::FrameGraph(FrameGraphDesc&& desc) : desc_{std::move(desc)} {}
@@ -35,21 +36,8 @@ void hammock::renderer::FrameGraph::execute() {
 
         // Record all passes in the batch
         if (!batch.graphics.empty()) {
-            if (batch.strategy == RecordingStrategy::Multithreaded) {
-                for (auto& pass : batch.graphics) {
-                    desc_.threadPool.submit([&, this](uint32_t t) {
-                        core::ResourceRef<core::CommandBuffer> scndryCmd = desc_.commandCache.getSecondaryCommandBuffer(t);
-                        // scndryCmd->begin();
-                    });
-                }
-
-                desc_.threadPool.wait();
-
-            } else {
-                for (auto& pass : batch.graphics) {
-                    recordBarrier(pass.transitions, primaryCmd);
-                    pass.execute(primaryCmd);
-                }
+            for (auto& pass : batch.graphics) {
+                recordGraphicsPass(pass, primaryCmd);
             }
         } else if (!batch.compute.empty()) {
             for (auto& pass : batch.compute) {
@@ -82,6 +70,74 @@ void hammock::renderer::FrameGraph::recordBarrier(
         }
 
         cmd->pipelineBarrier(imageBarriers, bufferBarriers);
+    }
+}
+
+void hammock::renderer::FrameGraph::recordGraphicsPass(
+    GraphicsPassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd) {
+    // Barriers first
+    recordBarrier(pass.transitions, cmd);
+
+    bool beginRendering =
+        !pass.rendering.colorAttachments.empty() || pass.rendering.depthAttachment.has_value();
+    bool setViewport = pass.rendering.viewport.has_value();
+    bool setScissor = pass.rendering.scissors.has_value();
+    bool bindPipeline = pass.rendering.pipeline.has_value();
+    bool bindDescriptors = !pass.data.descriptors.empty();
+    bool pushConstants = pass.data.constants.data != nullptr && pass.data.constants.size >= 0;
+
+    // Automatically begin rendering
+    if (beginRendering) {
+        // If render are is not set, color first attachment is used
+        auto renderArea = pass.rendering.area.value_or(
+            pass.rendering.colorAttachments.empty() ? pass.rendering.depthAttachment.value()->createScissor()
+                                                    : pass.rendering.colorAttachments[0]->createScissor());
+        cmd->beginRendering(renderArea,
+            pass.rendering.colorAttachments,
+            pass.rendering.depthAttachment,
+            pass.rendering.stencilAttachment);
+    }
+
+    // Bind pipeline
+    if (bindPipeline) {
+        cmd->bindPipeline(pass.rendering.pipeline.value());
+    }
+
+    // Set viewport
+    if (setViewport) {
+        cmd->setViewport(pass.rendering.viewport.value());
+    }
+
+    // Set scissor
+    if (setScissor) {
+        cmd->setScissor(pass.rendering.scissors.value());
+    }
+
+    // Bind descriptors
+    if (bindDescriptors) {
+        if (!bindPipeline) throw std::invalid_argument("pipeline was not set. cannot bind descriptors");
+
+        cmd->bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics, pass.rendering.pipeline.value(), pass.data.descriptors);
+    }
+
+    // Push constants
+    if (pushConstants) {
+        if (!bindPipeline) throw std::invalid_argument("pipeline was not set. cannot push constants");
+
+        cmd->pushConstants(pass.rendering.pipeline.value(),
+            pass.data.constants.stages,
+            0,
+            pass.data.constants.size,
+            pass.data.constants.data);
+    }
+
+    // Execute custom code
+    pass.execute(cmd);
+
+    // Automatically end rendering
+    if (beginRendering) {
+        cmd->endRendering();
     }
 }
 
