@@ -12,6 +12,8 @@
 #include "resource_manager.hpp"
 #include "semaphore.hpp"
 #include "utils/thread_pool.hpp"
+#include "command_buffer_provider.hpp"
+
 namespace hammock::renderer {
 
     struct PassTransitions {
@@ -25,12 +27,10 @@ namespace hammock::renderer {
         const void* data;
     };
 
-    struct PassDataInfo{
+    struct PassDataInfo {
         std::vector<core::DescriptorSet> descriptors;
         PushConstants constants;
     };
-
-
 
     struct GraphicsPassRenderingInfo {
         std::vector<core::ResourceRef<core::Image>> colorAttachments;
@@ -50,9 +50,13 @@ namespace hammock::renderer {
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
     };
 
+    struct ComputePassDispatchGroupSizes {
+        uint32_t x = 0, y = 0, z = 0;
+    };
+
     struct ComputePassDispatchInfo {
-        std::vector<core::DescriptorSet> descriptors;
-        PushConstants constants;
+        ComputePassDispatchGroupSizes sizes;
+        std::optional<core::ResourceRef<core::Pipeline>> pipeline;
     };
 
     struct ComputePassDesc {
@@ -69,14 +73,18 @@ namespace hammock::renderer {
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
     };
 
+    struct RenderBatchSyncInfo {
+        std::optional<core::ResourceRef<core::Semaphore>> semaphore;
+        std::optional<uint64_t> wait;  // wait value
+        core::PipelineStage waitStage = core::PipelineStage::Invalid;
+        std::optional<uint64_t> signal;  // signal value
+    };
+
     struct RenderBatchDesc {
         std::vector<GraphicsPassDesc> graphics;
         std::vector<ComputePassDesc> compute;
         std::vector<TransferPassDesc> transfer;
-        std::optional<uint64_t> singal;  // signal value
-        std::optional<uint64_t> wait;    // wait value
-        std::optional<core::ResourceRef<core::Semaphore>> semaphore;
-        core::PipelineStage waitStage = core::PipelineStage::Invalid;
+        RenderBatchSyncInfo sync;
     };
 
     class CommandBufferCache {
@@ -107,7 +115,7 @@ namespace hammock::renderer {
 
     struct FrameGraphDesc {
         std::vector<RenderBatchDesc> batches;
-        CommandBufferCache& commandCache;
+        CommandBufferProvider& commandBufferProvider;
         threading::ThreadPool& threadPool;
     };
 
@@ -115,11 +123,12 @@ namespace hammock::renderer {
        public:
         explicit FrameGraph(FrameGraphDesc&& desc);
 
-        void execute();
+        void execute(uint32_t frameIndex = 0);
 
        private:
         void recordBarrier(PassTransitions& transitions, core::ResourceRef<core::CommandBuffer> cmd);
         void recordGraphicsPass(GraphicsPassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd);
+        void recordComputePass(ComputePassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd);
 
         FrameGraphDesc desc_;
     };

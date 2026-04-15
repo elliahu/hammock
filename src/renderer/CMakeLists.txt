@@ -14,6 +14,7 @@ add_library(hammock_renderer
         "framebuffer.hpp"
         "presenter.hpp"
         "frame_graph.hpp"
+        "command_buffer_provider.hpp"
 
 
         "presenter.cpp"
@@ -26,6 +27,7 @@ add_library(hammock_renderer
         "render_backend.cpp"
         "render_proxy.cpp"
         "frame_graph.cpp"
+        "command_buffer_provider.cpp"
 )
 
 # Compile slang shaders

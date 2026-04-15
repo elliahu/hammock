@@ -104,9 +104,9 @@ void hammock::core::SwapChainManager::blitToSwapChainImage(ResourceRef<CommandBu
     swapChain_->recordPipelineBarrier(
         currentImageIndex_,
         commandBuffer->getCommandBuffer(),
-        vk::PipelineStageFlagBits2::eNone,
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
         vk::AccessFlagBits2::eNone,
-        vk::PipelineStageFlagBits2::eTransfer,
+        vk::PipelineStageFlagBits2::eBlit,
         vk::AccessFlagBits2::eTransferWrite,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eTransferDstOptimal,
@@ -150,7 +150,7 @@ void hammock::core::SwapChainManager::blitToSwapChainImage(ResourceRef<CommandBu
     swapChain_->recordPipelineBarrier(
         currentImageIndex_,
         commandBuffer->getCommandBuffer(),
-        vk::PipelineStageFlagBits2::eTransfer,
+        vk::PipelineStageFlagBits2::eBlit,
         vk::AccessFlagBits2::eTransferWrite,
         vk::PipelineStageFlagBits2::eBottomOfPipe,
         vk::AccessFlagBits2::eMemoryRead,

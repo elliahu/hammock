@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <vulkan/vulkan.hpp>
+#include "image.hpp"
 
 #include "framebuffer.hpp"
 
@@ -42,7 +43,7 @@ void hammock::renderer::Framebuffer::createImages(math::Vec2 resolution, core::I
             .layers = 1,
             .mips = 1,
             .format = format,
-            .usage = core::ImageUsage::ColorAttachment | core::ImageUsage::TransferSrc | core::ImageUsage::TransferDst,
+            .usage = core::ImageUsage::ColorAttachment | core::ImageUsage::TransferSrc | core::ImageUsage::TransferDst | core::ImageUsage::Storage,
             .type = core::ImageType::Type2D,
         });
         handles_.push_back(handle);

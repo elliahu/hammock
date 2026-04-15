@@ -83,6 +83,9 @@ namespace hammock::core {
         vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{};
         sync2Features.synchronization2 = vk::True;
 
+        vk::PhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
+        timelineFeatures.timelineSemaphore = vk::True;
+
         vk::PhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
         // Enable non-uniform indexing
         descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = vk::True;
@@ -103,6 +106,7 @@ namespace hammock::core {
         dynamicRenderingFeatures.pNext = &sync2Features;
         sync2Features.pNext = &swapchainFeaturesEXT;
         swapchainFeaturesEXT.pNext = &bufferAddressFeatures;
+        bufferAddressFeatures.pNext = &timelineFeatures;
 
         // Populate VkPhysicalDeviceFeatures2
         vk::PhysicalDeviceFeatures2 deviceFeatures2{};

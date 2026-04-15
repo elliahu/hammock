@@ -19,6 +19,8 @@ namespace hammock::renderer {
     struct FrameContext {
         core::ResourceRef<core::Image> renderTarget;
         core::ResourceRef<core::Semaphore> renderFinished;
+        core::ResourceRef<core::Semaphore> imageReleased;
+        uint64_t imageReleasedValue;
         uint32_t frameIndex;
     };
 
@@ -47,7 +49,7 @@ namespace hammock::renderer {
     /// @brief Describes the configuration for creating a Presenter.
     struct PresenterDesc {
         PresenterFrameBufferSize frameBufferRelativeSize = PresenterFrameBufferSize::SwapchainRelative;
-        math::Vec2 frameBufferSize = {1.f, 1.f}; // Relative to the setting in frameBufferRelativeSize
+        math::Vec2 frameBufferSize = {1.f, 1.f};  // Relative to the setting in frameBufferRelativeSize
     };
 
     /// @class SurfacePresenter
@@ -56,7 +58,8 @@ namespace hammock::renderer {
     /// swapchain. This way both can be resized independently.
     class Presenter final : public PresenterIface {
        public:
-        Presenter(core::Device& device, core::SurfaceProviderIface& surfaceProvider, const PresenterDesc& desc);
+        Presenter(
+            core::Device& device, core::SurfaceProviderIface& surfaceProvider, const PresenterDesc& desc);
         ~Presenter() override = default;
 
         /// @brief Begins a new frame for rendering.
@@ -86,6 +89,8 @@ namespace hammock::renderer {
         struct PerFrameResources {
             core::Handle<core::Semaphore> renderingFinished;
             core::Handle<core::CommandBuffer> presentCommandBuffer;
+            core::Handle<core::Semaphore> imageReleased; // timeline semaphore
+            uint64_t imageReleasedValue = 0; // per-slot counter
         };
 
         PresenterDesc desc_;

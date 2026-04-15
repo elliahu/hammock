@@ -138,19 +138,13 @@ hammock::core::CommandBuffer::~CommandBuffer() {
     }
 }
 
-auto hammock::core::CommandBuffer::addWaitSemaphore(ResourceRef<Semaphore> semaphore, PipelineStage waitStage,
-    std::optional<uint64_t> waitSemaphoreValue) -> void {
+auto hammock::core::CommandBuffer::addWaitSemaphore(
+    ResourceRef<Semaphore> semaphore, PipelineStage waitStage, std::optional<uint64_t> waitValue) -> void {
     vk::SemaphoreSubmitInfo submitInfo{
         .semaphore = semaphore->getVulkanSemaphore(),
+        .value = waitValue.value_or(0),
         .stageMask = static_cast<vk::PipelineStageFlags2>(VulkanPipelineStageFlags(waitStage)),
     };
-
-    vk::TimelineSemaphoreSubmitInfo timelineInfo{};
-    if (waitSemaphoreValue.has_value()) {
-        timelineInfo.waitSemaphoreValueCount = 1;
-        timelineInfo.pWaitSemaphoreValues = &waitSemaphoreValue.value();
-        submitInfo.pNext = &timelineInfo;
-    }
 
     waitSemaphoreSubmitInfos_.push_back(submitInfo);
 }
@@ -159,17 +153,13 @@ auto hammock::core::CommandBuffer::addSignalSemaphore(
     ResourceRef<Semaphore> semaphore, std::optional<uint64_t> signalValue) -> void {
     vk::SemaphoreSubmitInfo submitInfo{
         .semaphore = semaphore->getVulkanSemaphore(),
+        .value = signalValue.value_or(0),
+        .stageMask = vk::PipelineStageFlagBits2::eAllCommands
     };
-
-    vk::TimelineSemaphoreSubmitInfo timelineInfo{};
-    if (signalValue.has_value()) {
-        timelineInfo.signalSemaphoreValueCount = 1;
-        timelineInfo.pSignalSemaphoreValues = &signalValue.value();
-        submitInfo.pNext = &timelineInfo;
-    }
 
     signalSemaphoreSubmitInfos_.push_back(submitInfo);
 }
+
 auto hammock::core::CommandBuffer::beginRendering(Rect2D renderArea,
     std::span<vk::RenderingAttachmentInfo> colorAttachments,
     std::optional<vk::RenderingAttachmentInfo> depthAttachment,
@@ -199,10 +189,12 @@ auto hammock::core::CommandBuffer::beginRendering(Rect2D renderArea,
     std::optional<vk::RenderingAttachmentInfo> stencilInfo;
 
     if (depthAttachment)
-        depthInfo = depthAttachment->get().getRenderingAttachmentInfo(vk::ImageLayout::eDepthAttachmentOptimal);
+        depthInfo =
+            depthAttachment->get().getRenderingAttachmentInfo(vk::ImageLayout::eDepthAttachmentOptimal);
 
     if (stencilAttachment)
-        stencilInfo = stencilAttachment->get().getRenderingAttachmentInfo(vk::ImageLayout::eStencilAttachmentOptimal);
+        stencilInfo =
+            stencilAttachment->get().getRenderingAttachmentInfo(vk::ImageLayout::eStencilAttachmentOptimal);
 
     return beginRendering(renderArea, colors, depthInfo, stencilInfo, layerCount);
 }
@@ -335,8 +327,18 @@ auto hammock::core::CommandBuffer::setScissor(Rect2D scissor) -> void {
 
 auto hammock::core::CommandBuffer::pushConstants(ResourceRef<Pipeline> pipeline, ShaderStage stages,
     uint32_t offset, uint32_t size, const void* data) -> void {
-    commandBuffer_.pushConstants(pipeline->getPipelineLayout(), static_cast<vk::ShaderStageFlags>(VulkanShaderStageFlags(stages)), offset, size, data);
+    commandBuffer_.pushConstants(pipeline->getPipelineLayout(),
+        static_cast<vk::ShaderStageFlags>(VulkanShaderStageFlags(stages)),
+        offset,
+        size,
+        data);
 }
+
+auto hammock::core::CommandBuffer::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
+    -> void {
+    commandBuffer_.dispatch(groupCountX, groupCountY, groupCountZ);
+}
+
 hammock::core::CommandPool::~CommandPool() {
     if (pool_) {
         device_.device().destroyCommandPool(pool_);

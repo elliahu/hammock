@@ -34,6 +34,8 @@ namespace hammock::renderer {
         for (auto& res : perFrameResources_) {
             res.renderingFinished = semaphores_.create(device_);
             res.presentCommandBuffer = commandBuffers_.create(commandPools_.get(graphicsCommandPoolHandle_));
+            res.imageReleased = semaphores_.create(device_, 0);
+            res.imageReleasedValue = 0;
         }
     }
 
@@ -50,6 +52,8 @@ namespace hammock::renderer {
         return FrameContext{
             .renderTarget = framebuffer_->getFrontbufferImage(),
             .renderFinished = semaphores_.ref(perFrameResources_[currentFrameIndex_].renderingFinished),
+            .imageReleased = semaphores_.ref(perFrameResources_[currentFrameIndex_].imageReleased),
+            .imageReleasedValue = perFrameResources_[currentFrameIndex_].imageReleasedValue,  // wait on this before touching image
             .frameIndex = currentFrameIndex_,
         };
     }
@@ -58,6 +62,7 @@ namespace hammock::renderer {
         if (!frameInProgress_) throw std::runtime_error("No frame in progress");
 
         auto& res = perFrameResources_[ctx.frameIndex];
+        res.imageReleasedValue++;  // advance the per-slot timeline value
         auto& swapChain = swapchainManager_->getSwapChain();
         auto syncObjects = swapChain.getSyncObjects(ctx.frameIndex);
         auto presentCmd = commandBuffers_.ref(res.presentCommandBuffer);
@@ -65,9 +70,12 @@ namespace hammock::renderer {
         // Wait for the renderer to finish writing and for the swapchain image to be free
         presentCmd->addWaitSemaphore(
             semaphores_.ref(res.renderingFinished), core::PipelineStage::AllCommands);
-        presentCmd->addWaitSemaphore(
-            syncObjects.imageAvailable, core::PipelineStage::ColorAttachmentOutput);
+        presentCmd->addWaitSemaphore(syncObjects.imageAvailable, core::PipelineStage::ColorAttachmentOutput);
         presentCmd->addSignalSemaphore(syncObjects.frameFinished);
+        presentCmd->addSignalSemaphore(
+            semaphores_.ref(res.imageReleased),
+            res.imageReleasedValue
+        );
 
         presentCmd->begin();
         blitFramebufferToSwapchain(ctx);
@@ -106,8 +114,7 @@ namespace hammock::renderer {
         auto image = framebuffer_->getFrontbufferImage();
 
         std::array<core::ImageMemoryBarrier, 1> imgBarriers{
-            {image, core::ResourceState::ColorAttachment, core::ResourceState::TransferSrc}
-        };
+            {image, core::ResourceState::ColorAttachment, core::ResourceState::TransferSrc}};
         presentCmd->pipelineBarrier(imgBarriers, {});
 
         swapchainManager_->blitToSwapChainImage(presentCmd, image);

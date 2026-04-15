@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <functional>
 
+#include "command_buffer_provider.hpp"
 #include "core/command_buffer.hpp"
 #include "core/descriptors.hpp"
 #include "core/device.hpp"
@@ -75,11 +76,12 @@ namespace hammock::renderer {
         void nextFrameIdx();
 
         core::Instance instance_;
-        vk::SurfaceKHR surface_;
+        vk::SurfaceKHR surface_; // TODO abstract this somehow
         SurfaceDestructor surfaceDestructor_{
             nullptr};  // This is called in the desdtructor to destroy surface which is created externally
         core::Device device_;
         threading::ThreadPool threadPool_{};
+        CommandBufferProvider commandBufferProvider_;
 
         /// Index of the current frame
         std::uint32_t currentFrameIdx_ = 0;
@@ -92,29 +94,36 @@ namespace hammock::renderer {
         core::ResourceManager<core::DescriptorPool> descriptorPools_{};
         core::ResourceManager<core::DescriptorSetLayout> descriptorSetLayouts_{};
         core::ResourceManager<core::Pipeline> pipelines_{};
+        core::ResourceManager<core::Semaphore> semaphores_{};
 
         // pools
         core::Handle<core::DescriptorPool> descriptorPoolHandle_;
         core::Handle<core::CommandPool> prepPoolHandle_;
 
-        // Command caches
-        std::array<CommandBufferCache, core::SwapChain::MAX_FRAMES_IN_FLIGHT> commandCaches_{};
 
-
-        // Render batches
-
-        /// Ui rendering
         struct UserInterfacePushConstants {
             Vec2 screenSize;
         };
 
+        struct ComputePushConstants {
+            Vec4 color;
+        };
+
+        core::Handle<core::Semaphore> timelineSemaphoreHandle_;
+        uint64_t timelineValue = 1;
+
+        // Compute
+        core::Handle<core::Pipeline> computePipelineHandle_;
+        core::Handle<core::DescriptorSetLayout> computeLayoutHandle_;
+        std::array<core::DescriptorSet, core::SwapChain::MAX_FRAMES_IN_FLIGHT> computeDescriptorSets_;
+
+
+        // Ui
         core::Handle<core::Image> fontAtlasHandle;
-
-        core::Handle<core::Pipeline> userInterfacePipeline_;
-
+        core::Handle<core::Pipeline> userInterfacePipelineHandle_;
         core::Handle<core::DescriptorSetLayout> userInterfaceDescLayoutHandle_;
         core::DescriptorSet userInterfaceDescSet_;
-
         core::Handle<core::Buffer> userInterfaceVertexBuffer_;
+
     };
 };  // namespace hammock::renderer

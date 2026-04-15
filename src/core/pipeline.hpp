@@ -126,7 +126,7 @@ namespace hammock::core {
 
         /// @brief Set compute shader bytecode and entry point (compute pipelines only)
         PipelineBuilder& setComputeShader(
-            const std::vector<char>& bytecode, const std::string& entry = "computeMain");
+            const std::vector<char>& bytecode, const std::string& entry = "main");
 
         // ===== Graphics-specific builder methods =====
 

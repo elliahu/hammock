@@ -3,14 +3,15 @@
 #include <stdexcept>
 
 #include "command_buffer.hpp"
+#include "device.hpp"
 #include "image.hpp"
 #include "resource_manager.hpp"
 
 hammock::renderer::FrameGraph::FrameGraph(FrameGraphDesc&& desc) : desc_{std::move(desc)} {}
 
-void hammock::renderer::FrameGraph::execute() {
-    // Reset command pool to enable recording over alredy allocated command buffers
-    desc_.commandCache.reset();
+void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
+    // Reset pools
+    desc_.commandBufferProvider.resetPools(frameIndex);
 
     // For each batch determine its family and allocate command buffer
     for (auto& batch : desc_.batches) {
@@ -20,38 +21,55 @@ void hammock::renderer::FrameGraph::execute() {
             throw std::runtime_error("more than one type of passes in a batch is not supported");
         }
 
+        // Determin the pass family
+        core::CommandQueueFamily batchFamily = core::CommandQueueFamily::Ignored;
+        if (!batch.graphics.empty())
+            batchFamily = core::CommandQueueFamily::Graphics;
+        else if (!batch.compute.empty())
+            batchFamily = core::CommandQueueFamily::Compute;
+        else if (!batch.transfer.empty())
+            batchFamily = core::CommandQueueFamily::Transfer;
+
+        // Sanity check
+        if (batchFamily == core::CommandQueueFamily::Ignored)
+            throw std::runtime_error("failed to determine batch family or the batch is emtpy");
+
         // Get the primary cmd buffer reference
-        core::ResourceRef<core::CommandBuffer> primaryCmd = desc_.commandCache.getPrimaryCommandBuffer();
+        core::ResourceRef<core::CommandBuffer> commandBuffer =
+            desc_.commandBufferProvider.getCommandBuffer(batchFamily, core::CommandBufferLevel::Primary, frameIndex, 0);
 
         // Begin command buffer
-        primaryCmd->begin();
+        commandBuffer->begin();
 
-        if (batch.semaphore.has_value() && batch.wait.has_value()) {
-            primaryCmd->addWaitSemaphore(batch.semaphore.value(), batch.waitStage, batch.wait);
+        // Add wait semaphore if present
+        if (batch.sync.semaphore.has_value() && batch.sync.wait.has_value()) {
+            commandBuffer->addWaitSemaphore(
+                batch.sync.semaphore.value(), batch.sync.waitStage, batch.sync.wait);
         }
 
-        if (batch.semaphore.has_value() && batch.singal.has_value()) {
-            primaryCmd->addSignalSemaphore(batch.semaphore.value(), batch.singal);
+        // Add signal semaphore if present
+        if (batch.sync.semaphore.has_value() && batch.sync.signal.has_value()) {
+            commandBuffer->addSignalSemaphore(batch.sync.semaphore.value(), batch.sync.signal);
         }
 
         // Record all passes in the batch
-        if (!batch.graphics.empty()) {
+        if (batchFamily == core::CommandQueueFamily::Graphics) {
             for (auto& pass : batch.graphics) {
-                recordGraphicsPass(pass, primaryCmd);
+                recordGraphicsPass(pass, commandBuffer);
             }
-        } else if (!batch.compute.empty()) {
+        } else if (batchFamily == core::CommandQueueFamily::Compute) {
             for (auto& pass : batch.compute) {
-                recordBarrier(pass.transitions, primaryCmd);
-                pass.execute(primaryCmd);
+                recordComputePass(pass, commandBuffer);
             }
-        } else if (!batch.transfer.empty()) {
+        } else if (batchFamily == core::CommandQueueFamily::Transfer) {
             for (auto& pass : batch.transfer) {
-                recordBarrier(pass.transitions, primaryCmd);
-                pass.execute(primaryCmd);
+                recordBarrier(pass.transitions, commandBuffer);
+                pass.execute(commandBuffer);
             }
         }
 
-        primaryCmd->submit();
+        // Submit the command buffer
+        commandBuffer->submit();
     }
 }
 
@@ -133,11 +151,58 @@ void hammock::renderer::FrameGraph::recordGraphicsPass(
     }
 
     // Execute custom code
-    pass.execute(cmd);
+    if (pass.execute) {
+        pass.execute(cmd);
+    }
 
     // Automatically end rendering
     if (beginRendering) {
         cmd->endRendering();
+    }
+}
+
+void hammock::renderer::FrameGraph::recordComputePass(
+    ComputePassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd) {
+    // Barriers first
+    recordBarrier(pass.transitions, cmd);
+
+    bool dispatch = pass.dispatch.sizes.x > 0 && pass.dispatch.sizes.y > 0 && pass.dispatch.sizes.z > 0;
+    bool bindPipeline = pass.dispatch.pipeline.has_value();
+    bool bindDescriptors = !pass.data.descriptors.empty();
+    bool pushConstants = pass.data.constants.data != nullptr && pass.data.constants.size >= 0;
+
+    // Bind pipeline
+    if (bindPipeline) {
+        cmd->bindPipeline(pass.dispatch.pipeline.value());
+    }
+
+    // Bind descriptors
+    if (bindDescriptors) {
+        if (!bindPipeline) throw std::invalid_argument("pipeline was not set. cannot bind descriptors");
+
+        cmd->bindDescriptorSets(
+            vk::PipelineBindPoint::eCompute, pass.dispatch.pipeline.value(), pass.data.descriptors);
+    }
+
+    // Push constants
+    if (pushConstants) {
+        if (!bindPipeline) throw std::invalid_argument("pipeline was not set. cannot push constants");
+
+        cmd->pushConstants(pass.dispatch.pipeline.value(),
+            pass.data.constants.stages,
+            0,
+            pass.data.constants.size,
+            pass.data.constants.data);
+    }
+
+    // Dispatch
+    if (dispatch) {
+        cmd->dispatch(pass.dispatch.sizes.x, pass.dispatch.sizes.y, pass.dispatch.sizes.z);
+    }
+
+    // Execute custom code
+    if (pass.execute) {
+        pass.execute(cmd);
     }
 }
 

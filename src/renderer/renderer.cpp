@@ -25,7 +25,8 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
     : instance_{},
       surface_(surfaceFactory(instance_)),
       device_(instance_, surface_),
-      surfaceDestructor_(std::move(surfaceDestructor)) {
+      surfaceDestructor_(std::move(surfaceDestructor)),
+      commandBufferProvider_(device_, core::SwapChain::MAX_FRAMES_IN_FLIGHT, 1) {
     // create the descriptor pool
     descriptorPoolHandle_ = descriptorPools_.create(device_,
         10000,
@@ -43,11 +44,6 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
             {vk::DescriptorType::eStorageBufferDynamic, 1000},
             {vk::DescriptorType::eInputAttachment, 1000},
         });
-
-    // Initialize command caches
-    core::SwapChain::forEachFrameInFlight([this](uint32_t frame) {
-        commandCaches_[frame].init(device_, core::CommandQueueFamily::Graphics, 1);
-    });
 
     // Create thread pool
     threadPool_.setThreadCount(std::thread::hardware_concurrency());
@@ -106,7 +102,8 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
         .build(userInterfaceDescSet_);
 
     // Build the user interface pipeline
-    userInterfacePipeline_ = pipelines_.create(core::PipelineBuilder(device_)
+    userInterfacePipelineHandle_ = pipelines_.create(core::PipelineBuilder(device_)
+            .asGraphicsPipeline()
             .setVertexShader(filesystem::readFile("../../spv/user_interface.vert.spv"), "main")
             .setFragmentShader(filesystem::readFile("../../spv/user_interface.frag.spv"), "main")
             .addPushConstantRange(vk::PushConstantRange{.stageFlags = vk::ShaderStageFlagBits::eVertex,
@@ -132,6 +129,26 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
             .instanceCount = 10000  // for now
         });
     buffers_.ref(userInterfaceVertexBuffer_)->map();  // make it constantly mapped
+
+    // Create compute descriptors
+    bindings = std::vector<vk::DescriptorSetLayoutBinding>{{.binding = 0,
+        .descriptorType = vk::DescriptorType::eStorageImage,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eCompute}};
+    computeLayoutHandle_ = descriptorSetLayouts_.create(device_, bindings, flags);
+
+    // Create the compute pipeline
+    computePipelineHandle_ = pipelines_.create(core::PipelineBuilder(device_)
+            .asComputePipeline()
+            .setComputeShader(filesystem::readFile("../../spv/fullscreen_color.comp.spv"))
+            .addPushConstantRange(vk::PushConstantRange{.stageFlags = vk::ShaderStageFlagBits::eCompute,
+                .offset = 0,
+                .size = sizeof(ComputePushConstants)})
+            .addDescriptorSetLayout(descriptorSetLayouts_.ref(computeLayoutHandle_))
+            .buildCreateInfo());
+
+    // Create sync sempahore
+    timelineSemaphoreHandle_ = semaphores_.create(device_, 0);
 }
 
 hammock::renderer::Renderer::~Renderer() {
@@ -142,21 +159,65 @@ hammock::renderer::Renderer::~Renderer() {
 
 void hammock::renderer::Renderer::drawFrame(
     core::ResourceRef<core::Image> target, RenderSnapshot& snap, core::ResourceRef<core::Semaphore> signal) {
-    UserInterfacePushConstants push{.screenSize = {static_cast<float>(target->getExtent2D().x),
-                                        static_cast<float>(target->getExtent2D().y)}};
+    UserInterfacePushConstants uiPush{.screenSize = {static_cast<float>(target->getExtent2D().x),
+                                          static_cast<float>(target->getExtent2D().y)}};
+    ComputePushConstants compPush{.color = {1.f, 0.f, 0.f}};
+    constexpr uint32_t groupSize = 16u;
+
+    // Create compute descriptor set
+    if (!target->getSampler()) {
+        target->createSampler();
+    }
+    auto targetDescriptorInfo = target->getDescriptorImageInfo();
+    targetDescriptorInfo.imageLayout = vk::ImageLayout::eGeneral;
+    auto writer = core::DescriptorWriter(
+        *descriptorSetLayouts_.ref(computeLayoutHandle_), descriptorPools_.ref(descriptorPoolHandle_).get())
+                      .writeImage(0, &targetDescriptorInfo);
+    if (computeDescriptorSets_[currentFrameIdx_])
+        writer.overwrite(computeDescriptorSets_[currentFrameIdx_]);
+    else
+        writer.build(computeDescriptorSets_[currentFrameIdx_]);
+
+    ComputePassDesc computeDesc{
+        .name = "Compute pass",
+        .transitions =
+            {
+                .images = {{target, core::ResourceState::Undefined, core::ResourceState::StorageImage}},
+            },
+        .dispatch =
+            {
+                .sizes =
+                    {
+                        .x = (target->getExtent2D().x + groupSize - 1) / groupSize,
+                        .y = (target->getExtent2D().y + groupSize - 1) / groupSize,
+                        .z = 1,
+                    },
+                .pipeline = pipelines_.ref(computePipelineHandle_),
+            },
+        .data =
+            {
+                .descriptors = {computeDescriptorSets_[currentFrameIdx_]},
+                .constants =
+                    {
+                        .stages = core::ShaderStage::Compute,
+                        .size = sizeof(ComputePushConstants),
+                        .data = &compPush,
+                    },
+            },
+    };
 
     GraphicsPassDesc uiPassDesc{
         .name = "User Interface",
         .transitions =
             {
-                .images = {{target, core::ResourceState::Undefined, core::ResourceState::ColorAttachment}},
+                .images = {{target, core::ResourceState::StorageImage, core::ResourceState::ColorAttachment}},
             },
         .rendering =
             {
                 .colorAttachments = {target},
                 .viewport = target->createViewport(),
                 .scissors = target->createScissor(),
-                .pipeline = pipelines_.ref(userInterfacePipeline_),
+                .pipeline = pipelines_.ref(userInterfacePipelineHandle_),
             },
         .data =
             {
@@ -165,7 +226,7 @@ void hammock::renderer::Renderer::drawFrame(
                     {
                         .stages = core::ShaderStage::Vertex,
                         .size = sizeof(UserInterfacePushConstants),
-                        .data = &push,
+                        .data = &uiPush,
                     },
             },
         .execute =
@@ -189,17 +250,32 @@ void hammock::renderer::Renderer::drawFrame(
             },
     };
 
+    RenderBatchDesc comBatchDesc{
+        .compute = {std::move(computeDesc)},
+        .sync =
+            {
+                .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
+                .signal = timelineValue,
+            },
+    };
+
     RenderBatchDesc uiBatchDesc{
         .graphics = {std::move(uiPassDesc)},
+        .sync =
+            {
+                .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
+                .wait = timelineValue,
+                .waitStage = core::PipelineStage::AllCommands,
+            },
     };
 
     FrameGraph graph{{
-        .batches = {std::move(uiBatchDesc)},
-        .commandCache = commandCaches_[currentFrameIdx_],
+        .batches = {std::move(comBatchDesc), std::move(uiBatchDesc)},
+        .commandBufferProvider = commandBufferProvider_,
         .threadPool = threadPool_,
     }};
 
-    graph.execute();
+    graph.execute(currentFrameIdx_);
 
     // Update the frame index
     nextFrameIdx();
@@ -207,5 +283,6 @@ void hammock::renderer::Renderer::drawFrame(
 
 void hammock::renderer::Renderer::nextFrameIdx() {
     currentFrameIdx_ = (currentFrameIdx_ + 1) % core::SwapChain::MAX_FRAMES_IN_FLIGHT;
+    timelineValue++;
 }
 void hammock::renderer::Renderer::waitIdle() { device_.waitIdle(); }

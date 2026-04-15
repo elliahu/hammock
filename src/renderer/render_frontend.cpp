@@ -54,7 +54,7 @@ void hammock::renderer::RenderFrontend::start() {
                     .height = CLAY_SIZING_GROW(),
                 }
             },
-            .backgroundColor = {40, 40, 40, 255}, // background color
+            .backgroundColor = {40, 40, 40, 125}, // background color
         })
         {
             // Your existing hoverable rectangle

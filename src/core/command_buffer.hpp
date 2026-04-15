@@ -194,8 +194,7 @@ namespace hammock::core {
             if ((stage_ & ShaderStage::AllGraphics) != ShaderStage::Invalid)
                 flags |= vk::ShaderStageFlagBits::eAllGraphics;
 
-            if ((stage_ & ShaderStage::All) != ShaderStage::Invalid)
-                flags |= vk::ShaderStageFlagBits::eAll;
+            if ((stage_ & ShaderStage::All) != ShaderStage::Invalid) flags |= vk::ShaderStageFlagBits::eAll;
 
             return flags;
         }
@@ -211,11 +210,13 @@ namespace hammock::core {
         ColorAttachment,
         DepthAttachment,
         ShaderRead,
+        StorageImage,
         TransferSrc,
         TransferDst,
         VertexBuffer,
         IndexBuffer,
         UniformBuffer,
+        StorageBuffer,
     };
 
     /// @struct MemoryBarrierInfo
@@ -234,7 +235,7 @@ namespace hammock::core {
 
                 case ResourceState::ColorAttachment:
                     return {vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                        vk::AccessFlagBits2::eColorAttachmentWrite,
+                        vk::AccessFlagBits2::eColorAttachmentWrite | vk::AccessFlagBits2::eColorAttachmentRead, // Both are needed as LOAD_OP_LOAD requires read
                         vk::ImageLayout::eColorAttachmentOptimal};
 
                 case ResourceState::DepthAttachment:
@@ -246,6 +247,11 @@ namespace hammock::core {
                     return {vk::PipelineStageFlagBits2::eFragmentShader,
                         vk::AccessFlagBits2::eShaderRead,
                         vk::ImageLayout::eShaderReadOnlyOptimal};
+
+                case ResourceState::StorageImage:
+                    return {vk::PipelineStageFlagBits2::eComputeShader,
+                        vk::AccessFlagBits2::eShaderStorageRead,
+                        vk::ImageLayout::eGeneral};
 
                 case ResourceState::TransferSrc:
                     return {vk::PipelineStageFlagBits2::eTransfer,
@@ -271,6 +277,11 @@ namespace hammock::core {
                     return {vk::PipelineStageFlagBits2::eVertexShader,
                         vk::AccessFlagBits2::eUniformRead,
                         vk::ImageLayout::eShaderReadOnlyOptimal};
+
+                case ResourceState::StorageBuffer:
+                    return {vk::PipelineStageFlagBits2::eComputeShader,
+                        vk::AccessFlagBits2::eShaderStorageRead,
+                        vk::ImageLayout::eGeneral};
             }
         }
     };
@@ -359,6 +370,7 @@ namespace hammock::core {
 
     /// @class CommandBuffer
     /// Wrapper class around vulkan command buffer
+    /// TODO rework semaphore waiting and signaling as well as fences
     class CommandBuffer {
        public:
         /// Create the command buffer
@@ -371,12 +383,10 @@ namespace hammock::core {
 
         /// @brief Set a semaphore that needs to be signaled before the command buffer starts
         /// Execution will wait on all wait semaphores in their corresponding stages
-        auto addWaitSemaphore(ResourceRef<Semaphore> semaphore, PipelineStage waitStage,
-            std::optional<uint64_t> waitValue = std::nullopt) -> void;
+        auto addWaitSemaphore(ResourceRef<Semaphore> semaphore, PipelineStage waitStage, std::optional<uint64_t> waitValue = std::nullopt) -> void;
 
         /// @brief Set a semaphore that will be signaled after the command buffer finishes
-        auto addSignalSemaphore(
-            ResourceRef<Semaphore> semaphore, std::optional<uint64_t> signalValue = std::nullopt) -> void;
+        auto addSignalSemaphore(ResourceRef<Semaphore> semaphore, std::optional<uint64_t> signalValue = std::nullopt) -> void;
 
         /// @brief begin command buffer recording
         auto begin() -> void;
@@ -427,6 +437,7 @@ namespace hammock::core {
         auto copyImageToImage(ResourceRef<Image> src, ResourceRef<Image> dst,
             vk::Offset3D srcOffset = {0, 0, 0}, vk::Offset3D dstOffset = {0, 0, 0}) -> void;
 
+        /// @brief Records pipeline barrier
         auto pipelineBarrier(std::span<ImageMemoryBarrier> images, std::span<BufferMemoryBarrier> buffers)
             -> void;
 
@@ -448,8 +459,11 @@ namespace hammock::core {
         auto setScissor(Rect2D scissor) -> void;
 
         /// @brief Push constants
-        auto pushConstants(ResourceRef<Pipeline> pipeline, ShaderStage stages, uint32_t offset,
-            uint32_t size, const void* data) -> void;
+        auto pushConstants(ResourceRef<Pipeline> pipeline, ShaderStage stages, uint32_t offset, uint32_t size,
+            const void* data) -> void;
+
+        /// @brief Dispatch compute job
+        auto dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) -> void;
 
        private:
         Device& device_;
