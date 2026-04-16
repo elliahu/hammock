@@ -5,8 +5,8 @@
 #include "utilities.hpp"
 
 hammock::renderer::RenderQueue& hammock::renderer::RenderingServerProxy::getRenderQueue() { return renderQueue_; }
-hammock::renderer::CommandQueue& hammock::renderer::RenderingServerProxy::getFtbCommandQueue() { return requestQueue; }
-hammock::renderer::CommandQueue& hammock::renderer::RenderingServerProxy::getBtfCommandQueue() {
+hammock::renderer::CommandQueue& hammock::renderer::RenderingServerProxy::getRequestQueue() { return requestQueue; }
+hammock::renderer::CommandQueue& hammock::renderer::RenderingServerProxy::getResponseQueue() {
     return responseQueue;
 }
 
@@ -25,7 +25,7 @@ void hammock::renderer::RenderingServer::start() {
         core::Logger::debug("%s", "Render thread created");
 
         // Signal logic thread that backend is ready
-        proxy_.getBtfCommandQueue().push(RenderCommand{.type = RenderCommandType::Ready});
+        proxy_.getResponseQueue().push(RenderCommand{.type = RenderCommandType::Ready});
 
         // Enter the loop
         while (running_.load(std::memory_order_acquire)) {
@@ -33,7 +33,7 @@ void hammock::renderer::RenderingServer::start() {
             auto frameStart = std::chrono::high_resolution_clock::now();
             // First process commands from the logic thread
             RenderCommand cmd;
-            while (proxy_.getFtbCommandQueue().pop(cmd)) {
+            while (proxy_.getRequestQueue().pop(cmd)) {
                 if (cmd.type == RenderCommandType::Stop) {
                     core::Logger::debug("%s", "Stop command received, exiting backend thread");
                     stop();
@@ -73,7 +73,7 @@ void hammock::renderer::RenderingServer::start() {
             float lastFrameMs = frameTime.count();
             float commandProcessingTimeMs = commandProcessingTime.count();
             float renderTimeMs = renderTime.count();
-            proxy_.getBtfCommandQueue().push(RenderCommand{.type = RenderCommandType::Frametime,
+            proxy_.getResponseQueue().push(RenderCommand{.type = RenderCommandType::Frametime,
                 .frametime = lastFrameMs,
                 .rendertime = renderTimeMs,
                 .cmdtime = commandProcessingTimeMs});

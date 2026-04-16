@@ -11,7 +11,7 @@ hammock::renderer::RenderFrontend::RenderFrontend(
 
 void hammock::renderer::RenderFrontend::start() {
     // Singnal render thread that logic thread is ready
-    proxy_.getFtbCommandQueue().push(RenderCommand{.type = RenderCommandType::Ready});
+    proxy_.getRequestQueue().push(RenderCommand{.type = RenderCommandType::Ready});
 
     // Enter the logic loop
     while (!surfaceProvider_.shouldClose()) {
@@ -25,12 +25,12 @@ void hammock::renderer::RenderFrontend::start() {
             // Send resize command
             RenderCommand cmd{
                 .type = RenderCommandType::Resize, .width = extent.width, .height = extent.height};
-            proxy_.getFtbCommandQueue().push(std::move(cmd));
+            proxy_.getRequestQueue().push(std::move(cmd));
         }
 
         // Recieve messages from backend
         RenderCommand message;
-        proxy_.getBtfCommandQueue().pop(message);
+        proxy_.getResponseQueue().pop(message);
         if(message.type == RenderCommandType::Frametime){
             frameTime_ = message.frametime;
             renderTime_ = message.rendertime;
@@ -90,7 +90,7 @@ void hammock::renderer::RenderFrontend::start() {
 
     // Notify close
     core::Logger::debug("%s", "Window closed, sending stop command to backend");
-    proxy_.getFtbCommandQueue().push(RenderCommand{.type = RenderCommandType::Stop});
+    proxy_.getRequestQueue().push(RenderCommand{.type = RenderCommandType::Stop});
 }
 
 hammock::renderer::RenderSnapshot hammock::renderer::RenderFrontend::buildRenderSnapshot() {

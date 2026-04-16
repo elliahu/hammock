@@ -39,8 +39,8 @@ namespace hammock::renderer {
 
        public:
         RenderQueue& getRenderQueue();
-        CommandQueue& getFtbCommandQueue();
-        CommandQueue& getBtfCommandQueue();
+        CommandQueue& getRequestQueue();
+        CommandQueue& getResponseQueue();
     };
 
     class RenderingServer {
