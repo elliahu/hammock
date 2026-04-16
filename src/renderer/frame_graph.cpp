@@ -4,15 +4,17 @@
 #include <variant>
 
 #include "command_buffer.hpp"
+#include "command_cache.hpp"
 #include "device.hpp"
 #include "image.hpp"
 #include "resource_manager.hpp"
 
-hammock::renderer::FrameGraph::FrameGraph(FrameGraphDesc&& desc) : desc_{std::move(desc)} {}
+hammock::renderer::FrameGraph::FrameGraph(FrameGraphDesc&& desc, CommandCache& commandCache)
+    : desc_{std::move(desc)}, commandCache_(commandCache) {}
 
 void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
     // Reset pools
-    desc_.commandCache.resetPools(frameIndex);
+    commandCache_.resetPools(frameIndex);
 
     // For each batch determine its family and allocate command buffer
     for (auto& pass : desc_.passes) {
@@ -37,8 +39,8 @@ void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
         }
 
         // Get the primary cmd buffer reference
-        core::ResourceRef<core::CommandBuffer> commandBuffer = desc_.commandCache.getCommandBuffer(
-            batchFamily, core::CommandBufferLevel::Primary, frameIndex, 0);
+        core::ResourceRef<core::CommandBuffer> commandBuffer =
+            commandCache_.getCommandBuffer(batchFamily, core::CommandBufferLevel::Primary, frameIndex, 0);
 
         // Begin command buffer
         commandBuffer->begin();
@@ -206,17 +208,24 @@ void hammock::renderer::FrameGraph::recordComputePass(
 }
 
 hammock::core::Handle<hammock::renderer::FrameGraphBuilder::FrameGraphPassWrapper>
-hammock::renderer::FrameGraphBuilder::createGraphicsPass(GraphicsPassDesc graphicsDesc) {
-    auto handle = passes_.create(graphicsDesc);
+hammock::renderer::FrameGraphBuilder::createGraphicsPass(GraphicsPassDesc&& graphicsDesc) {
+    auto handle = passes_.create(std::move(graphicsDesc));
     handles_.push_back(handle);
     return handle;
 }
 
 hammock::core::Handle<hammock::renderer::FrameGraphBuilder::FrameGraphPassWrapper>
-hammock::renderer::FrameGraphBuilder::createComputePass(ComputePassDesc computeDesc) {
-    auto handle = passes_.create(computeDesc);
+hammock::renderer::FrameGraphBuilder::createComputePass(ComputePassDesc&& computeDesc) {
+    auto handle = passes_.create(std::move(computeDesc));
     handles_.push_back(handle);
     return handle;
 }
 
-hammock::renderer::FrameGraphDesc hammock::renderer::FrameGraphBuilder::build() {}
+hammock::renderer::FrameGraphDesc hammock::renderer::FrameGraphBuilder::build() {
+    FrameGraphDesc desc{};
+    for(auto& handle : handles_){
+        core::ResourceRef<FrameGraphPassWrapper> pass = passes_.ref(handle);
+        desc.passes.push_back(pass->desc);
+    }
+    return desc;
+}

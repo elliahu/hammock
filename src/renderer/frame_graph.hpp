@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <variant>
 #include <vector>
 #include <vulkan/vulkan.hpp>
-#include <variant>
 
 #include "command_buffer.hpp"
 #include "command_cache.hpp"
@@ -87,13 +87,12 @@ namespace hammock::renderer {
 
     struct FrameGraphDesc {
         std::vector<std::variant<GraphicsPassDesc, ComputePassDesc, TransferPassDesc>> passes;
-        CommandCache& commandCache;
     };
 
     /// @class FrameGraph
     class FrameGraph {
        public:
-        explicit FrameGraph(FrameGraphDesc&& desc);
+        explicit FrameGraph(FrameGraphDesc&& desc, CommandCache& commandCache);
 
         void execute(uint32_t frameIndex = 0);
 
@@ -103,6 +102,7 @@ namespace hammock::renderer {
         void recordComputePass(ComputePassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd);
 
         FrameGraphDesc desc_;
+        CommandCache& commandCache_;
     };
 
     /// @class FrameGraphBuilder
@@ -113,17 +113,17 @@ namespace hammock::renderer {
         /// Internal type for storing pass descriptions
         struct FrameGraphPassWrapper {
             // Description
-            std::variant<GraphicsPassDesc, ComputePassDesc> desc;
+            std::variant<GraphicsPassDesc, ComputePassDesc, TransferPassDesc> desc;
 
             // Constructors
-            FrameGraphPassWrapper(GraphicsPassDesc graphicsDesc) : desc(graphicsDesc) {}
-            FrameGraphPassWrapper(ComputePassDesc computeDesc) : desc(computeDesc) {}
+            FrameGraphPassWrapper(GraphicsPassDesc&& graphicsDesc) : desc(graphicsDesc) {}
+            FrameGraphPassWrapper(ComputePassDesc&& computeDesc) : desc(computeDesc) {}
         };
 
         /// Creates a graphics pass
-        core::Handle<FrameGraphPassWrapper> createGraphicsPass(GraphicsPassDesc graphicsDesc);
+        core::Handle<FrameGraphPassWrapper> createGraphicsPass(GraphicsPassDesc &&graphicsDesc);
         /// Creates a compute pass
-        core::Handle<FrameGraphPassWrapper> createComputePass(ComputePassDesc computeDesc);
+        core::Handle<FrameGraphPassWrapper> createComputePass(ComputePassDesc &&computeDesc);
 
         FrameGraphDesc build();
 

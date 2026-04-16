@@ -26,7 +26,7 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
       surface_(surfaceFactory(instance_)),
       device_(instance_, surface_),
       surfaceDestructor_(std::move(surfaceDestructor)),
-      commandBufferProvider_(device_, core::SwapChain::MAX_FRAMES_IN_FLIGHT, 1) {
+      commandCache_(device_, core::SwapChain::MAX_FRAMES_IN_FLIGHT, 1) {
     // create the descriptor pool
     descriptorPoolHandle_ = descriptorPools_.create(device_,
         10000,
@@ -178,7 +178,8 @@ void hammock::renderer::Renderer::drawFrame(
     else
         writer.build(computeDescriptorSets_[currentFrameIdx_]);
 
-    ComputePassDesc computeDesc{
+    FrameGraphBuilder builder{};
+    auto COMPUTE_PASS = builder.createComputePass({
         .name = "Compute pass",
         .transitions =
             {
@@ -209,9 +210,9 @@ void hammock::renderer::Renderer::drawFrame(
                     .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
                     .signal = timelineValue,
                 },
-    };
+    });
 
-    GraphicsPassDesc uiPassDesc{
+    auto GRAPHICS_PASS = builder.createGraphicsPass({
         .name = "User Interface",
         .transitions =
             {
@@ -259,12 +260,11 @@ void hammock::renderer::Renderer::drawFrame(
                 // Draw the ui
                 commandBuffer->getCommandBuffer().draw(snap.uiDraws.vertices.size(), 1, 0, 0);
             },
-    };
+    });
 
-    FrameGraph graph{{
-        .passes = {std::move(computeDesc), std::move(uiPassDesc)},
-        .commandCache = commandBufferProvider_,
-    }};
+    FrameGraphDesc frameGraphDesc = builder.build();
+
+    FrameGraph graph{std::move(frameGraphDesc), commandCache_};
 
     graph.execute(currentFrameIdx_);
 

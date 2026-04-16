@@ -11,7 +11,6 @@
 #include "core/pipeline.hpp"
 #include "core/resource_manager.hpp"
 #include "core/semaphore.hpp"
-#include "frame_graph.hpp"
 #include "render_proxy.hpp"
 #include "render_types.hpp"
 #include "swapchain.hpp"
@@ -81,7 +80,7 @@ namespace hammock::renderer {
             nullptr};  // This is called in the desdtructor to destroy surface which is created externally
         core::Device device_;
         threading::ThreadPool threadPool_{};
-        CommandCache commandBufferProvider_;
+        CommandCache commandCache_;
 
         /// Index of the current frame
         std::uint32_t currentFrameIdx_ = 0;
