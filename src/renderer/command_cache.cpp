@@ -1,7 +1,7 @@
-#include "command_buffer_provider.hpp"
+#include "command_cache.hpp"
 #include "utilities.hpp"
 
-hammock::renderer::CommandBufferProvider::CommandBufferProvider(
+hammock::renderer::CommandCache::CommandCache(
     core::Device& device, size_t frames, size_t threads)
     : device_(device), frameCount_(frames), threadCount_(threads) {
     auto indices = device.getPhysicalQueueFamilies();
@@ -28,13 +28,13 @@ hammock::renderer::CommandBufferProvider::CommandBufferProvider(
 }
 
 hammock::core::ResourceRef<hammock::core::CommandBuffer>
-hammock::renderer::CommandBufferProvider::getCommandBuffer(core::CommandQueueFamily family,
+hammock::renderer::CommandCache::getCommandBuffer(core::CommandQueueFamily family,
     core::CommandBufferLevel level, uint32_t frameIndex, uint32_t threadIndex) {
     auto& pool = frames_[frameIndex][static_cast<uint32_t>(family) - 1][threadIndex];
     return allocateOrReuse(pool, level);
 }
 
-void hammock::renderer::CommandBufferProvider::resetPools(uint32_t frameIndex) {
+void hammock::renderer::CommandCache::resetPools(uint32_t frameIndex) {
     for (int q = 0; q < 3; q++) {
         for (int t = 0; t < threadCount_; t++) {
             auto& pool = frames_[frameIndex][q][t];
@@ -46,7 +46,7 @@ void hammock::renderer::CommandBufferProvider::resetPools(uint32_t frameIndex) {
 }
 
 hammock::core::ResourceRef<hammock::core::CommandBuffer>
-hammock::renderer::CommandBufferProvider::allocateOrReuse(
+hammock::renderer::CommandCache::allocateOrReuse(
     LocalCommandBufferPool& pool, core::CommandBufferLevel level) {
     auto& bufferList = (level == core::CommandBufferLevel::Primary) ? pool.primaryCmds : pool.secondaryCmds;
     uint32_t& index = (level == core::CommandBufferLevel::Primary) ? pool.nextPrimary : pool.nextSecondary;

@@ -1,6 +1,7 @@
 #include "frame_graph.hpp"
 
 #include <stdexcept>
+#include <variant>
 
 #include "command_buffer.hpp"
 #include "device.hpp"
@@ -11,62 +12,60 @@ hammock::renderer::FrameGraph::FrameGraph(FrameGraphDesc&& desc) : desc_{std::mo
 
 void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
     // Reset pools
-    desc_.commandBufferProvider.resetPools(frameIndex);
+    desc_.commandCache.resetPools(frameIndex);
 
     // For each batch determine its family and allocate command buffer
-    for (auto& batch : desc_.batches) {
-        // Make sure only one family is present
-        if ((!batch.graphics.empty() + !batch.compute.empty() + !batch.transfer.empty()) != 1) {
-            // more than one is non-empty -> this is error, early exit
-            throw std::runtime_error("more than one type of passes in a batch is not supported");
-        }
-
+    for (auto& pass : desc_.passes) {
         // Determin the pass family
         core::CommandQueueFamily batchFamily = core::CommandQueueFamily::Ignored;
-        if (!batch.graphics.empty())
+        if (std::holds_alternative<GraphicsPassDesc>(pass))
             batchFamily = core::CommandQueueFamily::Graphics;
-        else if (!batch.compute.empty())
+        else if (std::holds_alternative<ComputePassDesc>(pass))
             batchFamily = core::CommandQueueFamily::Compute;
-        else if (!batch.transfer.empty())
+        else if (std::holds_alternative<TransferPassDesc>(pass))
             batchFamily = core::CommandQueueFamily::Transfer;
 
         // Sanity check
-        if (batchFamily == core::CommandQueueFamily::Ignored)
-            throw std::runtime_error("failed to determine batch family or the batch is emtpy");
+        if (batchFamily == core::CommandQueueFamily::Ignored) {
+            throw std::runtime_error("failed to determine pass family");
+        }
+
+        // Unsupported transfer
+        // TODO
+        if (batchFamily == core::CommandQueueFamily::Transfer) {
+            throw std::runtime_error("transfer passes not yet supported");
+        }
 
         // Get the primary cmd buffer reference
-        core::ResourceRef<core::CommandBuffer> commandBuffer =
-            desc_.commandBufferProvider.getCommandBuffer(batchFamily, core::CommandBufferLevel::Primary, frameIndex, 0);
+        core::ResourceRef<core::CommandBuffer> commandBuffer = desc_.commandCache.getCommandBuffer(
+            batchFamily, core::CommandBufferLevel::Primary, frameIndex, 0);
 
         // Begin command buffer
         commandBuffer->begin();
 
-        // Add wait semaphore if present
-        if (batch.sync.semaphore.has_value() && batch.sync.wait.has_value()) {
-            commandBuffer->addWaitSemaphore(
-                batch.sync.semaphore.value(), batch.sync.waitStage, batch.sync.wait);
-        }
+        // Add sync primitives and record
+        std::visit(
+            [&commandBuffer, this](auto& anyPass) {
+                // Add wait semaphore if present
+                if (anyPass.sync.semaphore.has_value() && anyPass.sync.wait.has_value()) {
+                    commandBuffer->addWaitSemaphore(
+                        anyPass.sync.semaphore.value(), anyPass.sync.waitStage, anyPass.sync.wait);
+                }
 
-        // Add signal semaphore if present
-        if (batch.sync.semaphore.has_value() && batch.sync.signal.has_value()) {
-            commandBuffer->addSignalSemaphore(batch.sync.semaphore.value(), batch.sync.signal);
-        }
+                // Add signal semaphore if present
+                if (anyPass.sync.semaphore.has_value() && anyPass.sync.signal.has_value()) {
+                    commandBuffer->addSignalSemaphore(anyPass.sync.semaphore.value(), anyPass.sync.signal);
+                }
 
-        // Record all passes in the batch
-        if (batchFamily == core::CommandQueueFamily::Graphics) {
-            for (auto& pass : batch.graphics) {
-                recordGraphicsPass(pass, commandBuffer);
-            }
-        } else if (batchFamily == core::CommandQueueFamily::Compute) {
-            for (auto& pass : batch.compute) {
-                recordComputePass(pass, commandBuffer);
-            }
-        } else if (batchFamily == core::CommandQueueFamily::Transfer) {
-            for (auto& pass : batch.transfer) {
-                recordBarrier(pass.transitions, commandBuffer);
-                pass.execute(commandBuffer);
-            }
-        }
+                // Record
+                using PassType = std::decay_t<decltype(anyPass)>;
+                if constexpr (std::is_same_v<PassType, GraphicsPassDesc>) {
+                    recordGraphicsPass(anyPass, commandBuffer);
+                } else if constexpr (std::is_same_v<PassType, ComputePassDesc>) {
+                    recordComputePass(anyPass, commandBuffer);
+                }
+            },
+            pass);
 
         // Submit the command buffer
         commandBuffer->submit();
@@ -74,7 +73,7 @@ void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
 }
 
 void hammock::renderer::FrameGraph::recordBarrier(
-    PassTransitions& transitions, core::ResourceRef<core::CommandBuffer> cmd) {
+    PassTransitionsInfo& transitions, core::ResourceRef<core::CommandBuffer> cmd) {
     if (!transitions.images.empty() || !transitions.buffers.empty()) {
         std::vector<core::ImageMemoryBarrier> imageBarriers{};
         std::vector<core::BufferMemoryBarrier> bufferBarriers{};
@@ -206,33 +205,18 @@ void hammock::renderer::FrameGraph::recordComputePass(
     }
 }
 
-void hammock::renderer::CommandBufferCache::init(
-    core::Device& device, core::CommandQueueFamily family, uint32_t numThreads) {
-    commandPools_.clear();  // Clear first
-    commandBuffers_.clear();
-
-    // Create the main pool and primary command buffer
-    mainPoolHndl_ = commandPools_.create(device, family);
-    primaryBufferHndl_ =
-        commandBuffers_.create(commandPools_.get(mainPoolHndl_), core::CommandBufferLevel::Primary);
-
-    // Create per thread secondary command buffers
-    threadCaches_.resize(numThreads);
-    for (uint32_t i = 0; i < numThreads; i++) {
-        threadCaches_[i].secondaryBufferHdnl =
-            commandBuffers_.create(commandPools_.get(mainPoolHndl_), core::CommandBufferLevel::Secondary);
-    }
+hammock::core::Handle<hammock::renderer::FrameGraphBuilder::FrameGraphPassWrapper>
+hammock::renderer::FrameGraphBuilder::createGraphicsPass(GraphicsPassDesc graphicsDesc) {
+    auto handle = passes_.create(graphicsDesc);
+    handles_.push_back(handle);
+    return handle;
 }
 
-void hammock::renderer::CommandBufferCache::reset() { commandPools_.get(mainPoolHndl_).reset(); }
-
-hammock::core::ResourceRef<hammock::core::CommandBuffer>
-hammock::renderer::CommandBufferCache::getPrimaryCommandBuffer() {
-    return commandBuffers_.ref(primaryBufferHndl_);
+hammock::core::Handle<hammock::renderer::FrameGraphBuilder::FrameGraphPassWrapper>
+hammock::renderer::FrameGraphBuilder::createComputePass(ComputePassDesc computeDesc) {
+    auto handle = passes_.create(computeDesc);
+    handles_.push_back(handle);
+    return handle;
 }
 
-hammock::core::ResourceRef<hammock::core::CommandBuffer>
-hammock::renderer::CommandBufferCache::getSecondaryCommandBuffer(uint32_t threadIndex) {
-    if (threadIndex >= threadCaches_.size()) throw std::out_of_range("thread index out of range");
-    return commandBuffers_.ref(threadCaches_[threadIndex].secondaryBufferHdnl);
-}
+hammock::renderer::FrameGraphDesc hammock::renderer::FrameGraphBuilder::build() {}

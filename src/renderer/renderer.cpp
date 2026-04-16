@@ -204,6 +204,11 @@ void hammock::renderer::Renderer::drawFrame(
                         .data = &compPush,
                     },
             },
+            .sync =
+                {
+                    .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
+                    .signal = timelineValue,
+                },
     };
 
     GraphicsPassDesc uiPassDesc{
@@ -229,6 +234,12 @@ void hammock::renderer::Renderer::drawFrame(
                         .data = &uiPush,
                     },
             },
+            .sync =
+                {
+                    .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
+                    .wait = timelineValue,
+                    .waitStage = core::PipelineStage::AllCommands,
+                },
         .execute =
             [&, this](core::ResourceRef<core::CommandBuffer> commandBuffer) {
                 // Signal rendering finished
@@ -250,29 +261,9 @@ void hammock::renderer::Renderer::drawFrame(
             },
     };
 
-    RenderBatchDesc comBatchDesc{
-        .compute = {std::move(computeDesc)},
-        .sync =
-            {
-                .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
-                .signal = timelineValue,
-            },
-    };
-
-    RenderBatchDesc uiBatchDesc{
-        .graphics = {std::move(uiPassDesc)},
-        .sync =
-            {
-                .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
-                .wait = timelineValue,
-                .waitStage = core::PipelineStage::AllCommands,
-            },
-    };
-
     FrameGraph graph{{
-        .batches = {std::move(comBatchDesc), std::move(uiBatchDesc)},
-        .commandBufferProvider = commandBufferProvider_,
-        .threadPool = threadPool_,
+        .passes = {std::move(computeDesc), std::move(uiPassDesc)},
+        .commandCache = commandBufferProvider_,
     }};
 
     graph.execute(currentFrameIdx_);

@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <functional>
 
-#include "command_buffer_provider.hpp"
+#include "command_cache.hpp"
 #include "core/command_buffer.hpp"
 #include "core/descriptors.hpp"
 #include "core/device.hpp"
@@ -81,7 +81,7 @@ namespace hammock::renderer {
             nullptr};  // This is called in the desdtructor to destroy surface which is created externally
         core::Device device_;
         threading::ThreadPool threadPool_{};
-        CommandBufferProvider commandBufferProvider_;
+        CommandCache commandBufferProvider_;
 
         /// Index of the current frame
         std::uint32_t currentFrameIdx_ = 0;

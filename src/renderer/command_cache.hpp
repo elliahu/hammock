@@ -8,20 +8,20 @@
 
 namespace hammock::renderer {
 
-    /// @brief Command buffer pool local to a thread and frame
-    struct LocalCommandBufferPool {
-        core::Handle<core::CommandPool> pool;
-        std::vector<core::Handle<core::CommandBuffer>> primaryCmds;
-        std::vector<core::Handle<core::CommandBuffer>> secondaryCmds;
-        uint32_t nextPrimary = 0;
-        uint32_t nextSecondary = 0;
-    };
-
-    /// @brief Helper class for command buffer management
-    /// TODO check if family is available on the device
-    class CommandBufferProvider {
+    /// @class CommandCache
+    /// @brief Used to allocate command buffers on demand and cache already allocated ones and cycle through them
+    class CommandCache {
        public:
-        CommandBufferProvider(core::Device& device, size_t frames, size_t threads);
+        /// @brief Command buffer pool local to a thread and frame
+        struct LocalCommandBufferPool {
+            core::Handle<core::CommandPool> pool;
+            std::vector<core::Handle<core::CommandBuffer>> primaryCmds;
+            std::vector<core::Handle<core::CommandBuffer>> secondaryCmds;
+            uint32_t nextPrimary = 0;
+            uint32_t nextSecondary = 0;
+        };
+
+        CommandCache(core::Device& device, size_t frames, size_t threads);
 
         core::ResourceRef<core::CommandBuffer> getCommandBuffer(core::CommandQueueFamily family,
             core::CommandBufferLevel level, uint32_t frameIndex, uint32_t threadIndex);

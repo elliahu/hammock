@@ -5,23 +5,22 @@
 #include <optional>
 #include <vector>
 #include <vulkan/vulkan.hpp>
+#include <variant>
 
 #include "command_buffer.hpp"
-#include "device.hpp"
+#include "command_cache.hpp"
 #include "image.hpp"
 #include "resource_manager.hpp"
 #include "semaphore.hpp"
-#include "utils/thread_pool.hpp"
-#include "command_buffer_provider.hpp"
 
 namespace hammock::renderer {
 
-    struct PassTransitions {
+    struct PassTransitionsInfo {
         std::vector<core::ImageMemoryBarrier> images;
         std::vector<core::BufferMemoryBarrier> buffers;
     };
 
-    struct PushConstants {
+    struct PushConstantsInfo {
         core::ShaderStage stages;
         uint32_t size;
         const void* data;
@@ -29,7 +28,14 @@ namespace hammock::renderer {
 
     struct PassDataInfo {
         std::vector<core::DescriptorSet> descriptors;
-        PushConstants constants;
+        PushConstantsInfo constants;
+    };
+
+    struct PassSyncInfo {
+        std::optional<core::ResourceRef<core::Semaphore>> semaphore;
+        std::optional<uint64_t> wait;  // wait value
+        core::PipelineStage waitStage = core::PipelineStage::Invalid;
+        std::optional<uint64_t> signal;  // signal value
     };
 
     struct GraphicsPassRenderingInfo {
@@ -42,11 +48,13 @@ namespace hammock::renderer {
         std::optional<core::ResourceRef<core::Pipeline>> pipeline;
     };
 
+    /// @struct GraphicsPassDesc
     struct GraphicsPassDesc {
         std::string name;
-        PassTransitions transitions;
+        PassTransitionsInfo transitions;
         GraphicsPassRenderingInfo rendering;
         PassDataInfo data;
+        PassSyncInfo sync;
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
     };
 
@@ -59,66 +67,30 @@ namespace hammock::renderer {
         std::optional<core::ResourceRef<core::Pipeline>> pipeline;
     };
 
+    /// @struct ComputePassDesc
     struct ComputePassDesc {
         std::string name;
-        PassTransitions transitions;
+        PassTransitionsInfo transitions;
         ComputePassDispatchInfo dispatch;
         PassDataInfo data;
+        PassSyncInfo sync;
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
     };
 
     struct TransferPassDesc {
         std::string name;
-        PassTransitions transitions;
+        PassTransitionsInfo transitions;
+        PassDataInfo data;
+        PassSyncInfo sync;
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
     };
 
-    struct RenderBatchSyncInfo {
-        std::optional<core::ResourceRef<core::Semaphore>> semaphore;
-        std::optional<uint64_t> wait;  // wait value
-        core::PipelineStage waitStage = core::PipelineStage::Invalid;
-        std::optional<uint64_t> signal;  // signal value
-    };
-
-    struct RenderBatchDesc {
-        std::vector<GraphicsPassDesc> graphics;
-        std::vector<ComputePassDesc> compute;
-        std::vector<TransferPassDesc> transfer;
-        RenderBatchSyncInfo sync;
-    };
-
-    class CommandBufferCache {
-       public:
-        // Layz init
-        void init(core::Device& device, core::CommandQueueFamily family, uint32_t numThreads);
-        // Called at the start of the frame
-        void reset();
-        // Get a primary command buffer for the main thread
-        core::ResourceRef<core::CommandBuffer> getPrimaryCommandBuffer();
-        // Get a secondary command buffer for a specific worker thread
-        core::ResourceRef<core::CommandBuffer> getSecondaryCommandBuffer(uint32_t threadIndex);
-
-       private:
-        // Managers
-        core::ResourceManager<core::CommandPool> commandPools_;
-        core::ResourceManager<core::CommandBuffer> commandBuffers_;
-        // Main thread pool and buffers
-        core::Handle<core::CommandPool> mainPoolHndl_;
-        core::Handle<core::CommandBuffer> primaryBufferHndl_;
-
-        // Worker thread pools and buffers
-        struct ThreadCache {
-            core::Handle<core::CommandBuffer> secondaryBufferHdnl;
-        };
-        std::vector<ThreadCache> threadCaches_;
-    };
-
     struct FrameGraphDesc {
-        std::vector<RenderBatchDesc> batches;
-        CommandBufferProvider& commandBufferProvider;
-        threading::ThreadPool& threadPool;
+        std::vector<std::variant<GraphicsPassDesc, ComputePassDesc, TransferPassDesc>> passes;
+        CommandCache& commandCache;
     };
 
+    /// @class FrameGraph
     class FrameGraph {
        public:
         explicit FrameGraph(FrameGraphDesc&& desc);
@@ -126,11 +98,39 @@ namespace hammock::renderer {
         void execute(uint32_t frameIndex = 0);
 
        private:
-        void recordBarrier(PassTransitions& transitions, core::ResourceRef<core::CommandBuffer> cmd);
+        void recordBarrier(PassTransitionsInfo& transitions, core::ResourceRef<core::CommandBuffer> cmd);
         void recordGraphicsPass(GraphicsPassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd);
         void recordComputePass(ComputePassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd);
 
         FrameGraphDesc desc_;
+    };
+
+    /// @class FrameGraphBuilder
+    /// @brief Builds the frame graph descriptions
+    class FrameGraphBuilder {
+       public:
+        /// @struct FrameGraphPassWrapper
+        /// Internal type for storing pass descriptions
+        struct FrameGraphPassWrapper {
+            // Description
+            std::variant<GraphicsPassDesc, ComputePassDesc> desc;
+
+            // Constructors
+            FrameGraphPassWrapper(GraphicsPassDesc graphicsDesc) : desc(graphicsDesc) {}
+            FrameGraphPassWrapper(ComputePassDesc computeDesc) : desc(computeDesc) {}
+        };
+
+        /// Creates a graphics pass
+        core::Handle<FrameGraphPassWrapper> createGraphicsPass(GraphicsPassDesc graphicsDesc);
+        /// Creates a compute pass
+        core::Handle<FrameGraphPassWrapper> createComputePass(ComputePassDesc computeDesc);
+
+        FrameGraphDesc build();
+
+       private:
+        core::ResourceManager<FrameGraphPassWrapper>
+            passes_;  // Store the actuall pass descriptions in a wrapper object
+        std::vector<core::Handle<FrameGraphPassWrapper>> handles_;  // stores the handles give by the builder
     };
 
 }  // namespace hammock::renderer
