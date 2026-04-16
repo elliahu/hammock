@@ -7,10 +7,8 @@
 
 #include "VulkanSurfer/VulkanSurfer.h"
 #include "presenter.hpp"
-#include "render_backend.hpp"
+#include "rendering_server.hpp"
 #include "render_frontend.hpp"
-#include "render_proxy.hpp"
-#include "render_types.hpp"
 #include "ui/ui.hpp"
 
 hammock::app::Runner::Runner() {
@@ -55,8 +53,8 @@ hammock::app::Runner::Runner() {
     });
 
     // Create render proxy and frontend
-    renderProxy_ = std::make_unique<renderer::RenderProxy>();
-    renderFrontend_ = std::make_unique<renderer::RenderFrontend>(*renderProxy_, *window_);
+    renderingServerProxy_ = std::make_unique<renderer::RenderingServerProxy>();
+    renderFrontend_ = std::make_unique<renderer::RenderFrontend>(*renderingServerProxy_, *window_);
 
     // Initialize renderer
     auto renderer = std::make_unique<renderer::Renderer>(
@@ -75,18 +73,18 @@ hammock::app::Runner::Runner() {
         [this](uint32_t width, uint32_t height) { ui::Ui::instance().setDisplaySize(width, height); });
 
     // Create render backend by moving the renderer
-    renderBackend_ = std::make_unique<renderer::RenderBackend>(
-        *renderProxy_, *window_, std::move(renderer), std::move(presenter));
+    renderingServer_ = std::make_unique<renderer::RenderingServer>(
+        *renderingServerProxy_, *window_, std::move(renderer), std::move(presenter));
 }
 
 hammock::app::Runner::~Runner() {}
 
 void hammock::app::Runner::launch() {
     // Backend must start before frontend as the frontend runs on this (main) thread
-    renderBackend_->start();
+    renderingServer_->start();
     // Start the frontend
     renderFrontend_->start();
 
     // Join the threads
-    renderBackend_->join();
+    renderingServer_->join();
 }

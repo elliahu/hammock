@@ -1,5 +1,5 @@
 #pragma once
-#include "render_proxy.hpp"
+#include "rendering_server.hpp"
 #include "render_types.hpp"
 #include "surface_provider_iface.hpp"
 
@@ -7,7 +7,7 @@ namespace hammock::renderer {
 
     class RenderFrontend {
        public:
-        explicit RenderFrontend(RenderProxy& proxy, core::SurfaceProviderIface& surfaceProvider);
+        explicit RenderFrontend(RenderingServerProxy& proxy, core::SurfaceProviderIface& surfaceProvider);
 
         /// @brief Start the execution
         void start();
@@ -20,7 +20,7 @@ namespace hammock::renderer {
         // Builds the render snapshot
         RenderSnapshot buildRenderSnapshot();
 
-        RenderProxy& proxy_;
+        RenderingServerProxy& proxy_;
         core::SurfaceProviderIface& surfaceProvider_;
         float frameTime_{0.f};
         float renderTime_{0.f};

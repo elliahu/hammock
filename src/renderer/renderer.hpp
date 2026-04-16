@@ -11,7 +11,6 @@
 #include "core/pipeline.hpp"
 #include "core/resource_manager.hpp"
 #include "core/semaphore.hpp"
-#include "render_proxy.hpp"
 #include "render_types.hpp"
 #include "swapchain.hpp"
 #include "utils/thread_pool.hpp"
@@ -35,7 +34,7 @@ namespace hammock::renderer {
         virtual void waitIdle() = 0;
 
         /// @brief Handle a resize event
-        virtual void handleResize(RenderCommand resizeCmd) = 0;
+        virtual void handleResize(uint32_t w, uint32_t h) = 0;
     };
 
     /// @brief Default implementation of a renderer
@@ -66,7 +65,7 @@ namespace hammock::renderer {
         void waitIdle() override;
 
         /// @brief Handle a resize event
-        void handleResize(RenderCommand resizeCmd) override {
+        void handleResize(uint32_t w, uint32_t h) override {
             // TODO handle resize event here, recreate buffers etc.
         }
 

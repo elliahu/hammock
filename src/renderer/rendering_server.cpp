@@ -1,11 +1,16 @@
-#include "render_backend.hpp"
+#include "rendering_server.hpp"
 
 #include <thread>
 
-#include "render_proxy.hpp"
 #include "utilities.hpp"
 
-hammock::renderer::RenderBackend::RenderBackend(RenderProxy& proxy,
+hammock::renderer::RenderQueue& hammock::renderer::RenderingServerProxy::getRenderQueue() { return renderQueue_; }
+hammock::renderer::CommandQueue& hammock::renderer::RenderingServerProxy::getFtbCommandQueue() { return requestQueue; }
+hammock::renderer::CommandQueue& hammock::renderer::RenderingServerProxy::getBtfCommandQueue() {
+    return responseQueue;
+}
+
+hammock::renderer::RenderingServer::RenderingServer(RenderingServerProxy& proxy,
     core::SurfaceProviderIface& surfaceProvider, std::unique_ptr<RendererIface>&& renderer,
     std::unique_ptr<PresenterIface>&& presenter)
     : proxy_(proxy),
@@ -13,7 +18,7 @@ hammock::renderer::RenderBackend::RenderBackend(RenderProxy& proxy,
       renderer_(std::move(renderer)),
       presenter_(std::move(presenter)) {}
 
-void hammock::renderer::RenderBackend::start() {
+void hammock::renderer::RenderingServer::start() {
     running_.store(true);
 
     thread_ = std::thread([this]() {
@@ -35,13 +40,11 @@ void hammock::renderer::RenderBackend::start() {
                     break;  // Break out of the render loop
                 }
                 if (cmd.type == RenderCommandType::Resize) {
-                    renderer_->handleResize(cmd);
+                    renderer_->handleResize(cmd.width, cmd.height);
                     // Resize handled
                     surfaceProvider_.resetResized();
                 }
             }
-
-
 
             // Consume render packet
             RenderSnapshot renderSnap;
@@ -70,8 +73,10 @@ void hammock::renderer::RenderBackend::start() {
             float lastFrameMs = frameTime.count();
             float commandProcessingTimeMs = commandProcessingTime.count();
             float renderTimeMs = renderTime.count();
-            proxy_.getBtfCommandQueue().push(
-                RenderCommand{.type = RenderCommandType::Frametime, .frametime = lastFrameMs, .rendertime = renderTimeMs, .cmdtime = commandProcessingTimeMs});
+            proxy_.getBtfCommandQueue().push(RenderCommand{.type = RenderCommandType::Frametime,
+                .frametime = lastFrameMs,
+                .rendertime = renderTimeMs,
+                .cmdtime = commandProcessingTimeMs});
         }
 
         // Finish the rendering before stopping
@@ -79,8 +84,8 @@ void hammock::renderer::RenderBackend::start() {
     });
 }
 
-void hammock::renderer::RenderBackend::stop() { running_.store(false, std::memory_order_release); }
+void hammock::renderer::RenderingServer::stop() { running_.store(false, std::memory_order_release); }
 
-bool hammock::renderer::RenderBackend::isRunning() const { return running_.load(std::memory_order_relaxed); }
+bool hammock::renderer::RenderingServer::isRunning() const { return running_.load(std::memory_order_relaxed); }
 
-void hammock::renderer::RenderBackend::join() { thread_.join(); }
+void hammock::renderer::RenderingServer::join() { thread_.join(); }

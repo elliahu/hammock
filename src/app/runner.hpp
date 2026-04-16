@@ -2,9 +2,8 @@
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
-#include "render_backend.hpp"
+#include "rendering_server.hpp"
 #include "render_frontend.hpp"
-#include "render_proxy.hpp"
 #include "window.hpp"
 
 
@@ -25,12 +24,12 @@ namespace hammock::app {
         std::unique_ptr<Window> window_;
 
         /// Render proxy
-        std::unique_ptr<renderer::RenderProxy> renderProxy_{nullptr};
+        std::unique_ptr<renderer::RenderingServerProxy> renderingServerProxy_{nullptr};
 
         /// Render frontend
         std::unique_ptr<renderer::RenderFrontend> renderFrontend_{nullptr};
 
         /// Render backend
-        std::unique_ptr<renderer::RenderBackend> renderBackend_{nullptr};
+        std::unique_ptr<renderer::RenderingServer> renderingServer_{nullptr};
     };
 }

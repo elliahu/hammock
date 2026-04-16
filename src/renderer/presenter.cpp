@@ -8,6 +8,53 @@
 
 namespace hammock::renderer {
 
+    hammock::renderer::Framebuffer::Framebuffer(
+        core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, core::ImageFormat format)
+        : device_(device), resolution_(resolution), framesInFlight_(framesInFlight) {
+        createImages(resolution, format);
+    }
+
+    hammock::renderer::Framebuffer::~Framebuffer() {
+        for (auto& i : handles_) {
+            images_.destroy(i);
+        }
+    }
+
+    vk::Extent2D hammock::renderer::Framebuffer::getExtent() const {
+        return vk::Extent2D(
+            static_cast<std::uint32_t>(resolution_.X), static_cast<std::uint32_t>(resolution_.Y));
+    }
+
+    void hammock::renderer::Framebuffer::swapImages() {
+        currentFrame_ = (currentFrame_ + 1) % framesInFlight_;
+    }
+
+    hammock::core::ResourceRef<hammock::core::Image> hammock::renderer::Framebuffer::getFrontbufferImage() {
+        return images_.ref(handles_[currentFrame_]);
+    }
+
+    void hammock::renderer::Framebuffer::createImages(math::Vec2 resolution, core::ImageFormat format) {
+        for (int i = 0; i < framesInFlight_; i++) {
+            auto handle = images_.create(device_,
+                core::ImageDesc{
+                    .width = static_cast<std::uint32_t>(resolution.X),
+                    .height = static_cast<std::uint32_t>(resolution.Y),
+                    .channels = 4,
+                    .depth = 1,
+                    .layers = 1,
+                    .mips = 1,
+                    .format = format,
+                    .usage = core::ImageUsage::ColorAttachment | core::ImageUsage::TransferSrc |
+                             core::ImageUsage::TransferDst | core::ImageUsage::Storage,
+                    .type = core::ImageType::Type2D,
+                });
+            handles_.push_back(handle);
+        }
+
+        // Wait for all transitions
+        device_.waitIdle();
+    }
+
     Presenter::Presenter(
         core::Device& device, core::SurfaceProviderIface& surfaceProvider, const PresenterDesc& desc)
         : device_(device), framesInFlight_(core::SwapChain::MAX_FRAMES_IN_FLIGHT), desc_(desc) {
@@ -53,7 +100,8 @@ namespace hammock::renderer {
             .renderTarget = framebuffer_->getFrontbufferImage(),
             .renderFinished = semaphores_.ref(perFrameResources_[currentFrameIndex_].renderingFinished),
             .imageReleased = semaphores_.ref(perFrameResources_[currentFrameIndex_].imageReleased),
-            .imageReleasedValue = perFrameResources_[currentFrameIndex_].imageReleasedValue,  // wait on this before touching image
+            .imageReleasedValue = perFrameResources_[currentFrameIndex_]
+                .imageReleasedValue,  // wait on this before touching image
             .frameIndex = currentFrameIndex_,
         };
     }
@@ -72,10 +120,7 @@ namespace hammock::renderer {
             semaphores_.ref(res.renderingFinished), core::PipelineStage::AllCommands);
         presentCmd->addWaitSemaphore(syncObjects.imageAvailable, core::PipelineStage::ColorAttachmentOutput);
         presentCmd->addSignalSemaphore(syncObjects.frameFinished);
-        presentCmd->addSignalSemaphore(
-            semaphores_.ref(res.imageReleased),
-            res.imageReleasedValue
-        );
+        presentCmd->addSignalSemaphore(semaphores_.ref(res.imageReleased), res.imageReleasedValue);
 
         presentCmd->begin();
         blitFramebufferToSwapchain(ctx);

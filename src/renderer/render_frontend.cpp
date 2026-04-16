@@ -1,12 +1,12 @@
 #include "render_frontend.hpp"
 
-#include "render_proxy.hpp"
+#include "rendering_server.hpp"
 #include "render_types.hpp"
 #include "utilities.hpp"
 #include "ui/ui.hpp"
 
 hammock::renderer::RenderFrontend::RenderFrontend(
-    RenderProxy& proxy, core::SurfaceProviderIface& surfaceProvider)
+    RenderingServerProxy& proxy, core::SurfaceProviderIface& surfaceProvider)
     : proxy_(proxy), surfaceProvider_(surfaceProvider) {}
 
 void hammock::renderer::RenderFrontend::start() {

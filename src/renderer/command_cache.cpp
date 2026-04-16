@@ -1,5 +1,4 @@
 #include "command_cache.hpp"
-#include "utilities.hpp"
 
 hammock::renderer::CommandCache::CommandCache(
     core::Device& device, size_t frames, size_t threads)

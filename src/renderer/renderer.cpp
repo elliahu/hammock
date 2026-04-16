@@ -205,11 +205,11 @@ void hammock::renderer::Renderer::drawFrame(
                         .data = &compPush,
                     },
             },
-            .sync =
-                {
-                    .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
-                    .signal = timelineValue,
-                },
+        .sync =
+            {
+                .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
+                .signal = timelineValue,
+            },
     });
 
     auto GRAPHICS_PASS = builder.createGraphicsPass({
@@ -235,12 +235,12 @@ void hammock::renderer::Renderer::drawFrame(
                         .data = &uiPush,
                     },
             },
-            .sync =
-                {
-                    .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
-                    .wait = timelineValue,
-                    .waitStage = core::PipelineStage::AllCommands,
-                },
+        .sync =
+            {
+                .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
+                .wait = timelineValue,
+                .waitStage = core::PipelineStage::AllCommands,
+            },
         .execute =
             [&, this](core::ResourceRef<core::CommandBuffer> commandBuffer) {
                 // Signal rendering finished

@@ -1,19 +1,18 @@
 #pragma once
-#include "core/swapchain.hpp"
-#include "render_types.hpp"
+
+#include <memory>
+#include <thread>
+
+#include "presenter.hpp"
+#include "renderer.hpp"
+#include "surface_provider_iface.hpp"
 #include "utils/spsc_queue.hpp"
 
 namespace hammock::renderer {
+
     /// @enum RenderCommandType
     /// @brief Describes the type of a render command
-    enum class RenderCommandType {
-        Invalid,
-        Resize,
-        Stop,
-        Ready,
-        Ui,
-        Frametime
-    };
+    enum class RenderCommandType { Invalid, Resize, Stop, Ready, Ui, Frametime };
 
     /// @struct RenderCommand
     /// @brief Command data relayed between render queues
@@ -31,16 +30,39 @@ namespace hammock::renderer {
 
     /// @class RenderProx
     /// relays messages between rendering frontend and rendering backend via thread safe queues
-    class RenderProxy {
+    class RenderingServerProxy {
        private:
         // Queue for render packets
         RenderQueue renderQueue_;
-        CommandQueue ftbCommandQueue_;
-        CommandQueue btfCommandQueue_;
+        CommandQueue requestQueue;
+        CommandQueue responseQueue;
 
        public:
         RenderQueue& getRenderQueue();
         CommandQueue& getFtbCommandQueue();
         CommandQueue& getBtfCommandQueue();
+    };
+
+    class RenderingServer {
+       public:
+        explicit RenderingServer(RenderingServerProxy& proxy, core::SurfaceProviderIface& surfaceProvider,
+            std::unique_ptr<RendererIface>&& renderer, std::unique_ptr<PresenterIface>&& presenter);
+
+        void start();
+
+        void stop();
+
+        void join();
+
+        bool isRunning() const;
+
+       private:
+        RenderingServerProxy& proxy_;
+        std::atomic<bool> running_{false};
+        std::thread thread_;
+        core::SurfaceProviderIface& surfaceProvider_;
+        std::unique_ptr<RendererIface> renderer_{nullptr};
+        std::unique_ptr<PresenterIface> presenter_{nullptr};
+        bool readySent_{false};
     };
 }  // namespace hammock::renderer
