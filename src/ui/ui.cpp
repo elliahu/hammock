@@ -1,5 +1,5 @@
 #include "ui.hpp"
-#include "render_types.hpp"
+#include "render_snapshot.hpp"
 #define CLAY_IMPLEMENTATION
 #include "clay/clay.h"
 
@@ -13,9 +13,9 @@ void hammock::ui::Ui::beginLayout() {
 
     Clay_BeginLayout();
 }
-void hammock::ui::Ui::endLayout(renderer::UserInterfaceDrawBatch& uiDrawBatch) {
+void hammock::ui::Ui::endLayout(std::vector<renderer::UiVertex>& vertices) {
     Clay_RenderCommandArray cmds = Clay_EndLayout();
-    createDrawBatch(uiDrawBatch, cmds, atlas);
+    createDrawBatch(vertices, cmds, atlas);
 }
 
 hammock::ui::Ui::Ui(uint32_t width, uint32_t height) : width_(width), height_(height) {
@@ -56,7 +56,7 @@ void hammock::ui::Ui::handleError(Clay_ErrorData error) {
     printf("[Clay] Error: %s\n", error.errorText.chars);
 }
 void hammock::ui::Ui::createDrawBatch(
-    renderer::UserInterfaceDrawBatch& uiDrawBatch, Clay_RenderCommandArray& cmds, const FontAtlas& font) {
+    std::vector<renderer::UiVertex>& vertices, Clay_RenderCommandArray& cmds, const FontAtlas& font) {
     auto emitQuad = [&](float left,
                         float top,
                         float right,
@@ -68,13 +68,13 @@ void hammock::ui::Ui::createDrawBatch(
                         Vec4 color,
                         float useTexture) {
         // Triangle 1
-        uiDrawBatch.vertices.push_back({{left, top}, {u0, v0}, color, useTexture});
-        uiDrawBatch.vertices.push_back({{right, top}, {u1, v0}, color, useTexture});
-        uiDrawBatch.vertices.push_back({{right, bottom}, {u1, v1}, color, useTexture});
+        vertices.push_back({{left, top}, {u0, v0}, color, useTexture});
+        vertices.push_back({{right, top}, {u1, v0}, color, useTexture});
+        vertices.push_back({{right, bottom}, {u1, v1}, color, useTexture});
         // Triangle 2
-        uiDrawBatch.vertices.push_back({{left, top}, {u0, v0}, color, useTexture});
-        uiDrawBatch.vertices.push_back({{right, bottom}, {u1, v1}, color, useTexture});
-        uiDrawBatch.vertices.push_back({{left, bottom}, {u0, v1}, color, useTexture});
+        vertices.push_back({{left, top}, {u0, v0}, color, useTexture});
+        vertices.push_back({{right, bottom}, {u1, v1}, color, useTexture});
+        vertices.push_back({{left, bottom}, {u0, v1}, color, useTexture});
     };
 
     for (int32_t i = 0; i < cmds.length; i++) {

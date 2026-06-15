@@ -5,6 +5,8 @@ NamespaceIndentation: All
 BinPackArguments: false
 ContinuationIndentWidth: 4
 AlignAfterOpenBracket: DontAlign
+Cpp11BracedListStyle: false
+SpaceBeforeParens: ControlStatements
 BraceWrapping:
   AfterFunction: true
   AfterClass: true

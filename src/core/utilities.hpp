@@ -2,6 +2,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <thread>
 

@@ -386,7 +386,7 @@ namespace hammock::core {
         auto addWaitSemaphore(ResourceRef<Semaphore> semaphore, PipelineStage waitStage, std::optional<uint64_t> waitValue = std::nullopt) -> void;
 
         /// @brief Set a semaphore that will be signaled after the command buffer finishes
-        auto addSignalSemaphore(ResourceRef<Semaphore> semaphore, std::optional<uint64_t> signalValue = std::nullopt) -> void;
+        auto addSignalSemaphore(ResourceRef<Semaphore> semaphore, std::optional<uint64_t> signalValue = std::nullopt, PipelineStage signalStage = PipelineStage::AllCommands) -> void;
 
         /// @brief begin command buffer recording
         auto begin() -> void;

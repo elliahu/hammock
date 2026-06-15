@@ -3,10 +3,9 @@
 #include <atomic>
 #include <cstddef>
 
-namespace hammock::threading {
+namespace hammock {
     /// @class SPSCQueue
-    /// @brief Thread safe queue for one producer one consumer problem
-    /// TODO instead of silently dropping the push when queue is full, pop the front (the oldes) and then push
+    /// @brief Thread safe queue for single producer single consumer problem
     template <typename T, size_t Capacity>
     class SPSCQueue {
         static_assert((Capacity & (Capacity - 1)) == 0, "Capacity must be a power of two");
@@ -35,33 +34,6 @@ namespace hammock::threading {
             out = buffer_[tail];
             tail_.store((tail + 1) & mask_, std::memory_order_release);
             return true;
-        }
-
-        /// @brief Blocking version of push
-        void push_wait(const T& value) {
-            size_t head, next;
-            while (true) {
-                head = head_.load(std::memory_order_relaxed);
-                next = (head + 1) & mask_;
-                if (next != tail_.load(std::memory_order_acquire)) break;  // has space
-                tail_.wait(tail_.load());                                  // wait until tail_ changes
-            }
-            buffer_[head] = value;
-            head_.store(next, std::memory_order_release);
-            tail_.notify_one();
-        }
-
-        /// Blocking version of pop
-        void pop_wait(T& out) {
-            size_t tail;
-            while (true) {
-                tail = tail_.load(std::memory_order_relaxed);
-                if (tail != head_.load(std::memory_order_acquire)) break;  // has data
-                head_.wait(head_.load());                                  // wait until head_ changes
-            }
-            out = buffer_[tail];
-            tail_.store((tail + 1) & mask_, std::memory_order_release);
-            head_.notify_one();
         }
 
        private:

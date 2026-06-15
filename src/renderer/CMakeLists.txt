@@ -2,24 +2,16 @@ cmake_minimum_required(VERSION 3.30)
 
 # Renderer library
 add_library(hammock_renderer
-        "spirv_reflection.hpp"
         "renderer.hpp"
-        "render_frontend.hpp"
-        "rendering_server.hpp"
         "vertex.hpp"
         "stage_types.hpp"
         "stage.hpp"
-        "presenter.hpp"
         "frame_graph.hpp"
         "command_cache.hpp"
 
-
-        "presenter.cpp"
         "renderer.cpp"
         "stage.cpp"
         "cgltf_impl.cpp"
-        "render_frontend.cpp"
-        "rendering_server.cpp"
         "frame_graph.cpp"
         "command_cache.cpp"
 )

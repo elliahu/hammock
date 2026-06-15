@@ -3,6 +3,7 @@
 #include <functional>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include "buffer.hpp"
 #include "command_buffer.hpp"
@@ -13,6 +14,7 @@
 #include "image.hpp"
 #include "instance.hpp"
 #include "pipeline.hpp"
+#include "render_snapshot.hpp"
 #include "resource_manager.hpp"
 #include "ui/font.hpp"
 #include "ui/ui.hpp"
@@ -147,8 +149,10 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
             .addDescriptorSetLayout(descriptorSetLayouts_.ref(computeLayoutHandle_))
             .buildCreateInfo());
 
-    // Create sync sempahore
-    timelineSemaphoreHandle_ = semaphores_.create(device_, 0);
+    // Create timelines
+    timeline_.graphics = semaphores_.create(device_, 0);
+    timeline_.compute = semaphores_.create(device_, 0);
+    timeline_.transfer = semaphores_.create(device_, 0);
 }
 
 hammock::renderer::Renderer::~Renderer() {
@@ -158,7 +162,7 @@ hammock::renderer::Renderer::~Renderer() {
 }
 
 void hammock::renderer::Renderer::drawFrame(
-    core::ResourceRef<core::Image> target, RenderSnapshot& snap, core::ResourceRef<core::Semaphore> signal) {
+    core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap, const void * snapData, core::ResourceRef<core::Semaphore> signal) {
     UserInterfacePushConstants uiPush{.screenSize = {static_cast<float>(target->getExtent2D().x),
                                           static_cast<float>(target->getExtent2D().y)}};
     ComputePushConstants compPush{.color = {1.f, 0.f, 0.f}};
@@ -178,8 +182,7 @@ void hammock::renderer::Renderer::drawFrame(
     else
         writer.build(computeDescriptorSets_[currentFrameIdx_]);
 
-    FrameGraphBuilder builder{};
-    auto COMPUTE_PASS = builder.createComputePass({
+    ComputePassDescription computePassDescription{
         .name = "Compute pass",
         .transitions =
             {
@@ -207,12 +210,15 @@ void hammock::renderer::Renderer::drawFrame(
             },
         .sync =
             {
-                .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
-                .signal = timelineValue,
+                .signals = {{
+                    .value = computeSignalValue,
+                    .queue = core::CommandQueueFamily::Compute,
+                    .stage = core::PipelineStage::ComputeShader,
+                }},
             },
-    });
+    };
 
-    auto GRAPHICS_PASS = builder.createGraphicsPass({
+    GraphicsPassDescription graphicsPassDescription{
         .name = "User Interface",
         .transitions =
             {
@@ -237,9 +243,14 @@ void hammock::renderer::Renderer::drawFrame(
             },
         .sync =
             {
-                .semaphore = semaphores_.ref(timelineSemaphoreHandle_),
-                .wait = timelineValue,
-                .waitStage = core::PipelineStage::AllCommands,
+                .waits =
+                    {
+                        {
+                            .value = computeSignalValue,
+                            .queue = core::CommandQueueFamily::Compute,
+                            .stage = core::PipelineStage::TopOfPipeline,
+                        },
+                    },
             },
         .execute =
             [&, this](core::ResourceRef<core::CommandBuffer> commandBuffer) {
@@ -248,9 +259,14 @@ void hammock::renderer::Renderer::drawFrame(
 
                 // Render the ui
                 // Update the ui vert buffer
+                // TODO FIXME there is GPU - CPU race as both may access it at the same time
                 auto uiVertBuffer = buffers_.ref(userInterfaceVertexBuffer_);
+
+                const UserInterfaceDrawBatch& uiDrawBatch = snap->uiDraws;
+                const UiVertex* uiVertices = uiDrawBatch.vertices.data(snapData);
+
                 uiVertBuffer->writeToBuffer(
-                    snap.uiDraws.vertices.data(), snap.uiDraws.vertices.size() * sizeof(UiVertex));
+                    uiVertices, uiDrawBatch.vertices.elementCount * sizeof(UiVertex));
                 // Bind the ui vert buffer
                 vk::DeviceSize offsets[1]{0};
                 commandBuffer->getCommandBuffer().bindVertexBuffers(
@@ -258,13 +274,19 @@ void hammock::renderer::Renderer::drawFrame(
                 commandBuffer->bindVertexBuffers(std::span(&uiVertBuffer, 1), offsets);
 
                 // Draw the ui
-                commandBuffer->getCommandBuffer().draw(snap.uiDraws.vertices.size(), 1, 0, 0);
+                commandBuffer->getCommandBuffer().draw(uiDrawBatch.vertices.elementCount, 1, 0, 0);
             },
-    });
+    };
 
-    FrameGraphDesc frameGraphDesc = builder.build();
+    FrameGraphDesc frameGraphDesc{{std::move(computePassDescription), std::move(graphicsPassDescription)}};
 
-    FrameGraph graph{std::move(frameGraphDesc), commandCache_};
+    FrameGraph graph{
+        std::move(frameGraphDesc),
+        commandCache_,
+        semaphores_.ref(timeline_.graphics),
+        semaphores_.ref(timeline_.compute),
+        semaphores_.ref(timeline_.transfer),
+    };
 
     graph.execute(currentFrameIdx_);
 
@@ -274,6 +296,7 @@ void hammock::renderer::Renderer::drawFrame(
 
 void hammock::renderer::Renderer::nextFrameIdx() {
     currentFrameIdx_ = (currentFrameIdx_ + 1) % core::SwapChain::MAX_FRAMES_IN_FLIGHT;
-    timelineValue++;
+    computeSignalValue++;
 }
+
 void hammock::renderer::Renderer::waitIdle() { device_.waitIdle(); }

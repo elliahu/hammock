@@ -14,8 +14,25 @@ namespace hammock::core {
         uint32_t index = 0;
         uint32_t generation = 0;
 
-        bool operator==(const Handle&) const = default;
+        bool operator==(const Handle& other) const {
+            return index == other.index && generation == other.generation;
+        }
     };
+
+}  // namespace hammock::core
+
+namespace std {
+    template <typename T>
+    struct hash<hammock::core::Handle<T>> {
+        size_t operator()(const hammock::core::Handle<T>& h) const noexcept {
+            size_t h1 = std::hash<uint32_t>{}(h.index);
+            size_t h2 = std::hash<uint32_t>{}(h.generation);
+            return h1 ^ (h2 << 32);  // combine both fields
+        }
+    };
+}  // namespace std
+
+namespace hammock::core {
 
     /// @struct ResourceSlot
     /// @brief Resource slot
@@ -47,6 +64,8 @@ namespace hammock::core {
         T* operator->() const { return &get(); }
 
         T& operator*() const { return get(); }
+
+        bool operator==(const ResourceRef& other) const { return handle == other.handle; }
 
         explicit operator bool() const { return valid(); }
 
@@ -117,8 +136,8 @@ namespace hammock::core {
 
         /// @brief Destroy all resources and reset to empty state
         void clear() {
-            slots.clear();    // unique_ptr destructors fire here
-            freeList.clear(); // slots is now empty, freeList must match
+            slots.clear();     // unique_ptr destructors fire here
+            freeList.clear();  // slots is now empty, freeList must match
         }
 
         /// @brief Get a resource by its handle

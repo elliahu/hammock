@@ -1,14 +1,12 @@
 #include <memory>
 
-#include "app/application.hpp"
-#include "app/application_types.hpp"
+#include "app/runner.hpp"
 
 using namespace hammock;
 
 int main() {
-    auto app = std::make_unique<app::Application>(app::ExecutionMode::Engine);
-
-    app->launch();
+    auto runner = std::make_unique<app::Runner>();
+    runner->run();
 
     return EXIT_SUCCESS;
 }

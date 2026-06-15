@@ -11,7 +11,8 @@
 #include "core/pipeline.hpp"
 #include "core/resource_manager.hpp"
 #include "core/semaphore.hpp"
-#include "render_types.hpp"
+#include "render_snapshot.hpp"
+#include "utils/math.hpp"
 #include "swapchain.hpp"
 #include "utils/thread_pool.hpp"
 #include "vulkan/vulkan.hpp"
@@ -24,7 +25,7 @@ namespace hammock::renderer {
         virtual ~RendererIface() = default;
 
         /// @brief Draw frame onto a target
-        virtual void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshot& snap,
+        virtual void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap, const void * snapData,
             core::ResourceRef<core::Semaphore> signal) = 0;
 
         /// @brief Get the device associated with this renderer
@@ -54,7 +55,7 @@ namespace hammock::renderer {
         /// @brief Draw frame onto a target
         /// @param target Target image
         /// @param signal Semaphore reference, will be signaled when frame is finished rendering
-        void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshot& snap,
+        void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap, const void * snapData,
             core::ResourceRef<core::Semaphore> signal) override;
 
         /// @brief Get the device associated with this renderer
@@ -74,15 +75,16 @@ namespace hammock::renderer {
         void nextFrameIdx();
 
         core::Instance instance_;
-        vk::SurfaceKHR surface_; // TODO abstract this somehow
+        vk::SurfaceKHR surface_;  // TODO abstract this somehow
         SurfaceDestructor surfaceDestructor_{
             nullptr};  // This is called in the desdtructor to destroy surface which is created externally
         core::Device device_;
-        threading::ThreadPool threadPool_{};
+        ThreadPool threadPool_{};
         CommandCache commandCache_;
 
         /// Index of the current frame
-        std::uint32_t currentFrameIdx_ = 0;
+        uint32_t currentFrameIdx_ = 0;
+        uint32_t computeSignalValue = 1;
 
         // Resource managers
         core::ResourceManager<core::CommandPool> commandPools_{};
@@ -98,7 +100,6 @@ namespace hammock::renderer {
         core::Handle<core::DescriptorPool> descriptorPoolHandle_;
         core::Handle<core::CommandPool> prepPoolHandle_;
 
-
         struct UserInterfacePushConstants {
             Vec2 screenSize;
         };
@@ -107,14 +108,16 @@ namespace hammock::renderer {
             Vec4 color;
         };
 
-        core::Handle<core::Semaphore> timelineSemaphoreHandle_;
-        uint64_t timelineValue = 1;
+        struct {
+            core::Handle<core::Semaphore> graphics;
+            core::Handle<core::Semaphore> compute;
+            core::Handle<core::Semaphore> transfer;
+        } timeline_;
 
         // Compute
         core::Handle<core::Pipeline> computePipelineHandle_;
         core::Handle<core::DescriptorSetLayout> computeLayoutHandle_;
         std::array<core::DescriptorSet, core::SwapChain::MAX_FRAMES_IN_FLIGHT> computeDescriptorSets_;
-
 
         // Ui
         core::Handle<core::Image> fontAtlasHandle;
@@ -122,6 +125,5 @@ namespace hammock::renderer {
         core::Handle<core::DescriptorSetLayout> userInterfaceDescLayoutHandle_;
         core::DescriptorSet userInterfaceDescSet_;
         core::Handle<core::Buffer> userInterfaceVertexBuffer_;
-
     };
 };  // namespace hammock::renderer

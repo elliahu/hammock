@@ -3,8 +3,9 @@
 #include <vulkan/vulkan.hpp>
 
 #include "rendering_server.hpp"
-#include "render_frontend.hpp"
+#include "dispatcher.hpp"
 #include "window.hpp"
+#include "frame_arena.hpp"
 
 
 namespace hammock::app {
@@ -17,19 +18,22 @@ namespace hammock::app {
         ~Runner();
 
         /// @brief Start the editor main loop
-        void launch();
+        void run();
 
     private:
         /// Window
         std::unique_ptr<Window> window_;
 
+        /// Rendering arena
+        RenderRingBuffer ringBuffer{};
+
         /// Render proxy
-        std::unique_ptr<renderer::RenderingServerProxy> renderingServerProxy_{nullptr};
+        std::unique_ptr<app::RenderingServerProxy> renderingServerProxy_{nullptr};
 
         /// Render frontend
-        std::unique_ptr<renderer::RenderFrontend> renderFrontend_{nullptr};
+        std::unique_ptr<app::Dispatcher> dispatcher_{nullptr};
 
         /// Render backend
-        std::unique_ptr<renderer::RenderingServer> renderingServer_{nullptr};
+        std::unique_ptr<app::RenderingServer> renderingServer_{nullptr};
     };
 }

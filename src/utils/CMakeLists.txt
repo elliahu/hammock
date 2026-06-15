@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.30)
 
 # Renderer library
 add_library(hammock_utils
+        "spirv_reflection.hpp"
         "filesystem.hpp"
         "math.hpp"
         "thread_pool.hpp"

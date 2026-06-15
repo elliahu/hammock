@@ -2,38 +2,38 @@
 
 #include <stdexcept>
 
-#include "command_buffer.hpp"
-#include "utilities.hpp"
+#include "core/command_buffer.hpp"
+#include "core/utilities.hpp"
 #include "utils/math.hpp"
 
-namespace hammock::renderer {
+namespace hammock::app {
 
-    hammock::renderer::Framebuffer::Framebuffer(
+    hammock::app::Framebuffer::Framebuffer(
         core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, core::ImageFormat format)
         : device_(device), resolution_(resolution), framesInFlight_(framesInFlight) {
         createImages(resolution, format);
     }
 
-    hammock::renderer::Framebuffer::~Framebuffer() {
+    hammock::app::Framebuffer::~Framebuffer() {
         for (auto& i : handles_) {
             images_.destroy(i);
         }
     }
 
-    vk::Extent2D hammock::renderer::Framebuffer::getExtent() const {
+    vk::Extent2D hammock::app::Framebuffer::getExtent() const {
         return vk::Extent2D(
             static_cast<std::uint32_t>(resolution_.X), static_cast<std::uint32_t>(resolution_.Y));
     }
 
-    void hammock::renderer::Framebuffer::swapImages() {
+    void hammock::app::Framebuffer::swapImages() {
         currentFrame_ = (currentFrame_ + 1) % framesInFlight_;
     }
 
-    hammock::core::ResourceRef<hammock::core::Image> hammock::renderer::Framebuffer::getFrontbufferImage() {
+    hammock::core::ResourceRef<hammock::core::Image> hammock::app::Framebuffer::getFrontbufferImage() {
         return images_.ref(handles_[currentFrame_]);
     }
 
-    void hammock::renderer::Framebuffer::createImages(math::Vec2 resolution, core::ImageFormat format) {
+    void hammock::app::Framebuffer::createImages(math::Vec2 resolution, core::ImageFormat format) {
         for (int i = 0; i < framesInFlight_; i++) {
             auto handle = images_.create(device_,
                 core::ImageDesc{

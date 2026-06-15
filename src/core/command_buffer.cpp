@@ -150,11 +150,11 @@ auto hammock::core::CommandBuffer::addWaitSemaphore(
 }
 
 auto hammock::core::CommandBuffer::addSignalSemaphore(
-    ResourceRef<Semaphore> semaphore, std::optional<uint64_t> signalValue) -> void {
+    ResourceRef<Semaphore> semaphore,  std::optional<uint64_t> signalValue, PipelineStage signalStage) -> void {
     vk::SemaphoreSubmitInfo submitInfo{
         .semaphore = semaphore->getVulkanSemaphore(),
         .value = signalValue.value_or(0),
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands
+        .stageMask = static_cast<vk::PipelineStageFlags2>(VulkanPipelineStageFlags(signalStage))
     };
 
     signalSemaphoreSubmitInfos_.push_back(submitInfo);

@@ -1,6 +1,8 @@
 #include "frame_graph.hpp"
 
+#include <algorithm>
 #include <stdexcept>
+#include <utility>
 #include <variant>
 
 #include "command_buffer.hpp"
@@ -8,9 +10,14 @@
 #include "device.hpp"
 #include "image.hpp"
 #include "resource_manager.hpp"
+#include "semaphore.hpp"
 
-hammock::renderer::FrameGraph::FrameGraph(FrameGraphDesc&& desc, CommandCache& commandCache)
-    : desc_{std::move(desc)}, commandCache_(commandCache) {}
+hammock::renderer::FrameGraph::FrameGraph(FrameGraphDesc&& desc, CommandCache& commandCache,
+    core::ResourceRef<core::Semaphore> graphicsTimeline, core::ResourceRef<core::Semaphore> computeTimeline,
+    core::ResourceRef<core::Semaphore> transferTimeline)
+    : desc_{std::move(desc)},
+      commandCache_(commandCache),
+      timeline_({graphicsTimeline, computeTimeline, transferTimeline}) {}
 
 void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
     // Reset pools
@@ -18,52 +25,69 @@ void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
 
     // For each batch determine its family and allocate command buffer
     for (auto& pass : desc_.passes) {
-        // Determin the pass family
-        core::CommandQueueFamily batchFamily = core::CommandQueueFamily::Ignored;
-        if (std::holds_alternative<GraphicsPassDesc>(pass))
-            batchFamily = core::CommandQueueFamily::Graphics;
-        else if (std::holds_alternative<ComputePassDesc>(pass))
-            batchFamily = core::CommandQueueFamily::Compute;
-        else if (std::holds_alternative<TransferPassDesc>(pass))
-            batchFamily = core::CommandQueueFamily::Transfer;
+        // Determine the pass family
+        // And get correct timeline semaphore for the queue
+        core::CommandQueueFamily queue = core::CommandQueueFamily::Ignored;
+        core::ResourceRef<core::Semaphore> signalTimeline;
+        if (std::holds_alternative<GraphicsPassDescription>(pass)) {
+            queue = core::CommandQueueFamily::Graphics;
+            signalTimeline = timeline_.graphics;
+        } else if (std::holds_alternative<ComputePassDescription>(pass)) {
+            queue = core::CommandQueueFamily::Compute;
+            signalTimeline = timeline_.compute;
+        } else if (std::holds_alternative<TransferPassDescription>(pass)) {
+            queue = core::CommandQueueFamily::Transfer;
+            signalTimeline = timeline_.transfer;
+        }
 
         // Sanity check
-        if (batchFamily == core::CommandQueueFamily::Ignored) {
+        if (queue == core::CommandQueueFamily::Ignored) {
             throw std::runtime_error("failed to determine pass family");
         }
 
         // Unsupported transfer
         // TODO
-        if (batchFamily == core::CommandQueueFamily::Transfer) {
+        if (queue == core::CommandQueueFamily::Transfer) {
             throw std::runtime_error("transfer passes not yet supported");
         }
 
         // Get the primary cmd buffer reference
         core::ResourceRef<core::CommandBuffer> commandBuffer =
-            commandCache_.getCommandBuffer(batchFamily, core::CommandBufferLevel::Primary, frameIndex, 0);
+            commandCache_.getCommandBuffer(queue, core::CommandBufferLevel::Primary, frameIndex, 0);
 
         // Begin command buffer
         commandBuffer->begin();
 
         // Add sync primitives and record
         std::visit(
-            [&commandBuffer, this](auto& anyPass) {
+            [&commandBuffer, &signalTimeline, this](auto& anyPass) {
                 // Add wait semaphore if present
-                if (anyPass.sync.semaphore.has_value() && anyPass.sync.wait.has_value()) {
-                    commandBuffer->addWaitSemaphore(
-                        anyPass.sync.semaphore.value(), anyPass.sync.waitStage, anyPass.sync.wait);
+                for (auto& wait : anyPass.sync.waits) {
+                    core::ResourceRef<core::Semaphore> waitTimeline;
+
+                    // determine the queue on which we wait
+                    if (wait.queue == core::CommandQueueFamily::Graphics) {
+                        waitTimeline = timeline_.graphics;
+                    } else if (wait.queue == core::CommandQueueFamily::Compute) {
+                        waitTimeline = timeline_.compute;
+                    } else if (wait.queue == core::CommandQueueFamily::Transfer) {
+                        waitTimeline = timeline_.transfer;
+                    } else
+                        throw std::runtime_error("could not determine the wait queue");
+
+                    commandBuffer->addWaitSemaphore(waitTimeline, wait.stage, wait.value);
                 }
 
-                // Add signal semaphore if present
-                if (anyPass.sync.semaphore.has_value() && anyPass.sync.signal.has_value()) {
-                    commandBuffer->addSignalSemaphore(anyPass.sync.semaphore.value(), anyPass.sync.signal);
+                // Add signal semaphore
+                for (auto& signal : anyPass.sync.signals){
+                    commandBuffer->addSignalSemaphore(signalTimeline, signal.value);
                 }
 
                 // Record
                 using PassType = std::decay_t<decltype(anyPass)>;
-                if constexpr (std::is_same_v<PassType, GraphicsPassDesc>) {
+                if constexpr (std::is_same_v<PassType, GraphicsPassDescription>) {
                     recordGraphicsPass(anyPass, commandBuffer);
-                } else if constexpr (std::is_same_v<PassType, ComputePassDesc>) {
+                } else if constexpr (std::is_same_v<PassType, ComputePassDescription>) {
                     recordComputePass(anyPass, commandBuffer);
                 }
             },
@@ -93,7 +117,7 @@ void hammock::renderer::FrameGraph::recordBarrier(
 }
 
 void hammock::renderer::FrameGraph::recordGraphicsPass(
-    GraphicsPassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd) {
+    GraphicsPassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd) {
     // Barriers first
     recordBarrier(pass.transitions, cmd);
 
@@ -163,7 +187,7 @@ void hammock::renderer::FrameGraph::recordGraphicsPass(
 }
 
 void hammock::renderer::FrameGraph::recordComputePass(
-    ComputePassDesc& pass, core::ResourceRef<core::CommandBuffer> cmd) {
+    ComputePassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd) {
     // Barriers first
     recordBarrier(pass.transitions, cmd);
 
@@ -207,25 +231,225 @@ void hammock::renderer::FrameGraph::recordComputePass(
     }
 }
 
-hammock::core::Handle<hammock::renderer::FrameGraphBuilder::FrameGraphPassWrapper>
-hammock::renderer::FrameGraphBuilder::createGraphicsPass(GraphicsPassDesc&& graphicsDesc) {
-    auto handle = passes_.create(std::move(graphicsDesc));
+hammock::core::Handle<hammock::renderer::FrameGraphPassDeclarationWrapper>
+hammock::renderer::FrameGraphBuilder::createGraphicsPass(GraphicsPassDeclaration&& decl) {
+    auto handle = declarations_.create(std::move(decl));
     handles_.push_back(handle);
     return handle;
 }
 
-hammock::core::Handle<hammock::renderer::FrameGraphBuilder::FrameGraphPassWrapper>
-hammock::renderer::FrameGraphBuilder::createComputePass(ComputePassDesc&& computeDesc) {
-    auto handle = passes_.create(std::move(computeDesc));
+hammock::core::Handle<hammock::renderer::FrameGraphPassDeclarationWrapper>
+hammock::renderer::FrameGraphBuilder::createComputePass(ComputePassDeclaration&& decl) {
+    auto handle = declarations_.create(std::move(decl));
     handles_.push_back(handle);
     return handle;
 }
 
 hammock::renderer::FrameGraphDesc hammock::renderer::FrameGraphBuilder::build() {
+    // Topologicaly sort the graph
+    std::vector<core::Handle<FrameGraphPassDeclarationWrapper>> sorted;
+    performTopoSort(sorted);
+
+    // Create the output struct
     FrameGraphDesc desc{};
-    for(auto& handle : handles_){
-        core::ResourceRef<FrameGraphPassWrapper> pass = passes_.ref(handle);
-        desc.passes.push_back(pass->desc);
+
+    //
+    for (auto& handle : sorted) {
+        core::ResourceRef<FrameGraphPassDeclarationWrapper> declVariant = declarations_.ref(handle);
+        std::visit(
+            [&desc, this](auto& anyDecl) {
+                using DeclarationType = std::decay_t<decltype(anyDecl)>;
+                if constexpr (std::is_same_v<DeclarationType, GraphicsPassDeclaration>) {
+                    auto description = buildGraphicsPassDescription(anyDecl);
+
+                    desc.passes.push_back(description);
+                } else if constexpr (std::is_same_v<DeclarationType, ComputePassDeclaration>) {
+                    auto description = buildComputePassDescription(anyDecl);
+
+                    desc.passes.push_back(description);
+                }
+            },
+            declVariant->declaration);
     }
-    return desc;
+
+    // Build the sync values
+    buildSyncValues(desc, sorted);
+
+    return std::move(desc);
+}
+
+hammock::renderer::GraphicsPassDescription hammock::renderer::FrameGraphBuilder::buildGraphicsPassDescription(
+    GraphicsPassDeclaration& decl) {
+    return GraphicsPassDescription{
+        .name = std::move(decl.name),
+        .transitions = deduceFromState(decl.resources, decl.dependency),
+        .rendering = std::move(decl.rendering),
+        .data = std::move(decl.data),
+    };
+}
+
+hammock::renderer::ComputePassDescription hammock::renderer::FrameGraphBuilder::buildComputePassDescription(
+    ComputePassDeclaration& decl) {
+    return ComputePassDescription{
+        .name = std::move(decl.name),
+        .transitions = deduceFromState(decl.resources, decl.dependency),
+        .dispatch = std::move(decl.dispatch),
+        .data = std::move(decl.data),
+    };
+}
+
+void hammock::renderer::FrameGraphBuilder::buildSyncValues(
+    FrameGraphDesc& desc, std::vector<core::Handle<FrameGraphPassDeclarationWrapper>>& sorted) {
+    std::unordered_map<core::CommandQueueFamily, uint32_t> queueCounters{
+        {core::CommandQueueFamily::Graphics, 0},
+        {core::CommandQueueFamily::Compute, 0},
+        {core::CommandQueueFamily::Transfer, 0},
+    };
+
+    for (int i = 0; i < desc.passes.size(); i++) {
+        PassSyncInfo syncInfo{};
+        std::variant<GraphicsPassDescription, ComputePassDescription, TransferPassDescription>& p =
+            desc.passes[i];
+        std::variant<GraphicsPassDeclaration, ComputePassDeclaration, TransferPassDeclaration>& decl =
+            declarations_.ref(sorted[i])->declaration;
+
+        std::visit(
+            [this, &syncInfo, &decl, &queueCounters, &desc, &sorted](auto& pass) {
+                using PassType = std::decay_t<decltype(pass)>;
+
+                // Gather waits
+                std::visit(
+                    [this, &syncInfo, &desc, &sorted](auto& declaration) {
+                        for (auto& depHandle : declaration.dependency.passes) {
+                            // Find the dependency's index in the sorted list
+                            auto depIt = std::find(sorted.begin(), sorted.end(), depHandle);
+                            if (depIt == sorted.end()) continue;
+                            int depIdx = std::distance(sorted.begin(), depIt);
+
+                            // Read sync info already assigned to the dependency (topo order guarantees this)
+                            /*std::visit(
+                                [&syncInfo](auto& depPass) {
+                                    syncInfo.waits.push_back({.value = depPass.sync.signal.value,
+                                        .queue = depPass.sync.signal.queue,
+                                        .stage = core::PipelineStage::TopOfPipeline});
+                                },
+                                desc.passes[depIdx]);*/
+                        }
+                    },
+                    decl);
+
+                core::CommandQueueFamily family = getQueueFamily<PassType>();
+
+                if (family == core::CommandQueueFamily::Ignored) {
+                    throw std::runtime_error("could not determine pass family");
+                }
+
+                queueCounters[family] += 1;
+             /*  syncInfo.signal.queue = family;
+                syncInfo.signal.value = queueCounters[family];
+                syncInfo.signal.stage = core::PipelineStage::BottomOfPipeline;*/
+
+                pass.sync = std::move(syncInfo);
+            },
+            p);
+    }
+}
+
+hammock::renderer::PassTransitionsInfo hammock::renderer::FrameGraphBuilder::deduceFromState(
+    PassResourceAccessInfo& accesses, PassDependencyInfo& dependencies) {
+    PassTransitionsInfo transitions{};
+    // For each image used in the current pass, find the state in which dependency pass leaves it
+    for (auto& access : accesses.images) {
+        core::ResourceState previousState = core::ResourceState::Undefined;
+        auto it = std::find_if(dependencies.passes.begin(),
+            dependencies.passes.end(),
+            [this, &access, &previousState](auto& passWrapperHandle) {
+                auto passWrapperRef = declarations_.ref(passWrapperHandle);
+
+                return std::visit(
+                    [&access, &previousState](auto& declaration) {
+                        auto im = std::find_if(declaration.resources.images.begin(),
+                            declaration.resources.images.end(),
+                            [&access, &previousState](auto& image) { return image.image == access.image; });
+                        if (im == declaration.resources.images.end()) {
+                            return false;
+                        }
+                        previousState = (*im).state;
+                        return im != declaration.resources.images.end();
+                    },
+                    passWrapperRef->declaration);
+            });
+
+        transitions.images.push_back({.image = access.image, .from = previousState, .to = access.state});
+    }
+
+    // Same for buffers
+    for (auto& access : accesses.buffers) {
+        core::ResourceState previousState = core::ResourceState::Undefined;
+        auto it = std::find_if(dependencies.passes.begin(),
+            dependencies.passes.end(),
+            [this, &access, &previousState](auto& passWrapperHandle) {
+                auto passWrapperRef = declarations_.ref(passWrapperHandle);
+
+                return std::visit(
+                    [&access, &previousState](auto& declaration) {
+                        auto buff = std::find_if(declaration.resources.buffers.begin(),
+                            declaration.resources.buffers.end(),
+                            [&access, &previousState](
+                                auto& buffer) { return buffer.buffer == access.buffer; });
+                        if (buff == declaration.resources.buffers.end()) {
+                            return false;
+                        }
+                        previousState = (*buff).state;
+                        return buff != declaration.resources.buffers.end();
+                    },
+                    passWrapperRef->declaration);
+            });
+
+        transitions.buffers.push_back({.buffer = access.buffer, .from = previousState, .to = access.state});
+    }
+    return transitions;
+}
+
+void hammock::renderer::FrameGraphBuilder::dfs(core::Handle<FrameGraphPassDeclarationWrapper> node,
+    std::unordered_map<core::Handle<FrameGraphPassDeclarationWrapper>, NodeVisitState>& state,
+    std::vector<core::Handle<FrameGraphPassDeclarationWrapper>>& sorted) {
+    if (state[node] == NodeVisitState::Visiting) {
+        throw std::runtime_error("cycle in frame graph detected");
+    }
+
+    if (state[node] == NodeVisitState::Visited) {
+        return;
+    }
+
+    state[node] = NodeVisitState::Visiting;
+    auto nodeRef = declarations_.ref(node);
+
+    // Visit all dependencies first
+    std::visit(
+        [this, &state, &sorted](auto& declaration) {
+            for (core::Handle<FrameGraphPassDeclarationWrapper>& dep : declaration.dependency.passes) {
+                dfs(dep, state, sorted);
+            }
+        },
+        nodeRef->declaration);
+
+    state[node] = NodeVisitState::Visited;
+
+    sorted.push_back(node);
+}
+
+void hammock::renderer::FrameGraphBuilder::performTopoSort(
+    std::vector<core::Handle<FrameGraphPassDeclarationWrapper>>& sorted) {
+    std::unordered_map<core::Handle<FrameGraphPassDeclarationWrapper>, NodeVisitState> state{};
+
+    for (auto& node : handles_) {
+        state[node] = NodeVisitState::Unvisited;
+    }
+
+    for (auto& node : handles_) {
+        if (state[node] == NodeVisitState::Unvisited) {
+            dfs(node, state, sorted);
+        }
+    }
 }

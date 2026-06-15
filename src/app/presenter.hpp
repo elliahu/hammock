@@ -8,10 +8,10 @@
 #include "core/semaphore.hpp"
 #include "core/surface_provider_iface.hpp"
 #include "core/swapchain_manager.hpp"
-#include "resource_manager.hpp"
+#include "core/resource_manager.hpp"
 #include "utils/math.hpp"
 
-namespace hammock::renderer {
+namespace hammock::app {
 
     /// @class Framebuffer
     /// @brief This class represents offscreen framebuffer used by the engine editor

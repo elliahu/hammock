@@ -6,17 +6,17 @@ set(IMGUI_DIR "${PROJECT_SOURCE_DIR}/third_party/imgui")
 # Editor library
 add_library(hammock_app
         "runner.hpp"
-        "application.hpp"
         "window.hpp"
-        
+        "presenter.hpp"
+        "dispatcher.hpp"
+        "rendering_server.hpp"
 
+        "presenter.cpp"
+        "dispatcher.cpp"
+        "rendering_server.cpp"
         "runner.cpp"
-        "application.cpp"
         "window.cpp"
 )
-
-
-
 
 # Include directories for legacy headers
 target_include_directories(hammock_app PUBLIC
@@ -32,10 +32,10 @@ target_link_libraries(hammock_app PUBLIC hammock_renderer)
 # Platform-specific libraries required by VulkanSurfer
 # Here I added them manually, another option is to add Surfers Cmake as subdirectory here
 if(WIN32)
-    target_link_libraries(hammock_app INTERFACE Dwmapi)
+  target_link_libraries(hammock_app INTERFACE Dwmapi)
 elseif(UNIX AND NOT APPLE)
-    find_package(X11 REQUIRED)
-    target_link_libraries(hammock_app INTERFACE ${X11_LIBRARIES})
+  find_package(X11 REQUIRED)
+  target_link_libraries(hammock_app INTERFACE ${X11_LIBRARIES})
 endif()
 
 # Compiler features

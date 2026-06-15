@@ -5,7 +5,7 @@
 #include <queue>
 #include <thread>
 
-namespace hammock::threading {
+namespace hammock {
     class ThreadPool {
        public:
         ThreadPool() : stop_(false), activeCount_(0) {}

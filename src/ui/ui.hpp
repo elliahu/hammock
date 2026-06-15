@@ -4,8 +4,8 @@
 
 #include "clay/clay.h"
 #include "font.hpp"
-#include "render_types.hpp"
 #include "utils/singleton_base.hpp"
+#include "vertex.hpp"
 
 namespace hammock::ui {
 
@@ -31,7 +31,7 @@ namespace hammock::ui {
 
         void beginLayout();
 
-        void endLayout(renderer::UserInterfaceDrawBatch& uiDrawBatch);
+        void endLayout(std::vector<renderer::UiVertex>& vertices);
 
         /// @brief Returns a current font atlas
         FontAtlas& getFontAtlas() { return atlas; }
@@ -53,7 +53,7 @@ namespace hammock::ui {
 
         static void handleError(Clay_ErrorData error);
 
-        void createDrawBatch(renderer::UserInterfaceDrawBatch& uiDrawBatch, Clay_RenderCommandArray& cmds,
+        void createDrawBatch(std::vector<renderer::UiVertex>& vertices, Clay_RenderCommandArray& cmds,
             const FontAtlas& font);
 
         void* arenaMemory_{nullptr};
