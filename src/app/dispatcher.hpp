@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <thread>
 #include "rendering_server.hpp"
 #include "renderer/render_snapshot.hpp"
 #include "core/surface_provider_iface.hpp"

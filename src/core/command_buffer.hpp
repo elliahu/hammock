@@ -234,54 +234,61 @@ namespace hammock::core {
                     return {};
 
                 case ResourceState::ColorAttachment:
-                    return {vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                        vk::AccessFlagBits2::eColorAttachmentWrite | vk::AccessFlagBits2::eColorAttachmentRead, // Both are needed as LOAD_OP_LOAD requires read
-                        vk::ImageLayout::eColorAttachmentOptimal};
+                    return { vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                        vk::AccessFlagBits2::eColorAttachmentWrite |
+                            vk::AccessFlagBits2::eColorAttachmentRead,  // Both are needed as LOAD_OP_LOAD
+                                                                        // requires read
+                        vk::ImageLayout::eColorAttachmentOptimal };
 
                 case ResourceState::DepthAttachment:
-                    return {vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+                    return { vk::PipelineStageFlagBits2::eEarlyFragmentTests,
                         vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
-                        vk::ImageLayout::eDepthAttachmentOptimal};
+                        vk::ImageLayout::eDepthAttachmentOptimal };
 
                 case ResourceState::ShaderRead:
-                    return {vk::PipelineStageFlagBits2::eFragmentShader,
+                    return { vk::PipelineStageFlagBits2::eFragmentShader,
                         vk::AccessFlagBits2::eShaderRead,
-                        vk::ImageLayout::eShaderReadOnlyOptimal};
+                        vk::ImageLayout::eShaderReadOnlyOptimal };
 
                 case ResourceState::StorageImage:
-                    return {vk::PipelineStageFlagBits2::eComputeShader,
+                    return { vk::PipelineStageFlagBits2::eComputeShader,
                         vk::AccessFlagBits2::eShaderStorageRead,
-                        vk::ImageLayout::eGeneral};
+                        vk::ImageLayout::eGeneral };
 
                 case ResourceState::TransferSrc:
-                    return {vk::PipelineStageFlagBits2::eTransfer,
+                    return { vk::PipelineStageFlagBits2::eTransfer,
                         vk::AccessFlagBits2::eTransferRead,
-                        vk::ImageLayout::eTransferSrcOptimal};
+                        vk::ImageLayout::eTransferSrcOptimal };
 
                 case ResourceState::TransferDst:
-                    return {vk::PipelineStageFlagBits2::eTransfer,
+                    return { vk::PipelineStageFlagBits2::eTransfer,
                         vk::AccessFlagBits2::eTransferWrite,
-                        vk::ImageLayout::eTransferDstOptimal};
+                        vk::ImageLayout::eTransferDstOptimal };
 
                 case ResourceState::VertexBuffer:
-                    return {vk::PipelineStageFlagBits2::eVertexShader,
+                    return { vk::PipelineStageFlagBits2::eVertexShader,
                         vk::AccessFlagBits2::eVertexAttributeRead,
-                        vk::ImageLayout::eShaderReadOnlyOptimal};
+                        vk::ImageLayout::eShaderReadOnlyOptimal };
 
                 case ResourceState::IndexBuffer:
-                    return {vk::PipelineStageFlagBits2::eVertexShader,
+                    return { vk::PipelineStageFlagBits2::eVertexShader,
                         vk::AccessFlagBits2::eIndexRead,
-                        vk::ImageLayout::eShaderReadOnlyOptimal};
+                        vk::ImageLayout::eShaderReadOnlyOptimal };
 
                 case ResourceState::UniformBuffer:
-                    return {vk::PipelineStageFlagBits2::eVertexShader,
+                    return { vk::PipelineStageFlagBits2::eVertexShader,
                         vk::AccessFlagBits2::eUniformRead,
-                        vk::ImageLayout::eShaderReadOnlyOptimal};
+                        vk::ImageLayout::eShaderReadOnlyOptimal };
 
                 case ResourceState::StorageBuffer:
-                    return {vk::PipelineStageFlagBits2::eComputeShader,
+                    return { vk::PipelineStageFlagBits2::eComputeShader,
                         vk::AccessFlagBits2::eShaderStorageRead,
-                        vk::ImageLayout::eGeneral};
+                        vk::ImageLayout::eGeneral };
+
+                default:
+                    return { .stageMask = vk::PipelineStageFlagBits2::eNone,
+                        .accessMask = vk::AccessFlagBits2::eNone,
+                        .layout = vk::ImageLayout::eUndefined };
             }
         }
     };
@@ -383,10 +390,13 @@ namespace hammock::core {
 
         /// @brief Set a semaphore that needs to be signaled before the command buffer starts
         /// Execution will wait on all wait semaphores in their corresponding stages
-        auto addWaitSemaphore(ResourceRef<Semaphore> semaphore, PipelineStage waitStage, std::optional<uint64_t> waitValue = std::nullopt) -> void;
+        auto addWaitSemaphore(ResourceRef<Semaphore> semaphore, PipelineStage waitStage,
+            std::optional<uint64_t> waitValue = std::nullopt) -> void;
 
         /// @brief Set a semaphore that will be signaled after the command buffer finishes
-        auto addSignalSemaphore(ResourceRef<Semaphore> semaphore, std::optional<uint64_t> signalValue = std::nullopt, PipelineStage signalStage = PipelineStage::AllCommands) -> void;
+        auto addSignalSemaphore(ResourceRef<Semaphore> semaphore,
+            std::optional<uint64_t> signalValue = std::nullopt,
+            PipelineStage signalStage = PipelineStage::AllCommands) -> void;
 
         /// @brief begin command buffer recording
         auto begin() -> void;
@@ -422,7 +432,7 @@ namespace hammock::core {
         /// @brief Copies contents of an image into a buffer
         auto copyImageToBuffer(ResourceRef<Image> src, ResourceRef<Buffer> dst, vk::Extent3D extent,
             uint32_t mipLevel = 0, uint32_t baseArrayLayer = 0, uint32_t layerCount = 1,
-            vk::Offset3D offset = {0, 0, 0}) -> void;
+            vk::Offset3D offset = { 0, 0, 0 }) -> void;
 
         /// @brief Copies contents of one buffer to another buffer
         auto copyBufferToBuffer(ResourceRef<Buffer> src, ResourceRef<Buffer> dst,
@@ -431,11 +441,11 @@ namespace hammock::core {
 
         /// @brief Copies contents of a buffer into an image
         auto copyBufferToImage(ResourceRef<Buffer> src, ResourceRef<Image> dst, vk::DeviceSize srcOffset = 0,
-            vk::Offset3D dstOffset = {0, 0, 0}, uint32_t mipLevel = 0) -> void;
+            vk::Offset3D dstOffset = { 0, 0, 0 }, uint32_t mipLevel = 0) -> void;
 
         /// @brief Copies content of an image into another image
         auto copyImageToImage(ResourceRef<Image> src, ResourceRef<Image> dst,
-            vk::Offset3D srcOffset = {0, 0, 0}, vk::Offset3D dstOffset = {0, 0, 0}) -> void;
+            vk::Offset3D srcOffset = { 0, 0, 0 }, vk::Offset3D dstOffset = { 0, 0, 0 }) -> void;
 
         /// @brief Records pipeline barrier
         auto pipelineBarrier(std::span<ImageMemoryBarrier> images, std::span<BufferMemoryBarrier> buffers)
@@ -472,7 +482,7 @@ namespace hammock::core {
         vk::CommandBuffer commandBuffer_;
         std::vector<vk::SemaphoreSubmitInfo> waitSemaphoreSubmitInfos_;
         std::vector<vk::SemaphoreSubmitInfo> signalSemaphoreSubmitInfos_;
-        bool inProgress_{false};
-        CommandBufferLevel level_{CommandBufferLevel::Primary};
+        bool inProgress_{ false };
+        CommandBufferLevel level_{ CommandBufferLevel::Primary };
     };
 }  // namespace hammock::core

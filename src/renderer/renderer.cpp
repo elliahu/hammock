@@ -34,17 +34,17 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
         10000,
         vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         std::vector<vk::DescriptorPoolSize>{
-            {vk::DescriptorType::eSampler, 1000},
-            {vk::DescriptorType::eCombinedImageSampler, 1000},
-            {vk::DescriptorType::eSampledImage, 1000},
-            {vk::DescriptorType::eStorageImage, 1000},
-            {vk::DescriptorType::eUniformTexelBuffer, 1000},
-            {vk::DescriptorType::eStorageTexelBuffer, 1000},
-            {vk::DescriptorType::eUniformBuffer, 1000},
-            {vk::DescriptorType::eStorageBuffer, 1000},
-            {vk::DescriptorType::eUniformBufferDynamic, 1000},
-            {vk::DescriptorType::eStorageBufferDynamic, 1000},
-            {vk::DescriptorType::eInputAttachment, 1000},
+            { vk::DescriptorType::eSampler, 1000 },
+            { vk::DescriptorType::eCombinedImageSampler, 1000 },
+            { vk::DescriptorType::eSampledImage, 1000 },
+            { vk::DescriptorType::eStorageImage, 1000 },
+            { vk::DescriptorType::eUniformTexelBuffer, 1000 },
+            { vk::DescriptorType::eStorageTexelBuffer, 1000 },
+            { vk::DescriptorType::eUniformBuffer, 1000 },
+            { vk::DescriptorType::eStorageBuffer, 1000 },
+            { vk::DescriptorType::eUniformBufferDynamic, 1000 },
+            { vk::DescriptorType::eStorageBufferDynamic, 1000 },
+            { vk::DescriptorType::eInputAttachment, 1000 },
         });
 
     // Create thread pool
@@ -53,19 +53,19 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
     // Create font atlas GPU resource
     ui::FontAtlas& atlas = ui::Ui::instance().getFontAtlas();
     fontAtlasHandle = images_.create(device_,
-        core::ImageDesc{.width = ui::ATLAS_WIDTH,
+        core::ImageDesc{ .width = ui::ATLAS_WIDTH,
             .height = ui::ATLAS_HEIGHT,
             .channels = 1,
             .format = core::ImageFormat::R8Uint,
             .usage = core::ImageUsage::Sampled | core::ImageUsage::TransferDst,
-            .type = core::ImageType::Type2D});
+            .type = core::ImageType::Type2D });
     auto fontAtlas = images_.ref(fontAtlasHandle);
     fontAtlas->createSampler();
     auto atlasStagingBufferHandle = buffers_.create(device_,
-        core::BufferDesc{.type = core::BufferType::HostVisible,
+        core::BufferDesc{ .type = core::BufferType::HostVisible,
             .usage = core::BufferUsage::TransferSrc | core::BufferUsage::TransferDst,
             .instanceSize = sizeof(uint8_t),
-            .instanceCount = ui::ATLAS_WIDTH * ui::ATLAS_HEIGHT});
+            .instanceCount = ui::ATLAS_WIDTH * ui::ATLAS_HEIGHT });
     auto atlasStagingBuffer = buffers_.ref(atlasStagingBufferHandle);
     atlasStagingBuffer->map();
     atlasStagingBuffer->writeToBuffer(atlas.bitmap.data());
@@ -76,11 +76,13 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
 
     prepCmd->begin();
     std::array<core::ImageMemoryBarrier, 1> atlasNoneToTransfer{
-        {fontAtlas, core::ResourceState::Undefined, core::ResourceState::TransferDst}};
+        { fontAtlas, core::ResourceState::Undefined, core::ResourceState::TransferDst }
+    };
     prepCmd->pipelineBarrier(atlasNoneToTransfer, {});
     prepCmd->copyBufferToImage(atlasStagingBuffer, fontAtlas);
     std::array<core::ImageMemoryBarrier, 1> atlasTransferToShaderRead{
-        {fontAtlas, core::ResourceState::TransferDst, core::ResourceState::ShaderRead}};
+        { fontAtlas, core::ResourceState::TransferDst, core::ResourceState::ShaderRead }
+    };
     prepCmd->pipelineBarrier(atlasTransferToShaderRead, {});
     prepCmd->submit();
 
@@ -90,10 +92,10 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
     commandBuffers_.destroy(prepCmdHandle);  // Destroy the prep command buffer
 
     // Create font atlas descriptor
-    auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{{.binding = 0,
+    auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{ { .binding = 0,
         .descriptorType = vk::DescriptorType::eCombinedImageSampler,
         .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eFragment}};
+        .stageFlags = vk::ShaderStageFlagBits::eFragment } };
     auto flags = std::vector<vk::DescriptorBindingFlags>{};
     userInterfaceDescLayoutHandle_ = descriptorSetLayouts_.create(device_, bindings, flags);
     auto imageInfo = fontAtlas->getDescriptorImageInfo(fontAtlas->getSampler());
@@ -108,9 +110,9 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
             .asGraphicsPipeline()
             .setVertexShader(filesystem::readFile("../../spv/user_interface.vert.spv"), "main")
             .setFragmentShader(filesystem::readFile("../../spv/user_interface.frag.spv"), "main")
-            .addPushConstantRange(vk::PushConstantRange{.stageFlags = vk::ShaderStageFlagBits::eVertex,
+            .addPushConstantRange(vk::PushConstantRange{ .stageFlags = vk::ShaderStageFlagBits::eVertex,
                 .offset = 0,
-                .size = sizeof(UserInterfacePushConstants)})
+                .size = sizeof(UserInterfacePushConstants) })
             .addDescriptorSetLayout(descriptorSetLayouts_.ref(userInterfaceDescLayoutHandle_))
             .setDepthTest(false)
             .setCullMode(vk::CullModeFlagBits::eNone)
@@ -122,30 +124,32 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
             .addColorAttachmentFormat(vk::Format::eR8G8B8A8Unorm)
             .buildCreateInfo());
 
-    // Create the user interface vertex buffer
-    userInterfaceVertexBuffer_ = buffers_.create(device_,
-        core::BufferDesc{
-            .type = core::BufferType::HostVisible,
-            .usage = core::BufferUsage::VertexBuffer | core::BufferUsage::TransferDst,
-            .instanceSize = sizeof(UiVertex),
-            .instanceCount = 10000  // for now
-        });
-    buffers_.ref(userInterfaceVertexBuffer_)->map();  // make it constantly mapped
+    // Keep a separate UI vertex buffer for each frame in flight.
+    for (auto& vertexBuffer : userInterfaceVertexBuffers_) {
+        vertexBuffer = buffers_.create(device_,
+            core::BufferDesc{
+                .type = core::BufferType::HostVisible,
+                .usage = core::BufferUsage::VertexBuffer | core::BufferUsage::TransferDst,
+                .instanceSize = sizeof(UiVertex),
+                .instanceCount = 10000  // for now
+            });
+        buffers_.ref(vertexBuffer)->map();
+    }
 
     // Create compute descriptors
-    bindings = std::vector<vk::DescriptorSetLayoutBinding>{{.binding = 0,
+    bindings = std::vector<vk::DescriptorSetLayoutBinding>{ { .binding = 0,
         .descriptorType = vk::DescriptorType::eStorageImage,
         .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eCompute}};
+        .stageFlags = vk::ShaderStageFlagBits::eCompute } };
     computeLayoutHandle_ = descriptorSetLayouts_.create(device_, bindings, flags);
 
     // Create the compute pipeline
     computePipelineHandle_ = pipelines_.create(core::PipelineBuilder(device_)
             .asComputePipeline()
             .setComputeShader(filesystem::readFile("../../spv/fullscreen_color.comp.spv"))
-            .addPushConstantRange(vk::PushConstantRange{.stageFlags = vk::ShaderStageFlagBits::eCompute,
+            .addPushConstantRange(vk::PushConstantRange{ .stageFlags = vk::ShaderStageFlagBits::eCompute,
                 .offset = 0,
-                .size = sizeof(ComputePushConstants)})
+                .size = sizeof(ComputePushConstants) })
             .addDescriptorSetLayout(descriptorSetLayouts_.ref(computeLayoutHandle_))
             .buildCreateInfo());
 
@@ -161,11 +165,11 @@ hammock::renderer::Renderer::~Renderer() {
     }
 }
 
-void hammock::renderer::Renderer::drawFrame(
-    core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap, const void * snapData, core::ResourceRef<core::Semaphore> signal) {
-    UserInterfacePushConstants uiPush{.screenSize = {static_cast<float>(target->getExtent2D().x),
-                                          static_cast<float>(target->getExtent2D().y)}};
-    ComputePushConstants compPush{.color = {1.f, 0.f, 0.f}};
+void hammock::renderer::Renderer::drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap,
+    const void* snapData, core::ResourceRef<core::Semaphore> signal) {
+    UserInterfacePushConstants uiPush{ .screenSize = { static_cast<float>(target->getExtent2D().x),
+                                           static_cast<float>(target->getExtent2D().y) } };
+    ComputePushConstants compPush{ .color = { 1.f, 0.f, 0.f } };
     constexpr uint32_t groupSize = 16u;
 
     // Create compute descriptor set
@@ -182,23 +186,13 @@ void hammock::renderer::Renderer::drawFrame(
     else
         writer.build(computeDescriptorSets_[currentFrameIdx_]);
 
-    ComputePassDescription computePassDescription{
-        .name = "Compute pass",
+    PassDescription computePassDescription{
+        .family = core::CommandQueueFamily::Compute,
         .transitions =
             {
                 .images = {{target, core::ResourceState::Undefined, core::ResourceState::StorageImage}},
             },
-        .dispatch =
-            {
-                .sizes =
-                    {
-                        .x = (target->getExtent2D().x + groupSize - 1) / groupSize,
-                        .y = (target->getExtent2D().y + groupSize - 1) / groupSize,
-                        .z = 1,
-                    },
-                .pipeline = pipelines_.ref(computePipelineHandle_),
-            },
-        .data =
+         .data =
             {
                 .descriptors = {computeDescriptorSets_[currentFrameIdx_]},
                 .constants =
@@ -216,20 +210,23 @@ void hammock::renderer::Renderer::drawFrame(
                     .stage = core::PipelineStage::ComputeShader,
                 }},
             },
+        .dispatch =
+            {
+                .sizes =
+                    {
+                        .x = (target->getExtent2D().x + groupSize - 1) / groupSize,
+                        .y = (target->getExtent2D().y + groupSize - 1) / groupSize,
+                        .z = 1,
+                    },
+                .pipeline = pipelines_.ref(computePipelineHandle_),
+            },
     };
 
-    GraphicsPassDescription graphicsPassDescription{
-        .name = "User Interface",
+    PassDescription graphicsPassDescription{
+        .family = core::CommandQueueFamily::Graphics,
         .transitions =
             {
                 .images = {{target, core::ResourceState::StorageImage, core::ResourceState::ColorAttachment}},
-            },
-        .rendering =
-            {
-                .colorAttachments = {target},
-                .viewport = target->createViewport(),
-                .scissors = target->createScissor(),
-                .pipeline = pipelines_.ref(userInterfacePipelineHandle_),
             },
         .data =
             {
@@ -252,33 +249,43 @@ void hammock::renderer::Renderer::drawFrame(
                         },
                     },
             },
-        .execute =
-            [&, this](core::ResourceRef<core::CommandBuffer> commandBuffer) {
-                // Signal rendering finished
-                commandBuffer->addSignalSemaphore(signal);
+        .rendering =
+            {
+                .colorAttachments = {target},
+                .viewport = target->createViewport(),
+                .scissors = target->createScissor(),
+                .pipeline = pipelines_.ref(userInterfacePipelineHandle_),
+            },
+            .execute =
+                [&, this, frameIndex = currentFrameIdx_](core::ResourceRef<core::CommandBuffer> commandBuffer) {
+                    // Signal rendering finished
+                    commandBuffer->addSignalSemaphore(signal);
 
-                // Render the ui
-                // Update the ui vert buffer
-                // TODO FIXME there is GPU - CPU race as both may access it at the same time
-                auto uiVertBuffer = buffers_.ref(userInterfaceVertexBuffer_);
+                    // Render the ui
+                    auto uiVertBuffer = buffers_.ref(userInterfaceVertexBuffers_[frameIndex]);
 
-                const UserInterfaceDrawBatch& uiDrawBatch = snap->uiDraws;
-                const UiVertex* uiVertices = uiDrawBatch.vertices.data(snapData);
+                    const UserInterfaceDrawBatch& uiDrawBatch = snap->uiDraws;
+                    const UiVertex* uiVertices = uiDrawBatch.vertices.data(snapData);
 
-                uiVertBuffer->writeToBuffer(
-                    uiVertices, uiDrawBatch.vertices.elementCount * sizeof(UiVertex));
-                // Bind the ui vert buffer
-                vk::DeviceSize offsets[1]{0};
-                commandBuffer->getCommandBuffer().bindVertexBuffers(
-                    0, 1, uiVertBuffer->getBufferPtr(), offsets);
-                commandBuffer->bindVertexBuffers(std::span(&uiVertBuffer, 1), offsets);
+                    uiVertBuffer->writeToBuffer(
+                        uiVertices, uiDrawBatch.vertices.elementCount * sizeof(UiVertex));
+                    // Bind the ui vert buffer
+                    vk::DeviceSize offsets[1]{0};
+                    commandBuffer->getCommandBuffer().bindVertexBuffers(
+                        0, 1, uiVertBuffer->getBufferPtr(), offsets);
+                    commandBuffer->bindVertexBuffers(std::span(&uiVertBuffer, 1), offsets);
 
-                // Draw the ui
-                commandBuffer->getCommandBuffer().draw(uiDrawBatch.vertices.elementCount, 1, 0, 0);
+                    // Draw the ui
+                    commandBuffer->getCommandBuffer().draw(uiDrawBatch.vertices.elementCount, 1, 0, 0);
             },
     };
 
-    FrameGraphDesc frameGraphDesc{{std::move(computePassDescription), std::move(graphicsPassDescription)}};
+    FrameGraphDescription frameGraphDesc{
+        {
+            std::move(computePassDescription),
+            std::move(graphicsPassDescription),
+        },
+    };
 
     FrameGraph graph{
         std::move(frameGraphDesc),
@@ -291,10 +298,10 @@ void hammock::renderer::Renderer::drawFrame(
     graph.execute(currentFrameIdx_);
 
     // Update the frame index
-    nextFrameIdx();
+    prepNextFrame();
 }
 
-void hammock::renderer::Renderer::nextFrameIdx() {
+void hammock::renderer::Renderer::prepNextFrame() {
     currentFrameIdx_ = (currentFrameIdx_ + 1) % core::SwapChain::MAX_FRAMES_IN_FLIGHT;
     computeSignalValue++;
 }

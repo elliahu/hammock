@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <functional>
 
@@ -12,8 +13,8 @@
 #include "core/resource_manager.hpp"
 #include "core/semaphore.hpp"
 #include "render_snapshot.hpp"
-#include "utils/math.hpp"
 #include "swapchain.hpp"
+#include "utils/math.hpp"
 #include "utils/thread_pool.hpp"
 #include "vulkan/vulkan.hpp"
 
@@ -25,8 +26,8 @@ namespace hammock::renderer {
         virtual ~RendererIface() = default;
 
         /// @brief Draw frame onto a target
-        virtual void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap, const void * snapData,
-            core::ResourceRef<core::Semaphore> signal) = 0;
+        virtual void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap,
+            const void* snapData, core::ResourceRef<core::Semaphore> signal) = 0;
 
         /// @brief Get the device associated with this renderer
         virtual core::Device& getDevice() = 0;
@@ -55,8 +56,8 @@ namespace hammock::renderer {
         /// @brief Draw frame onto a target
         /// @param target Target image
         /// @param signal Semaphore reference, will be signaled when frame is finished rendering
-        void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap, const void * snapData,
-            core::ResourceRef<core::Semaphore> signal) override;
+        void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap,
+            const void* snapData, core::ResourceRef<core::Semaphore> signal) override;
 
         /// @brief Get the device associated with this renderer
         core::Device& getDevice() override { return device_; }
@@ -72,19 +73,20 @@ namespace hammock::renderer {
 
        private:
         /// This function updates the frame index keeping it in range 0 -> MAX_FRAMES_IN_FLIGHT
-        void nextFrameIdx();
+        void prepNextFrame();
 
         core::Instance instance_;
         vk::SurfaceKHR surface_;  // TODO abstract this somehow
         SurfaceDestructor surfaceDestructor_{
-            nullptr};  // This is called in the desdtructor to destroy surface which is created externally
+            nullptr
+        };  // This is called in the destructor to destroy surface which is created externally
         core::Device device_;
         ThreadPool threadPool_{};
         CommandCache commandCache_;
 
         /// Index of the current frame
         uint32_t currentFrameIdx_ = 0;
-        uint32_t computeSignalValue = 1;
+        uint64_t computeSignalValue = 1;
 
         // Resource managers
         core::ResourceManager<core::CommandPool> commandPools_{};
@@ -124,6 +126,6 @@ namespace hammock::renderer {
         core::Handle<core::Pipeline> userInterfacePipelineHandle_;
         core::Handle<core::DescriptorSetLayout> userInterfaceDescLayoutHandle_;
         core::DescriptorSet userInterfaceDescSet_;
-        core::Handle<core::Buffer> userInterfaceVertexBuffer_;
+        std::array<core::Handle<core::Buffer>, core::SwapChain::MAX_FRAMES_IN_FLIGHT> userInterfaceVertexBuffers_;
     };
 };  // namespace hammock::renderer

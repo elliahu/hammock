@@ -32,6 +32,8 @@ namespace hammock::renderer {
         core::ResourceState state;               // What state is required
     };
 
+    /// @struct PassResourceAccessInfo
+    /// @note Reserved for future usage
     struct PassResourceAccessInfo {
         std::vector<ImageAccessInfo> images;    // Image accesses
         std::vector<BufferAccessInfo> buffers;  // Buffer accesses
@@ -59,13 +61,8 @@ namespace hammock::renderer {
         std::vector<PassSyncSemaphoreInfo> signals;
     };
 
-    struct FrameGraphPassDeclarationWrapper;
 
-    struct PassDependencyInfo {
-        std::vector<core::Handle<FrameGraphPassDeclarationWrapper>> passes;
-    };
-
-    struct GraphicsPassRenderingInfo {
+    struct RenderingDescription {
         std::vector<core::ResourceRef<core::Image>> colorAttachments;
         std::optional<core::ResourceRef<core::Image>> depthAttachment;
         std::optional<core::ResourceRef<core::Image>> stencilAttachment;
@@ -75,83 +72,37 @@ namespace hammock::renderer {
         std::optional<core::ResourceRef<core::Pipeline>> pipeline;
     };
 
-    /// @struct User definition of a graphics pass
-    struct GraphicsPassDeclaration {
-        std::string name;
-        PassResourceAccessInfo resources;
-        GraphicsPassRenderingInfo rendering;
-        PassDataInfo data;
-        PassDependencyInfo dependency;
-        std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
-    };
-
-    /// Internal struct with deduced values
-    struct GraphicsPassDescription {
-        std::string name;
-        PassTransitionsInfo transitions;
-        GraphicsPassRenderingInfo rendering;
-        PassDataInfo data;
-        PassSyncInfo sync;
-        std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
-    };
-
-    struct ComputePassDispatchGroupSizes {
+    struct DispatchGroupSizes {
         uint32_t x = 0, y = 0, z = 0;
     };
 
-    struct ComputePassDispatchInfo {
-        ComputePassDispatchGroupSizes sizes;
+    struct DispatchDescription {
+        DispatchGroupSizes sizes;
         std::optional<core::ResourceRef<core::Pipeline>> pipeline;
     };
 
-    /// @struct User definition of a compute pass
-    struct ComputePassDeclaration {
-        std::string name;
-        PassResourceAccessInfo resources;
-        ComputePassDispatchInfo dispatch;
-        PassDataInfo data;
-        PassDependencyInfo dependency;
-        std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
-    };
+    struct TransferDescription {};
 
-    /// Internal struct with deduced values
-    struct ComputePassDescription {
-        std::string name;
-        PassTransitionsInfo transitions;
-        ComputePassDispatchInfo dispatch;
-        PassDataInfo data;
-        PassSyncInfo sync;
-        std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
-    };
 
-    struct TransferPassTransferInfo {};
-
-    struct TransferPassDeclaration {
-        std::string name;
-        PassResourceAccessInfo resources;
-        TransferPassTransferInfo transfer;
-        PassDataInfo data;
-        PassDependencyInfo dependency;
-        std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
-    };
-
-    struct TransferPassDescription {
-        std::string name;
+    struct PassDescription {
+        core::CommandQueueFamily family;
         PassTransitionsInfo transitions;
         PassDataInfo data;
         PassSyncInfo sync;
+        TransferDescription transfer;
+        DispatchDescription dispatch;
+        RenderingDescription rendering;
         std::function<void(core::ResourceRef<core::CommandBuffer>)> execute;
     };
 
-    struct FrameGraphDesc {
-        std::vector<std::variant<GraphicsPassDescription, ComputePassDescription, TransferPassDescription>>
-            passes;
+    struct FrameGraphDescription {
+        std::vector<PassDescription> passes;
     };
 
     /// @class FrameGraph
     class FrameGraph {
        public:
-        explicit FrameGraph(FrameGraphDesc&& desc, CommandCache& commandCache,
+        explicit FrameGraph(FrameGraphDescription&& desc, CommandCache& commandCache,
             core::ResourceRef<core::Semaphore> graphicsTimeline,
             core::ResourceRef<core::Semaphore> computeTimeline,
             core::ResourceRef<core::Semaphore> transferTimeline);
@@ -160,10 +111,10 @@ namespace hammock::renderer {
 
        private:
         void recordBarrier(PassTransitionsInfo& transitions, core::ResourceRef<core::CommandBuffer> cmd);
-        void recordGraphicsPass(GraphicsPassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd);
-        void recordComputePass(ComputePassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd);
+        void recordGraphicsPass(PassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd);
+        void recordComputePass(PassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd);
 
-        FrameGraphDesc desc_;
+        FrameGraphDescription desc_;
         CommandCache& commandCache_;
 
         struct {
@@ -172,69 +123,4 @@ namespace hammock::renderer {
             core::ResourceRef<core::Semaphore> transfer;
         } timeline_;
     };
-
-    /// @struct FrameGraphPassWrapper
-    /// Internal type for storing pass descriptions
-    struct FrameGraphPassDeclarationWrapper {
-        // Description
-        std::variant<GraphicsPassDeclaration, ComputePassDeclaration, TransferPassDeclaration> declaration;
-
-        // Constructors
-        FrameGraphPassDeclarationWrapper(GraphicsPassDeclaration&& graphics) : declaration(graphics) {}
-        FrameGraphPassDeclarationWrapper(ComputePassDeclaration&& compute) : declaration(compute) {}
-    };
-
-    /// @class FrameGraphBuilder
-    /// @brief Builds the frame graph descriptions
-    class FrameGraphBuilder {
-       public:
-        /// Internal enum for DFS algorith
-        enum class NodeVisitState { Unvisited, Visiting, Visited };
-
-        /// Creates a graphics pass
-        core::Handle<FrameGraphPassDeclarationWrapper> createGraphicsPass(
-            GraphicsPassDeclaration&& graphicsDesc);
-        /// Creates a compute pass
-        core::Handle<FrameGraphPassDeclarationWrapper> createComputePass(
-            ComputePassDeclaration&& computeDesc);
-
-        FrameGraphDesc build();
-
-       private:
-        GraphicsPassDescription buildGraphicsPassDescription(GraphicsPassDeclaration& decl);
-        ComputePassDescription buildComputePassDescription(ComputePassDeclaration& decl);
-        void buildSyncValues(
-            FrameGraphDesc& desc, std::vector<core::Handle<FrameGraphPassDeclarationWrapper>>& sorted);
-
-        PassTransitionsInfo deduceFromState(
-            PassResourceAccessInfo& accesses, PassDependencyInfo& dependencies);
-
-        /// Depth first search
-        void dfs(core::Handle<FrameGraphPassDeclarationWrapper> node,
-            std::unordered_map<core::Handle<FrameGraphPassDeclarationWrapper>, NodeVisitState>& state,
-            std::vector<core::Handle<FrameGraphPassDeclarationWrapper>>& sorted);
-        /// Performs topological sort of the passes using DFS
-        void performTopoSort(std::vector<core::Handle<FrameGraphPassDeclarationWrapper>>& sorted);
-
-        template <typename PassType>
-        constexpr core::CommandQueueFamily getQueueFamily() {
-            if constexpr (std::is_same_v<PassType, GraphicsPassDescription> ||
-                          std::is_same_v<PassType, GraphicsPassDeclaration>) {
-                return core::CommandQueueFamily::Graphics;
-            } else if constexpr (std::is_same_v<PassType, ComputePassDescription> ||
-                                 std::is_same_v<PassType, ComputePassDeclaration>) {
-                return core::CommandQueueFamily::Compute;
-            } else if constexpr (std::is_same_v<PassType, TransferPassDescription> ||
-                                 std::is_same_v<PassType, TransferPassDeclaration>) {
-                return core::CommandQueueFamily::Transfer;
-            } else {
-                return core::CommandQueueFamily::Ignored;
-            }
-        }
-
-        core::ResourceManager<FrameGraphPassDeclarationWrapper> declarations_;
-        std::vector<core::Handle<FrameGraphPassDeclarationWrapper>>
-            handles_;  // stores the handles given by the builder
-    };
-
 }  // namespace hammock::renderer
