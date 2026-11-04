@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <cstdio>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -70,10 +71,10 @@ namespace hammock::core {
 
     enum LogLevel {
         LOG_LEVEL_NONE = 0,  // Added NONE for stricter control
-        LOG_LEVEL_ERROR,
-        LOG_LEVEL_WARN,
-        LOG_LEVEL_INFO,
         LOG_LEVEL_DEBUG,
+        LOG_LEVEL_INFO,
+        LOG_LEVEL_WARN,
+        LOG_LEVEL_ERROR,
     };
 
     /// Static logging class providing level-specific wrappers
@@ -171,20 +172,25 @@ namespace hammock::core {
         template <typename... Args>
         static void log_impl(const LogLevel level, const char* format, Args&&... args) {
             const char* prefix = "";
+            const char* color = "";
 
-            // Determine the prefix based on the log level
+            // Determine the prefix and color based on the log level
             switch (level) {
                 case LOG_LEVEL_DEBUG:
                     prefix = "DEBUG";
+                    color = "\033[36m";
                     break;
                 case LOG_LEVEL_INFO:
                     prefix = "INFO";
+                    color = "\033[32m";
                     break;
                 case LOG_LEVEL_WARN:
                     prefix = "WARNING";
+                    color = "\033[33m";
                     break;
                 case LOG_LEVEL_ERROR:
                     prefix = "ERROR";
+                    color = "\033[31m";
                     break;
                 default:
                     // Do nothing for NONE or unrecognized
@@ -198,10 +204,13 @@ namespace hammock::core {
             std::lock_guard<std::mutex> lock(log_mutex);
 
             /// Print prefix + thread id
-            std::printf("[%s][T%zu] \t", prefix, tid);
+            std::printf("%s[%s][T%zu] \t", color, prefix, tid);
 
             // Print the formatted message using printf with forwarded arguments
             std::printf(format, std::forward<Args>(args)...);
+
+            // Reset the terminal style so later output keeps its original color
+            std::printf("\033[0m");
 
             // Add a newline for clean output
             std::printf("\n");

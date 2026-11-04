@@ -27,8 +27,6 @@ namespace hammock::ui {
             height_ = height;
         }
 
-
-
         void beginLayout();
 
         void endLayout(std::vector<renderer::UiVertex>& vertices);
@@ -46,19 +44,19 @@ namespace hammock::ui {
         void setScrollDelta(math::Vec2 delta) { pointerState.scrollDelta = delta; }
 
        private:
-        Ui(uint32_t width, uint32_t height);
+        Ui(uint32_t width, uint32_t height, std::string_view fontPath);
 
         static Clay_Dimensions measureText(
             Clay_StringSlice text, Clay_TextElementConfig* config, void* userData);
 
         static void handleError(Clay_ErrorData error);
 
-        void createDrawBatch(std::vector<renderer::UiVertex>& vertices, Clay_RenderCommandArray& cmds,
-            const FontAtlas& font);
+        void createDrawBatch(
+            std::vector<renderer::UiVertex>& vertices, Clay_RenderCommandArray& cmds, const FontAtlas& font);
 
-        void* arenaMemory_{nullptr};
-        uint32_t width_{1280};
-        uint32_t height_{720};
+        void* arenaMemory_{ nullptr };
+        uint32_t width_{ 1280 };
+        uint32_t height_{ 720 };
         FontAtlas atlas;
 
         struct PointerState {

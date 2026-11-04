@@ -20,3 +20,6 @@
 [submodule "third_party/HandmadeMath"]
 	path = third_party/HandmadeMath
 	url = https://github.com/HandmadeMath/HandmadeMath
+[submodule "third_party/tomlplusplus"]
+	path = third_party/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus.git

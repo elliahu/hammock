@@ -1,15 +1,16 @@
 #include "ui.hpp"
+
 #include "render_snapshot.hpp"
 #define CLAY_IMPLEMENTATION
-#include "clay/clay.h"
-
 #include <stdexcept>
 #include <vector>
 
+#include "clay/clay.h"
+
 void hammock::ui::Ui::beginLayout() {
-    Clay_SetLayoutDimensions({static_cast<float>(width_), static_cast<float>(height_)});
-    Clay_SetPointerState({pointerState.position.X, pointerState.position.Y}, pointerState.down);
-    //Clay_UpdateScrollContainers(true, {pointerState.scrollDelta.X, pointerState.scrollDelta.Y}, 0.00694);
+    Clay_SetLayoutDimensions({ static_cast<float>(width_), static_cast<float>(height_) });
+    Clay_SetPointerState({ pointerState.position.X, pointerState.position.Y }, pointerState.down);
+    // Clay_UpdateScrollContainers(true, {pointerState.scrollDelta.X, pointerState.scrollDelta.Y}, 0.00694);
 
     Clay_BeginLayout();
 }
@@ -18,7 +19,8 @@ void hammock::ui::Ui::endLayout(std::vector<renderer::UiVertex>& vertices) {
     createDrawBatch(vertices, cmds, atlas);
 }
 
-hammock::ui::Ui::Ui(uint32_t width, uint32_t height) : width_(width), height_(height) {
+hammock::ui::Ui::Ui(uint32_t width, uint32_t height, std::string_view fontPath)
+    : width_(width), height_(height) {
     // Allocate Clay's arena
     const uint64_t memorySize = Clay_MinMemorySize();
     arenaMemory_ = malloc(memorySize);
@@ -27,14 +29,14 @@ hammock::ui::Ui::Ui(uint32_t width, uint32_t height) : width_(width), height_(he
 
     // Initialize Clay
     Clay_Initialize(arena,
-        Clay_Dimensions{static_cast<float>(width_), static_cast<float>(height_)},
-        Clay_ErrorHandler{handleError});
+        Clay_Dimensions{ static_cast<float>(width_), static_cast<float>(height_) },
+        Clay_ErrorHandler{ handleError });
 
     // Bind text measurement — required before any layout with text
     Clay_SetMeasureTextFunction(measureText, &atlas);
 
     // Create texture atlas
-    atlas = loadFont("../../../data/fonts/GoogleSansCode-Medium.ttf");
+    atlas = loadFont(fontPath);
 
     Clay_SetDebugModeEnabled(true);
 }
@@ -50,7 +52,7 @@ Clay_Dimensions hammock::ui::Ui::measureText(
         totalWidth += font->glyphs[ch - FIRST_CHAR].advanceX * scale;
     }
 
-    return {totalWidth, font->lineHeight * scale};
+    return { totalWidth, font->lineHeight * scale };
 }
 void hammock::ui::Ui::handleError(Clay_ErrorData error) {
     printf("[Clay] Error: %s\n", error.errorText.chars);
@@ -68,13 +70,13 @@ void hammock::ui::Ui::createDrawBatch(
                         Vec4 color,
                         float useTexture) {
         // Triangle 1
-        vertices.push_back({{left, top}, {u0, v0}, color, useTexture});
-        vertices.push_back({{right, top}, {u1, v0}, color, useTexture});
-        vertices.push_back({{right, bottom}, {u1, v1}, color, useTexture});
+        vertices.push_back({ { left, top }, { u0, v0 }, color, useTexture });
+        vertices.push_back({ { right, top }, { u1, v0 }, color, useTexture });
+        vertices.push_back({ { right, bottom }, { u1, v1 }, color, useTexture });
         // Triangle 2
-        vertices.push_back({{left, top}, {u0, v0}, color, useTexture});
-        vertices.push_back({{right, bottom}, {u1, v1}, color, useTexture});
-        vertices.push_back({{left, bottom}, {u0, v1}, color, useTexture});
+        vertices.push_back({ { left, top }, { u0, v0 }, color, useTexture });
+        vertices.push_back({ { right, bottom }, { u1, v1 }, color, useTexture });
+        vertices.push_back({ { left, bottom }, { u0, v1 }, color, useTexture });
     };
 
     for (int32_t i = 0; i < cmds.length; i++) {
@@ -140,7 +142,7 @@ void hammock::ui::Ui::createDrawBatch(
                 const Clay_BorderRenderData& b = cmd.renderData.border;
 
                 auto emitBorderQuad = [&](float l, float t, float r, float bot, Clay_Color c) {
-                    Vec4 color = {c.r / 255.f, c.g / 255.f, c.b / 255.f, c.a / 255.f};
+                    Vec4 color = { c.r / 255.f, c.g / 255.f, c.b / 255.f, c.a / 255.f };
                     emitQuad(l, t, r, bot, 0.f, 0.f, 0.f, 0.f, color, 0.f);
                 };
 

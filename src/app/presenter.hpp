@@ -5,10 +5,10 @@
 #include <vulkan/vulkan.hpp>
 
 #include "core/command_buffer.hpp"
+#include "core/resource_manager.hpp"
 #include "core/semaphore.hpp"
 #include "core/surface_provider_iface.hpp"
 #include "core/swapchain_manager.hpp"
-#include "core/resource_manager.hpp"
 #include "utils/math.hpp"
 
 namespace hammock::app {
@@ -17,8 +17,9 @@ namespace hammock::app {
     /// @brief This class represents offscreen framebuffer used by the engine editor
     /// TODO remove this and use swapchain image directly to save on memory
     class Framebuffer final {
-    public:
-        Framebuffer(core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution, core::ImageFormat format);
+       public:
+        Framebuffer(core::Device& device, std::uint32_t framesInFlight, math::Vec2 resolution,
+            core::ImageFormat format);
 
         ~Framebuffer();
 
@@ -31,7 +32,7 @@ namespace hammock::app {
         /// @brief Get current front buffer image
         [[nodiscard]] core::ResourceRef<core::Image> getFrontbufferImage();
 
-    private:
+       private:
         void createImages(math::Vec2 resolution, core::ImageFormat format);
 
         core::Device& device_;
@@ -76,7 +77,7 @@ namespace hammock::app {
     /// @brief Describes the configuration for creating a Presenter.
     struct PresenterDesc {
         PresenterFrameBufferSize frameBufferRelativeSize = PresenterFrameBufferSize::SwapchainRelative;
-        math::Vec2 frameBufferSize = {1.f, 1.f};  // Relative to the setting in frameBufferRelativeSize
+        math::Vec2 frameBufferSize = { 0.5f, 0.5f };  // Relative to the setting in frameBufferRelativeSize
     };
 
     /// @class SurfacePresenter
@@ -115,8 +116,8 @@ namespace hammock::app {
 
         struct PerFrameResources {
             core::Handle<core::CommandBuffer> presentCommandBuffer;
-            core::Handle<core::Semaphore> imageReleased; // timeline semaphore
-            uint64_t imageReleasedValue = 0; // per-slot counter
+            core::Handle<core::Semaphore> imageReleased;  // timeline semaphore
+            uint64_t imageReleasedValue = 0;              // per-slot counter
         };
 
         PresenterDesc desc_;
@@ -136,4 +137,4 @@ namespace hammock::app {
         std::vector<std::function<void(uint32_t, uint32_t)>> resolutionCallbacks_;
     };
 
-}  // namespace hammock::renderer
+}  // namespace hammock::app

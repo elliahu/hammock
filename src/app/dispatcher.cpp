@@ -92,7 +92,7 @@ void hammock::app::Dispatcher::start() {
                     CLAY_TEXT_CONFIG({
                         .textColor = { 0, 0, 0, 255 },
                         .fontId = 0,
-                        .fontSize = 12,
+                        .fontSize = 22,
                     }));
             }
         }

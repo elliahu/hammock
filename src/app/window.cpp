@@ -8,8 +8,8 @@
 
 hammock::app::Window::Window(const std::string& title, const uint32_t width, const uint32_t height,
     const uint32_t x, const uint32_t y) {
-    window_ = Surfer::Window::createWindow(
-        "Hammock engine", width, height, static_cast<int32_t>(x), static_cast<int32_t>(y));
+    window_ =
+        Surfer::Window::createWindow(title, width, height, static_cast<int32_t>(x), static_cast<int32_t>(y));
 
     // Resize
     window_->registerResizeCallback([this](uint32_t width, uint32_t height) { resized_ = true; });

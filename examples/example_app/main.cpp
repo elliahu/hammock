@@ -5,7 +5,7 @@
 using namespace hammock;
 
 int main() {
-    auto runner = std::make_unique<app::Runner>();
+    auto runner = std::make_unique<app::Runner>("/home/matej/Documents/HammockProject");
     runner->run();
 
     return EXIT_SUCCESS;

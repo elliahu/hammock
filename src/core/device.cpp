@@ -4,10 +4,11 @@
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.hpp>
+
 #include "utilities.hpp"
 
 namespace hammock::core {
-    Device::Device(Instance& instance, vk::SurfaceKHR surface) : instance_{instance}, surface_{surface} {
+    Device::Device(Instance& instance, vk::SurfaceKHR surface) : instance_{ instance }, surface_{ surface } {
         pickPhysicalDevice();
         createLogicalDevice();
         createCommandPools();
@@ -43,10 +44,10 @@ namespace hammock::core {
         }
 
         physicalDeviceProperties_ = physicalDevice_.getProperties();
-        Logger::info("Physical device: %s", physicalDeviceProperties_.deviceName);
+        Logger::log(LOG_LEVEL_INFO, "Physical device: %s", physicalDeviceProperties_.deviceName);
 
         if (runningHeadless()) {
-            Logger::info("%s", "Running in headless mode");
+            Logger::log(LOG_LEVEL_INFO, "Running in headless mode", "");
         }
     }
 
@@ -54,10 +55,10 @@ namespace hammock::core {
         auto queFamilyIndices = findQueueFamilies(physicalDevice_);
 
         std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
-        std::set<uint32_t> uniqueQueueFamilies = {queFamilyIndices.graphicsFamily,
+        std::set<uint32_t> uniqueQueueFamilies = { queFamilyIndices.graphicsFamily,
             queFamilyIndices.presentFamily,
             queFamilyIndices.transferFamily,
-            queFamilyIndices.computeFamily};
+            queFamilyIndices.computeFamily };
 
         float queuePriority = 1.0f;
         for (uint32_t queueFamily : uniqueQueueFamilies) {
