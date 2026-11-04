@@ -392,6 +392,8 @@ namespace hammock::core {
         /// Execution will wait on all wait semaphores in their corresponding stages
         auto addWaitSemaphore(ResourceRef<Semaphore> semaphore, PipelineStage waitStage,
             std::optional<uint64_t> waitValue = std::nullopt) -> void;
+        auto addWaitSemaphore(TimelineSemaphorePoint point, PipelineStage waitStage) -> void;
+        auto addWaitSemaphore(vk::Semaphore semaphore, PipelineStage waitStage, uint64_t waitValue = 0) -> void;
 
         /// @brief Set a semaphore that will be signaled after the command buffer finishes
         auto addSignalSemaphore(ResourceRef<Semaphore> semaphore,

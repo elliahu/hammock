@@ -140,9 +140,19 @@ hammock::core::CommandBuffer::~CommandBuffer() {
 
 auto hammock::core::CommandBuffer::addWaitSemaphore(
     ResourceRef<Semaphore> semaphore, PipelineStage waitStage, std::optional<uint64_t> waitValue) -> void {
+    addWaitSemaphore(semaphore->getVulkanSemaphore(), waitStage, waitValue.value_or(0));
+}
+
+auto hammock::core::CommandBuffer::addWaitSemaphore(
+    TimelineSemaphorePoint point, PipelineStage waitStage) -> void {
+    addWaitSemaphore(point.semaphore, waitStage, point.value);
+}
+
+auto hammock::core::CommandBuffer::addWaitSemaphore(
+    vk::Semaphore semaphore, PipelineStage waitStage, uint64_t waitValue) -> void {
     vk::SemaphoreSubmitInfo submitInfo{
-        .semaphore = semaphore->getVulkanSemaphore(),
-        .value = waitValue.value_or(0),
+        .semaphore = semaphore,
+        .value = waitValue,
         .stageMask = static_cast<vk::PipelineStageFlags2>(VulkanPipelineStageFlags(waitStage)),
     };
 

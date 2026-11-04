@@ -165,8 +165,8 @@ hammock::renderer::Renderer::~Renderer() {
     }
 }
 
-void hammock::renderer::Renderer::drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap,
-    const void* snapData, core::ResourceRef<core::Semaphore> signal) {
+hammock::core::TimelineSemaphorePoint hammock::renderer::Renderer::drawFrame(
+    core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap, const void* snapData) {
     UserInterfacePushConstants uiPush{ .screenSize = { static_cast<float>(target->getExtent2D().x),
                                            static_cast<float>(target->getExtent2D().y) } };
     ComputePushConstants compPush{ .color = { 1.f, 0.f, 0.f } };
@@ -248,6 +248,14 @@ void hammock::renderer::Renderer::drawFrame(core::ResourceRef<core::Image> targe
                             .stage = core::PipelineStage::TopOfPipeline,
                         },
                     },
+                .signals =
+                    {
+                        {
+                            .value = graphicsSignalValue_,
+                            .queue = core::CommandQueueFamily::Graphics,
+                            .stage = core::PipelineStage::AllCommands,
+                        },
+                    },
             },
         .rendering =
             {
@@ -258,9 +266,6 @@ void hammock::renderer::Renderer::drawFrame(core::ResourceRef<core::Image> targe
             },
             .execute =
                 [&, this, frameIndex = currentFrameIdx_](core::ResourceRef<core::CommandBuffer> commandBuffer) {
-                    // Signal rendering finished
-                    commandBuffer->addSignalSemaphore(signal);
-
                     // Render the ui
                     auto uiVertBuffer = buffers_.ref(userInterfaceVertexBuffers_[frameIndex]);
 
@@ -297,13 +302,20 @@ void hammock::renderer::Renderer::drawFrame(core::ResourceRef<core::Image> targe
 
     graph.execute(currentFrameIdx_);
 
+    core::TimelineSemaphorePoint completion{
+        .semaphore = semaphores_.ref(timeline_.graphics),
+        .value = graphicsSignalValue_,
+    };
+
     // Update the frame index
     prepNextFrame();
+    return completion;
 }
 
 void hammock::renderer::Renderer::prepNextFrame() {
     currentFrameIdx_ = (currentFrameIdx_ + 1) % core::SwapChain::MAX_FRAMES_IN_FLIGHT;
     computeSignalValue++;
+    graphicsSignalValue_++;
 }
 
 void hammock::renderer::Renderer::waitIdle() { device_.waitIdle(); }

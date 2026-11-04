@@ -46,7 +46,6 @@ namespace hammock::app {
     /// @brief Contains the resources needed for a single frame presentation.
     struct FrameContext {
         core::ResourceRef<core::Image> renderTarget;
-        core::ResourceRef<core::Semaphore> renderFinished;
         core::ResourceRef<core::Semaphore> imageReleased;
         uint64_t imageReleasedValue;
         uint32_t frameIndex;
@@ -59,7 +58,7 @@ namespace hammock::app {
         virtual ~PresenterIface() = default;
 
         virtual std::optional<FrameContext> beginFrame() = 0;
-        virtual void endFrame(const FrameContext& ctx) = 0;
+        virtual void endFrame(const FrameContext& ctx, core::TimelineSemaphorePoint renderCompletion) = 0;
 
         [[nodiscard]] virtual vk::Extent2D getResolution() const = 0;
         [[nodiscard]] virtual core::ImageFormat getFormat() const = 0;
@@ -95,7 +94,7 @@ namespace hammock::app {
         std::optional<FrameContext> beginFrame() override;
 
         /// @brief Ends the current frame, presenting it to the swapchain.
-        void endFrame(const FrameContext& ctx) override;
+        void endFrame(const FrameContext& ctx, core::TimelineSemaphorePoint renderCompletion) override;
 
         [[nodiscard]] vk::Extent2D getResolution() const override;
         [[nodiscard]] core::ImageFormat getFormat() const override;
@@ -115,7 +114,6 @@ namespace hammock::app {
         std::unique_ptr<core::SwapChainManager> swapchainManager_;
 
         struct PerFrameResources {
-            core::Handle<core::Semaphore> renderingFinished;
             core::Handle<core::CommandBuffer> presentCommandBuffer;
             core::Handle<core::Semaphore> imageReleased; // timeline semaphore
             uint64_t imageReleasedValue = 0; // per-slot counter

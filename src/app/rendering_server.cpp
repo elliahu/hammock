@@ -56,11 +56,11 @@ void hammock::app::RenderingServer::start() {
             // Begin frame
             if (auto frameCtx = presenter_->beginFrame()) {
                 // Draw frame
-                renderer_->drawFrame(
-                    frameCtx->renderTarget, drawCmd.snapHeader, snapData, frameCtx->renderFinished);
+                auto renderCompletion =
+                    renderer_->drawFrame(frameCtx->renderTarget, drawCmd.snapHeader, snapData);
 
                 // Present
-                presenter_->endFrame(*frameCtx);
+                presenter_->endFrame(*frameCtx, renderCompletion);
             }
 
             // Signal dispatcher

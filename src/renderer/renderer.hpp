@@ -26,8 +26,9 @@ namespace hammock::renderer {
         virtual ~RendererIface() = default;
 
         /// @brief Draw frame onto a target
-        virtual void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap,
-            const void* snapData, core::ResourceRef<core::Semaphore> signal) = 0;
+        /// @return A timeline semaphore point signaled when rendering is complete
+        virtual core::TimelineSemaphorePoint drawFrame(
+            core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap, const void* snapData) = 0;
 
         /// @brief Get the device associated with this renderer
         virtual core::Device& getDevice() = 0;
@@ -55,9 +56,9 @@ namespace hammock::renderer {
 
         /// @brief Draw frame onto a target
         /// @param target Target image
-        /// @param signal Semaphore reference, will be signaled when frame is finished rendering
-        void drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap,
-            const void* snapData, core::ResourceRef<core::Semaphore> signal) override;
+        /// @return A timeline semaphore point signaled when rendering is complete
+        core::TimelineSemaphorePoint drawFrame(core::ResourceRef<core::Image> target, RenderSnapshotHeader* snap,
+            const void* snapData) override;
 
         /// @brief Get the device associated with this renderer
         core::Device& getDevice() override { return device_; }
@@ -87,6 +88,7 @@ namespace hammock::renderer {
         /// Index of the current frame
         uint32_t currentFrameIdx_ = 0;
         uint64_t computeSignalValue = 1;
+        uint64_t graphicsSignalValue_ = 1;
 
         // Resource managers
         core::ResourceManager<core::CommandPool> commandPools_{};

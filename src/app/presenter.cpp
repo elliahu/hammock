@@ -79,7 +79,6 @@ namespace hammock::app {
         // Per-frame GPU resources
         perFrameResources_.resize(framesInFlight_);
         for (auto& res : perFrameResources_) {
-            res.renderingFinished = semaphores_.create(device_);
             res.presentCommandBuffer = commandBuffers_.create(commandPools_.get(graphicsCommandPoolHandle_));
             res.imageReleased = semaphores_.create(device_, 0);
             res.imageReleasedValue = 0;
@@ -98,7 +97,6 @@ namespace hammock::app {
 
         return FrameContext{
             .renderTarget = framebuffer_->getFrontbufferImage(),
-            .renderFinished = semaphores_.ref(perFrameResources_[currentFrameIndex_].renderingFinished),
             .imageReleased = semaphores_.ref(perFrameResources_[currentFrameIndex_].imageReleased),
             .imageReleasedValue = perFrameResources_[currentFrameIndex_]
                 .imageReleasedValue,  // wait on this before touching image
@@ -106,7 +104,7 @@ namespace hammock::app {
         };
     }
 
-    void Presenter::endFrame(const FrameContext& ctx) {
+    void Presenter::endFrame(const FrameContext& ctx, core::TimelineSemaphorePoint renderCompletion) {
         if (!frameInProgress_) throw std::runtime_error("No frame in progress");
 
         auto& res = perFrameResources_[ctx.frameIndex];
@@ -116,8 +114,7 @@ namespace hammock::app {
         auto presentCmd = commandBuffers_.ref(res.presentCommandBuffer);
 
         // Wait for the renderer to finish writing and for the swapchain image to be free
-        presentCmd->addWaitSemaphore(
-            semaphores_.ref(res.renderingFinished), core::PipelineStage::AllCommands);
+        presentCmd->addWaitSemaphore(renderCompletion, core::PipelineStage::AllCommands);
         presentCmd->addWaitSemaphore(syncObjects.imageAvailable, core::PipelineStage::ColorAttachmentOutput);
         presentCmd->addSignalSemaphore(syncObjects.frameFinished);
         presentCmd->addSignalSemaphore(semaphores_.ref(res.imageReleased), res.imageReleasedValue);
