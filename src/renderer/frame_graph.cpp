@@ -28,16 +28,16 @@ void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
         // Determine the pass family
         // And get correct timeline semaphore for the queue
         core::CommandQueueFamily queue = pass.family;
-        core::ResourceRef<core::Semaphore> signalTimeline;
+        core::ResourceRef<core::Semaphore> familyTimeline;
         if (pass.family == core::CommandQueueFamily::Graphics) {
             queue = core::CommandQueueFamily::Graphics;
-            signalTimeline = timeline_.graphics;
+            familyTimeline = timeline_.graphics;
         } else if (pass.family == core::CommandQueueFamily::Compute) {
             queue = core::CommandQueueFamily::Compute;
-            signalTimeline = timeline_.compute;
+            familyTimeline = timeline_.compute;
         } else if (pass.family == core::CommandQueueFamily::Transfer) {
             queue = core::CommandQueueFamily::Transfer;
-            signalTimeline = timeline_.transfer;
+            familyTimeline = timeline_.transfer;
         }
 
         // Sanity check
@@ -78,7 +78,7 @@ void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
 
         // Add signal semaphore
         for (auto& signal : pass.sync.signals) {
-            commandBuffer->addSignalSemaphore(signalTimeline, signal.value);
+            commandBuffer->addSignalSemaphore(familyTimeline, signal.value);
         }
 
         // Record

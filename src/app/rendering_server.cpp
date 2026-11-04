@@ -32,7 +32,7 @@ void hammock::app::RenderingServer::start() {
             auto frameStart = std::chrono::high_resolution_clock::now();
 
             // Consume draw command
-            RenderingServerDrawCommand drawCmd = proxy_.getDrawQueue().Pop();
+            RenderingServerDrawCommand drawCmd = proxy_.getDrawQueue().pop();
             // core::Logger::debug("Rendering Server:Collected frame %d", drawCmd.frameNumber);
 
             // Check for poison pill

@@ -40,7 +40,7 @@ void hammock::app::Dispatcher::start() {
             header->view.height = extent.height;
         }
 
-        // Recieve messages from backend
+        // Receive messages from backend
         RenderingServerInfoCommand message;
         while (renderingServerProxy_.getResponseQueue().pop(message)) {
             if (message.type == RenderingServerInfoCommandType::Frametime) {
@@ -52,8 +52,6 @@ void hammock::app::Dispatcher::start() {
 
         handleInput();
         update();
-
-
 
         // Build the render snap
         std::vector<renderer::UiVertex> uiVertices{};
@@ -111,7 +109,7 @@ void hammock::app::Dispatcher::start() {
 
         // Dispatch to backend
         RenderingServerDrawCommand drawCommand{ frameNumber_, header };
-        renderingServerProxy_.getDrawQueue().Push(drawCommand);
+        renderingServerProxy_.getDrawQueue().push(drawCommand);
         // core::Logger::debug("Dispatcher: Sent frame %d", frameNumber_);
 
         // Update frame number
@@ -121,7 +119,7 @@ void hammock::app::Dispatcher::start() {
     // Notify close
     core::Logger::debug("%s", "Window closed, sending poison pill to backend");
     // Poison pill
-    renderingServerProxy_.getDrawQueue().Push(
+    renderingServerProxy_.getDrawQueue().push(
         RenderingServerDrawCommand{ .frameNumber = 0, .snapHeader = nullptr });
 }
 void hammock::app::Dispatcher::waitForBackend() {
