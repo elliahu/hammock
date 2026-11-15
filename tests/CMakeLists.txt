@@ -1,16 +1,19 @@
 # 1. Create the test executable
-add_executable(unit_tests test_dependency_graph.cpp)
+add_executable(unit_tests
+    test_dependency_graph.cpp
+    test_pass_builder.cpp
+)
 
 # 2. Link GoogleTest AND your core_logic library
-target_link_libraries(unit_tests PRIVATE 
-    GTest::gtest_main 
-    hammock_engine
-    hammock_dependency_graph
+target_link_libraries(unit_tests PRIVATE
+    GTest::gtest_main
+    hammock_renderer
 )
 
 # Include directories for legacy headers
 target_include_directories(unit_tests PUBLIC
     "${PROJECT_SOURCE_DIR}/third_party"
+    "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}/src/core"
     "${PROJECT_SOURCE_DIR}/src/renderer"
     "${PROJECT_SOURCE_DIR}/src/app"

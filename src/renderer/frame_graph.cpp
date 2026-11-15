@@ -9,6 +9,7 @@
 #include "command_cache.hpp"
 #include "device.hpp"
 #include "image.hpp"
+#include "pass_recorder.hpp"
 #include "resource_manager.hpp"
 #include "semaphore.hpp"
 
@@ -22,6 +23,7 @@ hammock::renderer::FrameGraph::FrameGraph(FrameGraphDescription&& desc, CommandC
 void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
     // Reset pools
     commandCache_.resetPools(frameIndex);
+    PassRecorder recorder;
 
     // For each batch determine its family and allocate command buffer
     for (auto& pass : desc_.passes) {
@@ -81,12 +83,8 @@ void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
             commandBuffer->addSignalSemaphore(familyTimeline, signal.value);
         }
 
-        // Record
-        if (queue == core::CommandQueueFamily::Graphics) {
-            recordGraphicsPass(pass, commandBuffer);
-        } else if (queue == core::CommandQueueFamily::Compute) {
-            recordComputePass(pass, commandBuffer);
-        }
+        recordBarrier(pass.transitions, commandBuffer);
+        recorder.record(pass, commandBuffer);
 
         // Submit the command buffer
         commandBuffer->submit();
@@ -94,134 +92,13 @@ void hammock::renderer::FrameGraph::execute(uint32_t frameIndex) {
 }
 
 void hammock::renderer::FrameGraph::recordBarrier(
-    PassTransitionsInfo& transitions, core::ResourceRef<core::CommandBuffer> cmd) {
+    PassTransitionsInfo& transitions, core::ResourceRef<core::CommandBuffer> commandBuffer) {
     if (!transitions.images.empty() || !transitions.buffers.empty()) {
-        std::vector<core::ImageMemoryBarrier> imageBarriers{};
-        std::vector<core::BufferMemoryBarrier> bufferBarriers{};
+        std::vector<core::ImageMemoryBarrier> imageBarriers;
+        std::vector<core::BufferMemoryBarrier> bufferBarriers;
 
-        for (auto& imageTransition : transitions.images) {
-            imageBarriers.push_back(imageTransition);
-        }
-
-        for (auto& bufferTransition : transitions.buffers) {
-            bufferBarriers.push_back(bufferTransition);
-        }
-
-        cmd->pipelineBarrier(imageBarriers, bufferBarriers);
-    }
-}
-
-void hammock::renderer::FrameGraph::recordGraphicsPass(
-    PassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd) {
-    // Barriers first
-    recordBarrier(pass.transitions, cmd);
-
-    bool beginRendering =
-        !pass.rendering.colorAttachments.empty() || pass.rendering.depthAttachment.has_value();
-    bool setViewport = pass.rendering.viewport.has_value();
-    bool setScissor = pass.rendering.scissors.has_value();
-    bool bindPipeline = pass.rendering.pipeline.has_value();
-    bool bindDescriptors = !pass.data.descriptors.empty();
-    bool pushConstants = pass.data.constants.data != nullptr && pass.data.constants.size >= 0;
-
-    // Automatically begin rendering
-    if (beginRendering) {
-        // If render are is not set, color first attachment is used
-        auto renderArea = pass.rendering.area.value_or(
-            pass.rendering.colorAttachments.empty() ? pass.rendering.depthAttachment.value()->createScissor()
-                                                    : pass.rendering.colorAttachments[0]->createScissor());
-        cmd->beginRendering(renderArea,
-            pass.rendering.colorAttachments,
-            pass.rendering.depthAttachment,
-            pass.rendering.stencilAttachment);
-    }
-
-    // Bind pipeline
-    if (bindPipeline) {
-        cmd->bindPipeline(pass.rendering.pipeline.value());
-    }
-
-    // Set viewport
-    if (setViewport) {
-        cmd->setViewport(pass.rendering.viewport.value());
-    }
-
-    // Set scissor
-    if (setScissor) {
-        cmd->setScissor(pass.rendering.scissors.value());
-    }
-
-    // Bind descriptors
-    if (bindDescriptors) {
-        if (!bindPipeline) throw std::invalid_argument("pipeline was not set. cannot bind descriptors");
-
-        cmd->bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics, pass.rendering.pipeline.value(), pass.data.descriptors);
-    }
-
-    // Push constants
-    if (pushConstants) {
-        if (!bindPipeline) throw std::invalid_argument("pipeline was not set. cannot push constants");
-
-        cmd->pushConstants(pass.rendering.pipeline.value(),
-            pass.data.constants.stages,
-            0,
-            pass.data.constants.size,
-            pass.data.constants.data);
-    }
-
-    // Execute custom code
-    if (pass.execute) {
-        pass.execute(cmd);
-    }
-
-    // Automatically end rendering
-    if (beginRendering) {
-        cmd->endRendering();
-    }
-}
-
-void hammock::renderer::FrameGraph::recordComputePass(
-    PassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd) {
-    // Barriers first
-    recordBarrier(pass.transitions, cmd);
-
-    bool dispatch = pass.dispatch.sizes.x > 0 && pass.dispatch.sizes.y > 0 && pass.dispatch.sizes.z > 0;
-    bool bindPipeline = pass.dispatch.pipeline.has_value();
-    bool bindDescriptors = !pass.data.descriptors.empty();
-    bool pushConstants = pass.data.constants.data != nullptr && pass.data.constants.size >= 0;
-
-    // Bind pipeline
-    if (bindPipeline) {
-        cmd->bindPipeline(pass.dispatch.pipeline.value());
-    }
-
-    // Bind descriptors
-    if (bindDescriptors) {
-        if (!bindPipeline) throw std::invalid_argument("pipeline was not set. cannot bind descriptors");
-
-        cmd->bindDescriptorSets(
-            vk::PipelineBindPoint::eCompute, pass.dispatch.pipeline.value(), pass.data.descriptors);
-    }
-
-    // Push constants
-    if (pushConstants) {
-        if (!bindPipeline) throw std::invalid_argument("pipeline was not set. cannot push constants");
-
-        cmd->pushConstants(pass.dispatch.pipeline.value(),
-            pass.data.constants.stages,
-            0,
-            pass.data.constants.size,
-            pass.data.constants.data);
-    }
-
-    // Dispatch
-    if (dispatch) {
-        cmd->dispatch(pass.dispatch.sizes.x, pass.dispatch.sizes.y, pass.dispatch.sizes.z);
-    }
-
-    // Execute custom code
-    if (pass.execute) {
-        pass.execute(cmd);
+        imageBarriers.insert(imageBarriers.end(), transitions.images.begin(), transitions.images.end());
+        bufferBarriers.insert(bufferBarriers.end(), transitions.buffers.begin(), transitions.buffers.end());
+        commandBuffer->pipelineBarrier(imageBarriers, bufferBarriers);
     }
 }

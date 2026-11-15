@@ -8,12 +8,16 @@ add_library(hammock_renderer
         "stage.hpp"
         "frame_graph.hpp"
         "command_cache.hpp"
+        "pass_builder.hpp"
+        "pass_recorder.hpp"
 
         "renderer.cpp"
         "stage.cpp"
         "cgltf_impl.cpp"
         "frame_graph.cpp"
         "command_cache.cpp"
+        "pass_builder.cpp"
+        "pass_recorder.cpp"
 )
 
 # Compile slang shaders

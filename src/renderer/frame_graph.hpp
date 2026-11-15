@@ -61,7 +61,6 @@ namespace hammock::renderer {
         std::vector<PassSyncSemaphoreInfo> signals;
     };
 
-
     struct RenderingDescription {
         std::vector<core::ResourceRef<core::Image>> colorAttachments;
         std::optional<core::ResourceRef<core::Image>> depthAttachment;
@@ -82,7 +81,6 @@ namespace hammock::renderer {
     };
 
     struct TransferDescription {};
-
 
     struct PassDescription {
         core::CommandQueueFamily family;
@@ -110,9 +108,8 @@ namespace hammock::renderer {
         void execute(uint32_t frameIndex = 0);
 
        private:
-        void recordBarrier(PassTransitionsInfo& transitions, core::ResourceRef<core::CommandBuffer> cmd);
-        void recordGraphicsPass(PassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd);
-        void recordComputePass(PassDescription& pass, core::ResourceRef<core::CommandBuffer> cmd);
+        void recordBarrier(
+            PassTransitionsInfo& transitions, core::ResourceRef<core::CommandBuffer> commandBuffer);
 
         FrameGraphDescription desc_;
         CommandCache& commandCache_;

@@ -13,6 +13,7 @@
 #include "frame_graph.hpp"
 #include "image.hpp"
 #include "instance.hpp"
+#include "pass_builder.hpp"
 #include "pipeline.hpp"
 #include "render_snapshot.hpp"
 #include "resource_manager.hpp"
@@ -190,104 +191,54 @@ hammock::core::TimelineSemaphorePoint hammock::renderer::Renderer::drawFrame(
     else
         writer.build(computeDescriptorSets_[currentFrameIdx_]);
 
-    PassDescription computePassDescription{
-        .family = core::CommandQueueFamily::Compute,
-        .transitions =
-            {
-                .images = {{target, core::ResourceState::Undefined, core::ResourceState::StorageImage}},
-            },
-         .data =
-            {
-                .descriptors = {computeDescriptorSets_[currentFrameIdx_]},
-                .constants =
-                    {
-                        .stages = core::ShaderStage::Compute,
-                        .size = sizeof(ComputePushConstants),
-                        .data = &compPush,
-                    },
-            },
-        .sync =
-            {
-                .signals = {{
-                    .value = computeSignalValue,
-                    .queue = core::CommandQueueFamily::Compute,
-                    .stage = core::PipelineStage::ComputeShader,
-                }},
-            },
-        .dispatch =
-            {
-                .sizes =
-                    {
-                        .x = (target->getExtent2D().x + groupSize - 1) / groupSize,
-                        .y = (target->getExtent2D().y + groupSize - 1) / groupSize,
-                        .z = 1,
-                    },
+    PassDescription computePassDescription =
+        PassBuilder(core::CommandQueueFamily::Compute)
+            .transitionImage(target, core::ResourceState::Undefined, core::ResourceState::StorageImage)
+            .addDescriptor(computeDescriptorSets_[currentFrameIdx_])
+            .pushConstants(core::ShaderStage::Compute, sizeof(ComputePushConstants), &compPush)
+            .signal(computeSignalValue,
+                core::CommandQueueFamily::Compute,
+                core::PipelineStage::ComputeShader)
+            .setDispatch(DispatchDescription{
+                .sizes = {
+                    .x = (target->getExtent2D().x + groupSize - 1) / groupSize,
+                    .y = (target->getExtent2D().y + groupSize - 1) / groupSize,
+                    .z = 1,
+                },
                 .pipeline = pipelines_.ref(computePipelineHandle_),
-            },
-    };
+            })
+            .build();
 
-    PassDescription graphicsPassDescription{
-        .family = core::CommandQueueFamily::Graphics,
-        .transitions =
-            {
-                .images = {{target, core::ResourceState::StorageImage, core::ResourceState::ColorAttachment}},
-            },
-        .data =
-            {
-                .descriptors = {userInterfaceDescSet_},
-                .constants =
-                    {
-                        .stages = core::ShaderStage::Vertex,
-                        .size = sizeof(UserInterfacePushConstants),
-                        .data = &uiPush,
-                    },
-            },
-        .sync =
-            {
-                .waits =
-                    {
-                        {
-                            .value = computeSignalValue,
-                            .queue = core::CommandQueueFamily::Compute,
-                            .stage = core::PipelineStage::TopOfPipeline,
-                        },
-                    },
-                .signals =
-                    {
-                        {
-                            .value = graphicsSignalValue_,
-                            .queue = core::CommandQueueFamily::Graphics,
-                            .stage = core::PipelineStage::AllCommands,
-                        },
-                    },
-            },
-        .rendering =
-            {
-                .colorAttachments = {target},
+    PassDescription graphicsPassDescription =
+        PassBuilder(core::CommandQueueFamily::Graphics)
+            .transitionImage(target, core::ResourceState::StorageImage, core::ResourceState::ColorAttachment)
+            .addDescriptor(userInterfaceDescSet_)
+            .pushConstants(core::ShaderStage::Vertex, sizeof(UserInterfacePushConstants), &uiPush)
+            .waitFor(
+                computeSignalValue, core::CommandQueueFamily::Compute, core::PipelineStage::TopOfPipeline)
+            .signal(
+                graphicsSignalValue_, core::CommandQueueFamily::Graphics, core::PipelineStage::AllCommands)
+            .setRendering(RenderingDescription{
+                .colorAttachments = { target },
                 .viewport = target->createViewport(),
                 .scissors = target->createScissor(),
                 .pipeline = pipelines_.ref(userInterfacePipelineHandle_),
-            },
-            .execute =
-                [&, this, frameIndex = currentFrameIdx_](core::ResourceRef<core::CommandBuffer> commandBuffer) {
-                    // Render the ui
-                    auto uiVertBuffer = buffers_.ref(userInterfaceVertexBuffers_[frameIndex]);
+            })
+            .setExecute([&, this, frameIndex = currentFrameIdx_](
+                            core::ResourceRef<core::CommandBuffer> commandBuffer) {
+                auto uiVertBuffer = buffers_.ref(userInterfaceVertexBuffers_[frameIndex]);
 
-                    const UserInterfaceDrawBatch& uiDrawBatch = snap->uiDraws;
-                    const UiVertex* uiVertices = uiDrawBatch.vertices.data(snapData);
+                const UserInterfaceDrawBatch& uiDrawBatch = snap->uiDraws;
+                const UiVertex* uiVertices = uiDrawBatch.vertices.data(snapData);
 
-                    uiVertBuffer->writeToBuffer(
-                        uiVertices, uiDrawBatch.vertices.elementCount * sizeof(UiVertex));
-                    // Bind the ui vert buffer
-                    vk::DeviceSize offsets[1]{0};
-                    commandBuffer->getCommandBuffer().bindVertexBuffers(
-                        0, 1, uiVertBuffer->getBufferPtr(), offsets);
-                    commandBuffer->bindVertexBuffers(std::span(&uiVertBuffer, 1), offsets);
-
-                    // Draw the ui
-                    commandBuffer->getCommandBuffer().draw(uiDrawBatch.vertices.elementCount, 1, 0, 0);
-            },
-    };
+                uiVertBuffer->writeToBuffer(uiVertices, uiDrawBatch.vertices.elementCount * sizeof(UiVertex));
+                vk::DeviceSize offsets[1]{ 0 };
+                commandBuffer->getCommandBuffer().bindVertexBuffers(
+                    0, 1, uiVertBuffer->getBufferPtr(), offsets);
+                commandBuffer->bindVertexBuffers(std::span(&uiVertBuffer, 1), offsets);
+                commandBuffer->getCommandBuffer().draw(uiDrawBatch.vertices.elementCount, 1, 0, 0);
+            })
+            .build();
 
     FrameGraphDescription frameGraphDesc{
         {
