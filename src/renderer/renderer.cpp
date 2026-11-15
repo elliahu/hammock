@@ -92,10 +92,12 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
     commandBuffers_.destroy(prepCmdHandle);  // Destroy the prep command buffer
 
     // Create font atlas descriptor
-    auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{ { .binding = 0,
+    auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{ {
+        .binding = 0,
         .descriptorType = vk::DescriptorType::eCombinedImageSampler,
         .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eFragment } };
+        .stageFlags = vk::ShaderStageFlagBits::eFragment,
+    } };
     auto flags = std::vector<vk::DescriptorBindingFlags>{};
     userInterfaceDescLayoutHandle_ = descriptorSetLayouts_.create(device_, bindings, flags);
     auto imageInfo = fontAtlas->getDescriptorImageInfo(fontAtlas->getSampler());
@@ -137,10 +139,12 @@ hammock::renderer::Renderer::Renderer(hammock::renderer::Renderer::SurfaceFactor
     }
 
     // Create compute descriptors
-    bindings = std::vector<vk::DescriptorSetLayoutBinding>{ { .binding = 0,
+    bindings = std::vector<vk::DescriptorSetLayoutBinding>{ {
+        .binding = 0,
         .descriptorType = vk::DescriptorType::eStorageImage,
         .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eCompute } };
+        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+    } };
     computeLayoutHandle_ = descriptorSetLayouts_.create(device_, bindings, flags);
 
     // Create the compute pipeline
